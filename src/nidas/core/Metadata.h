@@ -38,7 +38,6 @@
 namespace nidas { namespace core {
 
 
-
 class MetadataException: public std::runtime_error
 {
 public:
@@ -49,11 +48,7 @@ public:
 
 class Metadata;
 class MetadataInterface;
-class MetadataImpl;
 
-#ifdef notdef
-class MetadataItemVisitor;
-#endif
 
 /**
  * MetadataItem is basically a name, description, and a typed interface to set
@@ -149,10 +144,6 @@ public:
     virtual
     ~MetadataItem();
 
-#ifdef notdef
-    virtual void visit(MetadataItemVisitor*) = 0;
-#endif
-
 protected:
     /**
      * MetadataItem assignment means assigning just the value from @p source.
@@ -224,22 +215,260 @@ protected:
     void
     update_string_value(const std::string& value);
 
-public:
     /**
      * Give subclasses access to the MetadataInterface.
      */
     MetadataInterface* mdi();
 
     /**
-     * Also convenient to give subclasses access directly to the dictionary.
+     * Return reference to the underlying Metadata store for this item, accessed
+     * through the owning MetadataInterface.
      */
-    MetadataImpl& mdict();
+    Metadata& metadata();
 
 private:
     MetadataInterface* _mdi;
     enum MODE _mode;
     std::string _name;
     std::string _description;
+};
+
+
+/**
+ * Metadata are implemented as a key-value dictionary with schema interfaces.
+ * The metadata storage is created and accessed through at least one
+ * MetadataInterface, keeping the underlying storage type hidden.
+ * 
+ * The Metadata object holds all the portable state and can be managed like a
+ * dictionary of properties, serialized to and from string forms like JSON,
+ * queried and printed.  MetadataInterface objects can be attached to the
+ * dictionary to provide safe typed access to the dictionary and implement
+ * validation, and those interfaces stay with the metadata so it can be
+ * validated even when callers do not have access to the actual interface
+ * definition.
+ * 
+ * Metadata can contain information read from the sensor and also
+ * configuration settings that need to be written to the sensor and verified.
+ * A MetadataItem identified as readwrite can be used to verify that settings
+ * have been applied to a sensor successfully.  For example, a Metadata
+ * subclass can add members for a specific kind of sensor, and then use this
+ * algorithm to test that settings were applied:
+ *
+ * - Create a Metadata object.  As needed, attach the MetadataInterface
+ *   subclass for the sensor to provide typed, named access to the metadata
+ *   values.
+ *
+ * - Query the sensor and record the settings in the object.
+ * 
+ * - Compare the object from the sensor with a target configuration.  The
+ *   target configuration is an instance of Metadata with some number of
+ *   readwrite properties set to specific values.  If any of those explicit
+ *   settings differ from the sensor metadata, then the sensor needs to be
+ *   updated.
+ *
+ * - To update the sensor, the differing settings can be enumerated and
+ *   applied individually to the sensor.  Or, the differing members can be
+ *   applied to the metadata object from the sensor, and then the metadata can
+ *   be applied to the sensor, specifically all the properties which are
+ *   readwrite and can be changed.
+ *
+ * Essentially the same algorithm works to verify that a sensor configuration
+ * still matches the target.
+ * 
+ * - Create a Metadata object.
+ * 
+ * - Query the sensor and record the settings in the object.
+ * 
+ * - Compare the sensor metadata with a copy of the previous sensor state.
+ *   Any difference indicates the sensor or its configuration has changed.
+ * 
+ * Finally, since the Metadata dictionary for a sensor should comprise whatever
+ * properties are useful about a sensor or which could affect the measurements,
+ * the Metadata encapsulates all that information and it can be published
+ * in human-readable messages and logs.
+ * 
+ * - Create a Metadata object.
+ * 
+ * - Query the sensor and record the settings in the object.
+ * 
+ * - Convert the Metadata to a JSON string and publish it in an event record.
+ * 
+ * Subclasses can add typed members which are registered with the Metadata
+ * base class, allowing generic access to the string values without needing
+ * access to the subclass type.
+ *
+ * MetadataInterface adds a schema to a metadata dictionary, allowing named
+ * items to be accessed through their typed interfaces and also adding
+ * functionality to verify that the dictionary is a valid instance of the
+ * given interface.  All interfaces to the metadata storage are attached to
+ * the storage and carried with it.
+ */
+class MetadataInterface
+{
+public:
+
+    // Import item mode settings.
+    static const auto READONLY = MetadataItem::READONLY;
+    static const auto USERSET = MetadataItem::USERSET;
+    static const auto READWRITE = MetadataItem::READWRITE;
+
+    /**
+     * Construct a MetadataInterface with no schema and its own copy of an
+     * empty Metadata dictionary.
+     */
+    MetadataInterface(const std::string& classname = "");
+
+    /**
+     * Return true if the metadata dictionary has valid settings for this interface.
+     * If false, then there will be error messages explaining the failures.
+     */
+    virtual bool validate();
+
+    virtual std::string
+    to_buffer(int indent=0);
+
+    virtual bool
+    from_buffer(const std::string& buffer);
+
+    /**
+     * Return the value as a string for the metadata with name @p name.
+     * 
+     * Unset values are returned as an empty string.
+     */
+    virtual std::string
+    string_value(const std::string& name);
+
+    using item_list = std::vector<MetadataItem*>;
+
+    /**
+     * Return a list of pointers to all metadata items that belong to this
+     * Metadata dictionary.
+     */
+    item_list get_items();
+
+    /**
+     * Return a pointer to the MetadataItem with name @p name.
+     * 
+     * If @p name is not found, return nullptr.  The item can be modified
+     * through the pointer same as if it were accessed as an object member,
+     * but if there is a typed interface to the item (ie, the MetadataItem is
+     * a subclass), then the pointer would have to be narrowed to that class.
+     * The pointer is only valid of course while the Metadata object memory
+     * allocation does not change.
+     */
+    MetadataItem* lookup(const std::string& name);
+
+    MetadataInterface*
+    get_interface(const std::string& name);
+
+    /**
+     * Allocate a new MetadataInterface of type T and add it to this Metadata
+     * object.  The interface must be dynamically allocated so it can be owned
+     * by this instance and cloned when this object is copied.  Assign the
+     * return value to keep a reference to this interface backed by this
+     * Metadata.
+     */
+    template <typename T>
+    T* add_interface(const T& prototype)
+    {
+        MetadataInterface* found = get_interface(prototype.classname());
+        T* mdi = dynamic_cast<T*>(found);
+        if (!mdi)
+        {
+            mdi = dynamic_cast<T*>(prototype.clone());
+            attach_interface(mdi);
+        }
+        return mdi;
+    }
+
+    /**
+     * Return a reference to the Metadata dictionary bound for this interface.
+     * If there is no dictionary yet, then this will allocate one.
+     */
+    Metadata& metadata();
+
+    /**
+     * Clone this interface onto a different Metadata object.
+     */
+    virtual MetadataInterface*
+    clone() const = 0;
+
+    std::string
+    classname() const { return _classname; }
+
+    virtual ~MetadataInterface();
+
+    /**
+     * Copy construction is disabled.  All the MetadataItem members of
+     * interface subclasses needed to be initialized in the default
+     * constructor, and rather than complicate matters by trying to replicate
+     * that initialization for the copy constructors, just require assignment
+     * instead of copying.
+     */
+    MetadataInterface(const MetadataInterface& right) = delete;
+
+    /**
+     * Assign the metadata from interface @p right, but do not assign the item
+     * list, since those pointers are to the item instances created and
+     * contained by this interface.  Subclass interfaces typically can use
+     * default assignment methods, because MetadataItem implements assignment
+     * but do not change their interface pointer.
+     *
+     * It is ok to assign from a subclass type.  The righthand interface is
+     * added this interface, whether it's the same interface as this interface
+     * or not.
+     *
+     * Also, since the Metadata dictionary is copied here, it may seem
+     * unnecessary to do the memberwise assignment of the MetadataItem members
+     * in the subclasses.  Typically there will be no difference.  However,
+     * the memberwise assignments and copies do allow a MetadataItem subclass
+     * to enforce schema constraints on the copy.
+     *
+     * See operator=().
+     */
+    MetadataInterface& operator=(const MetadataInterface& right);
+
+private:
+
+    /**
+     * Add the interface to our metadata and bind it
+     * 
+     * @param mdi 
+     * @return MetadataInterface* 
+     */
+    MetadataInterface*
+    attach_interface(MetadataInterface* mdi);
+
+    /**
+     * Replace the storage backend for this interface.  Any existing metadata
+     * values are lost.  Metadata objects call this to replace any existing
+     * binding when attaching an interface.  Thus the friend access for the
+     * Metadata class.
+     */
+    void
+    bind(Metadata* md);
+
+    friend class Metadata;
+
+    /**
+     * Register an item with this interface.  this is assumed to be a value
+     * member of this object, so the pointer will not be released, it will
+     * just be added to the list of items which can be iterated.
+     */
+    MetadataItem*
+    add_item(MetadataItem* item);
+
+    friend class MetadataItem;
+
+    // Each MetadataInterface can own it's own Metadata backing store, or it
+    // can shared the Metadata dictionary with another interface, in which
+    // case the lifetime of this interface is tied to that Metadata.  _md is
+    // the Metadata storage used by this instance, and if that instance
+    // belongs to this object, then it is managed by _owned_md.
+    Metadata* _md;
+    std::unique_ptr<Metadata> _owned_md;
+    std::string _classname;
+    item_list _items;
 };
 
 
@@ -277,21 +506,12 @@ public:
     bool
     set(const std::string& value);
 
-#ifdef notdef
-    virtual void visit(MetadataItemVisitor*) override;
-#endif
-
     /**
      * Allow direct string assignment.  If the assignment fails because of
      * constraint checks, then an error will be added to the metadata.
      */
     MetadataString&
     operator=(const std::string& value);
-
-    /**
-     * Allow the value of one string item to be assigned to another.
-     */
-    MetadataString& operator=(const MetadataString&) = default;
 };
 
 
@@ -319,39 +539,9 @@ public:
 
     operator bool();
 
-#ifdef notdef
-    /**
-     * If @p incoming is "true" or "false", return the bool equivalent.
-     * 
-     * If @p incoming is not a recognized string value, then return false and
-     * set the error message.
-     */
-    bool from_string(const std::string& incoming);
-
-    /**
-     * Return "true" if @p value is true, else return "false".
-     */
-    std::string to_string(bool value);
-#endif
-
     bool set(bool value);
 
-#ifdef notdef
-    virtual void visit(MetadataItemVisitor*) override;
-#endif
-
-    MetadataBool& operator=(bool value) { set(value); return *this; }
-
-    /**
-     * There is no state in this class to preserve, so only MetatdataItem
-     * assignemnt is needed.
-     */
-    MetadataBool& operator=(const MetadataBool&) = default;
-
-    /**
-     * Copy construction is allowed.
-     */
-    MetadataBool(const MetadataBool&) = default;
+    MetadataBool& operator=(bool value);
 };
 
 
@@ -404,18 +594,6 @@ public:
      */
     MetadataNumber<T>& operator=(const MetadataNumber<T>& right);
 
-#ifdef notdef
-    virtual void visit(MetadataItemVisitor*) override;
-#endif
-
-    /**
-     * Allow default copy construction, so that a Metadata dictionary can be
-     * copied, which unlike assignment means keeping all the item properties
-     * the same, since it's like creating the same type of metadata item from
-     * an existing item.
-     */
-    MetadataNumber(const MetadataNumber& right) = default;
-
 private:
 
     int precision;
@@ -459,433 +637,14 @@ public:
     virtual bool check_assign_string(const std::string& incoming) override;
 
     bool from_string(UTime& ut, const std::string& value);
-
-#ifdef notdef
-    virtual void visit(MetadataItemVisitor*) override;
-#endif
-
-    MetadataTime& operator=(const MetadataTime& right) = default;
-    MetadataTime(const MetadataTime& right) = default;
-};
-
-
-#ifdef notdef
-class MetadataItemVisitor
-{
-public:
-    virtual void visit_double(MetadataDouble*);
-    virtual void visit_int(MetadataInt*);
-    virtual void visit_string(MetadataString*);
-    virtual void visit_bool(MetadataBool*);
-    virtual void visit_time(MetadataTime*);
-    virtual ~MetadataItemVisitor();
-};
-#endif
-
-
-/**
- * Metadata is a dictionary of key-value pairs with schema interfaces.
- * 
- * The Metadata object holds all the portable state and can be managed like a
- * dictionary of properties, serialized to and from string forms like JSON,
- * queried and printed.  MetadataInterface objects can be attached to the
- * dictionary to provide safe typed access to the dictionary and implement
- * validation.
- * 
- * If errors are detected in the metadata, they will be added to this object
- * and methods like errors() can be used to inspect them.
- *
- * Metadata can contain information read from the sensor and also
- * configuration settings that need to be written to the sensor and verified.
- * A MetadataItem identified as readwrite can be used to verify that settings
- * have been applied to a sensor successfully.  For example, a Metadata
- * subclass can add members for a specific kind of sensor, and then use this
- * algorithm to test that settings were applied:
- *
- * - Create a Metadata object.  As needed, attach the MetadataInterface
- *   subclass for the sensor to provide typed, named access to the metadata
- *   values.
- *
- * - Query the sensor and record the settings in the object.
- * 
- * - Compare the object from the sensor with a target configuration.  The
- *   target configuration is an instance of Metadata with some number of
- *   readwrite properties set to specific values.  If any of those explicit
- *   settings differ from the sensor metadata, then the sensor needs to be
- *   updated.
- *
- * - To update the sensor, the differing settings can be enumerated and
- *   applied individually to the sensor.  Or, the differing members can be
- *   applied to the metadata object from the sensor, and then the metadata can
- *   be applied to the sensor, specifically all the properties which are
- *   readwrite and can be changed.
- *
- * Essentially the same algorithm works to verify that a sensor configuration
- * still matches the target.
- * 
- * - Create a Metadata object.
- * 
- * - Query the sensor and record the settings in the object.
- * 
- * - Compare the sensor metadata with a copy of the previous sensor state.
- *   Any difference indicates the sensor or its configuration has changed.
- * 
- * Finally, since the Metadata dictionary for a sensor should comprise whatever
- * properties are useful about a sensor or which could affect the measurements,
- * the Metadata encapsulates all that information and it can be published
- * in human-readable messages and logs.
- * 
- * - Create a Metadata object.
- * 
- * - Query the sensor and record the settings in the object.
- * 
- * - Convert the Metadata to a JSON string and publish it in an event record.
- * 
- * Subclasses can add typed members which are registered with the Metadata
- * base class, allowing generic access to the string values without needing
- * access to the subclass type.
- */
-class Metadata
-{
-    std::vector<std::string> _errors;
-    std::vector< std::unique_ptr<MetadataInterface> > _interfaces;
-
-    // This is the actual storage, using pimpl idiom to hide the json api.
-    std::unique_ptr<MetadataImpl> _dict;
-
-public:
-
-    /**
-     * Return the current error messages.
-     * 
-     * Error messages are added to this metadata when item assignments or
-     * interface validations fail.  The messages can be cleared with
-     * reset_errors(), such as to test if any errors are reported after a
-     * specific assignment or validation.
-     */
-    const std::vector<std::string>&
-    errors() const
-    {
-        return _errors;
-    }
-
-    void
-    reset_errors()
-    {
-        _errors.clear();
-    }
-
-    /**
-     * Set the error message to @p msg.
-     * 
-     * The default value of @p msg clears the error message.
-     */
-    void
-    add_error(const std::string& msg="")
-    {
-        _errors.emplace_back(msg);
-    }
-
-    void
-    add_error(const std::ostringstream& buf)
-    {
-        _errors.emplace_back(buf.str());
-    }
-
-    /**
-     * A shorter type alias to build error messages with std::ostringstream,
-     * like set_error(errbuf() << msg << parameter);
-     */
-    using errbuf = std::ostringstream;
-
-    /**
-     * Construct a Metadata dictionary.  It has no items and no interfaces, it
-     * starts out as an anonymous dictionary with no keys and no values.
-     */
-    Metadata();
-
-    /**
-     * Return the value of the given property name as a string.
-     * 
-     * This does not go through an interface, this is the string form of the
-     * value taken directly from the metadata dictionary.  If the name is not
-     * set, return an empty string.
-     */
-    std::string
-    string_value(const std::string& name);
-
-    /**
-     * Serialize the Metadata object to ostream @p out in JSON format.
-     * 
-     * If @p indent is zero, return a single line of JSON, as appropriate for
-     * line-delimited JSON messages, but without a trailing newline.
-     * Otherwise return multiple lines using the given amount of indentation,
-     * as might be appropriate for writing to a file, also without a trailing
-     * newline.
-     */
-    std::string
-    to_buffer(int indent=0);
-
-    /**
-     * Parse a metadata dictionary from @p buffer in json format.
-     *
-     * This automatically resets the errors before parsing and replaces all of
-     * the values in the current dictionary.  The new metadata values
-     * themselves are not checked in any way.  The json document preserves
-     * comments and other settings, even if not associated with any of the
-     * interfaces attached to the metadata.
-     *
-     * @return true if the parse succeeded, false otherwise.
-     */
-    bool
-    from_buffer(const std::string& buffer);
-
-    ~Metadata();
-
-    /**
-     * Construct Metadata by copying.  The metadata dictionary and errors are
-     * copied, but the interfaces are not.
-     */
-    Metadata(const Metadata& right);
-
-    /**
-     * Assigning from another Metadata is like copy construction, except any
-     * matching interfaces already attached to this Metadata are not replaced
-     * with clones from the @p source, in case there are already references to
-     * those interfaces outside this object.
-     */
-    Metadata& operator=(const Metadata& source);
-
-    /**
-     * Add the given interface to this Metadata object.  This object takes
-     * ownership and will delete the interface when it is destroyed.
-     */
-    MetadataInterface*
-    add_interface(MetadataInterface* mdi);
-
-    /**
-     * Return the interface matching the given name, or else nullptr.
-     */
-    MetadataInterface*
-    get_interface(const std::string& name);
-
-    /**
-     * Find a matching interface return a pointer to it, or else nullptr.  The
-     * class name must match and the interface must implement the given class.
-     */
-    template <typename T>
-    T* get_interface(const T& prototype)
-    {
-        T* found = dynamic_cast<T*>(get_interface(prototype.classname()));
-        return found;
-    }
-
-    typedef std::vector<MetadataInterface*> interface_list;
-
-    /**
-     * Return a vector of pointers to all the interfaces attached to this
-     * Metadata object.  The pointers are still owned by this object and will
-     * be invalid when the object is destroyed.
-     */
-    interface_list
-    interfaces();
-
-    /**
-     * Get a reference to the dictionary storage.  Only items use this.
-     */
-    MetadataImpl& mdict() { return *_dict; }
-
-};
-
-
-/**
- * MetadataInterface adds a schema to a metadata dictionary, allowing named
- * items to be accessed through their typed interfaces and also adding
- * functionality to verify that the dictionary is a valid instance of the
- * given interface.
- * 
- * An interface must be added to a Metadata instance, and the Metadata
- * instance takes ownership of it.  This allows a Metadata instance to be
- * passed around by value without losing the schema information about valid
- * settings.
- * 
- * Thus interfaces must only be allocated dynamically.
- */
-class MetadataInterface
-{
-public:
-
-    // Import item mode settings.
-    static const auto READONLY = MetadataItem::READONLY;
-    static const auto USERSET = MetadataItem::USERSET;
-    static const auto READWRITE = MetadataItem::READWRITE;
-
-    /**
-     * Construct a MetadataInterface with no schema and its own copy of an
-     * empty Metadata dictionary.
-     */
-    MetadataInterface(const std::string& classname = "");
-
-    /**
-     * Return true if the metadata dictionary has valid settings for this interface.
-     * If false, then there will be error messages explaining the failures.
-     */
-    virtual bool validate();
-
-    virtual std::string
-    to_buffer(int indent=0)
-    {
-        return metadata().to_buffer(indent);
-    }
-
-    virtual bool
-    from_buffer(const std::string& buffer)
-    {
-        return metadata().from_buffer(buffer);
-    }
-
-    /**
-     * Return the value as a string for the metadata with name @p name.
-     * 
-     * Unset values are returned as an empty string.
-     */
-    virtual std::string
-    string_value(const std::string& name);
-
-    using item_list = std::vector<MetadataItem*>;
-
-#ifdef notdef
-    /**
-     * Every subclass needs to be able to enumerate pointers to it's metadata
-     * item members.
-     */
-    virtual void enumerate(item_list&) = 0;
-#endif
-
-    /**
-     * Return a list of pointers to all metadata items that belong to this
-     * Metadata dictionary.
-     */
-    item_list get_items();
-
-    /**
-     * Return a pointer to the MetadataItem with name @p name.
-     * 
-     * If @p name is not found, return nullptr.  The item can be modified
-     * through the pointer same as if it were accessed as an object member,
-     * but if there is a typed interface to the item (ie, the MetadataItem is
-     * a subclass), then the pointer would have to be narrowed to that class.
-     * The pointer is only valid of course while the Metadata object memory
-     * allocation does not change.
-     */
-    MetadataItem* lookup(const std::string& name);
-
-    /**
-     * Allocate a new MetadataInterface of type T and add it to this Metadata
-     * object.  The interface must be dynamically allocated so it can be owned
-     * by this instance and cloned when this object is copied.  Assign the
-     * return value to keep a reference to this interface backed by this
-     * Metadata.
-     */
-    template <typename T>
-    T* add_interface(const T& prototype)
-    {
-        T* mdi = metadata().get_interface(prototype);
-        if (!mdi)
-        {
-            mdi = dynamic_cast<T*>(prototype.clone());
-            // _md cannot be null because metadata() would have allocated it
-            // above if not.
-            _md->add_interface(mdi);
-            mdi->bind(_md);
-        }
-        return mdi;
-    }
-
-    /**
-     * Return a reference to the Metadata dictionary bound for this interface.
-     * If there is no dictionary yet, then this will allocate one.
-     */
-    Metadata& metadata();
-
-    /**
-     * Clone this interface onto a different Metadata object.
-     */
-    virtual MetadataInterface*
-    clone() const = 0;
-
-    std::string
-    classname() const { return _classname; }
-
-    virtual ~MetadataInterface();
-
-    /**
-     * Copy the metadata from interface @p right, but do not copy the item
-     * list, since those pointers are to the item instances created and
-     * contained by this interface.  Subclass interfaces typically can use
-     * default copy constructors, because member items also do not change
-     * their interface pointer when copied.
-     * 
-     * It is ok to copy or assign from a subclass type.  The righthand
-     * interface has already been attached to the metadata being copied, and
-     * so the same interface (albeit a clone) will be accessible after the
-     * assignment.
-     * 
-     * Also, since all of the metadata are copied here, it may seem
-     * unnecessary to do the memberwise copy of any MetadataItem members in
-     * the subclasses.  Typically there will be no difference.  However, the
-     * memberwise assignments and copies do allow a MetadataItem subclass to
-     * enforce schema constraints on the copy.
-     * 
-     * See operator=().
-     */
-    MetadataInterface(const MetadataInterface& right) = delete;
-
-    /**
-     * See the copy constructor.
-     */
-    MetadataInterface& operator=(const MetadataInterface& right);
-
-private:
-
-    /**
-     * Replace the storage backend for this interface.  Any existing metadata
-     * values are lost.  Metadata objects call this to replace any existing
-     * binding when attaching an interface.  Thus the friend access for the
-     * Metadata class.
-     */
-    void
-    bind(Metadata* md);
-
-    friend class Metadata;
-
-    /**
-     * Register an item with this interface.  this is assumed to be a value
-     * member of this object, so the pointer will not be released, it will
-     * just be added to the list of items which can be iterated.
-     */
-    MetadataItem*
-    add_item(MetadataItem* item);
-
-    friend class MetadataItem;
-
-    // Each MetadataInterface can own it's own Metadata backing store, or it
-    // can shared the Metadata dictionary with another interface, in which
-    // case the lifetime of this interface is tied to that Metadata.  _md is
-    // the Metadata storage used by this instance, and if that instance
-    // belongs to this object, then it is managed by _owned_md.
-    Metadata* _md;
-    std::unique_ptr<Metadata> _owned_md;
-    std::string _classname;
-    item_list _items;
-
 };
 
 
 /**
  * SensorMetadata is a MetadataInterface for adding metadata typical for a
  * sensor.  Not all of them will be used by all sensors, but it is convenient
- * to group the most common ones in this interface.
+ * to group the most common ones in this common interface.  Sensors can add
+ * this interface to their metadata or subclass it.
  */
 class SensorMetadata: public MetadataInterface
 {

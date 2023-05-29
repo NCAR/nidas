@@ -40,10 +40,6 @@ namespace core {
 using nidas::util::UTime;
 
 
-struct MetadataImpl: public Json::Value
-{};
-
-
 MetadataException::
 MetadataException(const std::string& what):
     std::runtime_error(what)
@@ -53,6 +49,160 @@ MetadataException::
 MetadataException(const std::ostringstream& buf):
     std::runtime_error(buf.str())
 {}
+
+
+class Metadata
+{
+    std::vector<std::string> _errors;
+    std::vector< std::unique_ptr<MetadataInterface> > _interfaces;
+
+    // This is the actual storage, using pimpl idiom to hide the json api.
+    Json::Value _dict;
+
+public:
+
+    /**
+     * Return the current error messages.
+     * 
+     * Error messages are added to this metadata when item assignments or
+     * interface validations fail.  The messages can be cleared with
+     * reset_errors(), such as to test if any errors are reported after a
+     * specific assignment or validation.
+     */
+    const std::vector<std::string>&
+    errors() const
+    {
+        return _errors;
+    }
+
+    void
+    reset_errors()
+    {
+        _errors.clear();
+    }
+
+    /**
+     * Set the error message to @p msg.
+     * 
+     * The default value of @p msg clears the error message.
+     */
+    void
+    add_error(const std::string& msg="")
+    {
+        _errors.emplace_back(msg);
+    }
+
+    void
+    add_error(const std::ostringstream& buf)
+    {
+        _errors.emplace_back(buf.str());
+    }
+
+    /**
+     * A shorter type alias to build error messages with std::ostringstream,
+     * like set_error(errbuf() << msg << parameter);
+     */
+    using errbuf = std::ostringstream;
+
+    /**
+     * Construct a Metadata dictionary.  It has no items and no interfaces, it
+     * starts out as an anonymous dictionary with no keys and no values.
+     */
+    Metadata();
+
+    /**
+     * Return the value of the given property name as a string.
+     * 
+     * This does not go through an interface, this is the string form of the
+     * value taken directly from the metadata dictionary.  If the name is not
+     * set, return an empty string.
+     */
+    std::string
+    string_value(const std::string& name);
+
+    /**
+     * Serialize the Metadata object to ostream @p out in JSON format.
+     * 
+     * If @p indent is zero, return a single line of JSON, as appropriate for
+     * line-delimited JSON messages, but without a trailing newline.
+     * Otherwise return multiple lines using the given amount of indentation,
+     * as might be appropriate for writing to a file, also without a trailing
+     * newline.
+     */
+    std::string
+    to_buffer(int indent=0);
+
+    /**
+     * Parse a metadata dictionary from @p buffer in json format.
+     *
+     * This automatically resets the errors before parsing and replaces all of
+     * the values in the current dictionary.  The new metadata values
+     * themselves are not checked in any way.  The json document preserves
+     * comments and other settings, even if not associated with any of the
+     * interfaces attached to the metadata.
+     *
+     * @return true if the parse succeeded, false otherwise.
+     */
+    bool
+    from_buffer(const std::string& buffer);
+
+    ~Metadata();
+
+    /**
+     * Construct Metadata by copying.  The metadata dictionary and errors are
+     * copied, but the interfaces are not.
+     */
+    Metadata(const Metadata& right);
+
+    /**
+     * Assigning from another Metadata is like copy construction, except any
+     * matching interfaces already attached to this Metadata are not replaced
+     * with clones from the @p source, in case there are already references to
+     * those interfaces outside this object.
+     */
+    Metadata& operator=(const Metadata& source);
+
+    /**
+     * Add the given interface to this Metadata object.  This object takes
+     * ownership and will delete the interface when it is destroyed.
+     */
+    MetadataInterface*
+    add_interface(MetadataInterface* mdi);
+
+    /**
+     * Return the interface matching the given name, or else nullptr.
+     */
+    MetadataInterface*
+    get_interface(const std::string& name);
+
+    /**
+     * Find a matching interface return a pointer to it, or else nullptr.  The
+     * class name must match and the interface must implement the given class.
+     */
+    template <typename T>
+    T* get_interface(const T& prototype)
+    {
+        T* found = dynamic_cast<T*>(get_interface(prototype.classname()));
+        return found;
+    }
+
+    typedef std::vector<MetadataInterface*> interface_list;
+
+    /**
+     * Return a vector of pointers to all the interfaces attached to this
+     * Metadata object.  The pointers are still owned by this object and will
+     * be invalid when the object is destroyed.
+     */
+    interface_list
+    interfaces();
+
+    /**
+     * Get a reference to the dictionary storage.  Only items use this.
+     */
+    Json::Value& mdict() { return _dict; }
+
+};
+
 
 
 MetadataItem::
@@ -73,13 +223,12 @@ MetadataItem::mdi()
     return _mdi;
 }
 
-/**
- * Also convenient to give subclasses access directly to the dictionary.
- */
-MetadataImpl&
-MetadataItem::mdict()
+
+Metadata&
+MetadataItem::
+metadata()
 {
-    return _mdi->metadata().mdict();
+    return mdi()->metadata();
 }
 
 
@@ -87,7 +236,7 @@ bool
 MetadataItem::
 unset() const
 {
-    MetadataImpl& jd = const_cast<MetadataItem*>(this)->mdict();
+    Json::Value& jd = const_cast<MetadataItem*>(this)->metadata().mdict();
     // an item is unset if it is not a member or set to null.
     return jd.get(_name, Json::Value()).isNull();
 }
@@ -98,7 +247,7 @@ erase()
 {
     // this is a little ambiguous in that the key could either be set to null
     // or removed to erase it, but this explicitly removes it.
-    MetadataImpl& jd = mdict();
+    Json::Value& jd = metadata().mdict();
     jd.removeMember(_name);
 }
 
@@ -110,30 +259,13 @@ operator=(const MetadataItem& right)
     // assignment makes sense, validation is separate.
     if (!right.unset())
     {
-        MetadataImpl& jd = mdict();
-        MetadataImpl& jd2 = const_cast<MetadataItem*>(&right)->mdict();
+        Json::Value& jd = metadata().mdict();
+        Json::Value& jd2 = const_cast<MetadataItem*>(&right)->metadata().mdict();
         jd[_name] = jd2[right._name];
     }
     return *this;
 }
 
-
-#ifdef notdef
-MetadataItem::
-MetadataItem(const MetadataItem&)
-{
-    // The default initializers for the MetadataItem members should take
-    // precedence, so we don't want to change any of that state, especially
-    // not the pointer to the containing interface.  And since any metadata
-    // values are copied by containing interface, there's no point to copy
-    // that here either.
-
-    // According to the standard, default member initializers are used if a
-    // member is not in the initialization list.  Unfortunately, that can
-    // cause warnings about "NNN should be initialized in the member
-    // initialization list".
-}
-#endif
 
 bool
 MetadataItem::
@@ -148,7 +280,7 @@ void
 MetadataItem::
 update_string_value(const std::string& value)
 {
-    MetadataImpl& jd = mdict();
+    Json::Value& jd = metadata().mdict();
     jd[_name] = Json::Value(value);
     // someday this could be a more elaborate kind of notification.
     DLOG(("") << "updated metadata: " << _name << "=" << value);
@@ -251,7 +383,7 @@ check_assign_string(const std::string& incoming)
         mdi()->metadata().add_error("could not parse as bool: " + incoming);
         return false;
     }
-    MetadataImpl& jd = mdict();
+    Json::Value& jd = metadata().mdict();
     jd[name()] = Json::Value(target);
     return true;
 }
@@ -260,7 +392,7 @@ bool
 MetadataBool::
 get()
 {
-    MetadataImpl& jd = mdict();
+    Json::Value& jd = metadata().mdict();
     return jd.get(name(), Json::Value(false)).asBool();
 }
 
@@ -270,38 +402,22 @@ operator bool()
     return get();
 }
 
-#ifdef notdef
-bool
-MetadataBool::
-from_string(const std::string& incoming)
-{
-    bool target{false};
-    if (incoming == "true")
-        target = true;
-    else if (incoming == "false")
-        target = false;
-    else
-    {
-        mdi()->metadata().add_error("could not parse as bool: " + incoming);
-    }
-    return target;
-}
-
-std::string
-MetadataBool::
-to_string(bool value)
-{
-    return value ? "true" : "false";
-}
-#endif
-
 bool
 MetadataBool::
 set(bool value)
 {
-    MetadataImpl& jd = mdict();
+    Json::Value& jd = metadata().mdict();
     jd[name()] = Json::Value(value);
     return true;
+}
+
+
+MetadataBool&
+MetadataBool::
+operator=(bool value)
+{
+    set(value);
+    return *this;
 }
 
 
@@ -324,7 +440,8 @@ get() const
 {
     if (unset())
         return T();
-    MetadataImpl& jd = const_cast<MetadataNumber<T>*>(this)->mdict();
+    Json::Value& jd = 
+        const_cast<MetadataNumber<T>*>(this)->metadata().mdict();
     return jd[name()].asDouble();
 }
 
@@ -347,7 +464,7 @@ set(const T& value)
                            << min << ", " << max << "]");
         return false;
     }
-    MetadataImpl& jd = mdict();
+    Json::Value& jd = metadata().mdict();
     jd[name()] = value;
     return true;
 }
@@ -375,7 +492,7 @@ bool
 MetadataNumber<T>::
 check_assign_string(const std::string& incoming)
 {
-    Metadata& md = mdi()->metadata();
+    Metadata& md = metadata();
     T target = from_string(incoming);
     if (!md.errors().empty())
     {
@@ -519,7 +636,7 @@ Metadata::
 Metadata():
     _errors(),
     _interfaces(),
-    _dict(new MetadataImpl)
+    _dict()
 {
     DLOG(("") << "Metadata constructor");
 }
@@ -532,12 +649,11 @@ Metadata::
 }
 
 
-
 Metadata::
 Metadata(const Metadata& right):
     _errors(right._errors),
     _interfaces(),
-    _dict(new MetadataImpl(*right._dict.get()))
+    _dict(right._dict)
 {
     // The interfaces are not copied here, since they need to be bound to this
     // Metadata instance through it's shared pointer.  That happens in the
@@ -551,7 +667,7 @@ operator=(const Metadata& right)
 {
     if (this == &right)
         return *this;
-    *_dict = *right._dict;
+    _dict = right._dict;
     _errors = right._errors;
     for (auto& iface: right._interfaces)
     {
@@ -566,6 +682,7 @@ MetadataInterface*
 Metadata::
 add_interface(MetadataInterface* mdi)
 {
+    mdi->bind(this);
     _interfaces.emplace_back(mdi);
     return mdi;
 }
@@ -597,38 +714,11 @@ interfaces()
 }
 
 
-
-
-#ifdef notdef
-SensorMetadata::item_list
-SensorMetadata::
-get_items()
-{
-    item_list items{
-        &record_type,
-        &timestamp,
-        &manufacturer,
-        &model,
-        &serial_number,
-        &hardware_version,
-        &manufacture_date,
-        &firmware_version,
-        &firmware_build,
-        &calibration_date
-    };
-    enumerate(items);
-    // any items added at runtime and stored by the base class would be
-    // appended here.
-    return items;
-}
-#endif
-
-
 std::string
 Metadata::
 string_value(const std::string& name)
 {
-    MetadataImpl& jd = mdict();
+    Json::Value& jd = mdict();
     Json::Value value = jd.get(name, Json::Value(std::string()));
     if (value.isString())
     {
@@ -649,7 +739,7 @@ to_buffer(int nindent)
     wbuilder[std::string("indentation")] = std::string(nindent, ' ');
     // since this is the default precision for number items.
     wbuilder[std::string("precision")] = 12;
-    return Json::writeString(wbuilder, *_dict.get());
+    return Json::writeString(wbuilder, _dict);
 }
 
 
@@ -660,7 +750,7 @@ from_buffer(const std::string& buffer)
     Json::CharReaderBuilder rbuilder;
     std::string errs;
     std::istringstream inbuf(buffer);
-    bool ok = Json::parseFromStream(rbuilder, inbuf, _dict.get(), &errs);
+    bool ok = Json::parseFromStream(rbuilder, inbuf, &_dict, &errs);
     if (!ok)
     {
         add_error(errs);
@@ -670,280 +760,10 @@ from_buffer(const std::string& buffer)
 }
 
 
-#ifdef notdef
-std::string
-Metadata::
-to_buffer(int nindent)
-{
-    
-    std::ostringstream buf;
-    std::string indent(nindent, ' ');
-    std::string separator{' '};
-    std::string comma;
-    if (nindent)
-        separator = '\n';
-    buf << "{";
-    for (auto mdi: get_items())
-    {
-        if (mdi->unset())
-            continue;
-        buf << comma << separator << indent << "\"" << mdi->name() << "\": ";
-        if (auto si = dynamic_cast<MetadataString*>(mdi))
-        {
-            // have to surround strings with quotes and escape embedded
-            // quotes, so let the json library take care of that.
-            json::value v;
-            v.emplace_string() = si->get();
-            buf << v;
-        }
-        else if (auto ti = dynamic_cast<MetadataTime*>(mdi))
-        {
-            json::value v;
-            v.emplace_string() = ti->string_value();
-            buf << v;
-        }
-        else
-        {
-            // the string value is good enough
-            buf << mdi->string_value();
-        }
-        comma = ",";
-    }
-    buf << separator << "}";
-    return buf.str();
-}
-#endif
-
-#ifdef notdef
-void
-MetadataBool::
-visit(MetadataItemVisitor* visitor)
-{
-    visitor->visit_bool(this);
-}
-
-template <>
-void
-MetadataNumber<double>::
-visit(MetadataItemVisitor* visitor)
-{
-    visitor->visit_double(this);
-}
-
-template <>
-void
-MetadataNumber<int>::
-visit(MetadataItemVisitor* visitor)
-{
-    visitor->visit_int(this);
-}
-
-void
-MetadataString::
-visit(MetadataItemVisitor* visitor)
-{
-    visitor->visit_string(this);
-}
-
-void
-MetadataTime::
-visit(MetadataItemVisitor* visitor)
-{
-    visitor->visit_time(this);
-}
-
-
-void MetadataItemVisitor::visit_double(MetadataDouble*) {}
-void MetadataItemVisitor::visit_int(MetadataInt*) {}
-void MetadataItemVisitor::visit_string(MetadataString*) {}
-void MetadataItemVisitor::visit_bool(MetadataBool*) {}
-void MetadataItemVisitor::visit_time(MetadataTime*) {}
-MetadataItemVisitor::~MetadataItemVisitor() {}
-
-
-class FillValue: public MetadataItemVisitor
-{
-public:
-    json::value v{};
-
-    virtual void visit_double(MetadataDouble* di)
-    {
-        v.emplace_double() = di->get();
-    }
-
-    virtual void visit_int(MetadataInt* ii)
-    {
-        v.emplace_int64() = ii->get();
-    }
-
-    virtual void visit_string(MetadataString* si)
-    {
-        v.emplace_string() = si->get();
-    }
-
-    virtual void visit_bool(MetadataBool* bi)
-    {
-        v.emplace_bool() = bi->get();
-    }
-    virtual void visit_time(MetadataTime* ti)
-    {
-        v.emplace_string() = ti->string_value();
-    }
-
-    virtual ~FillValue() {}
-};
-
-
-/**
- * Rather than check the underlying value type in every implementation, expect
- * the caller to catch an exception if any of the accesses do not match.
- */
-class LoadValue: public MetadataItemVisitor
-{
-public:
-    json::value v{};
-
-    virtual void visit_double(MetadataDouble* di)
-    {
-        // json::value does not cast for us
-        if (v.is_int64())
-            di->set(v.as_int64());
-        else if (v.is_uint64())
-            di->set(v.as_uint64());
-        else
-            di->set(v.as_double());
-    }
-
-    virtual void visit_int(MetadataInt* ii)
-    {
-        if (v.is_uint64())
-            ii->set(v.as_uint64());
-        else
-            ii->set(v.as_int64());
-    }
-
-    virtual void visit_string(MetadataString* si)
-    {
-        si->set(v.as_string().c_str());
-    }
-
-    virtual void visit_bool(MetadataBool* bi)
-    {
-        bi->set(v.as_bool());
-    }
-
-    virtual void visit_time(MetadataTime* ti)
-    {
-        ti->check_assign_string(v.as_string().c_str());
-    }
-
-    virtual ~LoadValue() {}
-};
-
-
-bool
-Metadata::
-from_buffer(const std::string& buffer)
-{
-    bool ok = true;
-    json::error_code ec;
-    json::value obj = json::parse(buffer, ec);
-    if (ec)
-    {
-        PLOG(("json parse failed: ") << buffer);
-        return false;
-    }
-    try {
-        for (auto& mp: obj.as_object())
-        {
-            MetadataItem* mdi = lookup(mp.key_c_str());
-            if (!mdi)
-            {
-                throw MetadataException(
-                    std::ostringstream("unknown metadata item: ") << mp.key());
-            }
-            else
-            {
-                LoadValue lv;
-                lv.v = mp.value();
-                mdi->visit(&lv);
-            }
-        }
-    }
-    catch (std::exception& ex)
-    {
-        PLOG(("") << ex.what());
-        ok = false;
-    }
-    return ok;
-}
-#endif
-
-
 SensorMetadata::
 SensorMetadata(const std::string& classname):
     MetadataInterface(classname)
 {}
-
-
-#ifdef notdef
-/**
- * This version relies solely on boost::json for formatting, and that does not
- * offer an indentation setting.  The floats are at least written to the
- * minimal precision, but with an exponent suffix to differentiate floats from
- * ints.
- */
-std::string
-Metadata::
-to_buffer(int nindent)
-{
-    json::object obj;
-    for (auto mdi: get_items())
-    {
-        if (mdi->unset())
-            continue;
-        FillValue fv;
-        mdi->visit(&fv);
-        obj[mdi->name()] = fv.v;
-    }
-    std::ostringstream buf;
-    buf << json::serialize(obj);
-    return buf.str();
-}
-#endif
-
-
-#ifdef notdef
-/**
- * This implementation uses visitor instead of dynamic_cast to get at the item
- * type, but still performs formatting manually. boost::json explicilty writes
- * floats with exponents, so this version includes that.
- */
-std::string
-Metadata::
-to_buffer(int nindent)
-{
-    std::ostringstream buf;
-    std::string indent(nindent, ' ');
-    std::string separator{' '};
-    std::string comma;
-    if (nindent)
-        separator = '\n';
-    buf << "{";
-    for (auto mdi: get_items())
-    {
-        if (mdi->unset())
-            continue;
-        buf << comma << separator << indent << "\"" << mdi->name() << "\": ";
-        FillValue fv;
-        mdi->visit(&fv);
-        buf << fv.v;
-        comma = ",";
-    }
-    buf << separator << "}";
-    return buf.str();
-}
-#endif
 
 
 MetadataInterface::
@@ -970,24 +790,6 @@ MetadataInterface::
 }
 
 
-
-#ifdef notdef
-MetadataInterface::
-MetadataInterface(const MetadataInterface& right):
-    _md(),
-    _classname(right._classname),
-    _items()
-{
-    // make sure to call metadata() to create our own metadata instance,
-    // into which the right metadata can be copied.  this will copy the
-    // interfaces on the right metadata also, unless this one already has
-    // it.  note that no subclass items have been added yet, but that's ok
-    // since their initialization doesn't matter here.
-    *this = right;
-}
-#endif
-
-
 MetadataInterface&
 MetadataInterface::
 operator=(const MetadataInterface& right)
@@ -1012,6 +814,22 @@ operator=(const MetadataInterface& right)
 
 std::string
 MetadataInterface::
+to_buffer(int indent)
+{
+    return metadata().to_buffer(indent);
+}
+
+
+bool
+MetadataInterface::
+from_buffer(const std::string& buffer)
+{
+    return metadata().from_buffer(buffer);
+}
+
+
+std::string
+MetadataInterface::
 string_value(const std::string& name)
 {
     return metadata().string_value(name);
@@ -1029,6 +847,24 @@ lookup(const std::string& name)
             return mi;
     }
     return nullptr;
+}
+
+
+MetadataInterface*
+MetadataInterface::
+get_interface(const std::string& name)
+{
+    return metadata().get_interface(name);
+}
+
+
+MetadataInterface*
+MetadataInterface::
+attach_interface(MetadataInterface* mdi)
+{
+    // adding an interface to Metadata also binds it to that Metadata.
+    metadata().add_interface(mdi);
+    return mdi;
 }
 
 
@@ -1064,25 +900,11 @@ Metadata&
 MetadataInterface::
 metadata()
 {
-    // The only way this object does not already have a metadata reference is
-    // if it was created on its own and not by attaching it to the metadata of
-    // an existing interface.  Typically this will be a local value instance.
-    // So if this interface creates the metadata, then attach a clone of this
-    // interface also.  That way it will be carried along with any copies of
-    // this metadata.  Technically callers might have access to two of the
-    // same interfaces on this metadata, but that is inconsequential since
-    // both interfaces will modify the same metadata.
-    //
-    // actually we can't do that here, because if this is being called in the
-    // base class constructor, then the virtual clone() will not dispatch to
-    // the subclass yet.  so defer this until this interface is copied, and
-    // then make a point of including a clone of this interface in the target.
     if (!_md)
     {
         DLOG(("") << classname() << ": creating metadata");
         _md = new Metadata();
         _owned_md.reset(_md);
-        // add_interface(*this);
     }
     return *_md;
 }

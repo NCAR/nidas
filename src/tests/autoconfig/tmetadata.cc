@@ -120,13 +120,12 @@ public:
 
 BOOST_AUTO_TEST_CASE(test_metadata_interfaces)
 {
-    // It should be possible to get at metadata values from multiple interfaces.
+    // It should be possible to get at metadata values from multiple
+    // interfaces.
     MetadataTest mdt;
 
     auto& mdc = *mdt.add_interface(LinearCalMetadata());
     BOOST_TEST(mdc.slope.name() == "slope");
-    BOOST_TEST(mdc.slope.mdi() == &mdc);
-    BOOST_TEST(&mdc.slope.mdict() == &mdt.metadata().mdict());
     mdc.slope = 2;
     mdc.offset = 1;
 
@@ -198,7 +197,6 @@ BOOST_AUTO_TEST_CASE(test_metadata_lookup)
     // the same should work on a copy.
     MetadataTest md2;
     md2 = md;
-    BOOST_REQUIRE(md2.serial_number.mdi());
     BOOST_TEST(md2.serial_number.get() == "ABC123");
     BOOST_REQUIRE(md2.lookup("number"));
     BOOST_TEST(md2.lookup("number")->string_value() == "2");
