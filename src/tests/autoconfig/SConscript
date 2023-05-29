@@ -19,6 +19,8 @@ tests = env.Program('tSerialSensorAutoConfig', sources)
 standalone = False
 mdenv.Append(LIBS = ['boost_unit_test_framework', 'jsoncpp'])
 if (standalone):
+    mdenv.Append(CXXFLAGS=['-O0'])
+    mdenv.Append(CPPDEFINES=['-D_FORTIFY_SOURCE=0'])
     mdenv.Append(CPPDEFINES=['STANDALONE'])
     mdenv.Require('nidasutil')
     mdtest = mdenv.Program('tmetadata', 'tmetadata.cc')

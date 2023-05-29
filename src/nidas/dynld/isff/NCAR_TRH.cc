@@ -155,7 +155,7 @@ void
 NCAR_TRH::
 getMetadata(MetadataInterface& md)
 {
-    md.assign(_metadata);
+    md.merge(_metadata);
 }
 
 

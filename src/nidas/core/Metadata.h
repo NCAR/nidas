@@ -325,6 +325,19 @@ public:
      */
     virtual bool validate();
 
+    /**
+     * Set metadata with @p name to string @p value.
+     * 
+     * This does not check any constraints and will overwrite any value
+     * already set by an interface attached to the metadata storage.
+     */
+    void set(const std::string& name, const std::string& value);
+
+    /**
+     * Return true if there is no metadata item named @p name.
+     */
+    bool unset(const std::string& name);
+
     virtual std::string
     to_buffer(int indent=0);
 
@@ -425,7 +438,7 @@ public:
      * the memberwise assignments and copies do allow a MetadataItem subclass
      * to enforce schema constraints on the copy.
      *
-     * See operator=().
+     * @return this interface
      */
     MetadataInterface& operator=(const MetadataInterface& right);
 
@@ -433,9 +446,20 @@ public:
      * Allow any interface type to be assigned to another interface type.
      * 
      * This is the same as the assignment operator, but it can assign any
-     * interface to this interface.
+     * interface to this interface.  It is implemented by erasing the existing
+     * metadata and then merging.
+     * 
+     * @return this interface
      */
     virtual MetadataInterface& assign(const MetadataInterface& right);
+
+    /**
+     * Apply all the values and interfaces from the @p right interface,
+     * without erasing any values in this metadata.
+     * 
+     * @return this interface
+     */
+    virtual MetadataInterface& merge(const MetadataInterface& right);
 
 private:
 
@@ -652,18 +676,16 @@ public:
 
 class Metadata: public MetadataInterface
 {
-protected:
-    virtual MetadataInterface*
-    clone() const override
-    {
-        return new Metadata(classname());
-    }
-
 public:
     Metadata(const std::string& classname = ""):
         MetadataInterface(classname)
     {};
 
+    virtual MetadataInterface*
+    clone() const override
+    {
+        return new Metadata(classname());
+    }
 };
 
 
@@ -675,16 +697,7 @@ public:
  */
 class SensorMetadata: public MetadataInterface
 {
-protected:
-
-    virtual MetadataInterface*
-    clone() const override
-    {
-        return new SensorMetadata(classname());
-    }
-
 public:
-
     SensorMetadata(const std::string& classname = "sensor");
 
     MetadataString record_type{this, READWRITE, "record_type"};
@@ -697,6 +710,12 @@ public:
     MetadataString firmware_version{this, READONLY, "firmware_version", "Firmware Version"};
     MetadataString firmware_build{this, READONLY, "firmware_build", "Firmware Build"};
     MetadataString calibration_date{this, READONLY, "calibration_date", "Calibration Date"};
+
+    virtual MetadataInterface*
+    clone() const override
+    {
+        return new SensorMetadata(classname());
+    }
 };
 
 } // namespace core

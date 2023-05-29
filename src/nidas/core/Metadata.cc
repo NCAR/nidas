@@ -683,7 +683,6 @@ MetadataInterface*
 MetadataStore::
 add_interface(MetadataInterface* mdi)
 {
-    mdi->bind(this);
     _interfaces.emplace_back(mdi);
     return mdi;
 }
@@ -808,7 +807,32 @@ assign(const MetadataInterface& right)
     if (&mdr == &mdl)
         return *this;
 
-    mdl = mdr;
+    mdl.mdict().clear();
+
+    // assignment is just a merge after an erase
+    return merge(right);
+}
+
+
+MetadataInterface&
+MetadataInterface::
+merge(const MetadataInterface& right)
+{
+    MetadataStore& mdr = const_cast<MetadataInterface*>(&right)->metadata();
+    MetadataStore& mdl = metadata();
+    if (&mdr == &mdl)
+        return *this;
+
+    // note this approach will not copy comments that might be embedded in the
+    // right doc, in case that's ever needed.
+    Json::Value::Members members = mdr.mdict().getMemberNames();
+    for (auto& name: members)
+    {
+        Json::Value& value = mdr.mdict()[name];
+        DLOG(("") << "merging " << name << " from " << right.classname()
+                  << " to " << classname() << ": " << value);
+        mdl.mdict()[name] = value;
+    }
 
     // now copy any additional interfaces from the right MetadataStore and bind
     // them to the MetadataStore in this instance.
@@ -822,6 +846,22 @@ assign(const MetadataInterface& right)
     // attaching it to this copy.
     add_interface(right);
     return *this;
+}
+
+
+void
+MetadataInterface::
+set(const std::string& name, const std::string& value)
+{
+    metadata().mdict()[name] = value;
+}
+
+
+bool
+MetadataInterface::
+unset(const std::string& name)
+{
+    return !metadata().mdict().isMember(name);
 }
 
 
@@ -867,7 +907,10 @@ MetadataInterface*
 MetadataInterface::
 get_interface(const std::string& name)
 {
-    return metadata().get_interface(name);
+    auto iface = metadata().get_interface(name);
+    DLOG(("") << classname() << ": get_interface(" << name
+              << ") returning " << iface);
+    return iface;
 }
 
 
@@ -875,9 +918,9 @@ MetadataInterface*
 MetadataInterface::
 attach_interface(MetadataInterface* mdi)
 {
-    // adding an interface to MetadataStore also binds it to that
-    // MetadataStore.
-    metadata().add_interface(mdi);
+    auto& md = metadata();
+    mdi->bind(&md);
+    md.add_interface(mdi);
     return mdi;
 }
 
@@ -903,10 +946,25 @@ void
 MetadataInterface::
 bind(MetadataStore* md)
 {
+    // this interface may already have it's own metdata store if the
+    // constructor sets items, so those need to be merged into the new storage
+    // as if they'd been made on that one, ie, as if this interface were using
+    // that storage from the beginning of construction.
     DLOG(("") << classname() << " binding new metadata");
+    if (_md)
+    {
+        // can't use Value::copy() here because that replaces everything in
+        // the target, so copy memberwise.
+        Json::Value::Members members = _md->mdict().getMemberNames();
+        for (auto& name: members)
+        {
+            DLOG(("") << "copying " << name);
+            md->mdict()[name] = _md->mdict()[name];
+        }
+    }
     _md = md;
-    // may as well release anything that was owned
-    _owned_md.release();
+    // may as well delete here anything that was owned
+    _owned_md.reset();
 }
 
 

@@ -109,7 +109,9 @@ public:
 
     LinearCalMetadata():
         MetadataInterface("linearcal")
-    {}
+    {
+        slope = 99;
+    }
 
     MetadataInterface* clone() const override
     {
@@ -141,9 +143,13 @@ BOOST_AUTO_TEST_CASE(test_metadata_interfaces)
 
     // try out the "null" metadata
     Metadata md("x");
+    md.set("x", "y");
+    // if mdc is assigned to md, then slope=99 is copied in, and any existing
+    // settings in md are gone.
     md.assign(mdc);
-    BOOST_TEST(md.string_value("slope") == "2.0");
-    BOOST_TEST(md.string_value("offset") == "1.0");
+    BOOST_TEST(md.string_value("slope") == "99.0");
+    BOOST_TEST(md.string_value("x") == "");
+    BOOST_TEST(md.unset("x"));
 
     BOOST_TEST(md.get_interface("linearcal"));
     BOOST_TEST(md.get_interface("linearcal") != &mdc);
@@ -376,15 +382,25 @@ BOOST_AUTO_TEST_CASE(test_metadata_json)
     BOOST_TEST(mdf.firmware_version.get() == "cygnus 'X1' \"alpha\" 42");
 }
 
+
 #ifndef STANDALONE
 BOOST_AUTO_TEST_CASE(test_trh_metadata_load)
 {
     NCAR_TRH trh;
 
     Metadata md;
+    md.set("hello", "world");
+    // this merges into md, so hello world should remain.
     trh.getMetadata(md);
 
     BOOST_TEST(md.get_interface("NCAR_TRH"));
+    BOOST_TEST(md.string_value("manufacturer") == "NCAR");
+    BOOST_TEST(md.string_value("model") == "TRH");
+    BOOST_TEST(md.string_value("hello") == "world");
+
+    SensorMetadata& smd = *md.add_interface(SensorMetadata());
+    BOOST_TEST(smd.manufacturer.get() == "NCAR");
+    BOOST_TEST(smd.model.get() == "TRH");
 
     // Load the sensor config from a json string.
     //md.load();
