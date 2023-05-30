@@ -252,6 +252,10 @@ BOOST_AUTO_TEST_CASE(test_metadata_constraints)
     BOOST_TEST(md.dice.get() == 1);
 
     BOOST_TEST(md.dice.string_value() == "1");
+
+    // can we convert negative numbers?
+    md.pi = "-9";
+    BOOST_TEST(md.pi.get() == -9);
 }
 
 

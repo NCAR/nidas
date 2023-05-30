@@ -608,7 +608,7 @@ public:
                    const std::string& name,
                    const std::string& description="",
                    int precision_=12,
-                   T min_ = std::numeric_limits<T>::min(),
+                   T min_ = std::numeric_limits<T>::lowest(),
                    T max_ = std::numeric_limits<T>::max());
 
     /**
