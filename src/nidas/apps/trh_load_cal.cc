@@ -48,20 +48,17 @@
 #include <cstdlib>
 #include <json/json.h>
 
-#if __cplusplus >= 201703L
-    #include <filesystem>
-    using namespace std::filesystem
-#else
-    #include <boost/filesystem.hpp>
-    using namespace boost::filesystem;
-#endif
+#include <boost/filesystem.hpp>
+using namespace boost::filesystem;
 
-#include <nidas/util/auto_ptr.h>
 #include <nidas/util/Logger.h>
 #include <nidas/dynld/isff/NCAR_TRH.h>
 #include <nidas/core/Project.h>
 #include <nidas/core/DSMConfig.h>
 #include <nidas/core/NidasApp.h>
+#include <nidas/core/Metadata.h>
+
+#include <sstream>
 
 using namespace nidas::core;
 using namespace nidas::dynld::isff;
@@ -88,74 +85,142 @@ NidasAppArg CoeffFile("-c,--coeffs", "i.e. TRH_SN_123456_20200203.cal",
                       "which should be in command form."
                       "", true);
 
-NidasAppArg Metadata("-m,--meta", "", "Report the sensor metadata and return", "");
+NidasAppArg MetadataReport("-m,--meta", "", "Report the sensor metadata and return", "");
 
 static NidasApp app("trh_load_cal");
 
-int usage(const char* argv0)
+int usage()
 {
-    std::cerr << "\
-Usage: " << argv0
-         << " [options -h  | -l | [-d -m] | [-d -c] | [-x -H]]" << std::endl 
-         << std::endl
-         << " Loads TRH calibration coefficients to a specific TRH ID attached " << std::endl
-         << " to a serial port or all TRHs attached to a DSM. " << std::endl
-         << " Accomplished by either specifying a calibration project XML file, " << std::endl
-         << " or by specifying a device and a coefficients file." << std::endl 
-         << std::endl
-         << " Print help/usage:" << std::endl
-         << "     $trh_load_cal" << std::endl
-         << "     $trh_load_cal -h" << std::endl 
-         << std::endl
-         << " Output metadata and exit:" << std::endl
-         << "     $trh_load_cal -d /dev/ttyDSM[0-7] -m" << std::endl
-         << std::endl
-         << " Update all devices attached to DSM specified by XML project file" << std::endl
-         << " and a calibration type specification - e.g. trh, ptb210, etc." << std::endl
-         << " Calibration files are found in $HOME/projects/isfs/cal_files/<sensor type>." << std::endl
-         << "     $trh_load_cal -f <xml file> -c <cal type>" << std::endl
-         << std::endl
-         << " Update a single device specified by serial port and calibration file:" << std::endl
-         << "     $trh_load_cal -d /dev/ttyDSM[0-7] -c <path/to/cal_file>" << std::endl
-         << std::endl
-         << app.usage();
+    std::cerr << R""""(
+Usage: trh_load_cal [options] {-h} | {-d <device> {-m|-c <calfile>}}
+
+Load TRH calibration coefficients to a specific TRH ID attached
+to a serial port or all TRHs attached to a DSM.
+Accomplished by either specifying a calibration project XML file,
+or by specifying a device and a coefficients file.
+
+)"""";
+    std::cerr << app.usage();
+    std::cerr << R""""(
+Examples:
+
+Read then print sensor metadata:
+  trh_load_cal -d /dev/ttyDSM[0-7] -m
+
+Update a single device specified by serial port and calibration file:
+
+  trh_load_cal -d /dev/ttyDSM[0-7] -c <path/to/cal_file>
+)"""";
 
     return 1;
 }
 
 int parseRunString(int argc, char* argv[])
 {
-    app.enableArguments(app.XmlHeaderFile | app.loggingArgs() | app.Version 
-                        | app.Hostname | app.Help | Device | CoeffFile | Metadata);
+    app.enableArguments(Device | CoeffFile | MetadataReport |
+                        app.loggingArgs() | app.Version | app.Help);
 
     try {
         ArgVector args = app.parseArgs(argc, argv);
     }
     catch(NidasAppException& e) {
-        cout << std::endl;
-        ELOG(("") << e.what());
-        cout << std::endl;
-        return usage(argv[0]);
+        std::cerr << e.what() << std::endl;
+        return usage();
     }
 
     if (app.helpRequested() || argc < 1)
     {
-        return usage(argv[0]);
+        return usage();
     }
     return 0;
 }
 
+
+using mstream = std::ostringstream;
+
+
+/**
+ * Log the steps and results when updating calibrations.
+ * 
+ * Ultimately this could be an event stream, with different methods to create
+ * and record different events, with timestamps, status codes, error messages,
+ * and metadata.
+ */
+class CalibrationLog
+{
+public:
+    CalibrationLog(const std::string& filename=""):
+        _filename(filename),
+        _logfile()
+    {
+    }
+
+    bool
+    open(const std::string& calFileName)
+    {
+        string logFile = calFileName + ".log";
+        _logfile.open(logFile, std::ofstream::trunc|std::ofstream::out);
+        if (!_logfile.is_open())
+        {
+            ELOG(("") << "Failed to open: " << logFile);
+            return false;
+        }
+        ok(mstream() << "Opened calibration log for calfile "
+                     << calFileName);
+        return true;
+    }
+
+    void
+    ok(const std::ostringstream& buf)
+    {
+        ok(buf.str());
+    }
+
+    void
+    ok(const std::string& message)
+    {
+        _logfile << "OK: " << message << std::endl;
+        NLOG(("") << message);
+    }
+
+    void
+    fail(const std::ostringstream& buf)
+    {
+        fail(buf.str());
+    }
+
+    void
+    fail(const std::string& message)
+    {
+        _logfile << "FAILED: " << message << std::endl;
+        ELOG(("") << message);
+    }
+
+    void
+    close()
+    {
+        _logfile.flush();
+        _logfile.close();
+    }
+
+private:
+    std::string _filename;
+    std::ofstream _logfile;
+};
+
+
 std::ifstream calFile;
-std::ofstream calFileLog;
 std::ofstream snsrMetaData;
 NCAR_TRH*  pTRHSensor = 0;
+
+CalibrationLog calFileLog;
+
 
 int shutdown(int code)
 {
     NLOG(("All the fun there was to be had, has been had"));
     NLOG(("Close everything..."));
     calFile.close();
-    calFileLog.flush();
     calFileLog.close();
 
     if (pTRHSensor) {
@@ -172,17 +237,12 @@ bool enterMenu()
     pTRHSensor->drainResponse();
 
     bool retval = false;
-    std::string enteringEEPROMMenu = 
-        "Putting TRH into EEPROM Menu";
-    NLOG(("") << enteringEEPROMMenu);
-    calFileLog << enteringEEPROMMenu << std::endl;
+    calFileLog.ok("Putting TRH into EEPROM Menu");
     if (pTRHSensor->enterMenuMode()) {
         retval = true;
     }
     else {
-        std::string eepromMenuFail("Failed to put the device into EEPROM Menu!!");
-        ELOG(("") << eepromMenuFail);
-        calFileLog << eepromMenuFail << std::endl;
+        calFileLog.fail("Failed to put the device into EEPROM Menu!!");
     }
 
     return retval;
@@ -199,17 +259,14 @@ void sendCmds()
 
     std::string coeffCmdStr;
     std::getline(calFile, coeffCmdStr);
-    std::string firstString = 
-        "Got first string: " +  coeffCmdStr + "\n";
-    NLOG(("") << firstString);
-    calFileLog << firstString;
+
+    calFileLog.ok(mstream() << "Got first string: " << coeffCmdStr);
 
     while (!coeffCmdStr.empty()) {
+
+        calFileLog.ok(mstream() << "Writing coeff command: " << coeffCmdStr);
         coeffCmdStr.append("\n");
-        std::string writingCoeff = 
-            "Writing coeff command: " +  coeffCmdStr;
-        NLOG(("") << writingCoeff);
-        calFileLog << writingCoeff;
+
         size_t numWritten = pTRHSensor->writePause(coeffCmdStr.c_str(), coeffCmdStr.length(), 100);
         if (numWritten != coeffCmdStr.length()) {
             std::string writeCoeffFail = 
@@ -221,11 +278,7 @@ void sendCmds()
         char respbuf[256];
         std::memset(respbuf, 0, 256);
         pTRHSensor->readEntireResponse(respbuf,255, 500);
-        std::string respStr("Command Response: ");
-        respStr.append(respbuf);
-        NLOG(("") << respStr);
-        calFileLog << respStr << std::endl;
-        
+        calFileLog.ok(mstream() << "Command Response: " << std::string(respbuf));
         std::getline(calFile, coeffCmdStr);
     }
 }
@@ -250,20 +303,10 @@ bool openCalFile(const string& calFileName)
         std::string calFileOpenStr = "Successfully opened: " + calFileName;
         DLOG(("") << calFileOpenStr);
 
-        string logFile = calFileName + ".log";
-        calFileLog = std::ofstream(logFile, std::ofstream::trunc|std::ofstream::out);
-        if (!calFileLog.is_open()) {
-            std::string calFileLogOpenFail = 
-                "Failed to open " + logFile + " on ofstream!!!";
-            ELOG(("") << calFileLogOpenFail);
+        if (!calFileLog.open(calFileName))
+        {
             return retval;
         }
-
-        calFileLog << calFileFound << std::endl;
-        calFileLog << calFileOpenStr << std::endl;
-        DLOG(("Cal log file: ") << logFile);
-        calFileLog << "Cal log file: " << logFile << std::endl;
-        retval = true;
     }
     else {
         std::string calFileNotFound = 
@@ -276,28 +319,7 @@ bool openCalFile(const string& calFileName)
     return retval;
 }
 
-std::time_t parseISO8601(const std::string& input)
-{
-    constexpr const size_t expectedLength = sizeof("1234-12-12T12:12:12Z") - 1;
-    static_assert(expectedLength == 20, "Unexpected ISO 8601 date/time length");
-
-    if (input.length() < expectedLength)
-    {
-        return 0;
-    }
-
-    std::tm time;
-    time.tm_year = std::strtol(&input[0], nullptr, 10) - 1900;
-    time.tm_mon =  std::strtol(&input[5], nullptr, 10) - 1;
-    time.tm_mday = std::strtol(&input[8], nullptr, 10);
-    time.tm_hour = std::strtol(&input[11], nullptr, 10);
-    time.tm_min =  std::strtol(&input[14], nullptr, 10);
-    time.tm_sec =  std::strtol(&input[17], nullptr, 10);
-    time.tm_isdst = 0;
-    const int millis = input.length() > 20 ? std::strtol(&input[20], nullptr, 10) : 0;
-    return timegm(&time) * 1000 + millis;
-}
-
+#ifdef notdef
 const string findLatestCal(const string& dirPath, const string& searchStr)
 {
     string latestCalFileName;
@@ -322,6 +344,8 @@ const string findLatestCal(const string& dirPath, const string& searchStr)
                     dateStr.replace(n, 1, ":");
                 }
                 DLOG(("Converted date string: ") << dateStr);
+                UTime when(0l);
+                when.from_iso(dateStr, true);
                 // convert to date object and compare time to now.
                 std::chrono::system_clock::time_point caldate
                     = std::chrono::system_clock::from_time_t(parseISO8601(dateStr));
@@ -367,29 +391,19 @@ const string findLatestCal(const string& dirPath, const string& searchStr)
 
     return latestCalFileName;
 }
+#endif
 
 void outputMetaData(const string& when)
 {
-    Json::Value json_root;
-    SensorManufacturerMetaData manufMeta = pTRHSensor->getSensorManufMetaData();
-    SensorConfigMetaData configMeta = pTRHSensor->getSensorConfigMetaData();
+    SensorMetadata md;
 
-    json_root["applied"] = when;
-    json_root["manufacturer"] = manufMeta.manufacturer;
-    json_root["model"] = manufMeta.model;
-    json_root["serialNum"] = manufMeta.serialNum;
-    json_root["hwVersion"] = manufMeta.hwVersion;
-    json_root["manufactureDate"] = manufMeta.manufactureDate;
-    json_root["fwVersion"] = manufMeta.fwVersion;
-    json_root["fwBuild"] = manufMeta.fwBuild;
-    json_root["calDate"] = manufMeta.calDate;
+    md.timestamp = UTime();
+    md.set("applied", when);
 
-    for (unsigned int i=0; i<configMeta.customMetaData.size(); ++i ) {
-        MetaDataItem rItem = configMeta.customMetaData[i];
-        json_root[rItem.first] = rItem.second;
-    }
-
-    std::cout << json_root << std::endl;
+    pTRHSensor->getMetadata(md);
+    std::cout << md.to_buffer(2) << std::endl;
+    // may as well include a copy in the log.
+    calFileLog.ok(mstream() << md.to_buffer(0));
 }
 
 void updateMetaData()
@@ -409,6 +423,12 @@ int main(int argc, char* argv[])
 
     // xml config file use case
     if (app.XmlHeaderFile.specified()) {
+        // None of this currently works and has not been used in the lab, so
+        // defer porting it until (if) it's needed.  Really if the other case
+        // works, where no xml is needed, the program just probes all the
+        // ports looking for TRH devices, then that's the simpler and more
+        // robust approach anyway.
+#ifdef notdef
         if (app.Hostname.specified()) {
             std::string xmlFileName = app.XmlHeaderFile.getValue();
             std::string hostName = app.Hostname.getValue();
@@ -459,9 +479,9 @@ int main(int argc, char* argv[])
                         // TODO - Remove the above for production!!!
 
                         // get sensor ID here
-                        nidas::core::SensorManufacturerMetaData meta = pTRHSensor->getSensorManufMetaData();
-                        if (meta.manufacturer.compare("NCAR") == 0 
-                            && meta.model.compare("TRH") == 0) {
+                        Metadata& md = *pTRHSensor->getMetadata();
+                        if (md.manufacturer == "NCAR" && md.model == "TRH")
+                        {
                             // find cal file
                             std::string cal_files_dir = getenv("HOME") + string("/isfs/cal_files/trh");
                             if (!exists(cal_files_dir)) {
@@ -477,10 +497,12 @@ int main(int argc, char* argv[])
                             
                                     string searchTRHId = "UCAR_TRH-" + string("120"); //meta.serialNum;
                                     string calFileName = findLatestCal(cal_files_dir, searchTRHId);
-                                    if (calFileName.length() != 0 && openCalFile(calFileName)) {
-                                        string foundCalFileMsg = "Found cal file: " + calFileName + " for TRH-" + meta.serialNum;
-                                        NLOG(("") << foundCalFileMsg);
-                                        calFileLog << foundCalFileMsg;
+                                    if (calFileName.length() != 0 && openCalFile(calFileName))
+                                    {
+                                        std::ostringstream buf;
+                                        buf << "Found cal file: " << calFileName << " for TRH-" << md.serial_number;
+                                        NLOG(("") << buf.str());
+                                        calFileLog << buf.str();
                                         outputMetaData("before");
                                         sendCmds();
                                         updateMetaData();
@@ -489,7 +511,7 @@ int main(int argc, char* argv[])
                                     }
                                     else {
                                         NLOG(("Couldn't find a calibration file for TRH ID: ") 
-                                            << meta.serialNum << " - skipping...");
+                                            << md.serial_number << " - skipping...");
                                     }
                                 }
                                 else {
@@ -502,8 +524,8 @@ int main(int argc, char* argv[])
 
                         else {
                             NLOG(("Was looking for TRH sensor meta data, but found: \n\tManuf: ") 
-                                << meta.manufacturer 
-                                << "\n\tmodel: " << meta.model);
+                                << md.manufacturer 
+                                << "\n\tmodel: " << md.model);
                         }
 
                         pTRHSensor->close();
@@ -524,8 +546,9 @@ int main(int argc, char* argv[])
             cout << std::endl;
             ELOG(("") << badCmdLineArgs);
             cout << std::endl;
-            return usage(argv[0]);
+            return usage();
         }
+#endif
     }
     else {
         // cal command file use case
@@ -533,93 +556,58 @@ int main(int argc, char* argv[])
             std::string deviceStr = Device.getValue();
             
             if (deviceStr.length() != 0) {
-                std::string usingDevice = 
-                    "Performing Auto Config and TRH Cal Load on Device: " + deviceStr;
-                NLOG(("") << usingDevice);
-                calFileLog << usingDevice << std::endl;
+                calFileLog.ok(mstream() << "Performing Auto Config and TRH Cal Load on Device: " << deviceStr);
             }
             else
             {
-                std::string noDeviceFail = 
-                    "No device name specified. Cannot continue!!";
-                ELOG(("") << noDeviceFail);
-                calFileLog << noDeviceFail << std::endl;
+                calFileLog.fail(mstream() << "No device name specified. Cannot continue!!");
                 shutdown(100);
             }
 
             DOMObjectFactory sensorFactory;
             std::string sensorClass = "isff.NCAR_TRH";
-            std::string usingSensor = 
-                "Using Sensor: " + sensorClass;
-            NLOG(("") << usingSensor);
-            calFileLog << usingSensor << std::endl;
+            calFileLog.ok(mstream() << "Using Sensor: " << sensorClass);
             DOMable* domSensor = sensorFactory.createObject(sensorClass);
             if (!domSensor) {
-                std::string sensorFactoryFail = 
-                    "Sensor creator object not found: " + sensorClass;
-                ELOG(("") << sensorFactoryFail);
-                calFileLog << sensorFactoryFail << std::endl;
+                calFileLog.fail(mstream() << "Sensor creator object not found: " << sensorClass);
                 shutdown(200);
             }
 
             pTRHSensor = dynamic_cast<NCAR_TRH*>(domSensor);
             if (!pTRHSensor) {
-                std::string trhSensorCastFail = 
+                calFileLog.fail(mstream() << 
                     "This utility only works with SerialSensor subclasses, "
                     "particularly those which have an autoconfig capability."
-                    "This sensor is not of the NCAR_TRH sensor class.";
-                ELOG(("") << trhSensorCastFail);
-                calFileLog << trhSensorCastFail << std::endl;
+                    "This sensor is not of the NCAR_TRH sensor class.");
                 shutdown(300);
             }
 
-            std::string settingDeviceName = 
-                "Setting Device Name: " + deviceStr;
-            DLOG(("") << settingDeviceName);
-            calFileLog << settingDeviceName << std::endl;
+            calFileLog.ok(mstream() << "Setting Device Name: " << deviceStr);
             pTRHSensor->setDeviceName(deviceStr);
-            std::string setDeviceName = 
-                "Set Device Name: " + pTRHSensor->getDeviceName();
-            DLOG(("") << setDeviceName);
-            calFileLog << setDeviceName << std::endl;
-
-            // There should not be any need to turn off the sensor before
-            // turning it back on when it is opened.
-            //
-            // pTRHSensor->pwrOff();
+            calFileLog.ok(mstream() << "Set Device Name: " << pTRHSensor->getDeviceName());
             pTRHSensor->setAutoConfigEnabled();
 
-            std::string openingSensor = 
-                "Opening TRH sensor where port configuration occurs and power is turned on...";
-            DLOG(("") << openingSensor);
-            calFileLog << openingSensor << std::endl;
+            calFileLog.ok(mstream()
+                << "Opening TRH sensor where port configuration occurs and power is turned on...");
             pTRHSensor->open(O_RDWR);
 
-            if (Metadata.specified()) {
+            if (MetadataReport.specified()) {
                 outputMetaData("no");
-                NLOG(("") << "Completed retrieving sensor metadata.");
+                calFileLog.ok(mstream() << "Completed retrieving sensor metadata.");
                 shutdown(0);
             }
-            else {
-                if (CoeffFile.specified()) {
-                    std::string calFileName = CoeffFile.getValue();
+            else if (CoeffFile.specified()) {
+                std::string calFileName = CoeffFile.getValue();
 
-                    if (openCalFile(calFileName)) {
-                        outputMetaData("before");
-                        sendCmds();
-                        updateMetaData();
-                        outputMetaData("after");
-                        NLOG(("") << "Completed updating sensor coefficients");
-                        shutdown(0);
-                    }
-                }
-                else {
-
+                if (openCalFile(calFileName)) {
+                    outputMetaData("before");
+                    sendCmds();
+                    updateMetaData();
+                    outputMetaData("after");
+                    calFileLog.ok(mstream() << "Completed updating sensor coefficients.");
+                    shutdown(0);
                 }
             }
-        }
-        else {
-
         }
     }
 

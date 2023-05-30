@@ -8,8 +8,7 @@
             "args": [
                 "-C",
                 "${workspaceFolder}/src",
-                "-u",
-                "BUILDS=host"
+                "-u"
             ],
             "group": "build",
             "problemMatcher": [
@@ -30,10 +29,12 @@
                 "-C",
                 "${workspaceFolder}/src",
                 "-u",
-                "BUILDS=host",
                 "install"
             ],
-            "group": "build",
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
             "problemMatcher": [
                 {
                     "base": "$gcc",
@@ -52,10 +53,12 @@
                 "-C",
                 "${workspaceFolder}/src",
                 "-u",
-                "BUILDS=host",
                 "test"
             ],
-            "group": "build",
+            "group": {
+                "kind": "test",
+                "isDefault": true
+            },
             "presentation": {
                 "reveal": "always",
                 "panel": "dedicated",
@@ -72,20 +75,141 @@
             ]
         },
         {
-            "label": "scons tests/trh/xtest",
+            "label": "scons tests/core/xtest",
             "type": "process",
             "command": "scons",
             "args": [
                 "-C",
                 "${workspaceFolder}/src",
                 "-u",
-                "BUILDS=host",
-                "tests/trh/xtest"
+                "-j",
+                "4",
+                "tests/core/xtest"
             ],
             "group": {
                 "kind": "build",
-                "isDefault": true
+                "isDefault": false
             },
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated",
+                "clear": true
+            },
+            "problemMatcher": [
+                {
+                    "base": "$gcc",
+                    "fileLocation": [
+                        "relative",
+                        "${workspaceFolder}/src"
+                    ]
+                }
+            ]
+        },
+        {
+            "label": "scons tests/hardware/xtest",
+            "type": "process",
+            "command": "scons",
+            "args": [
+                "-C",
+                "${workspaceFolder}/src",
+                "-u",
+                "-j",
+                "4",
+                "tests/hardware/xtest"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": false
+            },
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated",
+                "clear": true
+            },
+            "problemMatcher": [
+                {
+                    "base": "$gcc",
+                    "fileLocation": [
+                        "relative",
+                        "${workspaceFolder}/src"
+                    ]
+                }
+            ]
+        },
+        {
+            "label": "scons tests/autoconfig/xtest",
+            "type": "process",
+            "command": "scons",
+            "args": [
+                "-C",
+                "${workspaceFolder}/src",
+                "-u",
+                "-j",
+                "4",
+                "tests/autoconfig/xtest"
+            ],
+            "group": {
+                "kind": "test",
+                "isDefault": false
+            },
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated",
+                "clear": true
+            },
+            "problemMatcher": [
+                {
+                    "base": "$gcc",
+                    "fileLocation": [
+                        "relative",
+                        "${workspaceFolder}/src"
+                    ]
+                }
+            ]
+        },
+        {
+            "label": "tmetadata",
+            "type": "process",
+            "command": "scons",
+            "args": [
+                "-C",
+                "${workspaceFolder}/src",
+                "-u",
+                "-j",
+                "4",
+                "tests/autoconfig/test_metadata",
+                "tests/autoconfig/memcheck_metadata"
+            ],
+            "group": "test",
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated",
+                "clear": true
+            },
+            "problemMatcher": [
+                {
+                    "base": "$gcc",
+                    "fileLocation": [
+                        "relative",
+                        "${workspaceFolder}/src"
+                    ]
+                }
+            ]
+        },
+        {
+            "label": "tgill",
+            "type": "process",
+            "command": "scons",
+            "args": [
+                "-C",
+                "${workspaceFolder}/src",
+                "-u",
+                "-j",
+                "4",
+                "tests/autoconfig/xtest",
+                "tests/autoconfig/memcheck"
+            ],
+            "group": "test",
             "presentation": {
                 "reveal": "always",
                 "panel": "dedicated",
@@ -114,6 +238,26 @@
             "options": {
                 "cwd": "/usr/bin"
             }
+        },
+        {
+            "type": "cppbuild",
+            "label": "C/C++: g++ build active file",
+            "command": "/usr/bin/g++",
+            "args": [
+                "-fdiagnostics-color=always",
+                "-g",
+                "${file}",
+                "-o",
+                "${fileDirname}/${fileBasenameNoExtension}"
+            ],
+            "options": {
+                "cwd": "${fileDirname}"
+            },
+            "problemMatcher": [
+                "$gcc"
+            ],
+            "group": "build",
+            "detail": "Task generated by Debugger."
         }
     ]
 }

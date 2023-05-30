@@ -271,6 +271,9 @@ def getMachineTypes(arch, mspecs):
     machs = list(set(machs))    # unique-ify
     return machs
 
+
+DEBUG = False
+
 ##
 ##  Create the env for building to the host processor...
 ##
@@ -282,13 +285,20 @@ if 'host' in BUILDS or 'x86' in BUILDS:
     host_env = env.Clone(tools = ['symlink', 'sharedlibrary'],
         ARCH = '', MACHS=[''])
 
-    host_env.AppendUnique(CCFLAGS = ['-g', '-fpic',
-            '-Wformat', '-Werror=format-security',
-            '-D_FORTIFY_SOURCE=2'])
-    host_env.AppendUnique(CXXFLAGS = ['-std=c++14', '-Wextra','-Weffc++', 
-                                      '-fno-elide-constructors', 
-                                      '-Inidas/util'])
-    CheckStackProtectorOptions(host_env)
+    if not DEBUG:
+        host_env.AppendUnique(CCFLAGS = ['-g', '-fpic',
+                '-Wformat', '-Werror=format-security',
+                '-D_FORTIFY_SOURCE=2'])
+        host_env.AppendUnique(CXXFLAGS = ['-std=c++14', '-Wextra','-Weffc++', 
+                                        '-fno-elide-constructors', 
+                                        '-Inidas/util'])
+        CheckStackProtectorOptions(host_env)
+    else:
+        host_env.AppendUnique(CCFLAGS = ['-g', '-fpic',
+                '-Wformat', '-Werror=format-security', '-O0'])
+        host_env.AppendUnique(CXXFLAGS = ['-std=c++14', '-Wextra','-Weffc++', 
+                                        '-fno-elide-constructors', '-O0', '-g',
+                                        '-Inidas/util'])
 
 # hardening option "-pie" in LINKFLAGS results in this error:
 # /usr/bin/ld: /opt/local/lib/libraf++.a(PMSspex.o): relocation R_X86_64_32
