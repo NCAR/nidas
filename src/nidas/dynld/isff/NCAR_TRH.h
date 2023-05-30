@@ -37,7 +37,35 @@
 
 namespace nidas { namespace dynld { namespace isff {
 
-class MetadataTRH;
+
+class MetadataTRH : public nidas::core::SensorMetadata
+{
+public:
+    MetadataTRH(): SensorMetadata("NCAR_TRH")
+    {
+        manufacturer = "NCAR";
+        model = "TRH";
+    }
+
+    MetadataString sht85id{this, READONLY, "sh585id", "SHT85 ID"};
+    MetadataDouble fan_duty_cycle{this, READWRITE, "fan_duty_cycle", "Fan Duty Cycle"};
+    MetadataDouble fan_min_rpm{this, READWRITE, "fan_min_rpm", "Fan Min RPM"};
+    MetadataDouble Ta0{this, READWRITE, "Ta0", "Ta0", 7};
+    MetadataDouble Ta1{this, READWRITE, "Ta1", "Ta1", 7};
+    MetadataDouble Ta2{this, READWRITE, "Ta2", "Ta2", 7};
+    MetadataDouble Ha0{this, READWRITE, "Ha0", "Ha0", 7};
+    MetadataDouble Ha1{this, READWRITE, "Ha1", "Ha1", 7};
+    MetadataDouble Ha2{this, READWRITE, "Ha2", "Ha2", 7};
+    MetadataDouble Ha3{this, READWRITE, "Ha3", "Ha3", 7};
+    MetadataDouble Ha4{this, READWRITE, "Ha4", "Ha4", 7};
+
+    MetadataInterface* clone() const override
+    {
+        return new MetadataTRH();
+    }
+};
+
+
 
 enum TRH_SENSOR_COMMANDS : unsigned short;
 
@@ -190,8 +218,7 @@ private:
 
     std::vector<VariableIndex> _compute_order;
 
-    nidas::core::Metadata _metadata;
-    MetadataTRH& _md;
+    MetadataTRH _metadata;
 
     void convertNext(const VariableIndex& vi);
 

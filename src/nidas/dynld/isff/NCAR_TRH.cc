@@ -84,34 +84,6 @@ enum TRH_SENSOR_COMMANDS : unsigned short
 };
 
 
-class MetadataTRH : public SensorMetadata
-{
-public:
-    MetadataTRH(): SensorMetadata("NCAR_TRH")
-    {
-        manufacturer = "NCAR";
-        model = "TRH";
-    }
-
-    MetadataString sht85id{this, READONLY, "sh585id", "SHT85 ID"};
-    MetadataDouble fan_duty_cycle{this, READWRITE, "fan_duty_cycle", "Fan Duty Cycle"};
-    MetadataDouble fan_min_rpm{this, READWRITE, "fan_min_rpm", "Fan Min RPM"};
-    MetadataDouble Ta0{this, READWRITE, "Ta0", "Ta0", 7};
-    MetadataDouble Ta1{this, READWRITE, "Ta1", "Ta1", 7};
-    MetadataDouble Ta2{this, READWRITE, "Ta2", "Ta2", 7};
-    MetadataDouble Ha0{this, READWRITE, "Ha0", "Ha0", 7};
-    MetadataDouble Ha1{this, READWRITE, "Ha1", "Ha1", 7};
-    MetadataDouble Ha2{this, READWRITE, "Ha2", "Ha2", 7};
-    MetadataDouble Ha3{this, READWRITE, "Ha3", "Ha3", 7};
-    MetadataDouble Ha4{this, READWRITE, "Ha4", "Ha4", 7};
-
-    MetadataInterface* clone() const override
-    {
-        return new MetadataTRH();
-    }
-};
-
-
 NCAR_TRH::NCAR_TRH():
     SerialSensor(),
     _ifan(),
@@ -126,8 +98,7 @@ NCAR_TRH::NCAR_TRH():
     _raw_t_handler(0),
     _raw_rh_handler(0),
     _compute_order(),
-    _metadata(),
-    _md(*_metadata.add_interface(MetadataTRH()))
+    _metadata()
 {
     // There is only one port config for TRH.
     addPortConfig(PortConfig(9600, 8, Parity::NONE, 1, RS232));
@@ -773,6 +744,7 @@ captureEepromMetaData(const char* buf)
     md.Ha2 = results[Ha2].str();
     md.Ha3 = results[Ha3].str();
     md.Ha4 = results[Ha4].str();
+    _metadata.merge(md);
     return regexFound;
 }
 

@@ -164,26 +164,27 @@ BOOST_AUTO_TEST_CASE(test_trh_metadata)
     NCAR_TRH* trh = new NCAR_TRH();
 
     // Verify hard-coded metadata.
-    BOOST_CHECK_EQUAL(trh->getManufacturer(), "NCAR");
-    BOOST_CHECK_EQUAL(trh->getModel(), "TRH");
+    MetadataTRH md;
+    trh->getMetadata(md);
+    BOOST_CHECK_EQUAL(md.manufacturer.get(), "NCAR");
+    BOOST_CHECK_EQUAL(md.model.get(), "TRH");
 
     BOOST_CHECK(trh->captureEepromMetaData(mdbuf.c_str()));
+    trh->getMetadata(md);
 
-    BOOST_CHECK_EQUAL(trh->getFwVersion(), "6.060");
-    BOOST_CHECK_EQUAL(trh->getSerialNumber(), "25");
+    BOOST_CHECK_EQUAL(md.firmware_version.get(), "6.060");
+    BOOST_CHECK_EQUAL(md.serial_number.get(), "25");
 
-    auto mmd = trh->getSensorManufMetaData();
-    BOOST_CHECK_EQUAL(mmd.findCustomMetaData("Fan Duty Cycle")->second, "40");
-    BOOST_CHECK_EQUAL(mmd.findCustomMetaData("Fan Min RPM")->second, "-1");
+    BOOST_CHECK_EQUAL(md.fan_duty_cycle.get(), 40);
+    BOOST_CHECK_EQUAL(md.fan_min_rpm.get(), -1);
 
-    auto cmd = trh->getSensorConfigMetaData();
-    BOOST_CHECK_EQUAL(cmd.findCustomMetaData("Ta0")->second, "-45.3449");
-    BOOST_CHECK_EQUAL(cmd.findCustomMetaData("Ta1")->second, "0.002665");
-    BOOST_CHECK_EQUAL(cmd.findCustomMetaData("Ta2")->second, "9.34885e-11");
-    BOOST_CHECK_EQUAL(cmd.findCustomMetaData("Ha1")->second, "0.001526");
-    BOOST_CHECK_EQUAL(cmd.findCustomMetaData("Ha2")->second, "4");
-    BOOST_CHECK_EQUAL(cmd.findCustomMetaData("Ha3")->second, "6");
-    BOOST_CHECK_EQUAL(cmd.findCustomMetaData("Ha4")->second, "8");
+    BOOST_CHECK_CLOSE(md.Ta0.get(), -45.3449, 0.00001);
+    BOOST_CHECK_CLOSE(md.Ta1.get(), 0.002665, 0.00001);
+    BOOST_CHECK_CLOSE(md.Ta2.get(), 9.34885e-11, 0.00001);
+    BOOST_CHECK_CLOSE(md.Ha1.get(), 0.001526, 0.00001);
+    BOOST_CHECK_CLOSE(md.Ha2.get(), 4, 0.00001);
+    BOOST_CHECK_CLOSE(md.Ha3.get(), 6, 0.00001);
+    BOOST_CHECK_CLOSE(md.Ha4.get(), 8, 0.00001);
 
     delete trh;
 }
