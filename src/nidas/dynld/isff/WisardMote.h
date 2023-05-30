@@ -75,6 +75,7 @@
 
 #include <nidas/core/SerialSensor.h>
 #include <nidas/core/Sample.h>
+#include <nidas/core/Metadata.h>
 #include <nidas/util/EndianConverter.h>
 #include <nidas/util/InvalidParameterException.h>
 
@@ -89,11 +90,7 @@
 
 #include <regex>
 
-using namespace std;
-
 namespace nidas { namespace dynld { namespace isff {
-
-using namespace nidas::core;
 
 /*
  * AutoConfig enums, etc
@@ -172,49 +169,54 @@ enum MOTE_CMDS
     NUM_SUPPORTED_CMDS
 };
 
-/*
- *  Used to keep track of what config data has been captured already,
- *  and whether a command needs to be re-sent. If the metadata is same
- *  as what is to be sent, then the command is canceled.
- */
-struct MoteSensorConfigMetaData : public SensorConfigMetaData
-{
-    MoteSensorConfigMetaData()
-    : _eeCfg("Not Available"), _dataRateCfg("Not Available"), _pwrSampCfg("Not Available"),
-      _serNumSampCfg("Not Available"), _idCfg("Not Available"), _msgFmtCfg("Not Available"),
-      _portCfg("Not Available"), _sensorsOnCfg("Not Available"), _fileEnableCfg("Not Available"),
-      _fileFlushCfg("Not Available"), _vmonEnableCfg("Not Available"), _vmonLowCfg("Not Available"),
-      _vmonRestartCfg("Not Available"), _vmonSleepCfg("Not Available"), _vbCalCfg("Not Available"),
-      _i3CalCfg("Not Available"), _iiCalCfg("Not Available"), _gpsEnableCfg("Not Available"),
-      _gpsResyncCfg("Not Available"), _gpsFailRetryCfg("Not Available"),
-      _gpsNumMsgsToLockCfg("Not Available"), _gpsTimeOutCfg("Not Available"),
-      _gpsSendAllMsgsCfg("Not Available")
-    {/*Intentionally Left Blank*/}
-    virtual ~MoteSensorConfigMetaData() {}
 
-    std::string _eeCfg;
-    std::string _dataRateCfg;
-    std::string _pwrSampCfg;
-    std::string _serNumSampCfg;
-    std::string _idCfg;
-    std::string _msgFmtCfg;
-    std::string _portCfg;
-    std::string _sensorsOnCfg;
-    std::string _fileEnableCfg;
-    std::string _fileFlushCfg;
-    std::string _vmonEnableCfg;
-    std::string _vmonLowCfg;
-    std::string _vmonRestartCfg;
-    std::string _vmonSleepCfg;
-    std::string _vbCalCfg;
-    std::string _i3CalCfg;
-    std::string _iiCalCfg;
-    std::string _gpsEnableCfg;
-    std::string _gpsResyncCfg;
-    std::string _gpsFailRetryCfg;
-    std::string _gpsNumMsgsToLockCfg;
-    std::string _gpsTimeOutCfg;
-    std::string _gpsSendAllMsgsCfg;
+class WisardMetadata: public nidas::core::SensorMetadata
+{
+public:
+    WisardMetadata(): nidas::core::SensorMetadata("wisard_mote")
+    {}
+
+    /*
+     *  Sensor configuration items
+     */
+    MetadataString MDITEM(eeprom_set_state, "Eeprom Set State");
+    MetadataString MDITEM(data_rate, "Data Rate");
+    MetadataString MDITEM(power_sample_skip, "Power Sample Skip");
+    MetadataString MDITEM(serial_numb_skip, "Serial Numb Skip");
+    MetadataString MDITEM(unit_id, "Unit ID");
+    MetadataString MDITEM(message_format, "Message Format");
+    MetadataString MDITEM(output_port, "Output Port");
+    MetadataString MDITEM(sensors_power, "Sensors Power");
+    MetadataString MDITEM(file_log_enable, "File Log Enable");
+    MetadataString MDITEM(file_log_flush_rate, "File Log Flush Rate");
+    MetadataString MDITEM(vbatt_mon_enable, "Vbatt Mon Enable");
+    MetadataString MDITEM(vbatt_low, "Vbatt Low");
+    MetadataString MDITEM(vbatt_restart, "Vbatt Restart");
+    MetadataString MDITEM(vbatt_sleep, "Vbatt Sleep");
+    MetadataString MDITEM(vbatt_gain_cal, "Vbatt Gain Cal");
+    MetadataString MDITEM(i3_gain_cal, "I3 Gain Cal");
+    MetadataString MDITEM(iin_gain_cal, "Iin Gain Cal");
+    MetadataString MDITEM(gps_enable, "GPS Enable");
+    MetadataString MDITEM(gps_rtcc_resync, "GPS RTCC Resync");
+    MetadataString MDITEM(gps_fail_retry_sec, "GPS Fail Retry Sec");
+    MetadataString MDITEM(gps_num_locks, "GPS Num Locks");
+    MetadataString MDITEM(gps_timeout, "GPS Timeout");
+    MetadataString MDITEM(gps_send_all_msgs, "GPS Send All Msgs");
+
+    /*
+    *  Manufacturer metadata descriptions
+    */
+    MetadataString MDITEM(cpu_speed, "CPU Speed");
+    MetadataString MDITEM(reset_source, "Reset Source");
+    MetadataString MDITEM(timing_source, "Timing Source");
+    MetadataString MDITEM(rtcc_cfg, "RTCC Cfg");
+    MetadataString MDITEM(temp_sensor_init, "Temp Sensor Init");
+    MetadataString MDITEM(sensor_serial_nums, "Sensor Serial #s");
+
+    MetadataInterface* clone() const override
+    {
+        return new WisardMetadata();
+    }
 };
 
 
@@ -253,9 +255,18 @@ struct SampInfo
     enum WISARD_SAMPLE_TYPE type;
 };
 
-class WisardMote : public SerialSensor
+class WisardMote : public nidas::core::SerialSensor
 {
 public:
+
+    using Sample = nidas::core::Sample;
+    using SampleTag = nidas::core::SampleTag;
+    using dsm_sample_id_t = nidas::core::dsm_sample_id_t;
+    template<typename T>
+    using SampleT = nidas::core::SampleT<T>;
+    using MetadataInterface = nidas::core::MetadataInterface;
+    using dsm_time_t = nidas::core::dsm_time_t;
+
     WisardMote();
 
     virtual ~ WisardMote();
@@ -265,10 +276,7 @@ public:
 
     void validate() throw (nidas::util::InvalidParameterException);
 
-    virtual const SensorConfigMetaData& getSensorConfigMetaData() const
-    {
-        return _configMetaData;
-    }
+    virtual void getMetadata(MetadataInterface&) override;
 
     /**
      * Extracted fields from the initial portion of a Wisard message.
@@ -307,14 +315,13 @@ protected:
     virtual bool checkScienceParameters();
 
     void initCmdTable();
-    void initCustomMetaData();
     void initScienceParams();
     void updateScienceParameter(const MOTE_CMDS cmd, const SensorCmdArg& arg = SensorCmdArg());
     void sendSensorCmd(MOTE_CMDS cmd, SensorCmdArg arg = SensorCmdArg());
     bool sendAndCheckSensorCmd(MOTE_CMDS cmd, SensorCmdArg arg = SensorCmdArg());
     // Need a special method for this parameter, as it is a toggle,
     // or there is no way to query it. Nor is it a part of the eecfg command response.
-    bool _checkSensorCmdResponse(MOTE_CMDS cmd, SensorCmdArg arg, const regex& matchStr, int matchGroup, const char* buf);
+    bool _checkSensorCmdResponse(MOTE_CMDS cmd, SensorCmdArg arg, const std::regex& matchStr, int matchGroup, const char* buf);
     bool checkCmdResponse(MOTE_CMDS cmd, SensorCmdArg arg = SensorCmdArg());
     bool checkIfCmdNeeded(MOTE_CMDS cmd, SensorCmdArg arg = SensorCmdArg());
     bool captureResetMetaData(const char* buf);
@@ -563,7 +570,7 @@ private:
         TsoilData(): tempLast(),timeLast()
         {
             for (unsigned int i = 0; i < sizeof(tempLast)/sizeof(tempLast[0]); i++) {
-                tempLast[i] = floatNAN;
+                tempLast[i] = nidas::core::floatNAN;
             }
         }
     };
@@ -645,8 +652,6 @@ private:
     static const int GPS_LCKFAIL_RETRY_DEFAULT = 1800;
     static const int GPS_LCKFAIL_RETRY_MAX = INT16_MAX;
 
-    MessageConfig defaultMessageConfig;
-
     typedef std::vector<SensorCmdData> ScienceParamVector;
     ScienceParamVector _scienceParameters;
     ScienceParamVector _epilogScienceParameters;
@@ -655,10 +660,10 @@ private:
 
     typedef std::map<MOTE_CMDS, std::string> CmdMap;
     CmdMap _commandTable;
-    typedef std::map<MOTE_CMDS, std::string*> CfgMap;
+    typedef std::map<MOTE_CMDS, nidas::core::MetadataString*> CfgMap;
     CfgMap _cfgParameters;
 
-    MoteSensorConfigMetaData _configMetaData;
+    WisardMetadata _metadata;
 
     /** No copying. */
     WisardMote(const WisardMote&);

@@ -249,6 +249,10 @@ class SerialSensor : public CharacterSensor
 {
 
 public:
+    using CFG_MODE_STATUS = nidas::core::CFG_MODE_STATUS;
+    using SensorCmdArg = nidas::core::SensorCmdArg;
+    using SensorCmdData = nidas::core::SensorCmdData;
+    using PortConfig = nidas::core::PortConfig;
 
     /**
      * No arg constructor.  Typically the device name and other

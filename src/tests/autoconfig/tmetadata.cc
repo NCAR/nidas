@@ -61,24 +61,6 @@ protected:
     {
         return new MetadataTest();
     }
-
-#ifdef notdef
-    MetadataTest(const MetadataTest&) = default;
-
-    void enumerate(item_list& items) override
-    {
-        items.push_back(&number);
-        items.push_back(&flag);
-        items.push_back(&positive);
-        items.push_back(&dice);
-        items.push_back(&pi);
-    }
-
-    // Make it explicit that this dictionary supports assignment and copy
-    // construction.
-    MetadataTest& operator=(const MetadataTest&) = default;
-    MetadataTest(const MetadataTest&) = default;
-#endif
 };
 
 
