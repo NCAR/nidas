@@ -134,12 +134,6 @@ public:
     }
 
     /**
-     * A shorter type alias to build error messages with std::ostringstream,
-     * like set_error(errbuf() << msg << parameter);
-     */
-    using errbuf = std::ostringstream;
-
-    /**
      * Return the metadata value as text, as might be written to a sensor or a
      * log message.  This is not necessarily the same form as in the backing
      * store.

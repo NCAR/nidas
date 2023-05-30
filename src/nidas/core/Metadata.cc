@@ -92,17 +92,60 @@ public:
         _errors.emplace_back(msg);
     }
 
-    void
-    add_error(const std::ostringstream& buf)
+    /**
+     * errbuf accumulates an error message with the stream insertion operator,
+     * then upon destruction adds the message to the MetadataStore.  See
+     * log_error().
+     */
+    class errbuf
     {
-        _errors.emplace_back(buf.str());
-    }
+    public:
+
+        MetadataStore* mds;
+        std::ostringstream buf;
+
+        errbuf(MetadataStore* store, MetadataItem* mdi=0):
+            mds(store),
+            buf()
+        {
+            if (mdi)
+                buf << mdi->name() << ": ";
+        }
+
+        errbuf& operator=(const errbuf& eb) = delete;
+
+        errbuf(const errbuf& eb):
+            mds(eb.mds),
+            buf()
+        {
+            buf << eb.buf.str();
+        };
+
+        ~errbuf()
+        {
+            std::string str = buf.str();
+            if (!str.empty())
+                mds->add_error(str);
+        }
+
+        template <typename T>
+        errbuf&
+        operator<<(const T& t)
+        {
+            buf << t;
+            return *this;
+        }
+
+    };
 
     /**
-     * A shorter type alias to build error messages with std::ostringstream,
-     * like set_error(errbuf() << msg << parameter);
+     * Return an errbuf instance which will log its message to this
+     * MetadataStore, prefixed with the name of @p item if not null.
      */
-    using errbuf = std::ostringstream;
+    errbuf log_error(MetadataItem* item=nullptr)
+    {
+        return errbuf(this, item);
+    }
 
     /**
      * Construct a MetadataStore dictionary.  It has no items and no
@@ -460,8 +503,8 @@ set(const T& value)
     if (value < min || max < value)
     {
         MetadataStore& md = mdi()->metadata();
-        md.add_error(errbuf() << value << " is not in range ["
-                           << min << ", " << max << "]");
+        md.log_error(this) << value << " is not in range ["
+            << min << ", " << max << "]";
         return false;
     }
     Json::Value& jd = metadata().mdict();
@@ -496,7 +539,7 @@ check_assign_string(const std::string& incoming)
     T target{0};
     if (!from_string(target, incoming))
     {
-        md.add_error(errbuf("could not parse as a number: ") << incoming);
+        md.log_error(this) << "could not parse as a number: " << incoming;
         return false;
     }
     set(target);
