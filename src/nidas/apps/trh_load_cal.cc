@@ -46,10 +46,11 @@
 #include <regex>
 #include <chrono>
 #include <cstdlib>
-#include <json/json.h>
 
+#ifdef notdef
 #include <boost/filesystem.hpp>
 using namespace boost::filesystem;
+#endif
 
 #include <nidas/util/Logger.h>
 #include <nidas/dynld/isff/NCAR_TRH.h>
@@ -136,7 +137,19 @@ int parseRunString(int argc, char* argv[])
 }
 
 
-using mstream = std::ostringstream;
+class mstream
+{
+public:
+    std::ostringstream buf{};
+
+    template <typename T>
+    mstream&
+    operator<<(const T& t)
+    {
+        buf << t;
+        return *this;
+    }
+};
 
 
 /**
@@ -171,9 +184,9 @@ public:
     }
 
     void
-    ok(const std::ostringstream& buf)
+    ok(const mstream& ms)
     {
-        ok(buf.str());
+        ok(ms.buf.str());
     }
 
     void
@@ -184,9 +197,9 @@ public:
     }
 
     void
-    fail(const std::ostringstream& buf)
+    fail(const mstream& ms)
     {
-        fail(buf.str());
+        fail(ms.buf.str());
     }
 
     void
