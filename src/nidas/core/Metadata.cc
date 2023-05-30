@@ -82,13 +82,14 @@ public:
     }
 
     /**
-     * Set the error message to @p msg.
+     * Add @p msg to the list of error messages.
      * 
      * The default value of @p msg clears the error message.
      */
     void
-    add_error(const std::string& msg="")
+    add_error(const std::string& msg)
     {
+        PLOG(("") << msg);
         _errors.emplace_back(msg);
     }
 
@@ -103,29 +104,31 @@ public:
 
         MetadataStore* mds;
         std::ostringstream buf;
+        std::string context;
 
         errbuf(MetadataStore* store, MetadataItem* mdi=0):
             mds(store),
-            buf()
+            buf(),
+            context()
         {
             if (mdi)
-                buf << mdi->name() << ": ";
+                context = mdi->name();
         }
 
         errbuf& operator=(const errbuf& eb) = delete;
 
         errbuf(const errbuf& eb):
             mds(eb.mds),
-            buf()
+            buf(),
+            context(eb.context)
         {
-            buf << eb.buf.str();
         };
 
         ~errbuf()
         {
             std::string str = buf.str();
             if (!str.empty())
-                mds->add_error(str);
+                mds->add_error(context + ": " + str);
         }
 
         template <typename T>
@@ -327,7 +330,7 @@ update_string_value(const std::string& value)
     Json::Value& jd = metadata().mdict();
     jd[_name] = Json::Value(value);
     // someday this could be a more elaborate kind of notification.
-    DLOG(("") << "updated metadata: " << _name << "=" << value);
+    VLOG(("") << "updated metadata: " << _name << "=" << value);
 }
 
 
@@ -424,7 +427,8 @@ check_assign_string(const std::string& incoming)
         target = false;
     else
     {
-        mdi()->metadata().add_error("could not parse as bool: " + incoming);
+        MetadataStore& md = mdi()->metadata();
+        md.log_error() << "could not parse as bool: " << incoming;
         return false;
     }
     set(target);
@@ -645,7 +649,7 @@ check_assign_string(const std::string& incoming)
     UTime ut(0l);
     if (!from_string(ut, incoming))
     {
-        md.add_error("could not parse time: " + incoming);
+        md.log_error() << "could not parse time: " << incoming;
         return false;
     }
     update_string_value(ut.to_iso());
@@ -668,14 +672,14 @@ MetadataStore():
     _interfaces(),
     _dict()
 {
-    DLOG(("") << "MetadataStore constructor");
+    VLOG(("") << "MetadataStore constructor");
 }
 
 
 MetadataStore::
 ~MetadataStore()
 {
-    DLOG(("") << "MetadataStore destructor");
+    VLOG(("") << "MetadataStore destructor");
 }
 
 
@@ -783,7 +787,7 @@ from_buffer(const std::string& buffer)
     if (!ok)
     {
         add_error(errs);
-        PLOG(("json parse failed: ") << buffer);
+        PLOG(("json parse failed, errs=") << errs << ", buffer: " << buffer);
     }
     return ok;
 }
@@ -802,14 +806,14 @@ MetadataInterface(const std::string& classname):
     _classname(classname),
     _items()
 {
-    DLOG(("") << _classname << " constructor");
+    VLOG(("") << _classname << " constructor");
 }
 
 
 MetadataInterface::
 ~MetadataInterface()
 {
-    static nidas::util::LogContext lp(LOG_DEBUG);
+    static nidas::util::LogContext lp(LOG_VERBOSE);
     if (lp.active())
     {
         lp.log()
@@ -858,7 +862,7 @@ merge(const MetadataInterface& right)
     for (auto& name: members)
     {
         Json::Value& value = mdr.mdict()[name];
-        DLOG(("") << "merging " << name << " from " << right.classname()
+        VLOG(("") << "merging " << name << " from " << right.classname()
                   << " to " << classname() << ": " << value);
         mdl.mdict()[name] = value;
     }
@@ -937,7 +941,7 @@ MetadataInterface::
 get_interface(const std::string& name)
 {
     auto iface = metadata().get_interface(name);
-    DLOG(("") << classname() << ": get_interface(" << name
+    VLOG(("") << classname() << ": get_interface(" << name
               << ") returning " << iface);
     return iface;
 }
@@ -979,7 +983,7 @@ bind(MetadataStore* md)
     // constructor sets items, so those need to be merged into the new storage
     // as if they'd been made on that one, ie, as if this interface were using
     // that storage from the beginning of construction.
-    DLOG(("") << classname() << " binding new metadata");
+    VLOG(("") << classname() << " binding new metadata");
     if (_md)
     {
         // can't use Value::copy() here because that replaces everything in
@@ -987,7 +991,7 @@ bind(MetadataStore* md)
         Json::Value::Members members = _md->mdict().getMemberNames();
         for (auto& name: members)
         {
-            DLOG(("") << "copying " << name);
+            VLOG(("") << "copying " << name);
             md->mdict()[name] = _md->mdict()[name];
         }
     }
@@ -1003,7 +1007,7 @@ metadata()
 {
     if (!_md)
     {
-        DLOG(("") << classname() << ": creating metadata");
+        VLOG(("") << classname() << ": creating metadata");
         _md = new MetadataStore();
         _owned_md.reset(_md);
     }
