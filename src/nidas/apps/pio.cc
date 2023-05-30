@@ -373,7 +373,7 @@ int main(int argc, char* argv[]) {
         if (!ibutton)
             return unsupported(device, "switch");
         timespec decayStart, decayStop, pressWaitStart, pressWaitNow;
-        std::cout << "Waiiting for " << device << " switch to be pressed..." << std::endl;
+        std::cout << "Waiting for " << device << " switch to be pressed..." << std::endl;
         int waiting = 0;
         bool timeout = false;
         clock_gettime(CLOCK_MONOTONIC_RAW, &pressWaitStart);

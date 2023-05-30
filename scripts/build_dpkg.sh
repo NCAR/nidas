@@ -1,17 +1,22 @@
 #!/bin/bash
+# vim: set shiftwidth=4 softtabstop=4 expandtab:
 
 set -e
 
 key='<eol-prog@eol.ucar.edu>'
+eolrepo=/net/ftp/pub/archive/software/debian
 
 usage() {
-    echo "Usage: ${1##*/} [-s] [-i repository ] [-d dest] arch"
-    echo "-s: sign the package files with $key"
-    echo "-c: build in a chroot"
-    echo "-i: install them with reprepro to the repository"
-    echo "-n: don't clean source tree, passing -nc to dpkg-buildpackage"
+    echo "Usage: ${1##*/} [-i repository ] [ -I codename ] arch"
+    echo "-b: just build binary, not source (faster)"
+    echo "-c: build in a chroot (not necessary with docker or podman)"
+    echo "-f: faster, i.e. don't do scons --config=force"
+    echo "-i repo: install packages with reprepro to repo"
+    echo "-I codename: install packages to $eolrepo/codename-<codename>"
+    echo "-n: don't clean source tree, passing -nc to dpkg-buildpackage, implies -b"
     echo "-d: move the final packages in the given directory"
-    echo "arch is armel, armhf or amd64"
+    echo "arch is armel, armhf, amd64 or i386"
+    echo "codename is jessie, xenial or whatever distribution has been enabled on $eolrepo"
     exit 1
 }
 
@@ -19,29 +24,49 @@ if [ $# -lt 1 ]; then
     usage $0
 fi
 
-sign=false
 arch=amd64
-args="--no-tgz-check -sa"
-dest=""
 use_chroot=false
+binary=false
+
+# hack: pass the scons --config option using GCJFLAGS, which are the java flags :-)
+# Otherwise I don't know how to pass options through to debian/rules and the
+# Makefile from debuild
+export DEB_GCJFLAGS_MAINT_SET=--config=force
+
+args="--prepend-path /usr/local/bin --no-tgz-check -sa"
+dest=""
+
+# Add to path for pyenv support of python 3, and /usr/local/bin in case scons
+# was installed there with pip3
+args="--prepend-path=/usr/local/bin:/root/.pyenv/shims:/root/.pyenv/bin"
+
 while [ $# -gt 0 ]; do
     case $1 in
     -i)
         shift
         repo=$1
         ;;
+    -I)
+        shift
+        codename=$1
+        repo=$eolrepo/codename-$codename
+        ;;
+    -b)
+        binary=true
+        ;;
     -d)
-	shift
-	dest=$1
-	;;
+        shift
+        dest=$1
+        ;;
     -c)
         use_chroot=true
         ;;
-    -n)
-        args="$args -nc -F"
+    -f)
+        export DEB_GCJFLAGS_MAINT_SET=
         ;;
-    -s)
-        sign=true
+    -n)
+        args="$args -nc"
+        binary=true
         ;;
     armel)
         export CC=arm-linux-gnueabi-gcc
@@ -54,12 +79,56 @@ while [ $# -gt 0 ]; do
     amd64)
         arch=$1
         ;;
+    i386)
+        arch=$1
+        ;;
     *)
         usage $0
         ;;
     esac
     shift
 done
+
+if $binary; then
+    args="$args -b"
+else
+    # args="$args -sa --no-tgz-check"
+    args="$args -sa"
+fi
+
+if [ -n "$repo" -a -d "$repo" ]; then
+    distconf=$repo/conf/distributions
+    if [ -r $distconf ]; then
+        distcodename=$(fgrep Codename: $distconf | cut -d : -f 2)
+        key=$(fgrep SignWith: $distconf | cut -d : -f 2)
+        # first architecture listed
+        primarch=$(fgrep Architectures: $distconf | cut -d : -f 2 | awk '{print $1}')
+    fi
+
+    if [ -z "$distcodename" ]; then
+        echo "Cannot determine codename of repository configuration $distconf"
+        exit 1
+    fi
+    export GPG_TTY=$(tty)
+
+    # Check that gpg-agent is running, and do a test signing,
+    # which also caches the passphrase.
+    # With gpg2 v2.1 and later, gpg-connect-agent /bye will start the
+    # agent if necessary and comms are done over the standard socket:
+    # $HOME/.gnupg/S.gpg-agent.
+    #
+    # It may contact the gpg-agent on the host over
+    # the unix socket in .gnupg if many things are OK:
+    #   compatible gpg2 version, same user ids, SELinux not interfering
+    # With gpg2 v2.1 and later, gpg-connect-agent will start gpg-agent
+    # if necessary.
+    # On gpg2 v2.0 (debian jessie) one needs to start the
+    # agent and use the value of GPG_AGENT_INFO that is returned to
+    # determine the path to the socket.
+    gpg-connect-agent /bye 2> /dev/null || eval $(gpg-agent --daemon)
+
+    echo test | gpg2 --clearsign --default-key "$key" > /dev/null
+fi
 
 args="$args -a$arch"
 
@@ -115,20 +184,17 @@ $sdir/deb_changelog.sh > debian/changelog
 #       This seems to be the result of having multiple libraries 
 #       in one package?
 
-karg=
-if $sign; then
-    if [ -z "$GPG_AGENT_INFO" -a -f $HOME/.gpg-agent-info ]; then
-        . $HOME/.gpg-agent-info
-        export GPG_AGENT_INFO
-    fi
-    karg=-k"$key"
-else
-    args="$args -us -uc"
-fi
+args="$args -us -uc"
 
 # clean old results
 rm -f ../nidas_*.tar.xz ../nidas_*.dsc
 rm -f $(echo ../nidas\*_{$arch,all}.{deb,build,changes})
+
+# I think the way this works is that debuild will tar up the source to
+# build the package from, but the scons clean will not catch *all* the
+# build directories that might exist, so just make a point of removing all
+# of them here.
+rm -rf src/build*
 
 # export DEBUILD_DPKG_BUILDPACKAGE_OPTS="$args"
 
@@ -141,21 +207,34 @@ if $use_chroot; then
         set -e
         [ -f $HOME/.gpg-agent-info ] && . $HOME/.gpg-agent-info
         export GPG_AGENT_INFO
-        debuild $args "$karg" \
+        debuild $args \
             --lintian-opts --suppress-tags dir-or-file-in-opt,package-modifies-ld.so-search-path,package-name-doesnt-match-sonames
 EOD
 else
-    (set -x; debuild $args "$karg" \
+    # To test cleans, do: debuild -- clean
+    # DEB_BUILD_MAINT_OPTIONS
+    (set -x; time debuild $args \
         --lintian-opts --suppress-tags dir-or-file-in-opt,package-modifies-ld.so-search-path,package-name-doesnt-match-sonames)
 fi
 
 # debuild puts results in parent directory
 cd ..
-chngs=nidas_*_$arch.changes 
+chngs=nidas_*_$arch.changes
 archdebs=nidas*$arch.deb
+
+# get the debian release codename.  buster conviently provides
+# VERSION_CODENAME, but on jessie it is only available embedded in
+# VERSION.
+codename=$(source /etc/os-release ; echo "$VERSION" | sed -e 's/.*(//' -e 's/).*//')
 
 if [ -n "$repo" ]; then
     umask 0002
+
+    if ! which reprepro 2> /dev/null; then
+        cmd="sudo apt-get install -y reprepro"
+        echo "reprepro not found, doing: $cmd. Better yet add it to the image"
+        $cmd
+    fi
 
     echo "Build results:"
     ls
@@ -167,12 +246,13 @@ if [ -n "$repo" ]; then
     echo ""
 
 
-    # echo "pkgs=$pkgs"
-    # echo "archalls=$archalls"
-    # echo "chngs=$chngs"
+    # Grab all the package names from the changes file
+    pkgs=($(awk '/Checksums-Sha1/,/Checksums-Sha256/ { if (NF > 2) print $3 }' $chngs | grep ".*\.deb" | sed "s/_.*_.*\.deb//"))
 
-    # install all packages and sources for armel.
-    # for other architectures, just install the packages for that arch
+
+    # echo "chngs=$chngs"
+    # echo "pkgs=$pkgs"
+    # echo "archdebs=$archdebs"
 
     # Use --keepunreferencedfiles so that the previous version .deb files 
     # are not removed. Then user's who don't do an apt-get update will
@@ -192,29 +272,79 @@ if [ -n "$repo" ]; then
 
     tmplog=$(mktemp)
     trap "{ rm -f $tmplog; }" EXIT
-    status=0
 
-    if [ $arch == armel ]; then
-        flock $repo sh -c "
-            reprepro -V -b $repo -C main --keepunreferencedfiles include jessie $chngs" 2> $tmplog || status=$?
-    else
-        echo "Installing $archdebs"
-        flock $repo sh -c "
-            reprepro -V -b $repo -C main -A $arch --keepunreferencedfiles includedeb jessie $archdebs" 2> $tmplog || status=$?
-    fi
+    for (( i=0; i < 2; i++ )); do
+        status=0
+        set -v
+        set +e
 
-    if [ $status -ne 0 ]; then
+        # For the first architecture listed in confg/distributions, install
+        # all the packages listed in the changes file, including source and
+        # "all" packages.
+        if [ $arch == "$primarch" ]; then
+            echo "Installing ${pkgs[*]}"
+            if [ $i -gt 0 ]; then
+                for pkg in ${pkgs[*]}; do
+                    # Specifying -A $arch\|source\|all with a remove
+                    # doesn't work.
+                    # A package built for all archs will be placed into
+                    # the repo for each architecture in the repo, but "all"
+                    # is ignored in -A for the remove.  So a package for all,
+                    # that is installed in the repo for amd64 won't be
+                    # removed with -A i386|source|all", and you'll get
+                    # a "registered with different checksums" error if
+                    # you try to install it for i386. So leave -A off.
+                    flock $repo sh -c "
+                        reprepro -V -b $repo remove $codename $pkg"
+                done
+                flock $repo sh -c "
+                    reprepro -V -b $repo deleteunreferenced"
+
+            fi
+
+            flock $repo sh -c "
+                reprepro -V -b $repo -C main --keepunreferencedfiles include $codename $chngs" 2> $tmplog || status=$?
+
+        # If not the first architecture listed, just install the
+        # specific architecture packages.
+        else
+            echo "Installing $archdebs"
+
+            if [ $i -gt 0 ]; then
+                for pkg in ${archdebs[*]}; do
+                    # remove last two underscores
+                    pkg=${pkg%_*}
+                    pkg=${pkg%_*}
+                    flock $repo sh -c "
+                        reprepro -V -b $repo -A $arch remove $codename $pkg"
+                done
+                flock $repo sh -c "
+                    reprepro -V -b $repo deleteunreferenced"
+            fi
+
+            flock $repo sh -c "
+                reprepro -V -b $repo -C main -A $arch --keepunreferencedfiles includedeb $codename $archdebs" 2> $tmplog || status=$?
+        fi
+        echo "status=$status"
+
+        [ $status -eq 0 ] && break
+
         cat $tmplog
         if grep -E -q "(can only be included again, if they are the same)|(is already registered with different checksums)" $tmplog; then
-            echo "One or more package versions are already present in the repository. Continuing"
-        else
-            exit $status
+            echo "One or more package versions are already present in the repository. Removing and trying again"
         fi
+    done
+
+    if [ $status -eq 0 ]; then
+        rm -f nidas_*_$arch.build nidas_*.dsc nidas_*.tar.xz \
+            nidas*_all.deb nidas*_$arch.deb $chngs
+    else
+        echo "saving results in $PWD"
     fi
+fi
 
-    rm -f nidas_*_$arch.build nidas_*.dsc nidas_*.tar.xz nidas*_all.deb nidas*_$arch.deb $chngs
-
-elif [ -n "$dest" ]; then
+# Dispatch the packages unless neither -d nor -i were specified.
+if [ -n "$dest" ]; then
     echo "moving results to $dest"
     mv -f nidas_*_$arch.build nidas_*.dsc nidas_*.tar.xz nidas*_all.deb nidas*_$arch.deb $chngs $dest
 else
