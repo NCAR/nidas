@@ -2,6 +2,7 @@
 ## 2004, Copyright University Corporation for Atmospheric Research
 
 import os
+import eol_scons.parseconfig as pc
 
 ##
 ##  Import the build environment.
@@ -24,6 +25,11 @@ def nidas_xmlrpcpp(env):
         env.Append(LIBS=[env.File(libpath)])
     else:
         env.Append(LIBS=['xmlrpcpp'])
+
+def jsoncpp(env):
+    found = pc.ParseConfig(env, 'pkg-config jsoncpp --libs --cflags')
+    print("pkg-config found for jsoncpp: %s" % (["no", "yes"][int(found)]))
+
 
 ##
 ##  List of header files
@@ -299,7 +305,7 @@ def libftdi(env):
 Export('libftdi')
 
 
-env.Require(['nidasutil', nidas_xmlrpcpp])
+env.Require(['nidasutil', nidas_xmlrpcpp, jsoncpp])
 env.Append(LIBS=['dl', 'xerces-c'])
 
 # Build the ftdi hardware interface
@@ -327,8 +333,10 @@ Alias('install', nodes)
 Clean('install', nodes)
 
 def nidascore(env):
-    env.Append(LIBS=[libnidas_core, 'jsoncpp'])
-    env.Require(['nidasutil', nidas_xmlrpcpp])
+    env.Append(LIBS=[libnidas_core])
+    # Technically only the jsoncpp library link is needed to link with
+    # nidascore, and not the include flags, but this is simpler.
+    env.Require(['nidasutil', nidas_xmlrpcpp, 'jsoncpp'])
     env.Append(LIBS=['dl', 'xerces-c', 'ftdi1'])
 
 Export('nidascore')

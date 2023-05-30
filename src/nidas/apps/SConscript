@@ -69,14 +69,8 @@ else:
     if os.path.exists(xlibs):
         env.Append(LIBPATH=xlibs)
 
-# Add jsoncpp to the environment for all now that a few apps use it.
-jsoncpp_enabled = check_pkg_config(env, 'jsoncpp')
-if jsoncpp_enabled:
-    print("jsoncpp enabled for data_stats and sync_dump.")
-    env.AppendUnique(CPPDEFINES=['NIDAS_JSONCPP_ENABLED=1'])
-else:
-    print("jsoncpp not enabled.")
-    env.AppendUnique(CPPDEFINES=['NIDAS_JSONCPP_ENABLED=0'])
+# Add jsoncpp to the environment for all now that core requires it.
+env.AppendUnique(CPPDEFINES=['NIDAS_JSONCPP_ENABLED=1'])
 
 programs = Split("""
 arl-ingest
@@ -137,9 +131,8 @@ didbenv = env.Clone()
 dbconf = didbenv.Configure(custom_tests=custom_tests)
 if not dbconf.CheckCpp14():
     print("No C++14 support, data_influxdb will not be built.")
-elif bool(not arch and jsoncpp_enabled and
-          check_pkg_config(didbenv, 'libcurl')):
-    print("C++14, jsoncpp, and libcurl found, building data_influxdb.")
+elif bool(not arch and check_pkg_config(didbenv, 'libcurl')):
+    print("C++14 and libcurl found, building data_influxdb.")
     didbenv.AppendUnique(CXXFLAGS='-std=c++14')
     didbenv.Append(CXXFLAGS='-Wno-effc++')
     didb = didbenv.NidasProgram('data_influxdb.cc')
