@@ -28,6 +28,7 @@
 #define NIDAS_DYNLD_ISFF_GILL2D_H
 
 #include <nidas/dynld/isff/Wind2D.h>
+#include <nidas/core/Metadata.h>
 
 #include <memory>
 
@@ -188,7 +189,28 @@ enum GILL2D_ALIGNMENT_ARGS
     NUM_ALIGNMENT_ARGS = UPSIDE_DOWN_PLUS_45
 };
 
-class GILL2D_Metadata;
+
+class GILL2D_Metadata: public nidas::core::SensorMetadata
+{
+public:
+    GILL2D_Metadata(): nidas::core::SensorMetadata("GILL2D_Metadata")
+    {
+    }
+
+    MetadataInt averaging{this, READWRITE, "averaging", "Avg secs"};
+    MetadataString sos_temp{this, READWRITE, "sos_temp", "SpdOfSnd/Temp Rprt"};
+    MetadataString heating{this, READWRITE, "heating", "Heater"};
+    MetadataString nmea_id_str{this, READWRITE, "nmea_id_str", "NMEA"};
+    MetadataString msg_term{this, READWRITE, "msg_term", "Msg Term"};
+    MetadataString msg_stream{this, READWRITE, "msg_stream", "Msg Stream"};
+    MetadataString field_fmt{this, READWRITE, "field_fmt", "Field Fmt"};
+    MetadataInt output_rate{this, READWRITE, "output_rate", "Output Rate Hz"};
+    MetadataString meas_units{this, READWRITE, "meas_units", "Meas Units"};
+    MetadataString node_addr{this, READWRITE, "node_addr", "Node Addr"};
+    MetadataString vert_meas_pad{this, READWRITE, "vert_meas_pad", "Vert Pad"};
+    MetadataString align_45_deg{this, READWRITE, "align_45_deg", "Align/45 Deg"};
+};
+
 
 /**
  * Sensor class for the GIL 2D sonic anemometers.
@@ -284,6 +306,8 @@ public:
     bool
     parseConfigResponse(const std::string& respStr);
 
+    void getMetadata(nidas::core::MetadataInterface&) override;
+
 protected:
     void
     sendSensorCmd(int cmd,
@@ -316,10 +340,6 @@ protected:
 private:
     static const nidas::core::PortType DEFAULT_PORT_TYPE;
 
-    // default message parameters for the PB210
-    static const int DEFAULT_MESSAGE_LENGTH = 0;
-    static const bool DEFAULT_MSG_SEP_EOM = true;
-    static const char* DEFAULT_MSG_SEP_CHAR;
 
     static const int MIN_AVERAGING_TIME = 0;
     static const int MAX_AVERAGING_TIME = 3600;
@@ -354,14 +374,12 @@ private:
     // table to hold the strings for easy lookup
     static const char* cmdTable[NUM_SENSOR_CMDS];
 
-    nidas::core::MessageConfig _defaultMessageConfig;
-
     nidas::core::SensorCmdData* _desiredScienceParameters;
     bool _sosEnabled;
 
     char _unitId;
 
-    std::unique_ptr<GILL2D_Metadata> _metadata;
+    GILL2D_Metadata _metadata;
 
     // no copying
     GILL2D(const GILL2D&);

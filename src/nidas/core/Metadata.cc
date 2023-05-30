@@ -384,8 +384,7 @@ check_assign_string(const std::string& incoming)
         mdi()->metadata().add_error("could not parse as bool: " + incoming);
         return false;
     }
-    Json::Value& jd = metadata().mdict();
-    jd[name()] = Json::Value(target);
+    set(target);
     return true;
 }
 
@@ -494,18 +493,13 @@ MetadataNumber<T>::
 check_assign_string(const std::string& incoming)
 {
     MetadataStore& md = metadata();
-    T target = from_string(incoming);
-    if (!md.errors().empty())
+    T target{0};
+    if (!from_string(target, incoming))
     {
+        md.add_error(errbuf("could not parse as a number: ") << incoming);
         return false;
     }
-    if (target < min || max < target)
-    {
-        md.add_error(errbuf() << target << " is not in range ["
-                           << min << ", " << max << "]");
-        return false;
-    }
-    update_string_value(to_string(target));
+    set(target);
     return true;
 }
 
@@ -531,18 +525,12 @@ string_value() const
 
 
 template <typename T>
-T
+bool
 MetadataNumber<T>::
-from_string(const std::string& value)
+from_string(T& value, const std::string& text)
 {
-    MetadataStore& md = mdi()->metadata();
-    std::istringstream inb(value);
-    T target{0};
-    if (!(inb >> target))
-    {
-        md.add_error(errbuf("could not parse as a number: ") << value);
-    }
-    return target;
+    std::istringstream inb(text);
+    return bool(inb >> value);
 }
 
 template <typename T>
@@ -610,9 +598,13 @@ bool
 MetadataTime::
 check_assign_string(const std::string& incoming)
 {
+    MetadataStore& md = mdi()->metadata();
     UTime ut(0l);
     if (!from_string(ut, incoming))
+    {
+        md.add_error("could not parse time: " + incoming);
         return false;
+    }
     update_string_value(ut.to_iso());
     return true;
 }
@@ -621,13 +613,7 @@ bool
 MetadataTime::
 from_string(UTime& ut, const std::string& value)
 {
-    MetadataStore& md = mdi()->metadata();
-    if (!ut.from_iso(value))
-    {
-        md.add_error("could not parse time: " + value);
-        return false;
-    }
-    return true;
+    return ut.from_iso(value);
 };
 
 

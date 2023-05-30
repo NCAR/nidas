@@ -327,7 +327,7 @@ Alias('install', nodes)
 Clean('install', nodes)
 
 def nidascore(env):
-    env.Append(LIBS=[libnidas_core])
+    env.Append(LIBS=[libnidas_core, 'jsoncpp'])
     env.Require(['nidasutil', nidas_xmlrpcpp])
     env.Append(LIBS=['dl', 'xerces-c', 'ftdi1'])
 

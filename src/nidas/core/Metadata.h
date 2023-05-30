@@ -642,7 +642,7 @@ public:
 
     std::string to_string(const T& value) const;
 
-    T from_string(const std::string& value);
+    bool from_string(T& value, const std::string& text);
 
     /**
      * Return the string value with the specified precision.

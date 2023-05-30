@@ -220,6 +220,17 @@ BOOST_AUTO_TEST_CASE(test_metadata_constraints)
 {
     MetadataTest md;
 
+    BOOST_TEST(md.pi.string_value() == "");
+    BOOST_TEST(md.dice.string_value() == "");
+    md.dice = "x";
+    BOOST_TEST(md.dice.string_value() == "");
+    // truncation happens, as expected
+    md.dice = 2.4;
+    BOOST_TEST(md.dice.string_value() == "2");
+    md.dice.check_assign_string("5");
+    BOOST_TEST(md.dice.get() == 5);
+    md.dice.erase();
+
     md.pi = 3.1415927;
     BOOST_TEST(!md.pi.unset());
     BOOST_TEST(md.pi.string_value() == "3.14");
@@ -240,6 +251,7 @@ BOOST_AUTO_TEST_CASE(test_metadata_constraints)
     //DLOG(("") << md.dice.error());
     BOOST_TEST(md.dice.get() == 1);
 
+    BOOST_TEST(md.dice.string_value() == "1");
 }
 
 

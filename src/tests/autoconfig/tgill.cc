@@ -7,8 +7,10 @@ using boost::unit_test_framework::test_suite;
 #include <nidas/dynld/isff/GILL2D.h>
 
 #include <memory>
+#include <nidas/core/Metadata.h>
 
 using namespace nidas::dynld::isff;
+using namespace nidas::core;
 
 BOOST_AUTO_TEST_CASE(test_gill_outputrate)
 {
@@ -35,35 +37,30 @@ BOOST_AUTO_TEST_CASE(test_gill_outputrate)
 					    nidas::core::SensorCmdArg(8));
     BOOST_CHECK_EQUAL(cmd, "\r\nP5\r");
 
-    gill->setOutputRate(5);
-    nidas::core::SensorConfigMetaData smd = gill->getSensorConfigMetaData();
-    nidas::core::CustomMetaData::iterator it =
-        smd.findCustomMetaData("Output Rate Hz");
-    // Cannot test that the output rate is set very easily from here 
-    // because it gets set in the _desired_ science parameters, which
-    // is different than the _sensor config_ metadata.  Maybe later.
-    // BOOST_REQUIRE(it != smd.customMetaData.end());
-    // BOOST_CHECK_EQUAL(it->first, "Output Rate Hz");
-    // BOOST_CHECK_EQUAL(it->second, "5");
+    GILL2D_Metadata md;
+    gill->getMetadata(md);
+    md.output_rate = 5;
+    BOOST_TEST(!md.output_rate.unset());
+    BOOST_TEST(md.string_value("output_rate") == "5");
+    BOOST_TEST(md.output_rate.get() == 5);
 
     std::string config =
-	" A0 B3 C1 E1 F1 G0000 H1 J1 K1 L1 M2 NA O1 P6 T1 U1 V1 X1 Y1 Z1\r\n";
+    " A0 B3 C1 E1 F1 G0000 H1 J1 K1 L1 M2 NA O1 P6 T1 U1 V1 X1 Y1 Z1\r\n";
 
     bool parsed = gill->parseConfigResponse(config);
     // This returns false until "parsing" is separated from matching
     // "desired" settings.
     BOOST_CHECK_EQUAL(parsed, false);
 
-    // Have to copy the metadata out because there's no easy way to iterate
-    // through the const reference, because findCustomMetaData() is not
-    // const.
-    smd = gill->getSensorConfigMetaData();
-    it = smd.findCustomMetaData("Output Rate Hz");
-    BOOST_REQUIRE(it != smd.customMetaData.end());
-    BOOST_CHECK_EQUAL(it->first, "Output Rate Hz");
-    BOOST_CHECK_EQUAL(it->second, "10");
+    std::cerr << "Before update:\n" << md.to_buffer(2) << std::endl;
+    // this should update the metadata
+    gill->getMetadata(md);
+    std::cerr << "After update:\n" << md.to_buffer(2) << std::endl;
+    BOOST_TEST(!md.output_rate.unset());
+    BOOST_TEST(md.string_value("output_rate") == "10");
+    BOOST_TEST(md.output_rate.get() == 10);
 
     config =
-	" A2 B3 C1 E1 F1 G0000 J1 K1 L2 M2 NA O2 P6 T1 U1 V1 X1 Y1 Z1\r\n";
+    " A2 B3 C1 E1 F1 G0000 J1 K1 L2 M2 NA O2 P6 T1 U1 V1 X1 Y1 Z1\r\n";
 
 }

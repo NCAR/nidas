@@ -54,8 +54,6 @@ namespace nidas { namespace dynld { namespace isff {
 
 using nidas::util::Parity;
 
-const char* GILL2D::DEFAULT_MSG_SEP_CHAR = "\n";
-
 const char* GILL2D::SENSOR_CONFIG_MODE_CMD_STR = "*";
 const char* GILL2D::SENSOR_ENABLE_POLLED_MODE_CMD_STR = "?";
 const char* GILL2D::SENSOR_POLL_MEAS_CMD_STR = "?";
@@ -186,33 +184,10 @@ static const regex GILL2D_FW_VER_REGEX(GILL2D_FW_VER_SPEC, std::regex_constants:
 
 
 
-class GILL2D_Metadata: public SensorMetadata
-{
-public:
-    GILL2D_Metadata(): SensorMetadata("GILL2D_Metadata")
-    {
-    }
-
-    MetadataInt averaging{this, READWRITE, "averaging", "Avg secs"};
-    MetadataString sos_temp{this, READWRITE, "sos_temp", "SpdOfSnd/Temp Rprt"};
-    MetadataString heating{this, READWRITE, "heating", "Heater"};
-    MetadataString nmea_id_str{this, READWRITE, "nmea_id_str", "NMEA"};
-    MetadataString msg_term{this, READWRITE, "msg_term", "Msg Term"};
-    MetadataString msg_stream{this, READWRITE, "msg_stream", "Msg Stream"};
-    MetadataString field_fmt{this, READWRITE, "field_fmt", "Field Fmt"};
-    MetadataInt output_rate{this, READWRITE, "output_rate", "Output Rate Hz"};
-    MetadataString meas_units{this, READWRITE, "meas_units", "Meas Units"};
-    MetadataString node_addr{this, READWRITE, "node_addr", "Node Addr"};
-    MetadataString vert_meas_pad{this, READWRITE, "vert_meas_pad", "Vert Pad"};
-    MetadataString align_45_deg{this, READWRITE, "align_45_deg", "Align/45 Deg"};
-};
-
-
 GILL2D::GILL2D()
     : Wind2D(),
-      _defaultMessageConfig(DEFAULT_MESSAGE_LENGTH, DEFAULT_MSG_SEP_CHAR, DEFAULT_MSG_SEP_EOM),
       _desiredScienceParameters(), _sosEnabled(false), _unitId('\0'),
-      _metadata(new GILL2D_Metadata())
+      _metadata()
 {
     // Build the alternate configs from all the combinations, since there are so many.
     for (int baud: {9600, 19200, 4800, 38400, 2400, 1200, 300})
@@ -227,7 +202,7 @@ GILL2D::GILL2D()
 
     // We set the defaults at construction,
     // letting the base class modify according to fromDOMElement()
-    setMessageParameters(_defaultMessageConfig);
+    setMessageParameters(MessageConfig(0, "\n", true));
 
     _desiredScienceParameters = new n_c::SensorCmdData[NUM_DEFAULT_SCIENCE_PARAMETERS];
     for (int i=0; i<NUM_DEFAULT_SCIENCE_PARAMETERS; ++i) {
@@ -236,6 +211,13 @@ GILL2D::GILL2D()
 
     setAutoConfigSupported();
 }
+
+void
+GILL2D::getMetadata(MetadataInterface& md)
+{
+    md.merge(_metadata);
+}
+
 
 GILL2D::~GILL2D()
 {
@@ -720,7 +702,7 @@ parseConfigResponse(const std::string& respStr)
     // unless all the parameters were found in the output and match the desired parameters.
     int scienceParametersOK = 0;
     int checked = 0;
-    GILL2D_Metadata& md = *_metadata.get();
+    GILL2D_Metadata& md = _metadata;
 
     if (++checked && results[A_VAL_CAPTURE_IDX].matched) {
         md.sos_temp = results.str(A_VAL_CAPTURE_IDX);
@@ -1275,7 +1257,7 @@ void GILL2D::exitConfigMode()
 
 void GILL2D::updateMetaData()
 {
-    GILL2D_Metadata& md = *_metadata.get();
+    GILL2D_Metadata& md = _metadata;
     md.manufacturer = "GILL Instruments, Ltd";
 
     static const int BUF_SIZE = 75;

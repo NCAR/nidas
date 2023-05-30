@@ -70,9 +70,9 @@ using namespace nidas::util;
 class AutoProject
 {
 public:
-    AutoProject() { n_c::Project::getInstance(); }
-    ~AutoProject() { n_c::Project::destroyInstance(); }
-    n_c::Project& operator()() {return *n_c::Project::getInstance();}
+    AutoProject() { Project::getInstance(); }
+    ~AutoProject() { Project::destroyInstance(); }
+    Project& operator()() {return *Project::getInstance();}
 };
 
 
