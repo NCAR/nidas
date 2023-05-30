@@ -46,7 +46,6 @@ runtest = env.Command("xtest", tests,
                       env.ChdirActions(["./$SOURCE.file --log_level=all -- --log debug"]))
 env.Precious(runtest)
 env.AlwaysBuild(runtest)
-env.Alias('test', runtest)
 
 env.ValgrindLog('memcheck', 
                 env.Command('vg.memcheck.log', tests,
@@ -64,6 +63,10 @@ env.ValgrindLog('threadcheck',
                             " ./${SOURCE.file} --log_level=message"
                             " >& ${TARGET.abspath}"))
 
+# alias for all the tests in this directory
+alltests = env.Alias('xautoconfig', ['xtest', 'memcheck', 'test_metadata', 'memcheck_metadata'])
+env.Alias('test', alltests)
+
 def write_env(env, target, source):
     "Write a sh file with env settings which can be sourced to run tests."
     out = open(str(target[0]), "w")
@@ -73,5 +76,3 @@ def write_env(env, target, source):
     out.close()
 
 env.Command('libs.sh', ["$LIBNIDAS", "$LIBNIDAS_UTIL", "$LIBNIDAS_DYNLD"], write_env)
-
-
