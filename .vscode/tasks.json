@@ -226,6 +226,35 @@
             ]
         },
         {
+            "label": "ttrh",
+            "type": "process",
+            "command": "scons",
+            "args": [
+                "-C",
+                "${workspaceFolder}/src",
+                "-u",
+                "-j",
+                "4",
+                "tests/trh/xtest",
+                "tests/trh/memcheck"
+            ],
+            "group": "test",
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated",
+                "clear": true
+            },
+            "problemMatcher": [
+                {
+                    "base": "$gcc",
+                    "fileLocation": [
+                        "relative",
+                        "${workspaceFolder}/src"
+                    ]
+                }
+            ]
+        },
+        {
             "type": "shell",
             "label": "g++ build active file",
             "command": "/usr/bin/g++",
