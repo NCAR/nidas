@@ -321,8 +321,12 @@ This requires the `package_cloud` Ruby gem to be installed and an
 authenticaion key from `packagecloud`.  Unfortunately the gem has proven
 problematic to install and run without errors on Fedora, which would be the
 most convenient since the packagecloud credentials could be cached on the host
-and not be needed in the container.  However `package_cloud` can be run from
-inside the container, in which case the script will prompt for credentials.
+and not be needed in the container.
+
+It is possible to run `package_cloud` from inside the container, in which case
+the script will prompt for credentials.  However, that is risky since the
+authentication token is cached in `/root/.packagecloud`, and those credentials
+will stay there if the container and the container's image are not removed.
 
 ```plain
 root@35cf8923cc2d:/nidas/scripts# ./cnidas.sh pi3 push /packages
@@ -342,5 +346,22 @@ Pushing /packages/nidas_1.3+343_armhf.deb... success!
 Pushing /packages/nidas-build_1.3+343_all.deb... success!
 ```
 
+This shows that the credentials are still available if the container is restarted:
+
+```plain
+(base) granger@snoopy:/home/granger/code/nidas/scripts$ podman restart 35cf8923cc2d
+35cf8923cc2d
+(base) granger@snoopy:/home/granger/code/nidas/scripts$ podman attach 35cf8923cc2d
+root@35cf8923cc2d:~# ls .packagecloud 
+.packagecloud
+```
+
+The `cnidas.sh` script adds `--rm` to each podman run command to remove the
+container when it exits.  However, it is still possible to run the image
+without `cnidas.sh` and forget to remove the container afterwards.
+
 It should also be possible to mount the user credentials cached on the host
 into the container, but that hasn't been tried yet.
+
+If all else fails, package files can be uploaded through the
+[packagecloud](https://packagecloud.io/ncareol/isfs-testing) web site.

@@ -261,10 +261,11 @@ run_image() # command...
         repomount="--volume ${DEBIAN_REPOSITORY}:/debian:rw,Z"
     fi
     set -x
-    # Mount the local scripts directory over top of the source, so the
-    # local build scripts are used no matter what version of source is
-    # being built.
-    exec podman run -i -t \
+    # Mount the local scripts directory over top of the source, so the local
+    # build scripts are used no matter what version of source is being built.
+    # Remove the container when finished, since it does not need to be kept
+    # around and just in any credentials end up on it.
+    exec podman run --rm -i -t \
       --volume "$dest":/nidas:rw,Z \
       --volume "$install":/opt/nidas:rw,Z \
       --volume "$HOME/.scons":/root/.scons:rw,Z \
