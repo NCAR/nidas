@@ -130,7 +130,7 @@ if [ -n "$repo" -a -d "$repo" ]; then
     echo test | gpg2 --clearsign --default-key "$key" > /dev/null
 fi
 
-args="$args -a$arch"
+args="$args -a$arch -i -I -Ibuild*"
 
 if $use_chroot; then
     dist=$(lsb_release -c | awk '{print $2}')

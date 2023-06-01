@@ -40,6 +40,8 @@
 
 #include <nidas/linux/util.h>
 
+#define SOR_DEBUG
+
 /**
  * Statistics gathered by the PMS2D USB driver.  Structure of
  * counters that can be queried with the USB2D_GET_STATUS ioctl.
@@ -54,6 +56,7 @@ struct usb_twod_stats
         unsigned int lostSORs;
         unsigned int lostTASs;
         unsigned int urbErrors;
+        unsigned int shutdowns;         /* number of detected indications of USB shutdown */
         unsigned int urbTimeouts;
 };
 
@@ -123,7 +126,7 @@ typedef struct _Tap2D_v3
  */
 #define TWOD_IMG_TYPE	0
 #define TWOD_SOR_TYPE   1
-#define TWOD_SORv3_TYPE 0x534f522c /* SOR, */
+#define TWOD_SORv3_TYPE 0x534f522c /* "SOR," (actually ",ROS" on little endian) */
 #define TWOD_IMGv2_TYPE	2
 #define TWOD_IMGv3_TYPE	3
 
@@ -151,15 +154,25 @@ typedef struct _Tap2D_v3
 #define USB_TWOD_64_MINOR_BASE     192
 #define USB_TWOD_32_MINOR_BASE     196
 
-#define TWOD_IMG_BUFF_SIZE	4096
-#define TWOD_SOR_BUFF_SIZE      128 /*PRS doc hs 70 as max possible size of housekeeping*/
+#define TWOD_IMG_BUFF_SIZE	4096    /* Optimal that it's PAGE_SIZE */
+#define TWOD_SOR_BUFF_SIZE      128     /* PRS doc has 70 as max possible size of housekeeping*/
 #define TWOD_TAS_BUFF_SIZE	4
 
-/* SAMPLE_QUEUE_SIZE must be a power of 2 (required by circ_buf).
+/*
+ * SAMPLE_QUEUE_SIZE is the number of image and SOR samples
+ * that can be queued for user reads.
+ *
+ * SAMPLE_QUEUE_SIZE must be a power of 2 (required by circ_buf).
  * In order for a circ_buf to tell the difference between empty
  * and full, a full circ_buf contains (size-1) elements.
- * In addition, SAMPLE_QUEUE_SIZE should be at least 
- * IMG_URBS_IN_FLIGHT + SOR_URBS_IN_FLIGHT + 1 
+ *
+ * An entry in the queue is sizeof(struct twod_urb_sample), either
+ * 24 or 32 bytes (if 64 bit pointers), so it's not big.
+ *
+ * To handle the situation where the user reads might get far behind,
+ * make it at least the minimum power of two greater than
+ * IMG_URBS_IN_FLIGHT + SOR_URBS_IN_FLIGHT, but
+ * there isn't an advantage to make it more than that.
  */
 /*
  * Throughput tests on both an Intel core laptop PC and an Arcom Vulcan
@@ -169,31 +182,47 @@ typedef struct _Tap2D_v3
  * 	16		8			7
  * 	8		4			3
  * 	4		2			1
- * We'll use the middle values.
- * Having more than one urb in flight means a read()
- * can return more than one image sample.
  */
-#define SAMPLE_QUEUE_SIZE   32
+#define SAMPLE_QUEUE_SIZE   32   /* power of two */
 
-/* This queue is only used if throttleRate > 0 */
-#define IMG_URB_QUEUE_SIZE  16   /* power of two */
+/*
+ * Size of queue used by throttle rate function.
+ * A power of two that is also greater than IMG_URBS_IN_FLIGHT.
+ */
+#define IMG_URB_QUEUE_SIZE  32
 
-#define IMG_URBS_IN_FLIGHT   (IMG_URB_QUEUE_SIZE-1)
+/*
+ * A TWOD_IMG_BUFF_SIZE buffer is pre-allocated for every image
+ * URB in flight, so don't make it too big.
+ *
+ * It should not be greater than (IMG_URB_QUEUE_SIZE-1), but
+ * can be less than that, for example IMG_URB_QUEUE_SIZE=32 and
+ * IMG_URBS_IN_FLIGHT=20.
+ */
+#define IMG_URBS_IN_FLIGHT   20
+
+/*
+ * Maximum invocation rate of the throttle function.
+ * Should divide evenly into HZ.
+ * HZ is 250 on Vortex, 100 on old systems, 1000 on new X86.
+ *     grep 'CONFIG_HZ=' /boot/config-$(uname -r)
+ * For a requested throttle rate, the function will
+ * submit a number of urbs (up to IMG_URBS_IN_FLIGHT)
+ * to achieve the requested rate.
+ */
+#define MAX_THROTTLE_FUNC_RATE 10
+
+/*
+ * This is the maximun throttle rate supported, which is limited
+ * by MAX_THROTTLE_FUNC_RATE * IMG_URBS_IN_FLIGHT.
+ * To achieve higher rates you need to increase MAX_THROTTLE_FUNC_RATE
+ * (consuming more CPU) or IMG_URBS_QUEUE_SIZE (consuming more memory).
+ */
+#define MAX_THROTTLE_RATE (MAX_THROTTLE_FUNC_RATE * IMG_URBS_IN_FLIGHT)
 
 #define SOR_URBS_IN_FLIGHT   4
 
 #define TAS_URB_QUEUE_SIZE   4   /* power of two */
-
-/**
- * Invocation period of the throttle function in jiffies.
- * The function will wakeup every THROTTLE_JIFFIES and submit
- * a number of urbs to achieve the chosen throttle rate.
- * For some throttle rates, e.g. 25 or 33 Hz, the number
- * of jiffies between wakeups will be adjusted a bit so that
- * the resultant throttle rate is correct.
- * A value of (HZ/N) results in a wakeup every 1/Nth of a second
- */
-#define THROTTLE_JIFFIES (HZ / 10)
 
 struct twod_urb_sample
 {
@@ -252,8 +281,8 @@ struct usb_twod
         char   dev_name[64];           /* device name for log messages */
 
         __u8 img_in_endpointAddr;       /* the address of the image in endpoint */
-        __u8 tas_out_endpointAddr;      /* the address of the tas out endpoint */
-        __u8 sor_in_endpointAddr;       /* value is "SOR," the address of the shadow word in endpoint - for v3 sor (rather housekeeping packet) is now binary, this value is used in xml to sort */
+        __u8 tas_out_endpointAddr;      /* the address of the TAS out endpoint */
+        __u8 sor_in_endpointAddr;       /* the address of the SOR in endpoint */
         int is_open;                   /* don't allow multiple opens. */
 
 	enum twod_probe_type ptype;
@@ -297,6 +326,9 @@ struct usb_twod
         Tap2D tasValue;                 /* TAS value to send to probe (from user ioctl) */
 
         int consecTimeouts;
+#ifdef SOR_DEBUG
+        int SORdebugmessages;
+#endif
 };
 #endif                          // ifdef __KERNEL__
 #endif
