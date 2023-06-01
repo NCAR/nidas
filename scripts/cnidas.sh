@@ -15,6 +15,7 @@
 # jessie armel Viper Titan (cross)
 # buster armhf Raspberry Pi 3B (cross)
 # ubuntu amd64
+# alma linux 9 (native)
 #
 # Here is the naming convention for NIDAS build container images:
 #
@@ -137,7 +138,7 @@ targets=(centos7 centos8 vulcan titan pi2 pi3 ubuntu)
 get_arch() # alias
 {
     case "$1" in
-        centos*)
+        centos*|alma*)
             echo x86_64
             ;;
         pi*)
@@ -152,11 +153,11 @@ get_arch() # alias
     esac
 }
 
-# Return the BUILDS setting for the given alias
-get_builds() # alias
+# Return the BUILD setting for the given alias
+get_build() # alias
 {
     case "$1" in
-        centos*|ubuntu*)
+        centos*|ubuntu*|alma*)
             echo host
             ;;
         pi*)
@@ -174,6 +175,9 @@ get_builds() # alias
 get_image_tag() # alias
 {
     case "$1" in
+        alma9)
+            echo nidas-build-alma-x86_64:alma9
+            ;;
         centos8)
             echo nidas-build-centos-x86_64:centos8
             ;;
@@ -204,6 +208,9 @@ build_image()
     tag=`get_image_tag "$alias"`
     set -x
     case "$alias" in
+        alma9)
+            podman build -t $tag -f docker/Dockerfile.alma9
+            ;;
         centos8)
             podman build -t $tag -f docker/Dockerfile.centos8
             ;;
@@ -276,7 +283,7 @@ run_image() # command...
 
 run_scons() # [scons args ...]
 {
-    run_image scons -C /nidas/src PREFIX=/opt/nidas BUILDS=`get_builds $alias` "$@"
+    run_image scons -C /nidas/src PREFIX=/opt/nidas BUILD=`get_build $alias` "$@"
 }
 
 build_packages()

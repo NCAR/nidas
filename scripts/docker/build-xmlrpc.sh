@@ -15,13 +15,25 @@ hostarch=$1
 # 
 git clone https://github.com/NCAR/xmlrpcpp.git
 cd xmlrpcpp
-./build_dpkg_std.sh --no-sign ./amd64 amd64
-./build_dpkg_std.sh --no-sign ./${hostarch} ${hostarch}
-echo "Checking out build artifacts in ./amd64"
-ls -alg ./amd64
-echo "Checking out build artifacts in ./${hostarch}"
-ls -alg ./${hostarch}
-# It looks like installing with dpkg -i is not enough to satisfy the build
-# dependency check run by debuild, but it does work to install with apt.
-apt-get install ./amd64/xmlrpc++_0.7-3_amd64.deb ./amd64/xmlrpc++-dev_0.7-3_amd64.deb
-apt-get install ./${hostarch}/xmlrpc++_0.7-3_${hostarch}.deb ./${hostarch}/xmlrpc++-dev_0.7-3_${hostarch}.deb
+
+if command -v apt-get ; then
+    ./build_dpkg_std.sh --no-sign ./amd64 amd64
+    ./build_dpkg_std.sh --no-sign ./${hostarch} ${hostarch}
+    echo "Checking out build artifacts in ./amd64"
+    ls -alg ./amd64
+    echo "Checking out build artifacts in ./${hostarch}"
+    ls -alg ./${hostarch}
+    # It looks like installing with dpkg -i is not enough to satisfy the build
+    # dependency check run by debuild, but it does work to install with apt.
+    apt-get install ./amd64/xmlrpc++_0.7-3_amd64.deb ./amd64/xmlrpc++-dev_0.7-3_amd64.deb
+    apt-get install ./${hostarch}/xmlrpc++_0.7-3_${hostarch}.deb ./${hostarch}/xmlrpc++-dev_0.7-3_${hostarch}.deb
+else
+    # we only build native x86_64 packages for rpm systems
+    dnfi="dnf -y install"
+    if ! command -v dnf; then
+        dnfi="yum -y localinstall"
+    fi
+    export TOPDIR=$HOME/rpmbuild
+    ./build_rpm.sh
+    $dnfi "$TOPDIR/RPMS/x86_64/"xmlrpc++-*.rpm
+fi
