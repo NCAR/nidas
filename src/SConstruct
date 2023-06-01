@@ -286,11 +286,13 @@ if not env.GetOption("helpall"):
 # including the directory of aliases, but then append a custom summary of
 # nidas targets.
 env.SetHelp()
-nidas_help = """
+target_names = ",".join(targets.keys())
+nidas_help = f"""
 Main targets:
 
 <target> or BUILD=<target>
   Build libraries, executables and kernel modules for target system.  See BUILD.
+  {target_names}
 install
   Build and install all modules, libraries, headers and executables.
 -c install

@@ -36,7 +36,7 @@ This branch includes all the changes done on the branches
   source tree.
 
 - SCons help is more brief by default by leaving out lots of less used
-  variables.  Run `scons -h` to see the short help, `scons --help-all` to see
+  variables.  Run `scons -h -Q` to see the short help, `scons --help-all` to see
   all of it.
 
 - The optional `nc_server` dependency has been removed.  The two classes which
