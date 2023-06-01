@@ -138,7 +138,8 @@ build:
 scons_install:
 	cd src; $(SCONS) -j 4 BUILDS=$(BUILDS) \
 		REPO_TAG=$(REPO_TAG) \
-		PREFIX=$(DESTDIR)$(PREFIX) \
+		INSTALL_ROOT=$(DESTDIR) \
+		PREFIX=$(PREFIX) \
 		ARCHLIBDIR=$(ARCHLIBDIR) \
 		LINUX_MODULES=$(LINUX_MODULES) \
 		PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) install install.root
