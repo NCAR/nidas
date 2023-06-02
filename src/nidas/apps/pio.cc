@@ -168,15 +168,7 @@ int parseRunString(int argc, char* argv[])
                 return toomany(Operation);
             }
         }
-        if(arg=="wifi_test")
-        {
-            Operation=arg;
-             if(pargs.size()>1){
-                return toomany(Operation);
-            }
-            Device="wifi";
-            continue;
-        }
+        
         if (Device.empty())
         {
             Device = arg;
@@ -377,32 +369,6 @@ int main(int argc, char* argv[]) {
     int fd = -1;
 
     auto ioutput = device.iOutput();
-    if(Operation == "wifi_test")
-    {   if(!ioutput){
-        std::cerr<<"unable to open"<<endl;
-        return 3;
-    }
-        auto ibutton = device.iButton();
-        bool buttonDown=false;
-        while(!buttonDown){
-            sleep(3);
-            //cout<<"test"<<endl;
-            buttonDown=ibutton->isDown();
-        }
-        auto buttonState=device.iOutput()->getState();
-       //cout<<"test"<<endl;
-       if(buttonState.toString()=="off")
-       {
-            ioutput->on();
-            //system("sudo rfkill wifi unblock");
-       }
-       else
-       {
-            ioutput->off();
-            //system("sudo rfkill wifi block");
-       }
-        //cout<<buttonState<<endl;
-    }
     if (Operation == "switch")
     {
         auto ibutton = device.iButton();

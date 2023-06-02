@@ -81,6 +81,7 @@ else:
 programs = Split("""
 arl-ingest
 arinc_out
+button_action
 ck_aout
 ck_calfile
 ck_xml
