@@ -112,10 +112,6 @@ xml_dump
 isff/datasets
 """)
 
-# For all these targets, wherever PREFIX is used, it should use
-# ARCHPREFIX instead.
-env['PREFIX'] = env.subst('$ARCHPREFIX')
-
 env.Tool('nidasconfig')
 conf = env.NidasConfigure()
 # tee_tty requires timepps.

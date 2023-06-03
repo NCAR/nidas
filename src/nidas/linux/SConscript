@@ -41,7 +41,7 @@ subdirs = env.Split("""
 # Create a Revision header specifically for the kernel modules to include.
 # Like for nidas/Revision.h, this is not built into the variant dir.
 info = env.GitInfo("#/nidas/linux/Revision.h", "#/nidas/linux")
-env.Alias('install', env.Install('$ARCHPREFIX/include/nidas/linux', info))
+env.Alias('install', env.Install('$PREFIX/include/nidas/linux', info))
 
 
 symvers = {
@@ -158,11 +158,11 @@ env['KCFLAGS'] = kflags
 
 # module installation path must be unique for each machine type.  For native
 # builds, modpath is simply $PREFIX/modules.
-modpath = '$ARCHPREFIX/modules'
+modpath = '$PREFIX/modules'
 mach = env.get('MACH')
 modpath += '' if not mach or mach == 'host' else ('/' + mach)
 env['LINUX_MODULES_INST_PATH'] = modpath
-env['LINUX_MODULES_INC'] = '$ARCHPREFIX/include/nidas/linux'
+env['LINUX_MODULES_INC'] = '$PREFIX/include/nidas/linux'
 
 env.Require(['kmake', nidas_kernel_modules])
 

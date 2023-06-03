@@ -13,14 +13,14 @@ env: Environment
 env.AppendUnique(LINKFLAGS=['-rdynamic'])
 
 installs = []
-installs += env.Install('$ARCHPREFIX/include/nidas','include/nidas/Config.h')
+installs += env.Install('$PREFIX/include/nidas', 'include/nidas/Config.h')
 
 # Build Revision.h from git describe.  This does not depend on the target,
 # only the source repo, so it is not installed in the variant dir but in the
 # source tree, where it can be included easily in source archives.
 env.Tool('gitinfo')
 info = env.GitInfo("#/nidas/Revision.h", "#/nidas")
-installs += env.Install('$ARCHPREFIX/include/nidas', info)
+installs += env.Install('$PREFIX/include/nidas', info)
 
 env.PrependUnique(CPPPATH=['$VARIANT_DIR/include'])
 
@@ -31,8 +31,8 @@ for dir in subdirs:
 
 env.Alias('lib', subdirs[0:3])
 
-installs += ['${INSTALL_ROOT}$ARCHPREFIX/include',
-             '${INSTALL_ROOT}$ARCHPREFIX/$ARCHLIBDIR']
+installs += ['${INSTALL_ROOT}$PREFIX/include',
+             '${INSTALL_ROOT}$PREFIX/$ARCHLIBDIR']
 
 env.Alias('install', installs)
 
@@ -57,9 +57,8 @@ env.Alias('install.root', etcldc)
 env['SUBST_DICT'] = {
     '@PREFIX@': '$PREFIX',
     '@ARCHLIBDIR@': '$ARCHLIBDIR',
-    '@ARCHPREFIX@': '$ARCHPREFIX',
     '@REPO_TAG@': '$REPO_TAG'
 }
 pc = env.Substfile('nidas.pc.in')
-env.Alias('install', env.Install('$ARCHPREFIX/$ARCHLIBDIR/pkgconfig', pc))
+env.Alias('install', env.Install('$PREFIX/$ARCHLIBDIR/pkgconfig', pc))
 env.Alias('install.root', env.Install('${PKGCONFIGDIR}', pc))

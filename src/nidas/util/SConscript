@@ -114,8 +114,8 @@ env.Default([lib, slib])
 ## Install targets for libraries and headers.
 ##
 nodes = []
-nodes += env.SharedLibrary3Install('$ARCHPREFIX', lib)
-nodes += env.Install('$ARCHPREFIX/$ARCHLIBDIR', slib)
-nodes += env.Install('$ARCHPREFIX/include/nidas/util', headers)
+nodes += env.SharedLibrary3Install('$PREFIX', lib)
+nodes += env.Install('$PREFIX/$ARCHLIBDIR', slib)
+nodes += env.Install('$PREFIX/include/nidas/util', headers)
 
 env.Alias('install', nodes)

@@ -169,19 +169,6 @@ env.PrintProgress(f"Setting up for {ARCH} build, {MACH} target machine...")
 if 'PKG_CONFIG_PATH' in env:
     env.PrependENVPath('PKG_CONFIG_PATH', env['PKG_CONFIG_PATH'])
 
-# NIDAS uses PREFIX as the root install prefix, but since it's a
-# Variable that SCons sets, that means it should only have one value
-# for the entire build rather than be modified for each variant build.
-# So the arch-specific prefix is stored in the ARCHPREFIX variable,
-# and it defaults to just PREFIX.  This way there can be an
-# arch-specific install location which gets built up from the main
-# PREFIX.
-#
-# Targets which should be installed in arch-specific locations should
-# use ARCHPREFIX, while targets which are not arch-specific can go
-# under PREFIX.  For native host builds, they will be the same.
-env['ARCHPREFIX'] = '$PREFIX'
-
 # env['CXX'] = 'clang++'
 env['CFLAGS'] = ['-Wall','-O2']
 env['CXXFLAGS'] = ['-Wall', '-O2']

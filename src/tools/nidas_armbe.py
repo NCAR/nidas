@@ -9,7 +9,6 @@ from SCons.Script import Environment
 def generate(env: Environment):
     env.Require(['armbecross'])
     env['ARCHLIBDIR'] = 'lib'
-    env['ARCHPREFIX'] = '$PREFIX/armbe'
 
     #############################################################################
     # These comments apply to the arm-linux-ld and armbe-linux-ld that we are using,

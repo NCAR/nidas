@@ -146,12 +146,12 @@ env.Default([lib])
 # Export the locally built library 
 Export({'LIBNIDAS_DYNLD' + arch: lib[0]})
 
-##
-## Install targets for library and headers.
-##
+#
+# Install targets for library and headers.
+#
 nodes = []
-nodes += env.SharedLibrary3Install('$ARCHPREFIX',lib)
-nodes += env.Install('$ARCHPREFIX/include/nidas/dynld',headers + archheaders)
+nodes += env.SharedLibrary3Install('$PREFIX', lib)
+nodes += env.Install('$PREFIX/include/nidas/dynld', headers + archheaders)
 
 Alias('install', nodes)
 
