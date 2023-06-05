@@ -1,6 +1,6 @@
 {
     "wifi":{
-        "on": "rfkill unblock wifi",
+        "on": "rfkill unblock wifi; systemctl restart hostapd",
         "off": "rfkill block wifi"
     },
     "p1": {

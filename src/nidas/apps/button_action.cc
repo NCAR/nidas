@@ -62,7 +62,6 @@ int parseRunString(int argc, char* argv[])
       // Get positional args
     ArgVector pargs = app.unparsedArgs();
 
-
     for (auto& arg: pargs)
     {
         if(pargs.size()>2){
@@ -108,11 +107,7 @@ int runaction(std::string Device, bool isOn){
         com=devRoot["on"].asString();
 
     }
-    command=com.c_str();
-    system(command);
-
-
-
+    system(com.c_str());
     return 0;
 
 }
@@ -168,7 +163,6 @@ int main(int argc, char* argv[]) {
     bool buttonDown=false;
     while(!buttonDown){
         sleep(3);
-        //cout<<"test"<<endl;
         buttonDown=ibutton->isDown();
     }
 
