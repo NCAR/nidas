@@ -5,6 +5,6 @@
     },
     "p1": {
         "on": "echo 'p1 turn on'",
-        "off": "echo 'p2 turn off'"
+        "off": "echo 'p1 turn off'"
     }
 }

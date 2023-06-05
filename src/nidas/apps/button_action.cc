@@ -29,9 +29,10 @@ NidasApp app("button_action");
 // device to act on
 std::string Device;
 Json::Value root;
+std::string Path;
 
 void usage(){
-    cerr << R""""(Usage: button_action   [wifi|p1] 
+    cerr << R""""(Usage: button_action [wifi|p1] 
 
 Read input from button and perform associated actions.
     
@@ -64,7 +65,7 @@ int parseRunString(int argc, char* argv[])
 
     for (auto& arg: pargs)
     {
-        if(pargs.size()>1){
+        if(pargs.size()>2){
             return toomany(arg);
         }
         if(arg=="wifi")
@@ -81,6 +82,10 @@ int parseRunString(int argc, char* argv[])
             Device = arg;
             continue;
         }
+        else{
+            Path=arg;
+            continue;
+        }
   
         std::cerr << "operation unknown: " << arg << endl;
         return 1;
@@ -94,19 +99,18 @@ int runaction(std::string Device, bool isOn){
     Json::Value devRoot=root[Device];
     std::string com;
     const char* command;
+    if(isOn)
+    {
+        com= devRoot["off"].asString();
+        
+    }
+    else{
+        com=devRoot["on"].asString();
 
-        if(isOn)
-        {
-           com= devRoot["off"].asString();
-           
-        }
-        else{
-            com=devRoot["on"].asString();
+    }
+    command=com.c_str();
+    system(command);
 
-        }
-        command=com.c_str();
-         system(command);
-    
 
 
     return 0;
@@ -114,14 +118,21 @@ int runaction(std::string Device, bool isOn){
 }
 
 int readJson(){
-    std::ifstream jFile("/home/daq/Documents/workspace/nidas/src/nidas/apps/button_action.json",std::ifstream::in);
+    if(Path.empty()){
+        cerr<<"Please enter json file path."<<endl;
+        return 1;
+    }
+    std::ifstream jFile(Path,std::ifstream::in);
     if(!jFile.is_open()){
         cerr<< "Error opening file."<<endl;
         return 1;
     }
-    jFile>>root;
-    if(root=="null"){
-        cerr<<"Error parsing json file"<<endl;
+    try{
+        jFile>>root;
+    }
+    catch(...){
+        cerr<<"Could not parse json file."<<endl;
+        jFile.close();
         return 1;
     }
     jFile.close();
