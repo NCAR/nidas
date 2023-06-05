@@ -7,10 +7,13 @@
 #include <time.h>
 #include <unistd.h>
 #include <fcntl.h>
-
+#include <fstream>
+#include <stdlib.h>
 #include <nidas/core/NidasApp.h>
 #include <nidas/core/HardwareInterface.h>
 #include <nidas/util/Termios.h>
+
+#include <json/json.h>
 
 using namespace nidas::core;
 using namespace nidas::util;
@@ -25,12 +28,12 @@ NidasApp app("button_action");
 
 // device to act on
 std::string Device;
-
+Json::Value root;
 
 void usage(){
-    cerr << R""""(Usage: button_act [wifi|p1] 
+    cerr << R""""(Usage: button_action   [wifi|p1] 
 
-    Read input from button and perform associated actions.
+Read input from button and perform associated actions.
     
     {wifi|p1}:
 
@@ -87,14 +90,45 @@ int parseRunString(int argc, char* argv[])
 
 }
 //runs whatever action is associated with given button, such as turning wifi on/off
-int runaction(HardwareDevice device,bool isOn){ 
+int runaction(std::string Device, bool isOn){ 
+    Json::Value devRoot=root[Device];
+    std::string com;
+    const char* command;
 
+        if(isOn)
+        {
+           com= devRoot["off"].asString();
+           
+        }
+        else{
+            com=devRoot["on"].asString();
+
+        }
+        command=com.c_str();
+         system(command);
+    
 
 
     return 0;
 
 }
 
+int readJson(){
+    std::ifstream jFile("/home/daq/Documents/workspace/nidas/src/nidas/apps/button_action.json",std::ifstream::in);
+    if(!jFile.is_open()){
+        cerr<< "Error opening file."<<endl;
+        return 1;
+    }
+    jFile>>root;
+    if(root=="null"){
+        cerr<<"Error parsing json file"<<endl;
+        return 1;
+    }
+    jFile.close();
+    return 0;
+
+
+}
 
 int main(int argc, char* argv[]) {
 
@@ -115,6 +149,10 @@ int main(int argc, char* argv[]) {
         std::cerr<<"unable to open "<<Device<<endl;
         return 3;
     }
+    int j=readJson();
+    if(j!=0){
+        return 4;
+    }
     auto ibutton = device.iButton();
     bool buttonDown=false;
     while(!buttonDown){
@@ -126,12 +164,12 @@ int main(int argc, char* argv[]) {
     auto buttonState=device.iOutput()->getState();
     if(buttonState.toString()=="off")
         {
-            runaction(device,false);
+            runaction(Device,false);
             ioutput->on(); //turns LED on
             
        }
        else
-       {    runaction(device,true);
+       {    runaction(Device,true);
             ioutput->off(); //turns LED off
             
        }

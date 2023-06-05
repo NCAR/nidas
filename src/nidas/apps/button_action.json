@@ -1,0 +1,10 @@
+{
+    "wifi":{
+        "on": "rfkill unblock wifi",
+        "off": "rfkill block wifi"
+    },
+    "p1": {
+        "on": "echo 'p1 turn on'",
+        "off": "echo 'p2 turn off'"
+    }
+}
