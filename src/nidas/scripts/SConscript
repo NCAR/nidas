@@ -12,3 +12,7 @@ scripts = env.Split("cktty irqs setup_nidas.sh start_podman")
 # it at the moment to specialize them.
 
 env.Alias('install', env.Install("$PREFIX/bin", scripts))
+
+# Also install scripts into the variant bin, especially so that setup_nidas.sh
+# is available to put the variant build on the path.
+env.Default(env.Install("$VARIANT_DIR/bin", scripts))

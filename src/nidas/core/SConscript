@@ -245,7 +245,8 @@ else:
 ##
 ##  Build the libnidas library. Search other needed libraries.
 ##
-lib = env.SharedLibrary3('nidas' , [sources, aobj, sampleobj],
+lib = env.SharedLibrary3('$VARIANT_DIR/$ARCHLIBDIR/nidas',
+                         [sources, aobj, sampleobj],
                          LIBS=env.get('LIBS', []) + env.NidasUtilLibs() + ['dl'])
 env.Default([lib])
 

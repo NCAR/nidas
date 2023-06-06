@@ -139,7 +139,8 @@ env.Append (LIBNIDAS_DYNLD_SOURCES =
             [ env.File(f) for f in sources + archsources ])
 
 # build libnidas_dynld.so
-lib = env.SharedLibrary3('nidas_dynld' , env['LIBNIDAS_DYNLD_SOURCES'],
+lib = env.SharedLibrary3('$VARIANT_DIR/$ARCHLIBDIR/nidas_dynld' ,
+                         env['LIBNIDAS_DYNLD_SOURCES'],
                          LIBS=['nidas'] + env['LIBS'])
 env.Default([lib])
 
