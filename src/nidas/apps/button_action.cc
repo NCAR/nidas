@@ -97,7 +97,6 @@ int parseRunString(int argc, char* argv[])
 int runaction(std::string Device, bool isOn){ 
     Json::Value devRoot=root[Device];
     std::string com;
-    const char* command;
     if(isOn)
     {
         com= devRoot["off"].asString();
@@ -136,49 +135,58 @@ int readJson(){
 
 }
 
+
+
 int main(int argc, char* argv[]) {
 
-     if (parseRunString(argc, argv))
+    if (parseRunString(argc, argv))
      {
         exit(1);
      }
-    auto hwi= HardwareInterface::getHardwareInterface();
-    HardwareDevice device=hwi->lookupDevice(Device);
-    if (device.isEmpty())
-    {
-        std::cerr << "unrecognized device: " << Device << endl;
-        return 2;
-    }
-    auto ioutput = device.iOutput();
-    if(!ioutput)
-    {
-        std::cerr<<"unable to open "<<Device<<endl;
-        return 3;
-    }
+    bool run=true;
     int j=readJson();
-    if(j!=0){
-        return 4;
-    }
-    auto ibutton = device.iButton();
-    bool buttonDown=false;
-    while(!buttonDown){
-        sleep(3);
-        buttonDown=ibutton->isDown();
-    }
+        if(j!=0)
+        {
+            return 3;
+        }    
+    while(run){
+            auto hwi= HardwareInterface::getHardwareInterface();
+        HardwareDevice device=hwi->lookupDevice(Device);
+        if (device.isEmpty())
+        {
+            std::cerr << "unrecognized device: " << Device << endl;
+            return 2;
+        }
+        auto ioutput = device.iOutput();
+        if(!ioutput)
+        {
+            std::cerr<<"unable to open "<<Device<<endl;
+            return 3;
+        }
 
-    auto buttonState=device.iOutput()->getState();
-    if(buttonState.toString()=="off")
+        bool buttonDown=false;
+        while(!buttonDown){
+            sleep(1);
+            auto ibutton = device.iButton();
+            buttonDown=ibutton->isDown();
+            //cout<<buttonDown<<endl;
+        }
+        buttonDown=false;
+        auto ledState=device.iOutput()->getState();
+        if(ledState.toString()=="off")
         {
             runaction(Device,false);
             ioutput->on(); //turns LED on
-            
-       }
-       else
-       {    runaction(Device,true);
+        }
+        else
+        {    
+            runaction(Device,true);
             ioutput->off(); //turns LED off
-            
-       }
-
+                
+        }
+            device.reset();
+            sleep(5);
+        }
     return 0;
 }
 
