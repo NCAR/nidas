@@ -5,7 +5,7 @@ to set the defaults for each, and then a single KERNELDIR variable which
 specifies the actual path to use for the builders.
 """
 
-from SCons.Script import Variables, Environment, Export
+from SCons.Script import Variables, Environment
 
 import os
 import re

@@ -12,7 +12,10 @@ is available through  platform.freedesktop_os_release(), but since Python
 import platform
 from pathlib import Path
 import re
+import os
+import subprocess as sp
 
+from SCons.Script import Environment
 
 _os = None
 
@@ -49,8 +52,39 @@ def get_os():
     return _os or None
 
 
+def dpkg_arch(name):
+    try:
+        return sp.check_output(["dpkg-architecture", "-q", name],
+                               universal_newlines=True).strip()
+    except sp.CalledProcessError:
+        return None
+
+
+def get_debian_multiarch(_env=None):
+    "If on Debian and a multiarch setting can be found, return it."
+    osid = get_os()
+    debian = (osid.startswith('debian') or osid.startswith('raspbian') or
+              osid.startswith('ubuntu'))
+    multiarch = None
+    if debian:
+        # On Debian systems, need to figure out the right suffix to the nidas conf
+        # file for ld.so.conf.d.  DEB_HOST_MULTIARCH takes precedence over
+        # DEB_HOST_GNU_TYPE, and an environment setting takes precedence over
+        # querying dpkg-architecture.
+        multiarch = os.environ.get('DEB_HOST_MULTIARCH')
+        multiarch = multiarch or os.environ.get('DEB_HOST_GNU_TYPE')
+        multiarch = multiarch or dpkg_arch("DEB_HOST_MULTIARCH")
+        multiarch = multiarch or dpkg_arch("DEB_HOST_GNU_TYPE")
+    return multiarch
+
+
 def get_arch():
-    return platform.machine()
+    arch = get_debian_multiarch()
+    if arch:
+        arch = arch.split('-')[0]
+    else:
+        arch = platform.machine()
+    return arch
 
 
 def get_variant_dir(env):
@@ -72,12 +106,13 @@ def get_variant_dir(env):
     return vdir
 
 
-def generate(env):
+def generate(env: Environment):
     env['VARIANT_DIR'] = '#/' + get_variant_dir(env)
     # stash the variant identifiers for use elsewhere, qualified by the name
     # of this tool.
     env['VARIANT_OS'] = get_os()
     env['VARIANT_ARCH'] = get_arch()
+    env.AddMethod(get_debian_multiarch, "GetDebianMultiarch")
 
 
 def exists(env):
