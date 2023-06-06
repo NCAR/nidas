@@ -2,6 +2,7 @@
 ## 2006, Copyright University Corporation for Atmospheric Research
 
 import os
+import subprocess as sp
 from SCons.Script import Environment, Import, SConscript, Export
 
 Import('env')
@@ -36,15 +37,32 @@ installs += ['${INSTALL_ROOT}$PREFIX/include',
 
 env.Alias('install', installs)
 
+def dpkg_arch(name):
+    try:
+        return sp.check_output(["dpkg-architecture", "-q", name],
+                               universal_newlines=True).strip()
+    except sp.CalledProcessError:
+        return None
+
 # this needs to be moved into a tool at some point
 ldconfname = 'nidas.conf'
 osid = env.get('VARIANT_OS', '')
-multiarch = os.environ.get('DEB_HOST_MULTIARCH')
-multiarch = multiarch or os.environ.get('DEB_HOST_GNU_TYPE')
-debian = osid.startswith('debian') or osid.startswith('raspbian')
-print(f'debian={debian}, multiarch={multiarch}')
+debian = (osid.startswith('debian') or osid.startswith('raspbian') or
+          osid.startswith('ubuntu'))
+multiarch = None
+if debian:
+    # On Debian systems, need to figure out the right suffix to the nidas conf
+    # file for ld.so.conf.d.  DEB_HOST_MULTIARCH takes precedence over
+    # DEB_HOST_GNU_TYPE, and an environment setting takes precedence over
+    # querying dpkg-architecture.
+    multiarch = os.environ.get('DEB_HOST_MULTIARCH')
+    multiarch = multiarch or os.environ.get('DEB_HOST_GNU_TYPE')
+    multiarch = multiarch or dpkg_arch("DEB_HOST_MULTIARCH")
+    multiarch = multiarch or dpkg_arch("DEB_HOST_GNU_TYPE")
 if debian and multiarch:
     ldconfname = 'nidas-%s.conf' % (multiarch)
+    env.PrintProgress(f'debian={debian}, multiarch={multiarch}: '
+                      f"nidas ld.so conf file: {ldconfname}")
 
 ldc = env.Substfile(ldconfname, 'nidas.conf.in')
 etcldc = env.Install('${SYSCONFIGDIR}/ld.so.conf.d', ldc)

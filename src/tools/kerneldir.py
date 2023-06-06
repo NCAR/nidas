@@ -7,9 +7,38 @@ specifies the actual path to use for the builders.
 
 from SCons.Script import Variables, Environment, Export
 
+import os
+import re
 
 _variables: Variables
 _variables = None
+
+
+# This somewhat replaces functionality originally in the Debian Makefile to
+# set the kernal name, aka KERNELRELEASE, so kernel modules can be installed
+# directly to the right directory by linux/SConscript.
+#
+# However, rather than test the dpkg architecture settings or search for a
+# kernel source or header directory, this tool can derive the release name
+# from the kernel directory that has already been set by a command-line option
+# or by the kmake tool.  This way the kernel name should exactly coincide with
+# the kernel build tree.
+
+def set_kernel_release(env: Environment, kname=None):
+    kdir = env.get('KERNELDIR')
+    if kdir:
+        # Make sure to evaluate it, in case kdir is set to $KERNELFOUND
+        kdir = env.subst(kdir)
+    if kdir and kname is None:
+        # Take just the last directory in the path, and remove the common
+        # prefixes.
+        kname = os.path.basename(kdir)
+        # Remove any leading linux-headers
+        kname = re.sub(r"linux-headers-", "", kname)
+        kname = re.sub(r"linux-source-", "", kname)
+    if kname is not None:
+        env['KERNELRELEASE'] = kname
+        env.PrintProgress("KERNELRELEASE set: %s" % (kname))
 
 
 def setup_variables(env: Environment):
@@ -62,12 +91,14 @@ def lookup_kerneldir(env: Environment):
     kdir = env.get(kkey)
     if not kdir:
         kdir = env.get('KERNELDIR')
+    env.PrintProgress("KERNELDIR set: %s" % (kdir))
     return kdir
 
 
 def generate(env: Environment):
     setup_variables(env)
     env['KERNELDIR'] = lookup_kerneldir(env)
+    env.AddMethod(set_kernel_release, "SetKernelRelease")
 
 
 def exists(env):

@@ -1,16 +1,12 @@
 #
 # Makefile for nidas Debian packages
 # The primary task is to invoke scons to do the build and
-# install to the $DESTDIR. Install targets in the Makefile
-# move things around in $DESTDIR when paths are dependent on
-# Debian variable that is known to this Makefile, but isn't
-# (yet) passed to scons
+# install to the $DESTDIR.
 # 
-# Here's a table of install directories of RPMs and Debian
-# packages for various architectures. "scons install" puts
-# things in a nidas directory tree, and then, if necessary
-# nidas.spec and this Makefile move them to a place approprite
-# for the package.
+# Here's a table of install directories of RPMs and Debian packages for
+# various architectures. "scons install" puts things in a nidas directory
+# tree, and "scons install.root" install files into system directories, under
+# DESTDIR.
 #
 # $PREFIX is /typically defined to be /opt/nidas.
 #
@@ -84,34 +80,14 @@
 #		e.g.:   2.6.21.7-ael2-1-vulcan
 
 SCONS = scons
-BUILDS ?= "host"
+BUILD ?= "host"
 REPO_TAG ?= v1.2
 PREFIX=/opt/nidas
 
 ARCHLIBDIR := lib/$(DEB_HOST_MULTIARCH)
 
-MODDIR := $(DESTDIR)/lib/modules
-
-SCONSMODDIR := $(DESTDIR)$(PREFIX)/modules
-
-LINUX_MODULES := on
-
-ifeq ($(DEB_HOST_GNU_TYPE),x86_64-linux-gnu)
-    TITAN_KERN :=
-    VIPER_KERN :=
-    X86_64_KERN := $(shell uname -r)
-else ifeq ($(DEB_HOST_GNU_TYPE),arm-linux-gnueabi)
-    TITAN_KERN := $(shell find /usr/src -maxdepth 1 -name "linux-headers-*titan*" -type d | sed "s/.*linux-headers-//")
-    VIPER_KERN := $(shell find /usr/src -maxdepth 1 -name "linux-headers-*viper*" -type d | sed "s/.*linux-headers-//")
-else ifeq ($(DEB_HOST_GNU_TYPE),arm-linux-gnueabihf)
-    RPI2_KERN := $(shell find /usr/src -maxdepth 1 -name "linux-headers-*" -type d | tail -n 1 | sed "s/.*linux-headers-//")
-    ifeq ($(RPI2_KERN),)
-       # We don't really need linux modules on Pi, so do not try to build them if headers not installed.
-        LINUX_MODULES := off
-    endif
-else ifeq ($(DEB_HOST_GNU_TYPE),i686-linux-gnu)
-    VORTEX_KERN := 4.15.18-vortex86dx3
-endif
+# Build modules according to the default for the current target.
+LINUX_MODULES := yes
 
 # Where to find pkg-configs of other software
 PKG_CONFIG_PATH := /usr/lib/$(DEB_HOST_MULTIARCH)/pkgconfig:/usr/lib/pkgconfig:/usr/share/pkgconfig
@@ -128,15 +104,15 @@ $(info DEB_GCJFLAGS_MAINT_SET= $(DEB_GCJFLAGS_MAINT_SET))
 $(info GCJFLAGS= $(GCJFLAGS))
 
 build:
-	cd src; $(SCONS) $(GCJFLAGS) -j 4 BUILDS=$(BUILDS) \
+	$(SCONS) -C src $(GCJFLAGS) -j 4 BUILD=$(BUILD) \
 		REPO_TAG=$(REPO_TAG) \
 		PREFIX=$(PREFIX) \
 		ARCHLIBDIR=$(ARCHLIBDIR) \
 		LINUX_MODULES=$(LINUX_MODULES) \
 		PKG_CONFIG_PATH=$(PKG_CONFIG_PATH)
 
-scons_install:
-	cd src; $(SCONS) -j 4 BUILDS=$(BUILDS) \
+install:
+	$(SCONS) -C src -j 4 BUILD=$(BUILD) \
 		REPO_TAG=$(REPO_TAG) \
 		INSTALL_ROOT=$(DESTDIR) \
 		PREFIX=$(PREFIX) \
@@ -144,28 +120,5 @@ scons_install:
 		LINUX_MODULES=$(LINUX_MODULES) \
 		PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) install install.root
 
-install: scons_install
-	if [ -n "$(TITAN_KERN)" ]; then\
-	    mkdir -p $(MODDIR)/$(TITAN_KERN)/nidas;\
-	    mv $(SCONSMODDIR)/titan/* $(MODDIR)/$(TITAN_KERN)/nidas;\
-	fi
-	if [ -n "$(VIPER_KERN)" ]; then\
-	    mkdir -p $(MODDIR)/$(VIPER_KERN)/nidas;\
-	    mv $(SCONSMODDIR)/viper/* $(MODDIR)/$(VIPER_KERN)/nidas;\
-	fi
-	if [ -n "$(RPI2_KERN)" ]; then\
-	    mkdir -p $(MODDIR)/$(RPI2_KERN)/nidas;\
-	    mv $(SCONSMODDIR)/rpi2/* $(MODDIR)/$(RPI2_KERN)/nidas;\
-	fi
-	if [ -n "$(X86_64_KERN)" ]; then\
-	    mkdir -p $(MODDIR)/$(X86_64_KERN)/nidas;\
-	    mv $(SCONSMODDIR)/* $(MODDIR)/$(X86_64_KERN)/nidas;\
-	fi
-	if [ -n "$(VORTEX_KERN)" ]; then\
-	    mkdir -p $(MODDIR)/$(VORTEX_KERN)/nidas;\
-	    mv $(SCONSMODDIR)/* $(MODDIR)/$(VORTEX_KERN)/nidas;\
-	fi
-
 clean:
-	cd src; $(SCONS) -c BUILDS="$(BUILDS)"
-
+	$(SCONS) -C src -c BUILDS="$(BUILDS)"

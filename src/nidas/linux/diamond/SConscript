@@ -25,6 +25,7 @@ env.NidasKernelModule(
 
 env.InstallModuleConf('diamond.conf')
 env.InstallEtcDefaults('emerald', 'emerald.defaults')
+env.InstallModuleInit('emerald', 'emerald.init')
 
 install = env.Install("$PREFIX/bin", ['irout', 'vout'])
 env.Alias('install', install)

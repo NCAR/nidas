@@ -13,7 +13,6 @@ firmwares = env.Split("""
     mesa_fpga_file.bit
 """)
 
-# Only install the firmware when linux modules are enabled.  LINUX_MODULES
-# is enabled by default.
-if env.get("LINUX_MODULES", True):
+# Only install the firmware when linux modules are enabled.
+if env.LinuxModulesEnabled():
     env.Alias('install', env.Install('$PREFIX/firmware', firmwares))

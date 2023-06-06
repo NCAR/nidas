@@ -4,7 +4,7 @@
 import textwrap
 import SCons
 from SCons.Script import SConsignFile, Variables
-from SCons.Script import Environment, SConscript, BoolVariable
+from SCons.Script import Environment, SConscript, BoolVariable, EnumVariable
 from SCons.Script import COMMAND_LINE_TARGETS, ARGUMENTS, AddOption
 import eol_scons
 
@@ -72,8 +72,6 @@ opts.Add(BoolVariable('GDBDEBUG', 'Enable -ggdb flag.', 'off'))
 opts.Add(BoolVariable('ENABLE_VALGRIND',
                       'Enable valgrind run-time hints.',
                       'off'))
-opts.Add(BoolVariable('LINUX_MODULES', 
-                      'Build linux modules when possible.', 'on'))
 opts.Add('REPO_TAG',
 """
  git tag of the source, in the form "vX.Y", when building outside of a git
@@ -153,6 +151,31 @@ build = check_target(env)
 # as soon as we know the target, apply the tool to set the variant build dir
 # in the VARIANT_DIR environment variable.
 env.Tool('variant_dir')
+
+# The target determines the default for linux modules.
+lmd = 'yes' if env['ARCH'] not in ['armhf'] else 'no'
+env['LINUX_MODULES_DEFAULT'] = lmd
+
+opts.Add(EnumVariable('LINUX_MODULES',
+                      'Build linux modules: when the default '
+                      'for the current target (yes), '
+                      'always for any target (force), '
+                      'or do not even try (no).', lmd,
+                      allowed_values=['yes', 'no', 'force']))
+
+def linux_modules_enabled(env: Environment):
+    "Return True when builders for linux modules should be enabled."
+    lm = env.get('LINUX_MODULES', 'yes')
+    lmd = env.get('LINUX_MODULES_DEFAULT', 'yes')
+    return lm == 'force' or (lm == 'yes' and lmd == lm)
+
+env.AddMethod(linux_modules_enabled, "LinuxModulesEnabled")
+
+opts.Update(env)
+lmenabled = 'enabled' if env.LinuxModulesEnabled() else 'disabled'
+env.PrintProgress(f"Target {build} defaults to modules {lmd}, "
+                  f"LINUX_MODULES={env['LINUX_MODULES']}, so "
+                  f"linux module builds are {lmenabled}.")
 
 # it might be ok to use the same database for different variant builds, since
 # all the paths are different, and presumably that way the source signatures

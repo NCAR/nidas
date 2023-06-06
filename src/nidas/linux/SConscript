@@ -2,6 +2,7 @@
 ## 2006, Copyright University Corporation for Atmospheric Research
 
 import os
+import SCons
 from SCons.Script import Environment, Import
 
 env: Environment
@@ -82,11 +83,13 @@ def NidasKernelModule(env, modules, sources, headers=None):
     thisdir = env.Dir('.').srcnode().abspath
     env.LogDebug("NidasKernelModule setup in %s..." % (thisdir))
     subdir = os.path.basename(thisdir)
-    installs = []
 
-    # If LINUX_MODULES is undefined or True, then the user wants to build
-    # the linux modules.
-    if env.get("LINUX_MODULES", True) and env.get("KERNELDIR"):
+    # If Linux modules are enabled, then try to build them, which means
+    # failing if KERNELDIR is not set.
+    if env.LinuxModulesEnabled():
+        if not env.get("KERNELDIR"):
+            msg = "Linux modules enabled but KERNELDIR not set."
+            raise SCons.Errors.StopError(msg)
 
         if 'Makefile' not in sources:
             sources += ['Makefile']
@@ -109,13 +112,19 @@ def NidasKernelModule(env, modules, sources, headers=None):
 
         if exists:
             targets = env.Kmake(modules, sources + (headers or []))
-            installs += env.Install('$LINUX_MODULES_INST_PATH', modules)
+            installs = env.Install('$LINUX_MODULES_INST_PATH', modules)
+            env.Alias('install.root', installs)
+            # This should be unnecessary now that modules can be installed
+            # directly into the system modules path, but package specs still
+            # refer to them and maybe they are useful to have in the tree for
+            # other reasons.  I think rpms in particular expect the modules in
+            # this directory and not in the system path.
+            env.Alias('install', env.Install('$PREFIX/modules', modules))
 
     # Not sure if headers are meant to be installed even when the module
     # is not being built...
     if headers:
-        installs += env.Install('$LINUX_MODULES_INC/' + subdir, headers)
-    if installs:
+        installs = env.Install('$LINUX_MODULES_INC/' + subdir, headers)
         env.Alias('install', installs)
 
     return targets
@@ -123,16 +132,23 @@ def NidasKernelModule(env, modules, sources, headers=None):
 
 def InstallModuleConf(env: Environment, modconf):
     "Pseudo-builder to install modprobe.d conf files."
-    if env.get("LINUX_MODULES", True):
+    if env.LinuxModulesEnabled():
         conf = env.Install('$SYSCONFIGDIR/modprobe.d', modconf)
         env.Alias('install.root', conf)
 
 
 def InstallEtcDefaults(env: Environment, target, source):
     "Pseudo-builder to install /etc/default files for modules."
-    if env.get("LINUX_MODULES", True):
+    if env.LinuxModulesEnabled():
         conf = env.InstallAs('$SYSCONFIGDIR/default/'+target, source)
         env.Alias('install.root', conf)
+
+
+def InstallModuleInit(env: Environment, target, source):
+    "Pseudo-builder to install init scripts."
+    if env.LinuxModulesEnabled():
+        init = env.InstallAs('$SYSCONFIGDIR/init.d/'+target, source)
+        env.Alias('install.root', init)
 
 
 def nidas_kernel_modules(env: Environment):
@@ -141,14 +157,24 @@ def nidas_kernel_modules(env: Environment):
     env.AddMethod(NidasKernelModule)
     env.AddMethod(InstallModuleConf)
     env.AddMethod(InstallEtcDefaults)
-
+    env.AddMethod(InstallModuleInit)
 
 #
 # Invoke SConscripts in subdirs to create linux modules.
 #
 
-# Set KERNELDIR according to ARCH and MACH.
-env.Tool('kerneldir')
+# First apply the kerneldir tool to set KERNELDIR from the SCons variable
+# based on ARCH and MACH.  That allows a different default KERNELDIR to be
+# chosed for different targets, but the default can be overridden for each
+# target by setting the target-specific variable.  The kmake tool then
+# examines the build system to determine a default kernel directory abd
+# assigns that to KERNELDIR_FOUND.  In the end, if KERNELDIR evaluates to
+# non-empty, then it should be a path to the kernel source.  After both
+# kerneldir and kmake are applied, then KERNELRELEASE is derived by the
+# kerneldir tool.
+
+env.Require(['kerneldir', 'kmake', nidas_kernel_modules])
+env.SetKernelRelease()
 
 # kernel module builds need absolute include paths because they are run in
 # a different working directory
@@ -156,15 +182,10 @@ incpaths = set([env.Dir(p).abspath for p in env['CPPPATH']])
 kflags = ' '.join(['-I%s' % (p) for p in incpaths])
 env['KCFLAGS'] = kflags
 
-# module installation path must be unique for each machine type.  For native
-# builds, modpath is simply $PREFIX/modules.
-modpath = '$PREFIX/modules'
-mach = env.get('MACH')
-modpath += '' if not mach or mach == 'host' else ('/' + mach)
-env['LINUX_MODULES_INST_PATH'] = modpath
+# kernel modules install into a kernel-specific path.
+env['LINUX_MODULES_INST_PATH'] = '/lib/modules/$KERNELRELEASE/nidas'
 env['LINUX_MODULES_INC'] = '$PREFIX/include/nidas/linux'
 
-env.Require(['kmake', nidas_kernel_modules])
 
 # The environment does not need to be cloned for each module, since the
 # construction variables are all the same for each module.  They also do not

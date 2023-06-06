@@ -19,3 +19,4 @@ env.NidasKernelModule(
 
 env.InstallModuleConf('pcmcom8.conf')
 env.InstallEtcDefaults('pcmcom8', 'pcmcom8.defaults')
+env.InstallModuleInit('pcmcom8', 'pcmcom8.init')

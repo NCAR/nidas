@@ -1,6 +1,8 @@
-# See the value of XXX_KERN (e.g. VORTEX_KERN or TITAN_KERN)
-# in ../Makefile.  The Makefile install target copies the
-# modules to to $(MODDIR)/$(XXX_KERN)/nidas, which should match
-# this path:
+# SCons build should install kernel modules into this path, assuming the
+# kernel header package for this kernel release is installed in /usr/src.
 lib/modules/4.15.18-vortex86dx3/nidas/*.ko
 opt/nidas/firmware/*
+etc/default/pcmcom8
+etc/default/emerald
+etc/init.d/pcmcom8
+etc/init.d/emerald
