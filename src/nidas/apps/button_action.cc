@@ -150,7 +150,7 @@ int main(int argc, char* argv[]) {
             return 3;
         }    
     while(run){
-            auto hwi= HardwareInterface::getHardwareInterface();
+        auto hwi= HardwareInterface::getHardwareInterface();
         HardwareDevice device=hwi->lookupDevice(Device);
         if (device.isEmpty())
         {
