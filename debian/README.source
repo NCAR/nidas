@@ -1,10 +1,4 @@
-nidas for Debian
+NIDAS for Debian
 ----------------
 
-<this file describes information about the source package, see Debian policy
-manual section 4.14. You WILL either need to modify or delete this file>
-
-
-
- -- Gordon Maclean <maclean@debian-build.eol.ucar.edu>  Wed, 27 Jan 2016 16:40:59 -0700
-
+See https://github.com/ncareol/nidas.
