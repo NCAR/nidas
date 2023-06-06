@@ -16,16 +16,17 @@
 # buster armhf Raspberry Pi 3B (cross)
 # ubuntu amd64
 # alma linux 9 (native)
+# bionic i386 (debian i386 native) vortex86dx3
 #
 # Here is the naming convention for NIDAS build container images:
 #
 # nidas-build-<dist>-<arch>:<release>[_v?]
 #
-# Where <dist> is {centos,fedora,debian} and <arch> is
-# {x86_64,amd64,armel,armbe,armhf}, and not all combinations are relevant.
-# So here are the build container images we need for the target list above.
-# The first column is an alias for that target, associated with the
-# particular platform that target would run on.
+# Where <dist> is {centos,fedora,debian,ubuntu} and <arch> is
+# {x86_64,amd64,armel,armbe,armhf,i386}, and not all combinations are
+# relevant.  So here are the build container images we need for the target
+# list above.  The first column is an alias for that target, associated with
+# the particular platform that target would run on.
 #
 # fedora31 nidas-build-fedora-x86_64:fedora31
 # centos7  nidas-build-centos-x86_64:centos7   Dockerfile.centos7
@@ -36,6 +37,8 @@
 # pi2      nidas-build-debian-armhf:jessie     Dockerfile.cross_arm hostarch=armhf
 # pi3      nidas-build-debian-armhf:buster     Dockerfile.buster_cross_arm hostarch=armhf (on the buster branch)
 # ubuntu   nidas-build-ubuntu-amd64:latest     Dockerfile.ubuntu_amd64
+# vortex   nidas-build-ubuntu-i386:bionic      Dockerfile.ubuntu_i386_bionic
+#
 #
 # I think Titan is equivalent to Viper, except for the
 # nidas-modules-titan and nidas-modules-viper packages, since the
@@ -132,7 +135,7 @@ is named, then the current repo is used.
 EOF
 }
 
-targets=(centos7 centos8 vulcan titan pi2 pi3 ubuntu)
+targets=(centos7 centos8 vulcan titan pi2 pi3 ubuntu vortex)
 
 # Return the arch for passing to build_dpkg
 get_arch() # alias
@@ -150,6 +153,8 @@ get_arch() # alias
         vulcan)
             echo armbe
             ;;
+        vortex)
+            echo i386
     esac
 }
 
@@ -168,6 +173,9 @@ get_build() # alias
             ;;
         vulcan)
             echo armbe
+            ;;
+        vortex)
+            echo host
             ;;
     esac
 }
@@ -198,6 +206,9 @@ get_image_tag() # alias
             ;;
         ubuntu)
             echo nidas-build-ubuntu-amd64:latest
+            ;;
+        vortex)
+            echo nidas-build-ubuntu-i386:bionic
             ;;
     esac
 }
@@ -231,6 +242,9 @@ build_image()
             ;;
         ubuntu)
             podman build -t $tag -f docker/Dockerfile.ubuntu_amd64
+            ;;
+        vortex)
+            podman build -t $tag -f docker/Dockerfile.ubuntu_i386_bionic
             ;;
     esac
 }
