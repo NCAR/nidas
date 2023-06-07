@@ -183,6 +183,8 @@ int main(int argc, char* argv[]) {
         exit(1);
      }
     bool run=true;
+    app.setupDaemon();
+    app.setupProcess();
     int j=readJson();
         if(j!=0)
         {
