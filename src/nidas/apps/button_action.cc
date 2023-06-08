@@ -38,7 +38,8 @@ Read input from button and perform associated actions.
     
     {wifi|p1}:
 
-    Wait for press of specified button, and depending on current state(indicated by led) turn associated functions on or off.)"""";
+    Wait for press of specified button, and depending on current state(indicated by led) turn associated functions on or off.)""""
+    <<endl<<endl<<app.usage()<<endl;
 }
 
 
@@ -50,7 +51,7 @@ int toomany(const std::string& msg)
 
 int parseRunString(int argc, char* argv[])
 {
-    app.enableArguments(app.loggingArgs() | app.Help);
+    app.enableArguments(app.loggingArgs() | app.Help | app.DebugDaemon);
 
     ArgVector args = app.parseArgs(argc, argv);
     if (app.helpRequested())
@@ -61,9 +62,12 @@ int parseRunString(int argc, char* argv[])
 
       // Get positional args
     ArgVector pargs = app.unparsedArgs();
-
+    if(pargs.size()==0){
+        usage();
+        return 1;
+    }
     for (auto& arg: pargs)
-    {
+    {   
         if(pargs.size()>2){
             return toomany(arg);
         }
@@ -159,7 +163,7 @@ int loop(){
     }while(!buttonDown);
     buttonDown=false;
     auto ledState=device.iOutput()->getState();
-    if(ledState.toString()=="off")
+    if(ledState==OutputState::OFF)
     {
         runaction(Device,false);
         ioutput->on(); //turns LED on
@@ -170,8 +174,6 @@ int loop(){
         ioutput->off(); //turns LED off
             
     }
-        device.reset();
-        hwi.reset();
         return 0;
         
 }
@@ -183,8 +185,7 @@ int main(int argc, char* argv[]) {
         exit(1);
      }
     bool run=true;
-    app.setupDaemon();
-    app.setupProcess();
+    //app.setupDaemon();
     int j=readJson();
         if(j!=0)
         {
