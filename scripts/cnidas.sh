@@ -285,7 +285,7 @@ run_image() # command...
     # Mount the local scripts directory over top of the source, so the
     # local build scripts are used no matter what version of source is
     # being built.
-    exec podman run -i -t \
+    exec podman run --rm -i -t \
       --volume "$dest":/nidas:rw,Z \
       --volume "$install":/opt/nidas:rw,Z \
       --volume "$HOME/.scons":/root/.scons:rw,Z \
