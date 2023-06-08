@@ -667,6 +667,16 @@ public:
      */
     virtual void off();
 
+    /**
+     * Return true if getState() returns ON.
+     */
+    virtual bool isOn();
+
+    /**
+     * Return true if getState() returns OFF.
+     */
+    virtual bool isOff();
+
 private:
     OutputState _current;
 };

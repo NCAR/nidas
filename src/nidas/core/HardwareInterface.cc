@@ -603,6 +603,20 @@ off()
     setState(OutputState::OFF);
 }
 
+bool
+OutputInterface::
+isOn()
+{
+    return getState() == OutputState::ON;
+}
+
+bool
+OutputInterface::
+isOff()
+{
+    return getState() == OutputState::OFF;
+}
+
 void
 OutputInterface::
 setState(OutputState state)
