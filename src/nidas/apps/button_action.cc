@@ -26,8 +26,7 @@ using std::endl;
 NidasApp app("button_action");
 
 
-// device to act on
-std::string Device;
+
 Json::Value root;
 std::string Path;
 
@@ -38,8 +37,9 @@ Read input from button and perform associated actions.
     
     {wifi|p1}:
 
-    Wait for press of specified button, and depending on current state(indicated by led) turn associated functions on or off.)""""
-    <<endl<<endl<<app.usage()<<endl;
+    Wait for press of specified button, and depending on current state (indicated by led), turn associated functions on or off.
+    )""""
+    <<endl<<app.usage()<<endl;
 }
 
 
@@ -62,33 +62,19 @@ int parseRunString(int argc, char* argv[])
 
       // Get positional args
     ArgVector pargs = app.unparsedArgs();
-    if(pargs.size()==0){
+    if(pargs.size()==0)
+    {
         usage();
         return 1;
     }
     for (auto& arg: pargs)
     {   
-        if(pargs.size()>2){
+        if(pargs.size()>1){
             return toomany(arg);
         }
-        if(arg=="wifi")
-        {
-            Device="wifi";
-            continue;
-        }
-        if(arg=="p1"){
-            Device="p1";
-            continue;
-        }
-        if (Device.empty())
-        {
-            Device = arg;
-            continue;
-        }
-        else{
-            Path=arg;
-            continue;
-        }
+        Path=arg;
+        continue;
+        
   
         std::cerr << "operation unknown: " << arg << endl;
         return 1;
@@ -110,8 +96,8 @@ int runaction(std::string Device, bool isOn){
         com=devRoot["on"].asString();
 
     }
-    system(com.c_str());
-    return 0;
+    return system(com.c_str());
+    
 
 }
 
@@ -139,40 +125,69 @@ int readJson(){
 
 }
 
-int loop(){
-    auto hwi= HardwareInterface::getHardwareInterface();
-    HardwareDevice device=hwi->lookupDevice(Device);
-    if (device.isEmpty())
+int loop(std::shared_ptr<HardwareInterface> hwi){
+    HardwareDevice wifi=hwi->lookupDevice("wifi");
+    HardwareDevice p1=hwi->lookupDevice("p1");
+    if (wifi.isEmpty())
     {
-        std::cerr << "unrecognized device: " << Device << endl;
+        std::cerr << "unrecognized device: wifi" << endl;
         return 2;
     }
-    auto ioutput = device.iOutput();
-    if(!ioutput)
+     if (p1.isEmpty())
     {
-        std::cerr<<"unable to open "<<Device<<endl;
+        std::cerr << "unrecognized device: p1" << endl;
+        return 2;
+    }
+    auto wifioutput = wifi.iOutput();
+    auto poutput=p1.iOutput();
+    if(!wifioutput)
+    {
+        std::cerr<<"unable to open wifi"<<endl;
         return 3;
     }
-
-    bool buttonDown=false;
+    if(!poutput)
+    {
+        std::cerr<<"unable to open p1"<<endl;
+        return 3;
+    }
+    bool wbuttonDown=false;
+    bool pbuttonDown=false;
     do{
         sleep(1);
-        auto ibutton = device.iButton();
-        buttonDown=ibutton->isDown();
+        auto wbutton = wifi.iButton();
+        auto pbutton= p1.iButton();
+        wbuttonDown=wbutton->isDown();
+        pbuttonDown=pbutton->isDown();
         
-    }while(!buttonDown);
-    buttonDown=false;
-    auto ledState=device.iOutput()->getState();
-    if(ledState==OutputState::OFF)
-    {
-        runaction(Device,false);
-        ioutput->on(); //turns LED on
+    }while(!(wbuttonDown) && !(pbuttonDown));
+    auto wledState=wifioutput->getState();
+    auto pledState=poutput->getState();
+    if(wbuttonDown){
+        if(wledState==OutputState::OFF)
+        {
+            runaction("wifi",false);
+            wifioutput->on(); //turns LED on
+        }
+        else
+        {    
+            runaction("wifi",true);
+            wifioutput->off(); //turns LED off
+                
+        }
     }
-    else
-    {    
-        runaction(Device,true);
-        ioutput->off(); //turns LED off
-            
+    if(pbuttonDown){
+        if(pledState==OutputState::OFF)
+        {
+            runaction("p1",false);
+            poutput->on(); //turns LED on
+        }
+        else
+        {    
+            runaction("p1",true);
+            poutput->off(); //turns LED off
+                
+        }
+
     }
         return 0;
         
@@ -192,7 +207,9 @@ int main(int argc, char* argv[]) {
             return 1;
         }    
     while(run){
-        loop();
+        auto hwi= HardwareInterface::getHardwareInterface();
+        loop(hwi);
+        hwi.reset();
         sleep(5);
     }
     return 0;
