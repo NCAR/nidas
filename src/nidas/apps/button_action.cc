@@ -186,6 +186,7 @@ void *loopHandler(void *args){
     auto hwi=((struct threadargs*)args)->hwi;
     auto Device=((struct threadargs*)args)->Device;
     loop(hwi,Device);
+    //PLOG(("test logging"));
     pthread_barrier_wait(&barr);
     long i=((struct threadargs*)args)->i;
     pthread_exit((void*)i);
@@ -197,21 +198,27 @@ int main(int argc, char* argv[]) {
         exit(1);
      }
     
-    //app.setupDaemon();
     int j=readJson();
         if(j!=0)
         {
             return 1;
         }
+    cout<<"test"<<endl;
     struct threadargs *button1=(struct threadargs *)malloc(sizeof(struct threadargs));
     struct threadargs *button2=(struct threadargs *)malloc(sizeof(struct threadargs)); 
-    pthread_t thread1, thread2;
+    pthread_t thread1, thread2;;
+    cout<<"test2"<<endl;
     button1->Device=Device1;
     button2->Device=Device2;
     button1->i=0;
     button2->i=1;
+    app.setupDaemon();
+    //PLOG(("test logging"));
+    cout<<"test3"<<endl;
     while(true){
+        cout<<"test4"<<endl;
         auto hwi= HardwareInterface::getHardwareInterface();
+        cout<<"test 5"<<endl;
         exitloop=false;
         pthread_barrier_init(&barr,0,2);
         button1->hwi=hwi;
