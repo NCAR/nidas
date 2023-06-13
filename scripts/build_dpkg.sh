@@ -5,6 +5,25 @@ set -e
 
 key='<eol-prog@eol.ucar.edu>'
 eolrepo=/net/ftp/pub/archive/software/debian
+codename=""
+
+# not currently used since the codename is passed in the -I argument, but
+# maybe someday it could be useful.
+set_codename()
+{
+    # get the debian release codename.  buster conviently provides
+    # VERSION_CODENAME, but on jessie it is only available embedded in
+    # VERSION.  And on ubuntu, VERSION has two words upper scase, like Bionic
+    # Beaver.
+    if [ -z "$codename" ]; then
+        source /etc/os-release
+        codename="$VERSION_CODENAME"
+        if [ -n "$codename" ]; then
+            codename=$(echo "$VERSION" | sed -e 's/.*(//' -e 's/).*//' | sed -e 's/ .*//' | tr A-Z a-z)
+        fi
+    fi
+}
+
 
 usage() {
     echo "Usage: ${1##*/} [-i repository ] [ -I codename ] arch"
@@ -109,28 +128,31 @@ if [ -n "$repo" -a -d "$repo" ]; then
         echo "Cannot determine codename of repository configuration $distconf"
         exit 1
     fi
-    export GPG_TTY=$(tty)
 
-    # Check that gpg-agent is running, and do a test signing,
-    # which also caches the passphrase.
-    # With gpg2 v2.1 and later, gpg-connect-agent /bye will start the
-    # agent if necessary and comms are done over the standard socket:
-    # $HOME/.gnupg/S.gpg-agent.
-    #
-    # It may contact the gpg-agent on the host over
-    # the unix socket in .gnupg if many things are OK:
-    #   compatible gpg2 version, same user ids, SELinux not interfering
-    # With gpg2 v2.1 and later, gpg-connect-agent will start gpg-agent
-    # if necessary.
-    # On gpg2 v2.0 (debian jessie) one needs to start the
-    # agent and use the value of GPG_AGENT_INFO that is returned to
-    # determine the path to the socket.
-    gpg-connect-agent /bye 2> /dev/null || eval $(gpg-agent --daemon)
+    if [ -n "$key" ]; then
+        export GPG_TTY=$(tty)
 
-    echo test | gpg2 --clearsign --default-key "$key" > /dev/null
+        # Check that gpg-agent is running, and do a test signing,
+        # which also caches the passphrase.
+        # With gpg2 v2.1 and later, gpg-connect-agent /bye will start the
+        # agent if necessary and comms are done over the standard socket:
+        # $HOME/.gnupg/S.gpg-agent.
+        #
+        # It may contact the gpg-agent on the host over
+        # the unix socket in .gnupg if many things are OK:
+        #   compatible gpg2 version, same user ids, SELinux not interfering
+        # With gpg2 v2.1 and later, gpg-connect-agent will start gpg-agent
+        # if necessary.
+        # On gpg2 v2.0 (debian jessie) one needs to start the
+        # agent and use the value of GPG_AGENT_INFO that is returned to
+        # determine the path to the socket.
+        gpg-connect-agent /bye 2> /dev/null || eval $(gpg-agent --daemon)
+
+        echo test | gpg2 --clearsign --default-key "$key" > /dev/null
+    fi
 fi
 
-args="$args -a$arch -i -I -Ibuild*"
+args="$args -a$arch -i -I -Ibuild* -Idoc/doxygen"
 
 if $use_chroot; then
     dist=$(lsb_release -c | awk '{print $2}')
@@ -190,12 +212,6 @@ args="$args -us -uc"
 rm -f ../nidas_*.tar.xz ../nidas_*.dsc
 rm -f $(echo ../nidas\*_{$arch,all}.{deb,build,changes})
 
-# I think the way this works is that debuild will tar up the source to
-# build the package from, but the scons clean will not catch *all* the
-# build directories that might exist, so just make a point of removing all
-# of them here.
-rm -rf src/build*
-
 # export DEBUILD_DPKG_BUILDPACKAGE_OPTS="$args"
 
 if $use_chroot; then
@@ -221,11 +237,6 @@ fi
 cd ..
 chngs=nidas_*_$arch.changes
 archdebs=nidas*$arch.deb
-
-# get the debian release codename.  buster conviently provides
-# VERSION_CODENAME, but on jessie it is only available embedded in
-# VERSION.
-codename=$(source /etc/os-release ; echo "$VERSION" | sed -e 's/.*(//' -e 's/).*//')
 
 if [ -n "$repo" ]; then
     umask 0002
@@ -294,16 +305,16 @@ if [ -n "$repo" ]; then
                     # removed with -A i386|source|all", and you'll get
                     # a "registered with different checksums" error if
                     # you try to install it for i386. So leave -A off.
-                    flock $repo sh -c "
-                        reprepro -V -b $repo remove $codename $pkg"
+                    (set -x; flock $repo sh -c \
+                        "reprepro -V -b $repo remove $codename $pkg")
                 done
-                flock $repo sh -c "
-                    reprepro -V -b $repo deleteunreferenced"
+                (set -x; flock $repo sh -c \
+                    "reprepro -V -b $repo deleteunreferenced")
 
             fi
 
-            flock $repo sh -c "
-                reprepro -V -b $repo -C main --keepunreferencedfiles include $codename $chngs" 2> $tmplog || status=$?
+            (set -x; flock $repo sh -c \
+                "reprepro -V -b $repo -C main --keepunreferencedfiles include $codename $chngs" 2> $tmplog || status=$?)
 
         # If not the first architecture listed, just install the
         # specific architecture packages.
@@ -315,15 +326,15 @@ if [ -n "$repo" ]; then
                     # remove last two underscores
                     pkg=${pkg%_*}
                     pkg=${pkg%_*}
-                    flock $repo sh -c "
-                        reprepro -V -b $repo -A $arch remove $codename $pkg"
+                    (set -x; flock $repo sh -c \
+                        "reprepro -V -b $repo -A $arch remove $codename $pkg")
                 done
-                flock $repo sh -c "
-                    reprepro -V -b $repo deleteunreferenced"
+                (set -x; flock $repo sh -c \
+                    "reprepro -V -b $repo deleteunreferenced")
             fi
 
-            flock $repo sh -c "
-                reprepro -V -b $repo -C main -A $arch --keepunreferencedfiles includedeb $codename $archdebs" 2> $tmplog || status=$?
+            (set -x; flock $repo sh -c \
+                "reprepro -V -b $repo -C main -A $arch --keepunreferencedfiles includedeb $codename $archdebs" 2> $tmplog || status=$?)
         fi
         echo "status=$status"
 
@@ -346,7 +357,7 @@ fi
 # Dispatch the packages unless neither -d nor -i were specified.
 if [ -n "$dest" ]; then
     echo "moving results to $dest"
-    mv -f nidas_*_$arch.build nidas_*.dsc nidas_*.tar.xz nidas*_all.deb nidas*_$arch.deb $chngs $dest
+    (set -x; mv -f nidas_*_$arch.build nidas_*.dsc nidas_*.tar.xz nidas*_all.deb nidas*_$arch.deb $chngs $dest)
 else
     echo "build results are in $PWD"
 fi
