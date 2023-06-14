@@ -104,6 +104,7 @@ int runaction(std::string Device, bool isOn){
 }
 
 int readJson(){
+    //PLOG(("test"));
     if(Path.empty()){
         cerr<<"Please enter json file path."<<endl;
         return 1;
@@ -148,13 +149,13 @@ int loop(std::shared_ptr<HardwareInterface> hwi,std::string Device){
     }
     if (device.isEmpty())
     {
-        std::cerr << "unrecognized device: " <<Device<< endl;
+        PLOG(("Unrecognized device: ")<<Device);
         return 2;
     }
     auto output = device.iOutput();
     if(!output)
     {
-        std::cerr<<"unable to open "<<Device<<endl;
+        PLOG(("Unable to open ")<<Device);
         return 3;
     }
     bool buttonDown=false;
@@ -206,15 +207,16 @@ int main(int argc, char* argv[]) {
     cout<<"test"<<endl;
     struct threadargs *button1=(struct threadargs *)malloc(sizeof(struct threadargs));
     struct threadargs *button2=(struct threadargs *)malloc(sizeof(struct threadargs)); 
-    pthread_t thread1, thread2;;
+    pthread_t thread1, thread2;
     cout<<"test2"<<endl;
     button1->Device=Device1;
     button2->Device=Device2;
+    cout<<button2->Device<<endl; //for some reason this causes segfault with --logshow
+    cout<<"test3"<<endl;
     button1->i=0;
     button2->i=1;
-    app.setupDaemon();
-    //PLOG(("test logging"));
-    cout<<"test3"<<endl;
+    app.setupDaemon(); //with this line, running causes error when -d enabled at getHardwareInterface. Runs fine without -d or without this line. //malloc_consolidate() unaligned fastbin chunk detected
+    //PLOG(("test logging")); //with previous line enabled and no -d, appears to cause process to not enter daemon mode properly. strace reveals same error as with -d
     while(true){
         cout<<"test4"<<endl;
         auto hwi= HardwareInterface::getHardwareInterface();
