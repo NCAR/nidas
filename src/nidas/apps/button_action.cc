@@ -10,7 +10,6 @@
 #include <nidas/core/NidasApp.h>
 #include <nidas/core/HardwareInterface.h>
 #include <nidas/util/Termios.h>
-#include <pthread.h>
 #include <json/json.h>
 
 using namespace nidas::core;
@@ -27,8 +26,6 @@ NidasApp app("button_action");
 
 Json::Value root;
 std::string Path;
-pthread_barrier_t barr;
-bool exitloop=false;
 std::vector<Json::String> devs;
 bool buttonPress=false;
 
@@ -76,7 +73,6 @@ int parseRunString(int argc, char* argv[])
         }
         Path=arg;
         continue;
-        
   
         std::cerr << "operation unknown: " << arg << endl;
         return 1;
@@ -99,6 +95,7 @@ int runaction(std::string Device, bool isOn){
         com=devRoot["on"].asString();
 
     }
+    ILOG(("Running command ")<<com);
     return system(com.c_str());
     
 
@@ -106,33 +103,45 @@ int runaction(std::string Device, bool isOn){
 
 int readJson(){
     if(Path.empty()){
-        cerr<<"Please enter json file path."<<endl;
+        PLOG(("No json file path entered"));
         return 1;
     }
     std::ifstream jFile(Path,std::ifstream::in);
     if(!jFile.is_open()){
-        cerr<< "Error opening file."<<endl;
+        PLOG(("Could not open ")<<Path);
         return 1;
     }
     try{
         jFile>>root;
     }
     catch(...){
-        cerr<<"Could not parse json file."<<endl;
+        PLOG(("Could not parse file ")<<Path);
         jFile.close();
         return 1;
     }
     jFile.close();
     devs=root.getMemberNames();
     if(devs.size()<2){
-        cerr<<"Format error in json file."<<endl;
+        PLOG(("Format error in file ")<<Path);
         return 1;
     }
     return 0;
 
 }
+/*json file in format 
+{
+    "device1":{
+        "on": "command",
+        "off": "command",
+    },
+    "device2": {
+        "on": "command"
+        "off": "command"
+    }
 
-
+}
+*/
+//checks given device for button and led states, calls associated action, and toggles led
 int check(std::shared_ptr<HardwareInterface> hwi,std::string Device){
     HardwareDevice device=hwi->lookupDevice(Device);
     if (device.isEmpty())
@@ -172,7 +181,6 @@ int main(int argc, char* argv[]) {
      {
         exit(1);
      }
-    
     int j=readJson();
         if(j!=0)
         {
@@ -180,6 +188,7 @@ int main(int argc, char* argv[]) {
         }
     app.setupDaemon(); 
     while(true){
+        buttonPress=false;
         auto hwi= HardwareInterface::getHardwareInterface();
         for (auto i : devs){
             check(hwi,i);
