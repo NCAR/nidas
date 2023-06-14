@@ -26,7 +26,7 @@ NidasApp app("button_action");
 
 Json::Value root;
 std::string Path;
-std::vector<Json::String> devs;
+Json::Value::Members devs;
 bool buttonPress=false;
 
 void usage(){
