@@ -29,8 +29,8 @@ Json::Value root;
 std::string Path;
 pthread_barrier_t barr;
 bool exitloop=false;
-std::string Device1;
-std::string Device2;
+std::vector<Json::String> devs;
+bool buttonPress=false;
 
 void usage(){
     cerr << R""""(Usage: button_action [path]
@@ -85,6 +85,7 @@ int parseRunString(int argc, char* argv[])
 
 
 }
+
 //runs whatever action is associated with given button, such as turning wifi on/off
 int runaction(std::string Device, bool isOn){ 
     Json::Value devRoot=root[Device];
@@ -104,7 +105,6 @@ int runaction(std::string Device, bool isOn){
 }
 
 int readJson(){
-    //PLOG(("test"));
     if(Path.empty()){
         cerr<<"Please enter json file path."<<endl;
         return 1;
@@ -123,30 +123,18 @@ int readJson(){
         return 1;
     }
     jFile.close();
-    auto devs=root.getMemberNames();
+    devs=root.getMemberNames();
     if(devs.size()<2){
         cerr<<"Format error in json file."<<endl;
         return 1;
     }
-    Device1=devs[1];
-    Device2=devs[0];
     return 0;
 
-
 }
-struct threadargs{
-    long i;
-    std::shared_ptr<HardwareInterface> hwi;
-    std::string Device;
-};
 
 
-int loop(std::shared_ptr<HardwareInterface> hwi,std::string Device){
+int check(std::shared_ptr<HardwareInterface> hwi,std::string Device){
     HardwareDevice device=hwi->lookupDevice(Device);
-    if(exitloop){
-        return 0;
-        
-    }
     if (device.isEmpty())
     {
         PLOG(("Unrecognized device: ")<<Device);
@@ -158,17 +146,9 @@ int loop(std::shared_ptr<HardwareInterface> hwi,std::string Device){
         PLOG(("Unable to open ")<<Device);
         return 3;
     }
-    bool buttonDown=false;
-    do{
-        if(exitloop){
-            return 0;
-        }
-        sleep(1);
-        auto button = device.iButton();
-        buttonDown=button->isDown();
-        
-    }while(!(buttonDown));
-    auto ledState=output->getState();
+    auto button = device.iButton();
+    if(button->isDown()){
+        auto ledState=output->getState();
         if(ledState==OutputState::OFF)
         {
             runaction(Device,false);
@@ -180,18 +160,12 @@ int loop(std::shared_ptr<HardwareInterface> hwi,std::string Device){
             output->off(); //turns LED off
                 
         }
-        exitloop=true;
-        return 0;
+        buttonPress=true;
+    }
+    return 0;
+
 }
-void *loopHandler(void *args){
-    auto hwi=((struct threadargs*)args)->hwi;
-    auto Device=((struct threadargs*)args)->Device;
-    loop(hwi,Device);
-    //PLOG(("test logging"));
-    pthread_barrier_wait(&barr);
-    long i=((struct threadargs*)args)->i;
-    pthread_exit((void*)i);
-}
+
 int main(int argc, char* argv[]) {
 
     if (parseRunString(argc, argv))
@@ -204,38 +178,21 @@ int main(int argc, char* argv[]) {
         {
             return 1;
         }
-    cout<<"test"<<endl;
-    struct threadargs *button1=(struct threadargs *)malloc(sizeof(struct threadargs));
-    struct threadargs *button2=(struct threadargs *)malloc(sizeof(struct threadargs)); 
-    pthread_t thread1, thread2;
-    cout<<"test2"<<endl;
-    button1->Device=Device1;
-    button2->Device=Device2;
-    cout<<button2->Device<<endl; //for some reason this causes segfault with --logshow
-    cout<<"test3"<<endl;
-    button1->i=0;
-    button2->i=1;
-    app.setupDaemon(); //with this line, running causes error when -d enabled at getHardwareInterface. Runs fine without -d or without this line. //malloc_consolidate() unaligned fastbin chunk detected
-    //PLOG(("test logging")); //with previous line enabled and no -d, appears to cause process to not enter daemon mode properly. strace reveals same error as with -d
+    app.setupDaemon(); 
     while(true){
-        cout<<"test4"<<endl;
         auto hwi= HardwareInterface::getHardwareInterface();
-        cout<<"test 5"<<endl;
-        exitloop=false;
-        pthread_barrier_init(&barr,0,2);
-        button1->hwi=hwi;
-        button2->hwi=hwi;
-        pthread_create(&thread1,NULL,loopHandler,(void *)button1);
-        pthread_create(&thread2,NULL,loopHandler,(void *)button2);
-        pthread_join(thread1,0);
-        pthread_join(thread2,0);
+        for (auto i : devs){
+            check(hwi,i);
+        }
         hwi.reset();
-        sleep(5);
+        if(buttonPress){
+            sleep(5);
+        }
+        else{
+            sleep(1);
+        }
     }
-    pthread_barrier_destroy(&barr);
-    free(button1);
-    free(button2);
-    return 0;
+
 }
 
 
