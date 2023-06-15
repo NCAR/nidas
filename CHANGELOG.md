@@ -16,25 +16,23 @@ branch:
 ## [refactor-builds] - Branch
 
 This branch includes all the changes done on the branches
-`scons-build-single-target`, `conatiner-builds`, and
+`scons-build-single-target`, `container-builds`, `simplify-nidas-rpms`, and
 `move-netcdf-to-nc_server`.
 
-- The [SCons](https://www.scons.org/) setup no longer supports multiple
-  variants in the same build.  Instead, scons builds one target OS and
+- The [SCons](https://www.scons.org/) setup now builds a single target OS and
   architecture, specified with the BUILD variable, or else the native host by
   default.  The variant build directory names include an OS name as well as
-  architecture.  This allows different OS builds to share the same source
-  tree, especially useful when testing builds with containers.  There are a
-  few key changes related to this to prevent the scons cache and
-  auto-configuration from conflicting between variants.  Likewise,
-  `Revision.h` is generated in the source and not in a variant dir, since it
-  does not depend on the target and needs to be part of source archives. Lots
-  of similar scons code has been consolidated into tool files in the
-  `nidas/src/tools` subdirectory.  Since there is no longer any confusion
-  caused by sharing environments across multiple build targets, tools can be
-  used safely and easily to share environment setups with the rest of the
-  source tree.  There is now just a single `PREFIX` setting, `ARCHPREFIX` has
-  been removed.
+  architecture so different OS builds can share the same source tree,
+  especially useful when testing builds with containers.  There are a few key
+  changes related to this to prevent the scons cache and auto-configuration
+  from conflicting between variants.  Likewise, `Revision.h` is generated in
+  the source and not in a variant dir, since it does not depend on the target
+  and needs to be part of source archives. Lots of similar scons code has been
+  consolidated into tool files in the `nidas/src/tools` subdirectory.  Since
+  there is no longer any confusion caused by sharing environments across
+  multiple build targets, tools can be used safely and easily to share
+  environment setups with the rest of the source tree.  There is now just a
+  single `PREFIX` setting, `ARCHPREFIX` has been removed.
 
 - SCons help is more brief by default by leaving out lots of less used
   variables.  Run `scons -h -Q` to see the short help, `scons --help-all` to see
@@ -51,18 +49,18 @@ This branch includes all the changes done on the branches
 - The `pkg_files` directory in the source tree is now deprecated.  Anything
   that was installed as part of a package script should now be generated and
   installed by scons instead.  Files are installed from the relevant location
-  in the source tree.  For example, module conf files are now in the source
-  dirctory for the related driver.
+  in the source tree.  For example, module conf files are now in the module
+  source directory.
 
-- To allow scons to install everything, there is a second install target,
-  `install.root`, for installing files into root locations.  The plain install
-  target works as usual, installing everything under `PREFIX`, typically
-  `/opt/nidas`.  The packaging scripts use the `install.root` target and set a
-  new scons variable, `INSTALL_ROOT`, which is prepended to every install
-  path.  This allows scons to generate files with the correct `PREFIX` path,
-  even when the files will be installed into a temporary location for
-  packaging.  Packaging scripts no longer need to regenerate those files with
-  the correct install path.
+- To allow scons to install everything needed by system packages, there is a
+  second install target, `install.root`, for installing files into root
+  locations.  The plain install target works as usual, installing everything
+  under `PREFIX`, typically `/opt/nidas`.  The packaging scripts use the
+  `install.root` target and set a new scons variable, `INSTALL_ROOT`, which is
+  prepended to every install path.  This allows scons to generate files with
+  the correct `PREFIX` path, even when the files will be installed into a
+  temporary location for packaging.  Packaging scripts no longer need to
+  regenerate those files with the correct install path.
 
 - There is a script `setup_nidas.sh` which gets installed into the NIDAS bin
   directory.  It can be used with bash shells to setup `PATH` and
@@ -95,8 +93,8 @@ This branch includes all the changes done on the branches
   the container, so all the container outputs will be available on the host.
   The `dsm_rsync.sh` script can be used to copy a NIDAS install,
   cross-compiled on the local host with a container, onto a DSM under an
-  alternate prefix.  That alternate install can be selected and tested in a
-  using `setup_nidas.sh`.  See
+  alternate prefix.  That alternate install can be selected and tested using
+  `setup_nidas.sh`.  See
   [Develop_Pi.md](https://github.com/ncareol/nidas/blob/buster/Develop_Pi.md)
   for an example of using it for Pi3 development.
 
