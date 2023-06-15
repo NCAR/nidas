@@ -24,12 +24,11 @@ NidasApp app("button_action");
 
 
 
-Json::Value root;
-std::string Path;
-Json::Value::Members devs;
-bool buttonPress=false;
 
-void usage(){
+std::string Path;
+
+void usage()
+{
     cerr << R""""(Usage: button_action [path]
 
 Read input from button and depending on current state (indicated by led), turn associated functions on or off.
@@ -83,7 +82,8 @@ int parseRunString(int argc, char* argv[])
 }
 
 //runs whatever action is associated with given button, such as turning wifi on/off
-int runaction(std::string Device, bool isOn){ 
+int runaction(std::string Device, bool isOn, Json::Value root)
+{ 
     Json::Value devRoot=root[Device];
     std::string com;
     if(isOn)
@@ -101,34 +101,37 @@ int runaction(std::string Device, bool isOn){
 
 }
 
-int readJson(){
+std::tuple<Json::Value, Json::Value::Members> readJson()
+{
     if(Path.empty()){
         PLOG(("No json file path entered"));
-        return 1;
+        exit(1);
     }
     std::ifstream jFile(Path,std::ifstream::in);
     if(!jFile.is_open()){
         PLOG(("Could not open ")<<Path);
-        return 1;
+        exit(1);
     }
+    Json::Value root;
     try{
         jFile>>root;
     }
     catch(...){
         PLOG(("Could not parse file ")<<Path);
         jFile.close();
-        return 1;
+        exit(1);
     }
     jFile.close();
-    devs=root.getMemberNames();
-    if(devs.size()<2){
+    auto devs=root.getMemberNames();
+    if(devs.size()<1){
         PLOG(("Format error in file ")<<Path);
-        return 1;
+        exit(1);
     }
-    return 0;
+    std::tuple<Json::Value, Json::Value::Members> res(root,devs);
+    return res;
 
 }
-/*json file in format 
+/*json file example format 
 {
     "device1":{
         "on": "command",
@@ -142,8 +145,10 @@ int readJson(){
 }
 */
 //checks given device for button and led states, calls associated action, and toggles led
-int check(std::shared_ptr<HardwareInterface> hwi,std::string Device){
-    HardwareDevice device=hwi->lookupDevice(Device);
+int check(std::string Device, bool &buttonPress, Json::Value root)
+{
+    HardwareDevice device= HardwareDevice::lookupDevice(Device);
+    
     if (device.isEmpty())
     {
         PLOG(("Unrecognized device: ")<<Device);
@@ -156,16 +161,17 @@ int check(std::shared_ptr<HardwareInterface> hwi,std::string Device){
         return 3;
     }
     auto button = device.iButton();
-    if(button->isDown()){
+    if(button->isDown())
+    {
         auto ledState=output->getState();
         if(ledState==OutputState::OFF)
         {
-            runaction(Device,false);
+            runaction(Device,false,root);
             output->on(); //turns LED on
         }
         else
         {    
-            runaction(Device,true);
+            runaction(Device,true,root);
             output->off(); //turns LED off
                 
         }
@@ -181,23 +187,22 @@ int main(int argc, char* argv[]) {
      {
         exit(1);
      }
-    int j=readJson();
-        if(j!=0)
-        {
-            return 1;
-        }
+    auto tup=readJson();
+    auto root=std::get<0>(tup);
+    auto devs=std::get<1>(tup);
     app.setupDaemon(); 
     while(true){
-        buttonPress=false;
-        auto hwi= HardwareInterface::getHardwareInterface();
-        for (auto i : devs){
-            check(hwi,i);
+        bool buttonPress=false;
+        for (auto i : devs)
+        { 
+            check(i,buttonPress, root);
         }
-        hwi.reset();
-        if(buttonPress){
+        if(buttonPress)
+        {
             sleep(5);
         }
-        else{
+        else
+        {
             sleep(1);
         }
     }
