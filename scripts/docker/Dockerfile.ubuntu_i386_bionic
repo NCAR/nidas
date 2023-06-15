@@ -22,7 +22,7 @@ RUN apt-get install -y --no-install-recommends apt-utils vim curl \
     build-essential fakeroot libncurses-dev bc dh-make ca-certificates \
     git ssh scons doxygen graphviz gnupg2 reprepro flex gawk \
     devscripts lintian pkg-config libbz2-dev libgsl23 libgsl-dev \
-    libcap-dev libxerces-c-dev libbluetooth-dev libnetcdf-dev \
+    libcap-dev libcap2-bin libxerces-c-dev libbluetooth-dev libnetcdf-dev \
     libxmlrpcpp-dev libjsoncpp-dev xmlto libxerces-c-dev kmod rsync quilt \
     libfl-dev
 

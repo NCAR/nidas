@@ -1,67 +1,15 @@
 # -*- python -*-
 ## 2007, Copyright University Corporation for Atmospheric Research
 
+from SCons.Script import Import, Environment
 
 ##
 ##  Import the build environment.
 ##
-Import(['env', 'first_mach'])
-arch = env['ARCH']  # empty string for native builds
-mach = env['MACH']
+Import(['env'])
 
-# The Makefile must be listed in the source dependencies
-# so that it is copied/linked to the variant_dir.
-# The Kmake builder runs the make command in variant_dir.
-#
-# Also, the SConscript command that invokes this SConscript
-# file should set duplicate=1, so that all the linux module
-# source files, including the Makefile, are copied to the variant_dir.
-# so that make can find them and do its work outside of the
-# source tree.
+env: Environment
 
-headers = Split("""
-pc104sg.h
-""")
-
-if env.get("LINUX_MODULES_INST_PATH") and env.get("KERNELDIR"):
-
-    revinfo = Dir('./../../include/nidas/linux').File('Revision.h')
-    utilsyms = Dir('./../util_' + mach).File('Module.symvers')
-
-    modules = ['pc104sg.ko']
-    env.Kmake(modules, headers + ['pc104sg.c', 'Makefile', revinfo, utilsyms])
-
-    env.Install('$LINUX_MODULES_INST_PATH',modules)
-
-    env.Clean('install',[
-        '$LINUX_MODULES_INST_PATH/' + l for l in modules
-        ])
-
-# Some kernel module header files define symbols that are needed
-# by user code. These must also be installed in $ARCHPREFIX/include
-shared_headers = Split("""
-""")
-
-if first_mach:
-    Alias('install',env.Install('$ARCHPREFIX/include/nidas/linux/irig', shared_headers))
-
-apps = Split("""
-""")
-
-if arch == 'arm' or arch == "armel":
-    archapps=Split("""
-    """)
-else:
-    archapps=Split("""
-    """)
-
-nodes = []
-for i in apps + archapps:
-    nodes += env.Program( i )
-
-if first_mach:
-    env.Install('$ARCHPREFIX/bin',nodes)
-
-env.Clean('install', [
-    ('$ARCHPREFIX/bin/' + os.path.basename(File(l).path) for l in nodes)
-    ])
+env.NidasKernelModule(
+    ['pc104sg.ko'],
+    ['pc104sg.c', "pc104sg.h", *env.SymbolModules('revinfo', 'util')])

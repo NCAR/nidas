@@ -18,11 +18,11 @@ if False:
                                   "WICORSensor.cc")
 
     instlibs = []
-    instlibs.extend(env.SharedLibrary3Install('$ARCHPREFIX', libtilt))
-    instlibs.extend(env.SharedLibrary3Install('$ARCHPREFIX', libwicor))
+    instlibs.extend(env.SharedLibrary3Install('$PREFIX', libtilt))
+    instlibs.extend(env.SharedLibrary3Install('$PREFIX', libwicor))
 
     env.Clean('install', instlibs)
 
 env.Append (LIBNIDAS_DYNLD_SOURCES = [ env.File(f) for f in sources ])
 
-env.Install('$ARCHPREFIX/include/nidas/dynld/iss', headers)
+env.Install('$PREFIX/include/nidas/dynld/iss', headers)

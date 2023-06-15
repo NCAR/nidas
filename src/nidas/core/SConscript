@@ -1,18 +1,18 @@
 # -*- python -*-
 ## 2004, Copyright University Corporation for Atmospheric Research
 
+from SCons.Script import Environment, Import, Export
 
-##
-##  Import the build environment.
-##
 Import('env')
+env: Environment
+
 env = env.Clone(tools = ['nidas'])
-arch = env['ARCH']  # empty string for native builds
+arch = env['ARCH']
 
 ##
 ##  List of header files
 ##
-headers = Split("""
+headers = env.Split("""
     AdaptiveDespiker.h
     AsciiSscanf.h
     BadSampleFilter.h
@@ -129,9 +129,7 @@ headers = Split("""
     XMLStringConverter.h
 """)
 
-# print(["headers="] + [str(h) for h in headers])
-
-sources = Split("""
+sources = env.Split("""
     AdaptiveDespiker.cc
     BadSampleFilter.cc
     BluetoothRFCommSocketIODevice.cc
@@ -247,8 +245,10 @@ else:
 ##
 ##  Build the libnidas library. Search other needed libraries.
 ##
-lib = env.SharedLibrary3('nidas' , [sources, aobj, sampleobj],
+lib = env.SharedLibrary3('$VARIANT_DIR/$ARCHLIBDIR/nidas',
+                         [sources, aobj, sampleobj],
                          LIBS=env.get('LIBS', []) + env.NidasUtilLibs() + ['dl'])
+env.Default([lib])
 
 # Test SConscripts need the full path to the library to set LD_LIBRARY_PATH
 Export({'LIBNIDAS' + arch: lib[0]})
@@ -257,9 +257,6 @@ Export({'LIBNIDAS' + arch: lib[0]})
 ## Install targets for libraries and headers.
 ##
 nodes = []
-nodes.extend(env.SharedLibrary3Install('$ARCHPREFIX',lib))
-nodes.extend(env.Install('$ARCHPREFIX/include/nidas/core',headers))
-
-Alias('install', nodes)
-Clean('install', nodes)
-
+nodes.extend(env.SharedLibrary3Install('$PREFIX', lib))
+nodes.extend(env.Install('$PREFIX/include/nidas/core', headers))
+env.Alias('install', nodes)

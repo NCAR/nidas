@@ -46,6 +46,7 @@ namespace nidas { namespace core {
 class DSMService;
 class DSMConfig;
 class IOChannel;
+class SampleTag;
 
 /**
  *  Interface for an object that requests connections to Inputs
@@ -255,6 +256,13 @@ public:
     {
         return _dsm;
     }
+
+    /**
+     * The special NetcdfRPCChannel subclass needs a way to add a SampleTag to
+     * the IOChannel through a virtual base class.  This method does nothing
+     * and serves no purpose except for that class.
+     */
+    virtual void addSampleTag(const nidas::core::SampleTag*);
 
 private:
     

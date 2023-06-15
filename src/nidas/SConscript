@@ -1,102 +1,60 @@
 # -*- python -*-
 ## 2006, Copyright University Corporation for Atmospheric Research
 
-import eol_scons.parseconfig as pc
+from SCons.Script import Environment, Import, SConscript
 
-##
-##  Import the build environment.
-##
 Import('env')
-arch = env['ARCH']  # empty string for native builds
-
-# Use the OTHER_ prefix only if it exists and is different than PREFIX
-if env.get('OTHER_PREFIX'):
-    import os
-    other_include = env.subst("$OTHER_PREFIX/include")
-    other_lib = env.subst("$OTHER_PREFIX/lib")
-    if os.path.exists(other_include):
-        print("Adding OTHER_PREFIX %s to CPPPATH." % (other_include))
-        env.AppendUnique(CPPPATH = [ other_include ])
-    if os.path.exists(other_lib):
-        print("Adding OTHER_PREFIX %s to LIBPATH." % (other_lib))
-        env.AppendUnique(LIBPATH = [ other_lib ])
+env: Environment
 
 # -rdynamic: Export all dynamic symbols in the executables, so that libraries
 # loaded with dlopen() can resolve symbols already in the executable.
 # See "man dlopen" for more info.
 env.AppendUnique(LINKFLAGS=['-rdynamic'])
 
+installs = []
+installs += env.Install('$PREFIX/include/nidas', 'include/nidas/Config.h')
 
-# To decipher the link statement:
-# print 'LINKCOM=' + str(env['LINKCOM'])
-# print '_LIBDIRFLAGS=' + str(env['_LIBDIRFLAGS'])
-# print '_LIBFLAGS=' + str(env['_LIBFLAGS'])
+# Build Revision.h from git describe.  This does not depend on the target,
+# only the source repo, so it is not installed in the variant dir but in the
+# source tree, where it can be included easily in source archives.
+env.Tool('gitinfo')
+info = env.GitInfo("#/nidas/Revision.h", "#/nidas")
+installs += env.Install('$PREFIX/include/nidas', info)
 
-# Create a node for the Config.h file, so all Configure contexts append their
-# settings to this exact file.
-configh = env.File("include/nidas/Config.h")
+env.PrependUnique(CPPPATH=['$VARIANT_DIR/include'])
 
-def NidasConfigure(env):
-    """
-    Return a Configure context whose settings will be appended to a single
-    global config header file.  This does not create a temporary environment,
-    since the settings and build flags for all the config checks are meant to
-    be added to the given environment.  SConscripts only need to use this if
-    the configure settings need to be added to Config.h.
-    """
-    conf = env.Configure(conf_dir="#/.sconf_temp",
-                         log_file='#/config' + arch +'.log',
-                         config_h=configh)
-    return conf
-
-def nidasconfig(env):
-    env.AddMethod(NidasConfigure)
-
-# All the configure checks that were here have been moved to the SConscript
-# files where the dependencies are needed.  For example, nc_server is now in
-# dynld, and all the lower-level system header checks are in util. Instead,
-# the nidasconfig tool can be applied to get the NidasConfigureContext method
-# added.
-Export('nidasconfig')
-
-env.Install('$ARCHPREFIX/include/nidas','include/nidas/Config.h')
-
-# Update Revision.h from git describe
-info1 = env.GitInfo("include/nidas/Revision.h", "#/nidas")
-info2 = env.GitInfo("include/nidas/linux/Revision.h", "#/nidas/linux")
-
-env.Install('$ARCHPREFIX/include/nidas',info1)
-env.Install('$ARCHPREFIX/include/nidas/linux',info2)
-
-# When duplicate=0, the variant_dir of this SConscript, 
-# ("build","build_arm" or "build_armbe") is not duplicated using
-# symbolic or hard links from the source dir, "nidas".
-# Instead scons puts the two paths in the compile runstring where
-# appropriate, including possibly duplicating items in the CPPPATH
-# to search for headers in both the variant_dir and the source dir.
-# If you specify CPPPATH="include", scons adds the successive
-# SConscript dirs to the path, and creates two -I options in the compiles:
-#   -Ibuild/core/include and -Inidas/core/include
-
-# This hack using Dir() results in the CPPPATH not being duplicated
-# in the compile and successive variant_dirs not being added:
-#   -Ibuild/include
-env.PrependUnique(CPPPATH = ['#', Dir('.').Dir('include')])
-
-subdirs=Split("""util core dynld apps linux""")
+subdirs = env.Split("""util core dynld apps scripts linux""")
 
 for dir in subdirs:
-    SConscript('%s/SConscript' % dir,
-               duplicate=0,exports=['env'])
+    SConscript('%s/SConscript' % (dir), exports=['env'])
 
-Alias('lib', subdirs[0:3])
-Clean('lib', subdirs[0:3])
+env.Alias('lib', subdirs[0:3])
 
-env.Alias('install', ['$ARCHPREFIX/include', '$ARCHPREFIX/$ARCHLIBDIR'])
+installs += ['${INSTALL_ROOT}$PREFIX/include',
+             '${INSTALL_ROOT}$PREFIX/$ARCHLIBDIR']
 
-# Don't want to do a Clean of $ARCHPREFIX here, in case there is
-# other stuff there from other packages: we won't own $ARCHPREFIX.
-# We can nuke $ARCHPREFIX/include/nidas, but don't do a global
-# Clean of $ARCHPREFIX/bin and lib.  Also we don't assume we
-# own $ARCHPREFIX/modules.
-env.Clean('install','$ARCHPREFIX/include/nidas')
+env.Alias('install', installs)
+
+ldconfname = 'nidas.conf'
+multiarch = env.GetDebianMultiarch()
+if multiarch:
+    ldconfname = 'nidas-%s.conf' % (multiarch)
+    env.PrintProgress(f'debian multiarch={multiarch}: '
+                      f"nidas ld.so conf file: {ldconfname}")
+
+ldc = env.Substfile(ldconfname, 'nidas.conf.in')
+etcldc = env.Install('${SYSCONFIGDIR}/ld.so.conf.d', ldc)
+env.Alias('install.root', etcldc)
+
+# Build nidas.pc.  This substitutes PREFIX as the intended installation
+# location, even if everything is being installed under INSTALL_ROOT.  It gets
+# installed two places: the nidas lib directory and the system pkg-config
+# directory, using two separate aliases, install and install.root.
+env['SUBST_DICT'] = {
+    '@PREFIX@': '$PREFIX',
+    '@ARCHLIBDIR@': '$ARCHLIBDIR',
+    '@REPO_TAG@': '$REPO_TAG'
+}
+pc = env.Substfile('nidas.pc.in')
+env.Alias('install', env.Install('$PREFIX/$ARCHLIBDIR/pkgconfig', pc))
+env.Alias('install.root', env.Install('${PKGCONFIGDIR}', pc))

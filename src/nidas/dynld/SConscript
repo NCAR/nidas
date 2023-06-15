@@ -10,11 +10,6 @@ Import('env')
 env = env.Clone(tools = ['nidas'])
 arch = env['ARCH']  # empty string for native builds
 
-# -ggdb
-# -DXML_DEBUG
-# env.AppendUnique(CXXFLAGS = Split("""
-# """))
-
 SConscript(dirs = ["raf", "isff", "iss"], exports={'env':env})
 
 headers = Split("""
@@ -111,23 +106,8 @@ else:
     archheaders=Split("""
     """)
 
-SConscript(dirs="psql", duplicate=0, exports={'env':env})
-
 env.Tool('nidasconfig')
 conf = env.NidasConfigure()
-
-# It seems like for cross-builds the PKG_CONFIG_PATH needs to be adjusted
-# accordingly, or maybe the path to pkg-config needs to be set, such as
-# /opt/arcom/bin/armbe-linux-pkg-config.  However, the closest thing to
-# this I've found is in scripts/build_nidas.sh.  Maybe that kind of
-# customization should be in the scons arm*cross tools.
-pc.ParseConfig(conf.env, 'pkg-config --cflags --libs nc_server')
-conf.CheckLib('nc_server_rpc')
-conf.CheckLibWithHeader('nc_server_rpc', 'nc_server_rpc.h','C++',
-                        'xdr_connection(0,0);')
-# The nc_server build flags and library are added to the build environment
-# without the RPATH=conf.env['LIBPATH'] setting.  Both RedHat and Debian
-# advise against it, and an rpmbuild now fails in Fedora 35.
 
 pc.ParseConfig(conf.env, 'pkg-config --libs gsl')
 conf.CheckCXXHeader('gsl/gsl_linalg.h')
@@ -159,21 +139,22 @@ env.Append (LIBNIDAS_DYNLD_SOURCES =
             [ env.File(f) for f in sources + archsources ])
 
 # build libnidas_dynld.so
-lib = env.SharedLibrary3('nidas_dynld' , env['LIBNIDAS_DYNLD_SOURCES'],
+lib = env.SharedLibrary3('$VARIANT_DIR/$ARCHLIBDIR/nidas_dynld' ,
+                         env['LIBNIDAS_DYNLD_SOURCES'],
                          LIBS=['nidas'] + env['LIBS'])
+env.Default([lib])
 
 # Export the locally built library 
 Export({'LIBNIDAS_DYNLD' + arch: lib[0]})
 
-##
-## Install targets for library and headers.
-##
+#
+# Install targets for library and headers.
+#
 nodes = []
-nodes += env.SharedLibrary3Install('$ARCHPREFIX',lib)
-nodes += env.Install('$ARCHPREFIX/include/nidas/dynld',headers + archheaders)
+nodes += env.SharedLibrary3Install('$PREFIX', lib)
+nodes += env.Install('$PREFIX/include/nidas/dynld', headers + archheaders)
 
-Alias('install',nodes)
-Clean('install',nodes)
+Alias('install', nodes)
 
 def nidasdynld(xenv):
     "Tool to apply dynld link settings to an environemnt."
@@ -182,9 +163,11 @@ def nidasdynld(xenv):
     # the dynld library is already added by the NidasProgram() pseudo-builder.
     #
     # xenv.AppendUnique(LIBS=['nidas_dynld'])
+    #
+    # These may not be necessary now that nc_server is not a dependency of
+    # dynld, but they remain until proven harmful.
     xenv.AppendUnique(LIBS=env.get('LIBS', []))
     xenv.AppendUnique(LIBPATH=env.get('LIBPATH', []))
-    # CPPPATH needed also for nc_server includes
     xenv.AppendUnique(CPPPATH=env.get('CPPPATH', []))
 
 Export('nidasdynld')

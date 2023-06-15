@@ -130,8 +130,8 @@ EOD
     cd -    # back to top
 
     tar czf $topdir/SOURCES/${dopkg}-${version}.tar.gz \
-            rpm pkg_files filters src/SConstruct src/nidas src/firmware src/nidas.pc.in src/build/include \
-            src/xml doc/doxygen_conf || exit $?
+            rpm filters src/SConstruct src/nidas src/tools src/firmware \
+            src/systemd src/xml doc/doxygen_conf || exit $?
 
     # edit_cal has an rpath of /usr/{lib,lib64}
     # Setting QA_RPATHS here prevents rpmbuild from dying until

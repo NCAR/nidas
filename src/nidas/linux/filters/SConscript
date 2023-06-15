@@ -1,41 +1,12 @@
 # -*- python -*-
 ## 2007, Copyright University Corporation for Atmospheric Research
 
+from SCons.Script import Environment, Import
 
-##
-##  Import the build environment.
-##
-Import(['env', 'first_mach'])
+Import(['env'])
+env: Environment
 
-# The Makefile must be listed in the source dependencies
-# so that it is copied/linked to the variant_dir.
-# The Kmake builder runs the make command in variant_dir.
-#
-# Also, the SConscript command that invokes this SConscript
-# file should set duplicate=1, so that all the linux module
-# source files, including the Makefile, are copied to the variant_dir.
-# so that make can find them and do its work outside of the
-# source tree.
-
-if env.get("LINUX_MODULES_INST_PATH") and env.get("KERNELDIR"):
-
-    revinfo = Dir('./../../include/nidas/linux').File('Revision.h')
-
-    modules = ['short_filters.ko']
-    env.Kmake(modules,['short_filters.c','short_filters_kernel.h','Makefile',revinfo])
-
-    env.Install('$LINUX_MODULES_INST_PATH','short_filters.ko')
-
-    env.Clean('install',[
-        '$LINUX_MODULES_INST_PATH/' + l for l in modules
-        ])
-
-# Some kernel module header files define symbols that are needed
-# by user code. These must also be installed in $ARCHPREFIX/include
-headers = Split("""
-    short_filters_kernel.h
-""")
-
-if first_mach:
-    env.Install('$ARCHPREFIX/include/nidas/linux/filters',headers)
-
+env.NidasKernelModule(
+    ['short_filters.ko'],
+    ['short_filters.c', *env.SymbolModules('revinfo')],
+    ['short_filters_kernel.h'])

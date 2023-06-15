@@ -1,48 +1,15 @@
 # -*- python -*-
 ## 2007, Copyright University Corporation for Atmospheric Research
 
+from SCons.Script import Environment, Import
 
 ##
 ##  Import the build environment.
 ##
-Import(['env', 'first_mach'])
-mach = env['MACH']
+Import(['env'])
 
-# The Makefile must be listed in the source dependencies
-# so that it is copied/linked to the variant_dir.
-# The Kmake builder runs the make command in variant_dir.
-#
-# Also, the SConscript command that invokes this SConscript
-# file should set duplicate=1, so that all the linux module
-# source files, including the Makefile, are copied to the variant_dir.
-# so that make can find them and do its work outside of the
-# source tree.
+env: Environment
 
-if env.get("LINUX_MODULES_INST_PATH") and env.get("KERNELDIR"):
-
-    modules = ['nidas_util.ko']
-
-    revinfo = Dir('./../../include/nidas/linux').File('Revision.h')
-
-    srcs = ['nidas_util.c','Makefile', revinfo]
-
-    # Don't need this watchdog, but might experiment with it on a vulcan
-    # at some point. Disable building it for now.
-    if 0 and mach == 'titan':
-        srcs.append('pc104_irq_watchdog.c')
-        modules.append('pc104_irq_watchdog.ko')
-
-    env.Kmake(modules,srcs)
-
-    env.Install('$LINUX_MODULES_INST_PATH',modules)
-
-    env.Clean('install',[
-        '$LINUX_MODULES_INST_PATH/' + l for l in modules
-        ])
-
-# Some kernel module header files define symbols that are needed
-# by user code. These must also be installed in $ARCHPREFIX/include
-headers = Split("""
-""")
-
-env.Install('$ARCHPREFIX/include/nidas/linux/filters',headers)
+env.NidasKernelModule(
+    ['nidas_util.ko'],
+    ['nidas_util.c', *env.SymbolModules('revinfo')])

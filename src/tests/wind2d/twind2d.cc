@@ -6,7 +6,6 @@ using boost::unit_test_framework::test_suite;
 #include <nidas/dynld/isff/Wind2D.h>
 #include <nidas/core/XMLParser.h>
 #include <nidas/core/Project.h>
-#include <xercesc/framework/MemBufInputSource.hpp>
 #include <memory>
 #include <nidas/util/util.h>
 
@@ -51,28 +50,6 @@ const char* gill_xml = R"XML(
         <parameter type="string" name="orientation" value="${ORIENTATION}"/>
     </serialSensor>
 )XML";
-
-
-xercesc::DOMDocument*
-parseString(const std::string& xml)
-{
-    XMLParser parser;
-    if (0) {
-    parser.setDOMValidation(false);
-    parser.setDOMValidateIfSchema(false);
-    parser.setDOMNamespaces(true);
-    parser.setXercesSchema(true);
-    parser.setXercesSchemaFullChecking(true);
-    parser.setXercesHandleMultipleImports(true);
-    parser.setXercesDoXInclude(true);
-    parser.setDOMDatatypeNormalization(false);
-    }
-    xercesc::MemBufInputSource mbis((const XMLByte *)xml.c_str(),
-                    xml.size(), "buffer", false);
-
-    xercesc::DOMDocument* doc = parser.parse(mbis);
-    return doc;
-}
 
 
 template <typename T, typename V>
@@ -152,7 +129,7 @@ setup_wind2d(Wind2D& wind, bool flipped=false, float offset=0)
     putenv(env_offset);
 
     std::string xml = Project::getInstance()->expandString(gill_xml);
-    std::unique_ptr<xercesc::DOMDocument> doc(parseString(xml));
+    std::unique_ptr<xercesc::DOMDocument> doc(XMLParser::ParseString(xml));
     wind.fromDOMElement(doc->getDocumentElement());
     wind.validate();
     wind.init();

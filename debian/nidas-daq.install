@@ -1,2 +1,0 @@
-pkg_files/root/etc/default/nidas-daq etc/default
-pkg_files/root/etc/modprobe.d/*.conf etc/modprobe.d

@@ -1,15 +1,18 @@
 # -*- python -*-
 ## 2006, Copyright University Corporation for Atmospheric Research
 
+import os
+import SCons
+from SCons.Script import Environment, Import
+
+env: Environment
 
 ##
 ##  Import the build environment.
 ##
 Import('env')
-arch = env['ARCH']  # empty string for native builds
-machs = env['MACHS']
 
-headers = Split("""
+headers = env.Split("""
     a2d.h
     isa_bus.h
     irigclock.h
@@ -21,7 +24,7 @@ headers = Split("""
     util.h
 """)
 
-subdirs=Split("""
+subdirs = env.Split("""
     arinc
     diamond
     filters
@@ -35,78 +38,169 @@ subdirs=Split("""
     util
 """)
 
+
+# Create a Revision header specifically for the kernel modules to include.
+# Like for nidas/Revision.h, this is not built into the variant dir.
+info = env.GitInfo("#/nidas/linux/Revision.h", "#/nidas/linux")
+env.Alias('install', env.Install('$PREFIX/include/nidas/linux', info))
+
+
+symvers = {
+    'revinfo': info[0],
+    'util': env.File('util/Module.symvers'),
+    'filters': env.File('filters/Module.symvers'),
+    'irig': env.File('irig/Module.symvers')
+}
+
+
+def SymbolModules(env: Environment, *keys):
+    "Translate a list of subdirs into the corresponding symbol files."
+    return [symvers[k] for k in keys]
+
+
+def NidasKernelModule(env, modules, sources, headers=None):
+    """
+    Pseudo-builder for all NIDAS kernel modules.  Return the module targets if
+    build enabled, else None.
+
+    headers are added to sources and also installed into the nidas/linux
+    include directory.
+
+    Makefile is added to sources if not present.  The Makefile must be listed
+    in the source dependencies so that it is copied/linked to the variant_dir.
+    The Kmake builder runs the make command in variant_dir.
+
+    Also, the SConscript command that invokes this SConscript file should set
+    duplicate=1, so that all the linux module source files, including the
+    Makefile, are copied to the variant_dir.  so that make can find them and
+    do its work outside of the source tree.
+
+    All modules must be built by the same kmake builder so SCons will setup
+    all the variant_dir copies/links before running make.  Otherwise make
+    fails because not all the dependencies exist yet.
+    """
+    targets = None
+    thisdir = env.Dir('.').srcnode().abspath
+    env.LogDebug("NidasKernelModule setup in %s..." % (thisdir))
+    subdir = os.path.basename(thisdir)
+
+    # If Linux modules are enabled, then try to build them, which means
+    # failing if KERNELDIR is not set.
+    if env.LinuxModulesEnabled():
+        if not env.get("KERNELDIR"):
+            msg = "Linux modules enabled but KERNELDIR not set."
+            raise SCons.Errors.StopError(msg)
+
+        if 'Makefile' not in sources:
+            sources += ['Makefile']
+
+        # Make sure all the source files exist, otherwise the module is
+        # presumed to be a git submodule which has not been populated and
+        # cannot be built.
+        exists = True
+        for source in [env.File(s).srcnode().abspath for s in sources]:
+            if not source.startswith(thisdir):
+                continue
+            if os.path.exists(source):
+                env.LogDebug(f"{subdir} kernel module source "
+                             f"file found: {source}")
+            else:
+                print(f"{subdir} kernel module will not be built, "
+                      f"source file missing: {source}")
+                exists = False
+                break
+
+        if exists:
+            targets = env.Kmake(modules, sources + (headers or []))
+            installs = env.Install('$LINUX_MODULES_INST_PATH', modules)
+            env.Alias('install.root', installs)
+            # This should be unnecessary now that modules can be installed
+            # directly into the system modules path, but package specs still
+            # refer to them and maybe they are useful to have in the tree for
+            # other reasons.  I think rpms in particular expect the modules in
+            # this directory and not in the system path.
+            env.Alias('install', env.Install('$PREFIX/modules', modules))
+
+    # Not sure if headers are meant to be installed even when the module
+    # is not being built...
+    if headers:
+        installs = env.Install('$LINUX_MODULES_INC/' + subdir, headers)
+        env.Alias('install', installs)
+
+    return targets
+
+
+def InstallModuleConf(env: Environment, modconf):
+    "Pseudo-builder to install modprobe.d conf files."
+    if env.LinuxModulesEnabled():
+        conf = env.Install('$SYSCONFIGDIR/modprobe.d', modconf)
+        env.Alias('install.root', conf)
+
+
+def InstallEtcDefaults(env: Environment, target, source):
+    "Pseudo-builder to install /etc/default files for modules."
+    if env.LinuxModulesEnabled():
+        conf = env.InstallAs('$SYSCONFIGDIR/default/'+target, source)
+        env.Alias('install.root', conf)
+
+
+def InstallModuleInit(env: Environment, target, source):
+    "Pseudo-builder to install init scripts."
+    if env.LinuxModulesEnabled():
+        init = env.InstallAs('$SYSCONFIGDIR/init.d/'+target, source)
+        env.Alias('install.root', init)
+
+
+def nidas_kernel_modules(env: Environment):
+    "Tool to add the ModuleSymbols method to an Environment."
+    env.AddMethod(SymbolModules)
+    env.AddMethod(NidasKernelModule)
+    env.AddMethod(InstallModuleConf)
+    env.AddMethod(InstallEtcDefaults)
+    env.AddMethod(InstallModuleInit)
+
 #
 # Invoke SConscripts in subdirs to create linux modules.
 #
-# A SConscript may be invoked more than once, to build
-# modules for multiple machines of an architecture.
-# Pass a boolean variable 'first_mach' to the SConscript,
-# with a value of True the first time the SConscript is
-# called for a given architecture, and False for successive times.
-# Then the first time is it called, a SConscript can then
-# create dependencies for things that are independent
-# of machine type for an architecture. This then avoids warnings:
-# "warning: Two different environments were specified for target ..."
 
-first_mach = True
-vdirs = []
-for mach in machs:
+# First apply the kerneldir tool to set KERNELDIR from the SCons variable
+# based on ARCH and MACH.  That allows a different default KERNELDIR to be
+# chosed for different targets, but the default can be overridden for each
+# target by setting the target-specific variable.  The kmake tool then
+# examines the build system to determine a default kernel directory abd
+# assigns that to KERNELDIR_FOUND.  In the end, if KERNELDIR evaluates to
+# non-empty, then it should be a path to the kernel source.  After both
+# kerneldir and kmake are applied, then KERNELRELEASE is derived by the
+# kerneldir tool.
 
-    if env.get("LINUX_MODULES", True):
-        # If LINUX_MODULES is undefined, or is True, then the
-        # user wants to build the linux modules. If so,
-        # redefine it to be where the modules are to be installed.
-        #
-        # module installation path must be unique for each machine type
-        # For the native host, mach is a null string, and
-        # modpath is then simply $PREFIX/modules
+env.Require(['kerneldir', 'kmake', nidas_kernel_modules])
+env.SetKernelRelease()
 
-        # Look for 'KERNELDIR_' + mach + '_' + arch.
-        # If not found, look for KERNELDIR.
-        kdir = ''
-        kkey = 'KERNELDIR_' + mach + '_' + arch
-        if kkey in env:
-            kdir = env[kkey]
-        else:
-            kkey = 'KERNELDIR'
-            if kkey in env:
-                kdir = env[kkey]
+# kernel module builds need absolute include paths because they are run in
+# a different working directory
+incpaths = set([env.Dir(p).abspath for p in env['CPPPATH']])
+kflags = ' '.join(['-I%s' % (p) for p in incpaths])
+env['KCFLAGS'] = kflags
 
-        modpath='$ARCHPREFIX/modules/' + mach
+# kernel modules install into a kernel-specific path.
+env['LINUX_MODULES_INST_PATH'] = '/lib/modules/$KERNELRELEASE/nidas'
+env['LINUX_MODULES_INC'] = '$PREFIX/include/nidas/linux'
 
-# Need the absolute paths to the local header files when build modules
-# Dir('.').path is the current variant_dir, such as "build_arm/linux"
-# Dir('./../include').path will then be build_arm/include
-# Dir('./../include').abspath will be the absolute path
 
-        kflags = '-I' + Dir('./../include').abspath + ' -I' + Dir('#').abspath
+# The environment does not need to be cloned for each module, since the
+# construction variables are all the same for each module.  They also do not
+# need to be variants with duplicate=1, because that is done once at the top
+# for the entire variant target.
 
-        mach_env = env.Clone(MACH=mach,KCFLAGS=kflags,
-            tools=[('kmake',{'KERNELDIR': kdir})])
-        # Since LINUX_MODULES_INST_PATH is really a scons Variable, the setting gets
-        # updated when the clone is created.  Set it now to override it.
-        mach_env['LINUX_MODULES_INST_PATH'] = modpath
-    else:
-        mach_env = env.Clone(MACH=mach)
+for subdir in subdirs:
+    env.SConscript('%s/SConscript' % subdir, exports=[{'env': env}])
 
-    for subdir in subdirs:
-        vdir ='%s_%s' % (subdir,mach)
-        mach_env.SConscript('%s/SConscript' % subdir,
-                   variant_dir=vdir,
-                   duplicate=1,exports=['first_mach', {'env':mach_env}])
+env.Alias('install', env.Install('$LINUX_MODULES_INC', headers))
 
-        env.Install('$ARCHPREFIX/include/nidas/linux', headers)
+env.InstallModuleConf('nidas.conf')
 
-        vdirs = [vdirs,vdir]
-
-    first_mach = False
-
-# Do not create an alias to just the $PREFIX/modules directory, because
-# there will be no targets under that directory if no modules are being
-# built, and scons reports an error if the source for the alias does not
-# exist and does not have any targets.  Instead, add an alias for any nodes
-# in that directory.
-submodules = env.Dir('$ARCHPREFIX/modules').glob('*')
-if submodules:
-    env.Alias('install', submodules)
-
+# The 99-nidas.rules file contains tty rules which are useful even if modules
+# are not built, so go ahead and install it so it can be included in the
+# nidas-daq package.
+rules = env.Install('/usr/lib/udev/rules.d', 'udev/99-nidas.rules')
+env.Alias('install.root', rules)

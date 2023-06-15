@@ -5,6 +5,25 @@ set -e
 
 key='<eol-prog@eol.ucar.edu>'
 eolrepo=/net/ftp/pub/archive/software/debian
+codename=""
+
+# not currently used since the codename is passed in the -I argument, but
+# maybe someday it could be useful.
+set_codename()
+{
+    # get the debian release codename.  buster conviently provides
+    # VERSION_CODENAME, but on jessie it is only available embedded in
+    # VERSION.  And on ubuntu, VERSION has two words upper scase, like Bionic
+    # Beaver.
+    if [ -z "$codename" ]; then
+        source /etc/os-release
+        codename="$VERSION_CODENAME"
+        if [ -n "$codename" ]; then
+            codename=$(echo "$VERSION" | sed -e 's/.*(//' -e 's/).*//' | sed -e 's/ .*//' | tr A-Z a-z)
+        fi
+    fi
+}
+
 
 usage() {
     echo "Usage: ${1##*/} [-i repository ] [ -I codename ] arch"
@@ -14,6 +33,7 @@ usage() {
     echo "-i repo: install packages with reprepro to repo"
     echo "-I codename: install packages to $eolrepo/codename-<codename>"
     echo "-n: don't clean source tree, passing -nc to dpkg-buildpackage, implies -b"
+    echo "-d: move the final packages in the given directory"
     echo "arch is armel, armhf, amd64 or i386"
     echo "codename is jessie, xenial or whatever distribution has been enabled on $eolrepo"
     exit 1
@@ -24,7 +44,6 @@ if [ $# -lt 1 ]; then
 fi
 
 arch=amd64
-
 use_chroot=false
 binary=false
 
@@ -33,8 +52,12 @@ binary=false
 # Makefile from debuild
 export DEB_GCJFLAGS_MAINT_SET=--config=force
 
-# Add to path for pyenv support of python 3
-args="--prepend-path=/root/.pyenv/shims:/root/.pyenv/bin"
+args="--prepend-path /usr/local/bin --no-tgz-check -sa"
+dest=""
+
+# Add to path for pyenv support of python 3, and /usr/local/bin in case scons
+# was installed there with pip3
+args="--prepend-path=/usr/local/bin:/root/.pyenv/shims:/root/.pyenv/bin"
 
 while [ $# -gt 0 ]; do
     case $1 in
@@ -49,6 +72,10 @@ while [ $# -gt 0 ]; do
         ;;
     -b)
         binary=true
+        ;;
+    -d)
+        shift
+        dest=$1
         ;;
     -c)
         use_chroot=true
@@ -101,28 +128,31 @@ if [ -n "$repo" -a -d "$repo" ]; then
         echo "Cannot determine codename of repository configuration $distconf"
         exit 1
     fi
-    export GPG_TTY=$(tty)
 
-    # Check that gpg-agent is running, and do a test signing,
-    # which also caches the passphrase.
-    # With gpg2 v2.1 and later, gpg-connect-agent /bye will start the
-    # agent if necessary and comms are done over the standard socket:
-    # $HOME/.gnupg/S.gpg-agent.
-    #
-    # It may contact the gpg-agent on the host over
-    # the unix socket in .gnupg if many things are OK:
-    #   compatible gpg2 version, same user ids, SELinux not interfering
-    # With gpg2 v2.1 and later, gpg-connect-agent will start gpg-agent
-    # if necessary.
-    # On gpg2 v2.0 (debian jessie) one needs to start the
-    # agent and use the value of GPG_AGENT_INFO that is returned to
-    # determine the path to the socket.
-    gpg-connect-agent /bye 2> /dev/null || eval $(gpg-agent --daemon)
+    if [ -n "$key" ]; then
+        export GPG_TTY=$(tty)
 
-    echo test | gpg2 --clearsign --default-key "$key" > /dev/null
+        # Check that gpg-agent is running, and do a test signing,
+        # which also caches the passphrase.
+        # With gpg2 v2.1 and later, gpg-connect-agent /bye will start the
+        # agent if necessary and comms are done over the standard socket:
+        # $HOME/.gnupg/S.gpg-agent.
+        #
+        # It may contact the gpg-agent on the host over
+        # the unix socket in .gnupg if many things are OK:
+        #   compatible gpg2 version, same user ids, SELinux not interfering
+        # With gpg2 v2.1 and later, gpg-connect-agent will start gpg-agent
+        # if necessary.
+        # On gpg2 v2.0 (debian jessie) one needs to start the
+        # agent and use the value of GPG_AGENT_INFO that is returned to
+        # determine the path to the socket.
+        gpg-connect-agent /bye 2> /dev/null || eval $(gpg-agent --daemon)
+
+        echo test | gpg2 --clearsign --default-key "$key" > /dev/null
+    fi
 fi
 
-args="$args -a$arch -i -I -Ibuild*"
+args="$args -a$arch -i -I -Ibuild* -Idoc/doxygen"
 
 if $use_chroot; then
     dist=$(lsb_release -c | awk '{print $2}')
@@ -199,12 +229,14 @@ EOD
 else
     # To test cleans, do: debuild -- clean
     # DEB_BUILD_MAINT_OPTIONS
-    time debuild $args \
-        --lintian-opts --suppress-tags dir-or-file-in-opt,package-modifies-ld.so-search-path,package-name-doesnt-match-sonames
+    (set -x; time debuild $args \
+        --lintian-opts --suppress-tags dir-or-file-in-opt,package-modifies-ld.so-search-path,package-name-doesnt-match-sonames)
 fi
 
 # debuild puts results in parent directory
 cd ..
+chngs=nidas_*_$arch.changes
+archdebs=nidas*$arch.deb
 
 if [ -n "$repo" ]; then
     umask 0002
@@ -219,13 +251,11 @@ if [ -n "$repo" ]; then
     ls
     echo ""
 
-    chngs=nidas_*_$arch.changes 
     # display changes file
     echo "Contents of $chngs"
     cat $chngs
     echo ""
 
-    archdebs=nidas*$arch.deb
 
     # Grab all the package names from the changes file
     pkgs=($(awk '/Checksums-Sha1/,/Checksums-Sha256/ { if (NF > 2) print $3 }' $chngs | grep ".*\.deb" | sed "s/_.*_.*\.deb//"))
@@ -275,16 +305,16 @@ if [ -n "$repo" ]; then
                     # removed with -A i386|source|all", and you'll get
                     # a "registered with different checksums" error if
                     # you try to install it for i386. So leave -A off.
-                    flock $repo sh -c "
-                        reprepro -V -b $repo remove $codename $pkg"
+                    (set -x; flock $repo sh -c \
+                        "reprepro -V -b $repo remove $codename $pkg")
                 done
-                flock $repo sh -c "
-                    reprepro -V -b $repo deleteunreferenced"
+                (set -x; flock $repo sh -c \
+                    "reprepro -V -b $repo deleteunreferenced")
 
             fi
 
-            flock $repo sh -c "
-                reprepro -V -b $repo -C main --keepunreferencedfiles include $codename $chngs" 2> $tmplog || status=$?
+            (set -x; flock $repo sh -c \
+                "reprepro -V -b $repo -C main --keepunreferencedfiles include $codename $chngs" 2> $tmplog || status=$?)
 
         # If not the first architecture listed, just install the
         # specific architecture packages.
@@ -296,15 +326,15 @@ if [ -n "$repo" ]; then
                     # remove last two underscores
                     pkg=${pkg%_*}
                     pkg=${pkg%_*}
-                    flock $repo sh -c "
-                        reprepro -V -b $repo -A $arch remove $codename $pkg"
+                    (set -x; flock $repo sh -c \
+                        "reprepro -V -b $repo -A $arch remove $codename $pkg")
                 done
-                flock $repo sh -c "
-                    reprepro -V -b $repo deleteunreferenced"
+                (set -x; flock $repo sh -c \
+                    "reprepro -V -b $repo deleteunreferenced")
             fi
 
-            flock $repo sh -c "
-                reprepro -V -b $repo -C main -A $arch --keepunreferencedfiles includedeb $codename $archdebs" 2> $tmplog || status=$?
+            (set -x; flock $repo sh -c \
+                "reprepro -V -b $repo -C main -A $arch --keepunreferencedfiles includedeb $codename $archdebs" 2> $tmplog || status=$?)
         fi
         echo "status=$status"
 
@@ -322,8 +352,12 @@ if [ -n "$repo" ]; then
     else
         echo "saving results in $PWD"
     fi
+fi
 
+# Dispatch the packages unless neither -d nor -i were specified.
+if [ -n "$dest" ]; then
+    echo "moving results to $dest"
+    (set -x; mv -f nidas_*_$arch.build nidas_*.dsc nidas_*.tar.xz nidas*_all.deb nidas*_$arch.deb $chngs $dest)
 else
     echo "build results are in $PWD"
 fi
-
