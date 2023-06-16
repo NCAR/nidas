@@ -4,13 +4,13 @@ script=`basename $0`
 dir=`dirname $0`
 
 dopkg=nidas
-buildarinc=true
+buildarinc=false
 buildmodules=true
 
 while [ $# -gt 0 ]; do
     case $1 in
-        -noarinc)
-            buildarinc=false
+        -arinc)
+            buildarinc=true
             ;;
         --no-modules)
             buildmodules=false
@@ -19,7 +19,7 @@ while [ $# -gt 0 ]; do
             buildmodules=true
             ;;
         -*)
-            echo "Usage: $0 [-nr] [-noarinc] [--[no-]modules] [spec-file]"
+            echo "Usage: $0 [-nr] [-arinc] [--[no-]modules] [spec-file]"
             exit 1
             ;;
         *)
