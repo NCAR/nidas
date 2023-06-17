@@ -6,6 +6,7 @@ dir=`dirname $0`
 dopkg=nidas
 buildarinc=false
 buildmodules=true
+destdir=
 
 while [ $# -gt 0 ]; do
     case $1 in
@@ -17,6 +18,10 @@ while [ $# -gt 0 ]; do
             ;;
         --modules)
             buildmodules=true
+            ;;
+        -d)
+            destdir="$2"
+            shift
             ;;
         -*)
             echo "Usage: $0 [-nr] [-arinc] [--[no-]modules] [spec-file]"
@@ -181,3 +186,8 @@ n
 /^ /b next
 }
 ' $log
+
+if [ -n "$destdir" ]; then
+    echo "moving packages to $destdir..."
+    (set -x; mv -f $rpms $destdir)
+fi

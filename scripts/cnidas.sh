@@ -135,7 +135,7 @@ is named, then the current repo is used.
 EOF
 }
 
-targets=(centos7 centos8 vulcan titan pi2 pi3 ubuntu vortex)
+targets=(alma9 centos7 centos8 vulcan titan pi2 pi3 ubuntu vortex)
 
 # Return the arch for passing to build_dpkg
 get_arch() # alias
@@ -285,6 +285,10 @@ run_image() # command...
     # Mount the local scripts directory over top of the source, so the
     # local build scripts are used no matter what version of source is
     # being built.
+    #
+    # May have to rethink the /opt/nidas mount as the default install
+    # directory for builds in the container, since that conflicts with testing
+    # installs of the nidas packages inside the container...
     exec podman run --rm -i -t \
       --volume "$dest":/nidas:rw,Z \
       --volume "$install":/opt/nidas:rw,Z \
@@ -307,7 +311,14 @@ build_packages()
         echo "Packages will be copied to $workpath/packages/$alias."
         exit 1
     fi
-    run_image /nidas/scripts/build_dpkg.sh `get_arch $alias` -d /packages
+    case "$alias" in
+        centos*|alma*)
+            run_image /nidas/rpm/build_rpm.sh -d /packages
+            ;;
+        *)
+            run_image /nidas/scripts/build_dpkg.sh `get_arch $alias` -d /packages
+            ;;
+    esac
 }
 
 

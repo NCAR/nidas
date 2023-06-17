@@ -32,7 +32,9 @@ Source: https://github.com/ncareol/%{name}/archive/master.tar.gz#/%{name}-%{vers
 
 BuildRequires: gcc-c++ xerces-c-devel xmlrpc++ bluez-libs-devel bzip2-devel
 BuildRequires: flex gsl-devel kernel-devel libcap-devel
-BuildRequires: eol_scons >= 4.2
+# Allow eol_scons requirement to be met with a local checkout and not only as
+# an installed package.  Building NIDAS does require one or the other.
+# BuildRequires: eol_scons >= 4.2
 Requires: jsoncpp
 BuildRequires: jsoncpp-devel
 
@@ -138,36 +140,6 @@ cd -
 # To view:
 # semanage fcontext --list -C | fgrep /opt/nidas
 # /opt/(.*/)?var/lib(/.*)?  all files system_u:object_r:var_lib_t:s0
-
-if /sbin/selinuxenabled; then
-    /sbin/semanage fcontext -a -t lib_t %{nidas_prefix}/%{_lib}"(/.*)?" 2>/dev/null || :
-    /sbin/restorecon -R %{nidas_prefix}/%{_lib} || :
-fi
-/sbin/ldconfig
-
-%postun libs
-if [ $1 -eq 0 ]; then # final removal
-    /sbin/semanage fcontext -d -t lib_t %{nidas_prefix}/%{_lib}"(/.*)?" 2>/dev/null || :
-fi
-
-# If selinux is Enforcing, ldconfig can fail with permission denied if the
-# policy and file contexts are not right. Set the file context of
-# library directory and contents to lib_t. I'm not sure at this point
-# that this solves the whole issue, or whether a policy change is also required.
-# There is some mystery in that ldconfig from root's interactive session never
-# seems to fail with permission denied, but does fail from other contexts.
-# During SCP, several times (probably after an rpm update) the nidas libs were
-# not in the ld cache. I added ldconfig to rc.local and a crontab, and sometimes
-# those failed with permission problems related to SELinux and /opt/nidas/{lib,lib64}.
-# 
-# The following is found in /etc/selinux/targeted/contexts/files/file_contexts
-# /opt/(.*/)?lib(/.*)?	system_u:object_r:lib_t:s0
-# in selinux-policy-targeted-3.14.2-57.fc29
-# Looks like it doesn't match lib64 in /opt/nidas/lib64
-# 
-# To view:
-# semanage fcontext --list -C | fgrep /opt/nidas
-# /opt/(.*/)?var/lib(/.*)?  all files system_u:object_r:var_lib_t:s0
 #
 # (gjg) I'm not sure about this approach, since the context needs to be
 # installed even if selinux happens to be disabled at the moment.  The
@@ -181,6 +153,12 @@ fi
 if /sbin/selinuxenabled; then
     /sbin/semanage fcontext -a -t lib_t %{nidas_prefix}/%{_lib}"(/.*)?" 2>/dev/null || :
     /sbin/restorecon -R %{nidas_prefix}/%{_lib} || :
+fi
+/sbin/ldconfig
+
+%postun libs
+if [ $1 -eq 0 ]; then # final removal
+    /sbin/semanage fcontext -d -t lib_t %{nidas_prefix}/%{_lib}"(/.*)?" 2>/dev/null || :
 fi
 /sbin/ldconfig
 
