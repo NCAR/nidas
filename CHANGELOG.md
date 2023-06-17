@@ -41,6 +41,9 @@ looks for a response according to the single sensor specified for the port.
 
 ## [1.4]
 
+This is the first of a series of beta versions to test ongoing refactors of
+the buster branch before merging it with master.
+
 The hardware API was refactored to simplify it, consolidate it into one
 header, hide the implementation so it can be swapped or compiled out entirely,
 and fix a memory leak.
@@ -52,8 +55,14 @@ simple command-line arguments.  See `pio -h` for usage.
 
 ## [1.3.253]
 
+One DSM during SOS, `cb`, had this version installed.  This version included
+enhancements to better handle the prompting for the snow pillow instruments.
+Released as version string `v1.3-253`.
+
+## [1.3.235]
+
 This is the version deployed for the SOS field project, released with version
-string `v1.3-253`.
+string `v1.3-235`.
 
 ## [1.3] - 2019-06-03
 
@@ -78,6 +87,7 @@ to `v1.2-1721-g1ebc8bcd4`.
 <!-- Versions -->
 [buster]: https://github.com/ncareol/nidas/tree/buster
 [1.4]: https://github.com/ncareol/nidas/compare/v1.3.253...v1.4
-[1.3.253]: https://github.com/ncareol/nidas/compare/v1.3...v1.3.253
+[1.3.253]: https://github.com/ncareol/nidas/compare/v1.3.235...v1.3.253
+[1.3.235]: https://github.com/ncareol/nidas/compare/v1.3...v1.3.235
 [1.3]: https://github.com/ncareol/nidas/compare/master...v1.3
 [1.2]: https://github.com/ncareol/nidas/releases/tag/v1.2
