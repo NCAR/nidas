@@ -256,9 +256,13 @@ run_image() # command...
     # If the repository is available on this host, then mount that
     # too.
     DEBIAN_REPOSITORY=/net/ftp/pub/archive/software/debian
-    repomoun=""
+    repomount=""
     if [ -d $DEBIAN_REPOSITORY ]; then
         repomount="--volume ${DEBIAN_REPOSITORY}:/debian:rw,Z"
+    fi
+    pcmount=""
+    if [ -f "$HOME/.packagecloud" ]; then
+        pcmount="--volume $HOME/.packagecloud:/root/.packagecloud:ro,Z"
     fi
     set -x
     # Mount the local scripts directory over top of the source, so the local
@@ -271,8 +275,7 @@ run_image() # command...
       --volume "$HOME/.scons":/root/.scons:rw,Z \
       --volume "$packagepath":/packages:rw,Z \
       --volume "$scripts":/nidas/scripts:rw,Z \
-      $repomount \
-      $imagetag "$@"
+      $pcmount $repomount $imagetag "$@"
 }
 
 run_scons() # [scons args ...]
