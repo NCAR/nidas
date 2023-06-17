@@ -42,6 +42,8 @@ cat << \EOD > $awkcom
         hash = gensub(".*-g([0-9a-f]+)","\\1",1,gitdesc)
         # convert v2.0-14-g9abcdef to 2.0+14
         version = gensub("^v([^-]+)-([0-9]+)-.*$","\\1+\\2",1,gitdesc)
+        # if that didn't work, try an exact match to the tag
+        version = gensub("^v([^-]+)$","\\1",1,gitdesc)
         # print "version=" version ",hash=" hash
     }
 }
