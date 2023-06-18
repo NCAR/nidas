@@ -87,7 +87,7 @@ SampleScanner* SerialSensor::buildSampleScanner()
 
 IODevice* SerialSensor::buildIODevice() throw(n_u::IOException)
 {
-    IODevice* device = CharacterSensor::buildIODevice();
+    IODevice* device = overrideIODevice();
 
     if (!device)
     {
