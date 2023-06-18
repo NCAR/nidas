@@ -474,6 +474,19 @@ void SerialSensor::fromDOMElement(
         xercesc::DOMNamedNodeMap *pAttributes = node->getAttributes();
         int nSize = pAttributes->getLength();
         PortConfig portconfig;
+        if (!_portconfigs.empty())
+        {
+            // as a special case for serial port settings in the sensor
+            // element, begin with a copy of the first hardcoded port config
+            // in this sensor class.  this way configs which do not yet set
+            // the transceiver mode will "inherit" that from the sensor class.
+            // it could be useful to let all port configs inherit from the
+            // last one set, as a way to specify multiple port configs which
+            // only vary in a few parameters.  for now, though, stick to
+            // what's needed to get CSI_IRGA_Sonic to set RS485_FULL for
+            // sensor elements which don't otherwise set the transceiver mode.
+            portconfig = _portconfigs.front();
+        }
         bool found_portconfig = false;
         for(int i=0;i<nSize;++i) {
             XDOMAttr attr((xercesc::DOMAttr*) pAttributes->item(i));
