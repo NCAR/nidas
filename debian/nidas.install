@@ -1,2 +1,3 @@
 opt/nidas/bin/*
 opt/nidas/systemd/user/*
+opt/nidas/share/xml/nidas.xsd
