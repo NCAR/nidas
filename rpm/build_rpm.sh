@@ -41,7 +41,14 @@ cd ..    # to top of nidas tree
 # So that we don't compile from scratch everytime, do not --clean the BUILD
 # tree with rpmbuild.  nidas.spec %setup also has a -D option that
 # does not clear the BUILD tree before un-taring the source
-topdir=${TOPDIR:-$(rpmbuild --eval %_topdir)_$(hostname)}
+
+# If hostname is not available, then likely this is a container and it's not
+# useful.
+host=""
+if command -v hostname >/dev/null ; then
+    host="_$(hostname)"
+fi
+topdir=${TOPDIR:-$(rpmbuild --eval %_topdir)$host}
 
 # echo "topdir=$topdir"
 [ -d $topdir/SOURCES ] || mkdir -p $topdir/SOURCES

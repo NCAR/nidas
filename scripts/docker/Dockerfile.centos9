@@ -1,0 +1,18 @@
+FROM quay.io/centos/centos:stream9
+LABEL organization="NCAR EOL"
+
+RUN dnf -y update
+# To get dnf-config-manager to enable CRB repo permanently
+RUN dnf -y install dnf-utils
+RUN dnf config-manager --enable crb
+RUN dnf -y install epel-release
+RUN dnf -y install gcc-c++ git doxygen graphviz glibc-devel flex kernel-devel libpcap-devel libcap-devel elfutils-libelf-devel
+RUN dnf -y install gsl-devel libpcap-devel bzip2-devel bzip2-libs bzip2 bluez-libs-devel jsoncpp-devel libcurl-devel xerces-c-devel
+RUN dnf -y install python3-scons
+
+RUN dnf -y install rpm-build rsync diffutils cmake3
+RUN mkdir -p xmlrpc-build
+COPY ./build-xmlrpc.sh xmlrpc-build
+RUN cd xmlrpc-build && ./build-xmlrpc.sh
+
+WORKDIR /root

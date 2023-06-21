@@ -135,7 +135,7 @@ is named, then the current repo is used.
 EOF
 }
 
-targets=(alma9 centos7 centos8 vulcan titan pi2 pi3 ubuntu vortex)
+targets=(alma9 centos7 centos8 centos9 vulcan titan pi2 pi3 ubuntu vortex)
 
 # Return the arch for passing to build_dpkg
 get_arch() # alias
@@ -186,6 +186,9 @@ get_image_tag() # alias
         alma9)
             echo nidas-build-alma-x86_64:alma9
             ;;
+        centos9)
+            echo nidas-build-centos-x86_64:centos9
+            ;;
         centos8)
             echo nidas-build-centos-x86_64:centos8
             ;;
@@ -221,6 +224,9 @@ build_image()
     case "$alias" in
         alma9)
             podman build -t $tag -f docker/Dockerfile.alma9
+            ;;
+        centos9)
+            podman build -t $tag -f docker/Dockerfile.centos9
             ;;
         centos8)
             podman build -t $tag -f docker/Dockerfile.centos8
