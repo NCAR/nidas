@@ -64,7 +64,7 @@ int toomany(const std::string& msg)
 
 int parseRunString(int argc, char* argv[])
 {
-    app.enableArguments(app.loggingArgs() | app.Help | app.DebugDaemon);
+    app.enableArguments(app.loggingArgs() | app.Help);
 
     ArgVector args = app.parseArgs(argc, argv);
     if (app.helpRequested())
@@ -101,11 +101,20 @@ void status(HardwareDevice& device, Json::Value& root)
     std::string devName=device.id();
     std::string ptype;
     std::string term;
-    std::string button;
+    bool isDown;
+    bool isOn;
+    bool error;
     if (auto oi = device.iOutput())
-    {
-        std::string state= (oi->getState()).toString();
-        root[devName]["state"]=state;
+    {   
+        error=false;
+        root[devName]["error"]=error;
+        if(oi->getState()==OutputState::ON){
+            isOn=true;
+        }
+        else{
+            isOn=false;
+        }
+        root[devName]["isOn"]=isOn;
         if (auto iserial = device.iSerial())
         {
             PortType p;
@@ -118,12 +127,13 @@ void status(HardwareDevice& device, Json::Value& root)
         }
         if (auto ibutton = device.iButton())
         {
-            button=(ibutton->isDown() ? "down" : "up");
-            root[devName]["button"]=button;
+            isDown=ibutton->isDown();
+            root[devName]["isDown"]=isDown;
         }
     }
     else{
-        root[devName]["status"]="error";
+        error=true;
+        root[devName]["error"]=error;
     }
 }
 
@@ -145,7 +155,7 @@ int main(int argc, char *argv[]){
      {
         exit(1);
      }
-    for(int i=0; i<10; i++){
+    for(int i=0; i<10; i++){ //this is just for testing that it was correctly detecting changes in state. 
         loop();
         sleep(1);
     }
