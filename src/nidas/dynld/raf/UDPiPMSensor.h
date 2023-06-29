@@ -52,10 +52,10 @@ public:
     virtual void close();
 
 protected:
-    /// devicename of the NAI iPM device.
+    // devicename of the NAI iPM device.
     std::string     _deviceAddr;
 
-    /// Status port number for the ipm_ctrl program.
+    // Status port number for the ipm_ctrl program.
     unsigned int    _statusPort;
 
     // STATUS & MEASURE collection rate (hz)
@@ -67,10 +67,10 @@ protected:
     // Baud rate
     unsigned int    _baudRate;
 
-    /// Number of adresses being used on the device.
+    // Number of addresses being used on the device.
     int             _numAddr;
 
-    /// Info for each address
+    // Info for each address
     std::vector<std::string>     _addrInfo;
 
     static const int MAX_CHANNELS;
