@@ -83,13 +83,11 @@ void UDPiPMSensor::validate()
     if (!p) throw n_u::InvalidParameterException(getName(),
           "recordperiod", "not found");
     _recordPeriod = (unsigned int)p->getNumericValue(0);
-    if (_recordPeriod < 10) throw n_u::InvalidParameterException(getName(),
-          "recordperiod", "must be >= 10");
     ILOG(("recordperiod is ") << _recordPeriod);
 
     p = getParameter("baudrate"); // Baud rate
     if (!p) throw n_u::InvalidParameterException(getName(),
-          "baudrate", "not found");  // TBD: default to 115200
+          "baudrate", "not found");
     _baudRate = (unsigned int)p->getNumericValue(0);
     ILOG(("baudrate is ") << _baudRate);
 
@@ -118,7 +116,7 @@ void UDPiPMSensor::open(int flags)
 
     // Construct command for child process
     char *args[40];
-    //char port[32];
+    char port[32];
     char m_rate[32];
     char r_period[32];
     char baud[32];
@@ -134,11 +132,11 @@ void UDPiPMSensor::open(int flags)
         args[argc++] = (char *)_deviceAddr.c_str();
     }
 
-    /*if (_statusPort > 0) {
+    if (_statusPort > 0) {
         sprintf(port, "%u", _statusPort);
         args[argc++] = (char *)"--port";
         args[argc++] = (char *)port;
-    } */
+    }
 
     if (_measureRate > 0) {
         sprintf(m_rate, "%u", _measureRate);
