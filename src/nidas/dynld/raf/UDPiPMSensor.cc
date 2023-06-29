@@ -134,7 +134,7 @@ void UDPiPMSensor::open(int flags)
 
     if (_statusPort > 0) {
         sprintf(port, "%u", _statusPort);
-        args[argc++] = (char *)"--port";
+        args[argc++] = (char *)"-s";
         args[argc++] = (char *)port;
     }
 
