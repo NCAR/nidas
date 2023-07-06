@@ -1,19 +1,5 @@
 #include <json/json.h>
-
-#include <ctime>
-
-#include <nidas/core/FileSet.h>
-#include <nidas/core/Socket.h>
-#include <nidas/dynld/RawSampleInputStream.h>
-#include <nidas/core/Project.h>
-#include <nidas/core/XMLParser.h>
-#include <nidas/core/SamplePipeline.h>
-#include <nidas/core/DSMConfig.h>
-#include <nidas/core/DSMSensor.h>
-#include <nidas/core/Variable.h>
 #include <nidas/core/NidasApp.h>
-#include <nidas/core/BadSampleFilter.h>
-#include <nidas/util/EOFException.h>
 #include <nidas/util/Process.h>
 #include <nidas/util/Logger.h>
 #include <nidas/util/auto_ptr.h>
@@ -155,10 +141,7 @@ int main(int argc, char *argv[]){
      {
         exit(1);
      }
-    for(int i=0; i<10; i++){ //this is just for testing that it was correctly detecting changes in state. 
-        loop();
-        sleep(1);
-    }
+    loop();
     
     return 0;
 }
