@@ -141,7 +141,9 @@ int main(int argc, char *argv[]){
      {
         exit(1);
      }
+    while(true){
     loop();
-    
+    sleep(1.5);
+    }
     return 0;
 }
