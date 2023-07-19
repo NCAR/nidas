@@ -164,8 +164,6 @@ int main(int argc, char *argv[]){
      {
         exit(1);
      }
-     cout<<Path<<endl;
-     cout<<slp<<endl;
     
     while(true){
         loop();
