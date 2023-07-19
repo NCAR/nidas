@@ -28,16 +28,21 @@ std::string Path;
 PortType PTYPE(PortType::RS232);
 PortTermination PTERM(PortTermination::NO_TERM);
 std::string RTS;
+float slp=1.5;
 
 void usage()
 {
-    cerr << R""""(Usage: hardware_stats [path]
+    cerr << R""""(Usage: hardware_stats [path] [sleep]
 
 Write status of hardware to a json file.
     
     path:
 
     File path to create a json file and write to.
+
+    sleep:
+
+    Optional float value to set wait time between each read/write cycle. If none provided, defaults to 1.5.
     )""""
     <<endl<<app.usage()<<endl;
 }
@@ -68,12 +73,29 @@ int parseRunString(int argc, char* argv[])
     }
     for (auto& arg: pargs)
     {   
-        if(pargs.size()>1){
+        if(pargs.size()>2){
             return toomany(arg);
         }
-        Path=arg;
+        if(Path.length()==0){
+            Path=arg;
+            continue;
+        }
+        float f;
+        try{
+            f=std::stof(arg);
+        }
+        catch(...){
+            std::cerr<<"Please enter valid sleep value >0."<<endl;
+            return 1;
+        }
+        if(f>0){
+            slp=f;
+        }
+        else{
+            std::cerr<<"Please enter valid sleep value >0."<<endl;
+            return 1;
+        }
         continue;
-  
         std::cerr << "operation unknown: " << arg << endl;
         return 1;
     }
@@ -136,14 +158,18 @@ void loop(){
     file<<root;
     file.close();
 }
+
 int main(int argc, char *argv[]){
     if (parseRunString(argc, argv))
      {
         exit(1);
      }
+     cout<<Path<<endl;
+     cout<<slp<<endl;
+    
     while(true){
-    loop();
-    sleep(1.5);
+        loop();
+        sleep(slp);
     }
     return 0;
 }
