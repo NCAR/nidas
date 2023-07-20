@@ -26,16 +26,21 @@ NidasApp app("button_action");
 
 
 std::string Path;
+float slp=1;
 
 void usage()
 {
-    cerr << R""""(Usage: button_action [path]
+    cerr << R""""(Usage: button_action [path] [sleep]
 
 Read input from button and depending on current state (indicated by led), turn associated functions on or off.
     
     path:
 
     File path to json file containing commands to be executed on button press.
+
+    sleep:
+
+    Optional float indicating how long between each check for button press. If no value provided, defaults to 1.
     )""""
     <<endl<<app.usage()<<endl;
 }
@@ -67,10 +72,28 @@ int parseRunString(int argc, char* argv[])
     }
     for (auto& arg: pargs)
     {   
-        if(pargs.size()>1){
+        if(pargs.size()>3){
             return toomany(arg);
         }
-        Path=arg;
+        if(Path.empty()){
+            Path=arg;
+            continue;
+        }
+        float f;
+        try{
+            f=std::stof(arg);
+        }
+        catch(...){
+            std::cerr<<"Please enter valid sleep value >0."<<endl;
+            return 1;
+        }
+        if(f>0){
+            slp=f;
+        }
+        else{
+            std::cerr<<"Please enter valid sleep value >0."<<endl;
+            return 1;
+        }
         continue;
   
         std::cerr << "operation unknown: " << arg << endl;
@@ -203,7 +226,7 @@ int main(int argc, char* argv[]) {
         }
         else
         {
-            sleep(1);
+            sleep(slp);
         }
     }
 
