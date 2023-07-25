@@ -168,7 +168,7 @@ std::tuple<Json::Value, Json::Value::Members> readJson()
 }
 */
 //checks given device for button and led states, calls associated action, and toggles led
-int check(std::string Device, bool &buttonPress, Json::Value root)
+int check(std::string Device, Json::Value root)
 {
     HardwareDevice device= HardwareDevice::lookupDevice(Device);
     
@@ -186,6 +186,13 @@ int check(std::string Device, bool &buttonPress, Json::Value root)
     auto button = device.iButton();
     if(button->isDown())
     {
+        bool release=false;
+        while(release==false){
+            if(button->isUp()){
+                release=true;
+            }
+            sleep(1);
+        }
         auto ledState=output->getState();
         if(ledState==OutputState::OFF)
         {
@@ -198,7 +205,7 @@ int check(std::string Device, bool &buttonPress, Json::Value root)
             output->off(); //turns LED off
                 
         }
-        buttonPress=true;
+        
     }
     return 0;
 
@@ -218,16 +225,11 @@ int main(int argc, char* argv[]) {
         bool buttonPress=false;
         for (auto i : devs)
         { 
-            check(i,buttonPress, root);
+            check(i, root);
         }
-        if(buttonPress)
-        {
-            sleep(5);
-        }
-        else
-        {
+      
             sleep(slp);
-        }
+        
     }
 
 }
