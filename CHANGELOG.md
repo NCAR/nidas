@@ -39,6 +39,21 @@ configuration.
 This does not yet include identifying the kind of sensor attached, NIDAS only
 looks for a response according to the single sensor specified for the port.
 
+## [1.4.1] - Pending release
+
+Skip DNS lookups while parsing XML configuration files.  The lookups were only
+to warn of unknown host names, but they severely slowed down parsing when the
+XML was parsed on a host where those host names were not expected to resolve
+anyway.
+
+Fixes to support non-char sample files like from the hotfilm program. NIDAS
+tools like `data_dump` and `data_stats` no longer assume data files with
+non-char samples are corrupt, and they have a `--raw` command-line flag to
+accept those samples as if they were processed.
+
+Fixes for the NIDAS install tree to allow the hotfilm program to build against
+NIDAS and without the source tree.
+
 ## [1.4]
 
 This is the first of a series of beta versions to test ongoing refactors of
