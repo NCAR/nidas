@@ -105,6 +105,12 @@ public:
     void open(int flags) throw(nidas::util::IOException,
         nidas::util::InvalidParameterException);
 
+    /**
+     * Builds UnixIODevice, since there really isn't any point to watching any
+     * other kind of IO devce.
+     */
+    virtual IODevice* buildIODevice() throw(nidas::util::IOException) override;
+
     /*
      * Stop monitoring the file.
      */

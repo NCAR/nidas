@@ -63,7 +63,16 @@ public:
     virtual ~CharacterSensor();
 
     /**
-     * Creates an IODevice depending on the device name prefix:
+     * A subclass can call this method if it allows the IODevice class to be
+     * overridden by overrideIODevice() or else wants the default of
+     * UnixIODevice.  Subclasses which do not want UnixIODevice as the default
+     * but which allow overriding should call overrideIODevice() directly.
+     */
+    IODevice* buildIODevice() throw(nidas::util::IOException);
+
+    /**
+     * Creates an IODevice if the deviceName() prefix matches a specific
+     * IODevice subclass, otherwise returns nullptr.
      * 
      * name prefix      type of IODevice
      * inet:            TCPSocketIODevice
@@ -71,13 +80,8 @@ public:
      * usock:           UDPSocketIODevice
      * btspp:           BluetoothRFCommSocketIODevice
      * all others       nullptr
-     * 
-     * A subclass can call this method first to see if the normal IO device
-     * should be subverted by one of the device types with the recognized
-     * prefix.  If the return value is a nullptr, then the subclass should
-     * create the IO device itself.
      */
-    IODevice* buildIODevice() throw(nidas::util::IOException);
+    IODevice* overrideIODevice();
 
     /**
      * Creates a SampleScanner for this DSMSensor depending on the

@@ -15,8 +15,10 @@ trap "{ rm -f $awkcom; }" EXIT
 # since this tag (max of 100).
 # sincetag=v1.0
 
-# to get the most recent tag of the form: vN
-sincetag=$(git tag -l --sort=version:refname "[vV][0-9]*" | tail -n 1)
+# to get the second-most recent tag of the form: vN.  using the most recent
+# means the changelog will be empty when building exactly that version, and
+# debuild fails.
+sincetag=$(git tag -l --sort=version:refname "[vV][0-9]*" | tail -n 2 | head -1)
 
 if ! gitdesc=$(git describe --match "v[0-9]*"); then
     echo "git describe failed, looking for a tag of the form v[0-9]*"
@@ -40,6 +42,8 @@ cat << \EOD > $awkcom
         hash = gensub(".*-g([0-9a-f]+)","\\1",1,gitdesc)
         # convert v2.0-14-g9abcdef to 2.0+14
         version = gensub("^v([^-]+)-([0-9]+)-.*$","\\1+\\2",1,gitdesc)
+        # if that didn't work, try an exact match to the tag
+        version = gensub("^v([^-]+)$","\\1",1,version)
         # print "version=" version ",hash=" hash
     }
 }

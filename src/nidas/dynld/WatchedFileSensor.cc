@@ -78,6 +78,13 @@ void WatchedFileSensor::open(int flags)
         throw n_u::IOException(getDeviceName(),"lseek",errno);
 }
 
+
+IODevice* WatchedFileSensor::buildIODevice() throw(nidas::util::IOException)
+{
+    return new UnixIODevice();
+}
+
+
 void WatchedFileSensor::close()
     throw(n_u::IOException)
 {

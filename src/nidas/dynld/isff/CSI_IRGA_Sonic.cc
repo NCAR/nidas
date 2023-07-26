@@ -38,18 +38,7 @@ using namespace std;
 
 namespace n_u = nidas::util;
 
-NIDAS_CREATOR_FUNCTION_NS(isff,CSI_IRGA_Sonic)
-
-// Although we do not actually go through AutoConfig for IRGA, 
-// we need to set up the port appropriately. This will
-// work for both old FTDI boards, and new Rev C+ FTDI boards.
-// The older boards will just set the termios parameters, while 
-// the newer boards will also set up the transceiver mode
-// (RS232/422/485_half, etc).
-
-// The default for IRGA is different from CSAT3.
-static const PortConfig DEFAULT_PORT_CONFIG(115200, 8, Parity::NONE, 1, RS485_FULL);
-
+NIDAS_CREATOR_FUNCTION_NS(isff, CSI_IRGA_Sonic)
 
 CSI_IRGA_Sonic::CSI_IRGA_Sonic():
     CSAT3_Sonic(),
@@ -66,6 +55,9 @@ CSI_IRGA_Sonic::CSI_IRGA_Sonic():
     _converter(0),
     _ttadjust(0)
 {
+    // The default for IRGA is different from CSAT3, so replace whatever the
+    // CSAT3_Sonic created.  The RS485 is especially important.
+    replacePortConfigs(PortConfigList{{115200, 8, Parity::NONE, 1, RS485_FULL}});
 }
 
 CSI_IRGA_Sonic::~CSI_IRGA_Sonic()

@@ -922,6 +922,9 @@ private:
     // Show averaged data or raw messages for each report.
     NidasAppArg ShowData;
 
+    // Connect to raw samples along with the processed.
+    NidasAppArg RawData;
+
     NidasAppArg SingleMote;
     NidasAppArg Fullnames;
     BadSampleFilterArg FilterArg;
@@ -1017,6 +1020,11 @@ DataStats::DataStats():
              "Print data for each sensor, either the last received message\n"
              "for raw samples, or data values averaged over the recording\n"
              "period for processed samples."),
+    RawData("-r,--raw", "",
+            "Include 'raw' samples, even if processing is enabled.\n"
+            "If the input stream already contains processed samples, then\n"
+            "enabling this allows them to be handled as if they were\n"
+            "processed samples."),
     SingleMote("--onemote", "",
                "Expect each wisard sensor type to come from a single mote,\n"
                "so mote IDs are not differentiated in sample tags for the same\n"
@@ -1048,7 +1056,7 @@ DataStats::DataStats():
     app.setupSignals();
     app.enableArguments(app.XmlHeaderFile | app.loggingArgs() |
                         app.SampleRanges | app.FormatHexId |
-                        app.FormatSampleId | app.ProcessData |
+                        app.FormatSampleId | app.ProcessData | RawData |
                         app.Version | app.InputFiles | FilterArg |
                         app.Help | Period | Update | Count |
                         AllSamples | ShowData | SingleMote | Fullnames);
@@ -1841,8 +1849,13 @@ int DataStats::run()
         // 2. connect the pipeline to the SampleInputStream.
         pipeline.connect(&sis);
 
-        // 3. connect the client to the pipeline
+        // 3. connect the client to the pipeline.
+        //
+        // Like for data_dump, receive both raw and processed samples if --raw
+        // enabled.
         pipeline.getProcessedSampleSource()->addSampleClient(this);
+        if (RawData.asBool())
+            pipeline.getRawSampleSource()->addSampleClient(this);
     }
     else
     {
