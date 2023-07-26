@@ -186,14 +186,7 @@ int check(std::string Device, Json::Value root)
     auto button = device.iButton();
     if(button->isDown())
     {
-        bool release=false;
-        while(release==false){
-            if(button->isUp()){
-                release=true;
-            }
-            sleep(1);
-        }
-        auto ledState=output->getState();
+         auto ledState=output->getState();
         if(ledState==OutputState::OFF)
         {
             runaction(Device,false,root);
@@ -205,6 +198,14 @@ int check(std::string Device, Json::Value root)
             output->off(); //turns LED off
                 
         }
+        bool release=false;
+        while(release==false){
+            if(button->isUp()){
+                release=true;
+            }
+            sleep(.5);
+        }
+       
         
     }
     return 0;
