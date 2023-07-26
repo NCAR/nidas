@@ -203,7 +203,7 @@ int check(std::string Device, Json::Value root)
             if(button->isUp()){
                 release=true;
             }
-            sleep(.5);
+            sleep(1);
         }
        
         
