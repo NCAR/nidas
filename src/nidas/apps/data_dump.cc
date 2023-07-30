@@ -94,6 +94,12 @@ public:
         showdeltat = show;
     }
 
+    void
+    setPrecsion(int ndigits)
+    {
+        precision = ndigits;
+    }
+
 private:
 
     SampleMatcher _samples;
@@ -106,6 +112,7 @@ private:
 
     float warntime;
     bool showdeltat;
+    int precision;
 
     DumpClient(const DumpClient&);
     DumpClient& operator=(const DumpClient&);
@@ -119,7 +126,8 @@ DumpClient::DumpClient(const SampleMatcher& matcher,
     format(fmt), ostr(outstr),
     fromLittle(n_u::EndianConverter::getConverter(n_u::EndianConverter::EC_LITTLE_ENDIAN)),
     warntime(0.0),
-    showdeltat(true)
+    showdeltat(true),
+    precision(0)
 {
 }
 
@@ -272,10 +280,16 @@ bool DumpClient::receive(const Sample* samp) throw()
 	}
         break;
     case FLOAT:
-         if (samp->getType() == DOUBLE_ST) ostr << setprecision(10);
-         else ostr << setprecision(5);
-
-         ostr << setfill(' ');
+        if (precision == 0)
+        {
+            if (samp->getType() == DOUBLE_ST) ostr << setprecision(10);
+            else ostr << setprecision(5);
+        }
+        else
+        {
+            ostr << setprecision(precision);
+        }
+        ostr << setfill(' ');
 
         for (unsigned int i = 0; i < samp->getDataLength(); i++)
             ostr << setw(10) << samp->getDataValue(i) << ' ';
@@ -389,6 +403,10 @@ private:
     NidasAppArg WarnTime;
     NidasAppArg NoDeltaT;
     BadSampleFilterArg FilterArg;
+    NidasAppArg Precision{"--precision", "ndigits",
+                          "Number of digits in floating point values.  "
+                          "Default 0 means 5 for floats, 10 for doubles",
+                          "0"};
 };
 
 
@@ -416,7 +434,8 @@ int DataDump::parseRunstring(int argc, char** argv)
                         app.FormatHexId | app.FormatSampleId |
                         app.SampleRanges | app.StartTime | app.EndTime |
                         app.Version | app.InputFiles | app.ProcessData |
-                        app.Help | app.Version | WarnTime | NoDeltaT | FilterArg);
+                        app.Help | app.Version | WarnTime | NoDeltaT |
+                        FilterArg | Precision);
 
     app.InputFiles.allowFiles = true;
     app.InputFiles.allowSockets = true;
@@ -627,8 +646,9 @@ int DataDump::run() throw()
         DumpClient dumper(app.sampleMatcher(), format, cout);
         dumper.setWarningTime(warntime);
         dumper.setShowDeltaT(!NoDeltaT.asBool());
+        dumper.setPrecsion(Precision.asInt());
 
-	if (app.processData()) {
+        if (app.processData()) {
             // 2. connect the pipeline to the SampleInputStream.
             pipeline.connect(&sis);
             pipeline.getProcessedSampleSource()->addSampleClient(&dumper);
