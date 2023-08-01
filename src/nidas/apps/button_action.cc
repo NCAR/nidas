@@ -212,18 +212,28 @@ int check(std::string Device, Json::Value root)
 
 }
 
-bool wifiStatus(){
-    //from https://stackoverflow.com/questions/19485536/redirect-output-of-an-function-printing-to-console-to-string
-        std::stringstream ss;
-        //change the underlying buffer and save the old buffer 
-        auto old_buf = std::cout.rdbuf(ss.rdbuf()); 
-        system("rfkill -J");
-        std::cout.rdbuf(old_buf); //reset
-    //
+bool wifiStatus(std::string file){
+    std::string command= "rfkill -J > ";
+    command.append(file);
+    const char* commandp=command.c_str();
+    system(commandp);
+    std::ifstream jFile(file,std::ifstream::in);
+    if(!jFile.is_open()){
+        PLOG(("Could not open ")<<file);
+        exit(1);
+    }
+    Json::Value root;
+    try{
+        jFile>>root;
+    }
+    catch(...){
+        PLOG(("Could not parse file ")<<file);
+        jFile.close();
+        exit(1);
+    }
+    jFile.close();
+    cout<<root<<endl;
     return true;
-
-    
-
 }
 
 int main(int argc, char* argv[]) {
@@ -235,7 +245,7 @@ int main(int argc, char* argv[]) {
     auto tup=readJson();
     auto root=std::get<0>(tup);
     auto devs=std::get<1>(tup);
-    wifiStatus();
+    wifiStatus("rfkill.json");
     //app.setupDaemon(); 
     while(true){
         for (auto i : devs)
