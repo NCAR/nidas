@@ -212,6 +212,20 @@ int check(std::string Device, Json::Value root)
 
 }
 
+bool wifiStatus(){
+    //from https://stackoverflow.com/questions/19485536/redirect-output-of-an-function-printing-to-console-to-string
+        std::stringstream ss;
+        //change the underlying buffer and save the old buffer 
+        auto old_buf = std::cout.rdbuf(ss.rdbuf()); 
+        system("rfkill -J");
+        std::cout.rdbuf(old_buf); //reset
+    //
+    return true;
+
+    
+
+}
+
 int main(int argc, char* argv[]) {
 
     if (parseRunString(argc, argv))
@@ -221,9 +235,9 @@ int main(int argc, char* argv[]) {
     auto tup=readJson();
     auto root=std::get<0>(tup);
     auto devs=std::get<1>(tup);
-    app.setupDaemon(); 
+    wifiStatus();
+    //app.setupDaemon(); 
     while(true){
-        bool buttonPress=false;
         for (auto i : devs)
         { 
             check(i, root);
