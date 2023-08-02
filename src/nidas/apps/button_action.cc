@@ -212,7 +212,7 @@ int check(std::string Device, Json::Value root)
 
 }
 
-bool wifiStatus(std::string file){
+bool wifiStatus(std::string file, std::string device){
     std::string command= "rfkill -J > ";
     command.append(file);
     const char* commandp=command.c_str();
@@ -232,8 +232,18 @@ bool wifiStatus(std::string file){
         exit(1);
     }
     jFile.close();
-    cout<<root<<endl;
-    return true;
+    std::string arrName=root.getMemberNames()[0];
+    Json::Value wifi;
+    for(auto i : root[arrName]){
+        if(i["device"]==device){
+            wifi=i;
+        }
+    }
+    bool notBlocked=false;
+    if(wifi["soft"]=="unblocked"){
+        notBlocked=true;
+    }
+    return notBlocked;
 }
 
 int main(int argc, char* argv[]) {
@@ -245,7 +255,7 @@ int main(int argc, char* argv[]) {
     auto tup=readJson();
     auto root=std::get<0>(tup);
     auto devs=std::get<1>(tup);
-    wifiStatus("rfkill.json");
+    wifiStatus("rfkill.json","phy0");
     //app.setupDaemon(); 
     while(true){
         for (auto i : devs)
