@@ -167,50 +167,6 @@ std::tuple<Json::Value, Json::Value::Members> readJson()
 
 }
 */
-//checks given device for button and led states, calls associated action, and toggles led
-int check(std::string Device, Json::Value root)
-{
-    HardwareDevice device= HardwareDevice::lookupDevice(Device);
-    
-    if (device.isEmpty())
-    {
-        PLOG(("Unrecognized device: ")<<Device);
-        return 2;
-    }
-    auto output = device.iOutput();
-    if(!output)
-    {
-        PLOG(("Unable to open ")<<Device);
-        return 3;
-    }
-    auto button = device.iButton();
-    if(button->isDown())
-    {
-         auto ledState=output->getState();
-        if(ledState==OutputState::OFF)
-        {
-            runaction(Device,false,root);
-            output->on(); //turns LED on
-        }
-        else
-        {    
-            runaction(Device,true,root);
-            output->off(); //turns LED off
-                
-        }
-        bool release=false;
-        while(release==false){
-            if(button->isUp()){
-                release=true;
-            }
-            sleep(1);
-        }
-       
-        
-    }
-    return 0;
-
-}
 
 bool wifiStatus(std::string file, std::string device){
     std::string command= "rfkill -J > ";
@@ -243,8 +199,55 @@ bool wifiStatus(std::string file, std::string device){
     if(wifi["soft"]=="unblocked"){
         notBlocked=true;
     }
+    cout<<notBlocked<<endl;
     return notBlocked;
 }
+//checks given device for button and led states, calls associated action, and toggles led
+int check(std::string Device, Json::Value root,bool wifiStatus)
+{
+    HardwareDevice device= HardwareDevice::lookupDevice(Device);
+    
+    if (device.isEmpty())
+    {
+        PLOG(("Unrecognized device: ")<<Device);
+        return 2;
+    }
+    auto output = device.iOutput();
+    if(!output)
+    {
+        PLOG(("Unable to open ")<<Device);
+        return 3;
+    }
+    auto button = device.iButton();
+    if(button->isDown())
+    {
+        auto ledState=output->getState();
+        if(ledState==OutputState::OFF)
+        {
+            runaction(Device,false,root);
+            output->on(); //turns LED on
+        }
+        else
+        {    
+            runaction(Device,true,root);
+            output->off(); //turns LED off
+                
+        }
+        bool release=false;
+        while(release==false){
+            if(button->isUp()){
+                release=true;
+            }
+            sleep(1);
+        }
+       
+        
+    }
+    return 0;
+
+}
+
+
 
 int main(int argc, char* argv[]) {
 
@@ -255,16 +258,22 @@ int main(int argc, char* argv[]) {
     auto tup=readJson();
     auto root=std::get<0>(tup);
     auto devs=std::get<1>(tup);
-    wifiStatus("rfkill.json","phy0");
     //app.setupDaemon(); 
+    int count=5;
+    bool status=false;
     while(true){
         for (auto i : devs)
-        { 
-            check(i, root);
+        {   
+            if(i=="wifi"){
+                status=wifiStatus("rfkill.json",root[i]["deviceName"].asString());
+                cout<<status<<endl;
+            
+            }
+            check(i, root,true);
         }
       
-            sleep(slp);
-        
+        sleep(slp);
+        count++;
     }
 
 }

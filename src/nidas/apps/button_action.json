@@ -1,7 +1,8 @@
 {
     "wifi":{
         "on": "rfkill unblock wifi; systemctl restart hostapd",
-        "off": "rfkill block wifi"
+        "off": "rfkill block wifi",
+        "deviceName": "phy0"
     },
     "p1": {
         "on": "echo 'p1 turn on'",
