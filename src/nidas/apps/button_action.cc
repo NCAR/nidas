@@ -218,10 +218,18 @@ int check(std::string Device, Json::Value root,bool wifiStatus)
         PLOG(("Unable to open ")<<Device);
         return 3;
     }
+    auto ledState=output->getState();
+    if(Device=="wifi"){
+        if(wifiStatus==true && ledState==OutputState::OFF){
+            output->on();
+        }
+        else if(wifiStatus==false && ledState==OutputState::ON){
+            output->off();
+        }
+    }
     auto button = device.iButton();
     if(button->isDown())
     {
-        auto ledState=output->getState();
         if(ledState==OutputState::OFF)
         {
             runaction(Device,false,root);
@@ -264,12 +272,11 @@ int main(int argc, char* argv[]) {
     while(true){
         for (auto i : devs)
         {   
-            if(i=="wifi"){
+            if(i=="wifi" && count==5){
                 status=wifiStatus("rfkill.json",root[i]["deviceName"].asString());
-                cout<<status<<endl;
-            
+                count=0;
             }
-            check(i, root,true);
+            check(i, root,status);
         }
       
         sleep(slp);
