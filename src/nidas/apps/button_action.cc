@@ -26,17 +26,22 @@ NidasApp app("button_action");
 
 
 std::string Path;
-float slp=1;
+std::string checkedDevice;
+int slp=1;
 
 void usage()
 {
-    cerr << R""""(Usage: button_action [path] [sleep]
+    cerr << R""""(Usage: button_action [path] [checkedDevice] [sleep]
 
 Read input from button and depending on current state (indicated by led), turn associated functions on or off.
     
     path:
 
     File path to json file containing commands to be executed on button press.
+
+    checkedDevice:
+
+    HardwareDevice which needs to check for status from rfkill. Currently only 'wifi' implemented.
 
     sleep:
 
@@ -79,9 +84,13 @@ int parseRunString(int argc, char* argv[])
             Path=arg;
             continue;
         }
-        float f;
+        if(checkedDevice.empty()){
+            checkedDevice=arg;
+            continue;
+        }
+        int f;
         try{
-            f=std::stof(arg);
+            f=std::stoi(arg);
         }
         catch(...){
             std::cerr<<"Please enter valid sleep value >0."<<endl;
@@ -154,11 +163,13 @@ std::tuple<Json::Value, Json::Value::Members> readJson()
     return res;
 
 }
+
 /*json file example format 
 {
     "device1":{
         "on": "command",
         "off": "command",
+        "deviceName": "rfkilldevicename"
     },
     "device2": {
         "on": "command"
@@ -218,7 +229,7 @@ int check(std::string Device, Json::Value root,bool wifiStatus)
         return 3;
     }
     auto ledState=output->getState();
-    if(Device=="wifi"){
+    if(Device==checkedDevice){
         if(wifiStatus==true && ledState==OutputState::OFF){
             output->on();
         }
@@ -266,12 +277,12 @@ int main(int argc, char* argv[]) {
     auto root=std::get<0>(tup);
     auto devs=std::get<1>(tup);
     app.setupDaemon(); 
-    int count=5;
+    int count=6;
     bool status=false;
     while(true){
         for (auto i : devs)
         {   
-            if(i=="wifi" && count==5){
+            if(i==checkedDevice && count==6){
                 status=wifiStatus("rfkill.json",root[i]["deviceName"].asString());
                 count=0;
             }
