@@ -40,7 +40,7 @@ Read input from button and depending on current state (indicated by led), turn a
 
     sleep:
 
-    Optional float indicating how long between each check for button press. If no value provided, defaults to 1.
+    Optional int indicating how long between each check for button press. If no value provided, defaults to 1.
     )""""
     <<endl<<app.usage()<<endl;
 }
@@ -167,7 +167,7 @@ std::tuple<Json::Value, Json::Value::Members> readJson()
 
 }
 */
-
+//checks status of wifi using rfkill
 bool wifiStatus(std::string file, std::string device){
     std::string command= "rfkill -J > ";
     command.append(file);
@@ -199,7 +199,6 @@ bool wifiStatus(std::string file, std::string device){
     if(wifi["soft"]=="unblocked"){
         notBlocked=true;
     }
-    cout<<notBlocked<<endl;
     return notBlocked;
 }
 //checks given device for button and led states, calls associated action, and toggles led
@@ -266,7 +265,7 @@ int main(int argc, char* argv[]) {
     auto tup=readJson();
     auto root=std::get<0>(tup);
     auto devs=std::get<1>(tup);
-    //app.setupDaemon(); 
+    app.setupDaemon(); 
     int count=5;
     bool status=false;
     while(true){
