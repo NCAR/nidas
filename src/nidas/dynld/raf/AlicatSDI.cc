@@ -28,6 +28,7 @@
 
 #include <nidas/core/PhysConstants.h>
 #include <nidas/util/Logger.h>
+#include <stdlib.h>
 
 using namespace std;
 using namespace nidas::dynld::raf;
@@ -97,6 +98,7 @@ void AlicatSDI::validate()
 
 void AlicatSDI::open(int flags)
 {
+    n_u::Logger::getInstance()->log(LOG_WARNING, "ALICAT open ");
     SerialSensor::open(flags);
 
     if (DerivedDataReader::getInstance())
@@ -109,22 +111,42 @@ void AlicatSDI::open(int flags)
 
 // Initialize instrument here
     struct timespec nsleep;
+    
+    // Test if the instrument responds (i.e. is on).
+    write("A\r", 2);   // Query for address, check if alive
+    bool rc = readBuffer(MSECS_PER_SEC / 4);
+    for (Sample* samp = nextSample(); samp; samp = nextSample())  distributeRaw(samp);
 
-    write("AHC\r", 4);   // Hold valve closed
-    nsleep.tv_sec = 1;
-    nsleep.tv_nsec = 0;
-    ::nanosleep(&nsleep, 0);    // sleep for 1 second.
-    write("AV\r", 3);    // Tare the Alicat
+    if (rc)
+    {
+        n_u::Logger::getInstance()->log(LOG_WARNING, "ALICAT AHC");
+        write("AHC\r", 4);   // Hold valve closed
+        nsleep.tv_sec = 1;
+        nsleep.tv_nsec = 0;
+        ::nanosleep(&nsleep, 0);    // sleep for 1 second.
+        rc = readBuffer(MSECS_PER_SEC / 4);
+        for (Sample* samp = nextSample(); samp; samp = nextSample())  distributeRaw(samp);
 
-    nsleep.tv_sec = 0;
-    nsleep.tv_nsec = NSECS_PER_SEC / 10;                // 1/10th sec
-    ::nanosleep(&nsleep, 0);
+        n_u::Logger::getInstance()->log(LOG_WARNING, "ALICAT AV rc=%d", rc);
+        write("AV\r", 3);    // Tare the Alicat
+        nsleep.tv_sec = 0;
+        nsleep.tv_nsec = NSECS_PER_SEC / 4;
+        ::nanosleep(&nsleep, 0);
+        rc = readBuffer(MSECS_PER_SEC / 4);
+        for (Sample* samp = nextSample(); samp; samp = nextSample())  distributeRaw(samp);
 
-    write("AC\r", 3);   // Cancel hold
+        n_u::Logger::getInstance()->log(LOG_WARNING, "ALICAT AC rc=%d", rc);
+        write("AC\r", 3);   // Cancel hold
+        rc = readBuffer(MSECS_PER_SEC / 4);
+        for (Sample* samp = nextSample(); samp; samp = nextSample())  distributeRaw(samp);
 
-    char msg[32];
-    sprintf(msg, "AS%d\r", _Qmin);
-    write(msg, strlen(msg));
+        n_u::Logger::getInstance()->log(LOG_WARNING, "ALICAT AS rc=%d", rc);
+        char msg[32];
+        sprintf(msg, "AS%d\r", _Qmin);
+        write(msg, strlen(msg));
+        rc = readBuffer(MSECS_PER_SEC / 4);
+        for (Sample* samp = nextSample(); samp; samp = nextSample())  distributeRaw(samp);
+    }
 }
 
 
