@@ -114,7 +114,7 @@ void AlicatSDI::open(int flags)
     
     // Test if the instrument responds (i.e. is on).
     write("A\r", 2);   // Query for address, check if alive
-    bool rc = readBuffer(MSECS_PER_SEC / 4);
+    bool rc = readBuffer(MSECS_PER_SEC / 2);
     for (Sample* samp = nextSample(); samp; samp = nextSample())  distributeRaw(samp);
 
     if (rc)
@@ -124,27 +124,27 @@ void AlicatSDI::open(int flags)
         nsleep.tv_sec = 1;
         nsleep.tv_nsec = 0;
         ::nanosleep(&nsleep, 0);    // sleep for 1 second.
-        rc = readBuffer(MSECS_PER_SEC / 4);
+        rc = readBuffer(MSECS_PER_SEC / 2);
         for (Sample* samp = nextSample(); samp; samp = nextSample())  distributeRaw(samp);
 
         n_u::Logger::getInstance()->log(LOG_WARNING, "ALICAT AV rc=%d", rc);
         write("AV\r", 3);    // Tare the Alicat
         nsleep.tv_sec = 0;
-        nsleep.tv_nsec = NSECS_PER_SEC / 4;
+        nsleep.tv_nsec = NSECS_PER_SEC / 2;
         ::nanosleep(&nsleep, 0);
-        rc = readBuffer(MSECS_PER_SEC / 4);
+        rc = readBuffer(MSECS_PER_SEC / 2);
         for (Sample* samp = nextSample(); samp; samp = nextSample())  distributeRaw(samp);
 
         n_u::Logger::getInstance()->log(LOG_WARNING, "ALICAT AC rc=%d", rc);
         write("AC\r", 3);   // Cancel hold
-        rc = readBuffer(MSECS_PER_SEC / 4);
+        rc = readBuffer(MSECS_PER_SEC / 2);
         for (Sample* samp = nextSample(); samp; samp = nextSample())  distributeRaw(samp);
 
         n_u::Logger::getInstance()->log(LOG_WARNING, "ALICAT AS rc=%d", rc);
         char msg[32];
         sprintf(msg, "AS%d\r", _Qmin);
         write(msg, strlen(msg));
-        rc = readBuffer(MSECS_PER_SEC / 4);
+        rc = readBuffer(MSECS_PER_SEC / 2);
         for (Sample* samp = nextSample(); samp; samp = nextSample())  distributeRaw(samp);
     }
 }
