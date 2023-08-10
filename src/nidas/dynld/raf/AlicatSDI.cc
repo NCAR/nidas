@@ -196,6 +196,7 @@ float AlicatSDI::computeFlow()
     else
     if (Qiso > _Qmax) Qiso = _Qmax;
 
+    DLOG(("ALICAT QISO %f", Qiso));
     return Qiso;
 }
 
@@ -203,6 +204,7 @@ float AlicatSDI::computeFlow()
 void AlicatSDI::sendFlow(float flow)
 {
     char tmp[128];
-    sprintf(tmp, "<AS>%.1f\r", flow);
+    sprintf(tmp, "AS%.1f\r", flow);
     write(tmp, strlen(tmp));
+    DLOG(("ALICAT sendFlow %s", tmp));
 }
