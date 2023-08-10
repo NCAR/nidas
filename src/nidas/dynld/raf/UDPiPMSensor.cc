@@ -102,8 +102,8 @@ void UDPiPMSensor::validate()
         p = getParameter("dev" + std::to_string(i));  // details of address i
         if (!p) throw n_u::InvalidParameterException(getName(),
               "dev", "not found");
-        // addrInfo string contains addr, scaleflag, procquery, port,
-        // eg 0,1,5,30101
+        // addrInfo string contains addr, procquery, port,
+        // eg 0,5,30101
         _addrInfo[i] = p->getStringValue(0);
         ILOG(("device info for addresses ") << i << (": ") << _addrInfo[i]);
     }
