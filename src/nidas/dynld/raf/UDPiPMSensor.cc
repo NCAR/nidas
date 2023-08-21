@@ -86,10 +86,11 @@ void UDPiPMSensor::validate()
     ILOG(("recordperiod is ") << _recordPeriod);
 
     p = getParameter("baudrate"); // Baud rate
-    if (!p) throw n_u::InvalidParameterException(getName(),
-          "baudrate", "not found");
-    _baudRate = (unsigned int)p->getNumericValue(0);
-    ILOG(("baudrate is ") << _baudRate);
+    // Baud rate is now optional since hardcoded to 115200
+    if (p) {
+        _baudRate = (unsigned int)p->getNumericValue(0);
+        ILOG(("baudrate is ") << _baudRate);
+    }
 
     p = getParameter("num_addr"); // Number of addresses being used
     if (!p) throw n_u::InvalidParameterException(getName(),
