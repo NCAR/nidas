@@ -45,7 +45,7 @@ const int UDPiPMSensor::MAX_CHANNELS = 8;
 
 
 UDPiPMSensor::UDPiPMSensor() :
-    _deviceAddr(), _statusPort(0), _measureRate(0), _recordPeriod(0),
+    _deviceAddr(), _measureRate(0), _recordPeriod(0),
     _baudRate(0), _numAddr(0), _addrInfo(8), _ctrl_pid(0)
 {
 
@@ -66,12 +66,6 @@ void UDPiPMSensor::validate()
           "device", "not found");
     _deviceAddr = p->getStringValue(0);
     ILOG(("device is ") << _deviceAddr);
-
-    p = getParameter("status_port"); // Port for IPM
-    if (!p) throw n_u::InvalidParameterException(getName(),
-          "status_port", "not found");
-    _statusPort = (unsigned int)p->getNumericValue(0);
-    ILOG(("status_port is ") << _statusPort);
 
     p = getParameter("measurerate"); // STATUS & MEASURE collection rate (hz)
     if (!p) throw n_u::InvalidParameterException(getName(),
@@ -96,7 +90,7 @@ void UDPiPMSensor::validate()
     if (!p) throw n_u::InvalidParameterException(getName(),
           "num_addr", "not found");
     _numAddr = (unsigned int)p->getNumericValue(0);
-    ILOG(("") << _numAddr << (" addresses in use on port ") << _statusPort);
+    ILOG(("") << _numAddr << (" addresses in use"));
 
     for (int i=0; i < _numAddr; i++)
     {
@@ -106,7 +100,8 @@ void UDPiPMSensor::validate()
         // addrInfo string contains addr, procquery, port,
         // eg 0,5,30101
         _addrInfo[i] = p->getStringValue(0);
-        ILOG(("device info for addresses ") << i << (": ") << _addrInfo[i]);
+        ILOG(("addr, query, port info for address ") << i << (": ") <<
+             _addrInfo[i]);
     }
 
 }
@@ -131,12 +126,6 @@ void UDPiPMSensor::open(int flags)
     if (_deviceAddr.length() > 0) {
         args[argc++] = (char *)"-p";
         args[argc++] = (char *)_deviceAddr.c_str();
-    }
-
-    if (_statusPort > 0) {
-        sprintf(port, "%u", _statusPort);
-        args[argc++] = (char *)"-s";
-        args[argc++] = (char *)port;
     }
 
     if (_measureRate > 0) {
