@@ -37,7 +37,6 @@ fi
 echo "ck_utime executable: `which ck_utime`"
 echo "nidas libaries:"
 ldd `which ck_utime` | fgrep libnidas
-ldd `which ck_utime` | fgrep nc_server
 
 valgrind_errors() {
     egrep -q "^==[0-9]*== ERROR SUMMARY:" $1 && \

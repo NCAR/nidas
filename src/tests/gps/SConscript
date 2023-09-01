@@ -9,7 +9,6 @@ env.Append(LIBS = ['boost_unit_test_framework', 'boost_regex'])
 env.Prepend(CPPPATH = [ "#/nidas/util", "#/nidas/core", "#/nidas/dynld" ])
 tests = env.Program('tgps', ["tgps.cc"])
 
-env.AppendENVPath('LD_LIBRARY_PATH', '/opt/nc_server/lib')
 runtest = env.Command("xtest", tests,
                       env.ChdirActions(["./$SOURCE.file -r detailed -l all "
                                         "--no_color_output"]))

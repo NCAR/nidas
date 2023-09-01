@@ -6,7 +6,6 @@ env = env.Clone(tools = ['nidas', 'valgrind'])
 
 env.Append(LIBS = env.NidasUtilLibs())
 env.Prepend(CPPPATH = [ '#/src' ])
-env.AppendENVPath('LD_LIBRARY_PATH', '/opt/nc_server/lib')
 env.NidasRuntimeENV()
 
 tests = env.Program('ck_utime', "ck_utime.cc")
