@@ -118,8 +118,8 @@ setup_nidas_set() # topdir
     fi
     topdir="$1"
     bindir="$topdir/bin"
-    libutil=`find "$topdir"/lib* -name "libnidas_util.so" 2> /dev/null`
-    libdir=`dirname "$libutil"`
+    # library subdirectory should now be the same on all platforms
+    libdir="$topdir/lib"
     # Avoid adding a directory which might be malformed if
     # it doesn't look like a nidas install.
     if [ -x "$bindir/dsm" -a -f "$libdir/libnidas_util.a" ]; then
