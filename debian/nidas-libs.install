@@ -1,2 +1,2 @@
-opt/nidas/lib/*/*.so.*
+opt/nidas/lib/*.so.*
 etc/ld.so.conf.d/*
