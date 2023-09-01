@@ -31,7 +31,7 @@ for dir in subdirs:
 env.Alias('lib', subdirs[0:3])
 
 installs += ['${INSTALL_ROOT}$PREFIX/include',
-             '${INSTALL_ROOT}$PREFIX/$ARCHLIBDIR']
+             '${INSTALL_ROOT}$PREFIX/lib']
 
 env.Alias('install', installs)
 
@@ -52,9 +52,8 @@ env.Alias('install.root', etcldc)
 # directory, using two separate aliases, install and install.root.
 env['SUBST_DICT'] = {
     '@PREFIX@': '$PREFIX',
-    '@ARCHLIBDIR@': '$ARCHLIBDIR',
     '@REPO_TAG@': '$REPO_TAG'
 }
 pc = env.Substfile('nidas.pc.in')
-env.Alias('install', env.Install('$PREFIX/$ARCHLIBDIR/pkgconfig', pc))
+env.Alias('install', env.Install('$PREFIX/lib/pkgconfig', pc))
 env.Alias('install.root', env.Install('${PKGCONFIGDIR}', pc))
