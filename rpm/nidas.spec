@@ -121,45 +121,11 @@ cd src
 cd -
 
 %post libs
-
-# If selinux is Enforcing, ldconfig can fail with permission denied if the
-# policy and file contexts are not right on the libaries. Set the file context of
-# library directory and contents to lib_t. I'm not sure at this point
-# that this solves the whole issue, or whether a policy change is also required.
-# There is some mystery in that ldconfig from root's interactive session never
-# seems to fail with permission denied, but does fail from other contexts.
-# During SCP, several times (probably after an rpm update) the nidas libs were
-# not in the ld cache. I added ldconfig to rc.local and a crontab, and sometimes
-# those failed with permission problems related to SELinux and /opt/nidas/{lib,lib64}.
-# 
-# The following is found in /etc/selinux/targeted/contexts/files/file_contexts
-# /opt/(.*/)?lib(/.*)?	system_u:object_r:lib_t:s0
-# in selinux-policy-targeted-3.14.2-57.fc29
-# Looks like it doesn't match lib64 in /opt/nidas/lib64
-# 
-# To view:
-# semanage fcontext --list -C | fgrep /opt/nidas
-# /opt/(.*/)?var/lib(/.*)?  all files system_u:object_r:var_lib_t:s0
-#
-# (gjg) I'm not sure about this approach, since the context needs to be
-# installed even if selinux happens to be disabled at the moment.  The
-# suggestion at the link below is to put the selinux contexts into a
-# separate -selinux package, so they do not need to be installed on systems
-# without selinux.  (I don't know if this is still current, but there are
-# still examples of -selinux packages.)
-#
-# https://fedoraproject.org/wiki/PackagingDrafts/SELinux#File_contexts
-
-if /sbin/selinuxenabled; then
-    /sbin/semanage fcontext -a -t lib_t %{nidas_prefix}/%{_lib}"(/.*)?" 2>/dev/null || :
-    /sbin/restorecon -R %{nidas_prefix}/%{_lib} || :
-fi
+# Separate lib64 context is no longer needed, so make sure it gets removed.
+/sbin/semanage fcontext -d -t lib_t %{nidas_prefix}/lib64"(/.*)?" 2>/dev/null || :
 /sbin/ldconfig
 
 %postun libs
-if [ $1 -eq 0 ]; then # final removal
-    /sbin/semanage fcontext -d -t lib_t %{nidas_prefix}/%{_lib}"(/.*)?" 2>/dev/null || :
-fi
 /sbin/ldconfig
 
 %clean
@@ -215,11 +181,9 @@ rm -rf $RPM_BUILD_ROOT
 
 %files libs
 %defattr(0775,root,root,2775)
-%{nidas_prefix}/%{_lib}/libnidas_util.so.*
-%{nidas_prefix}/%{_lib}/libnidas.so.*
-%{nidas_prefix}/%{_lib}/libnidas_dynld.so.*
-# %%{nidas_prefix}/%%{_lib}/nidas_dynld_iss_TiltSensor.so.*
-# %%{nidas_prefix}/%%{_lib}/nidas_dynld_iss_WICORSensor.so.*
+%{nidas_prefix}/lib/libnidas_util.so.*
+%{nidas_prefix}/lib/libnidas.so.*
+%{nidas_prefix}/lib/libnidas_dynld.so.*
 
 %defattr(-,root,root,-)
 %{_sysconfdir}/ld.so.conf.d/nidas.conf
@@ -265,11 +229,11 @@ rm -rf $RPM_BUILD_ROOT
 %{nidas_prefix}/include/nidas/core
 %{nidas_prefix}/include/nidas/dynld
 %{nidas_prefix}/include/nidas/linux
-%{nidas_prefix}/%{_lib}/libnidas_util.so
-%{nidas_prefix}/%{_lib}/libnidas_util.a
-%{nidas_prefix}/%{_lib}/libnidas.so
-%{nidas_prefix}/%{_lib}/libnidas_dynld.so
-%config %{nidas_prefix}/%{_lib}/pkgconfig/nidas.pc
+%{nidas_prefix}/lib/libnidas_util.so
+%{nidas_prefix}/lib/libnidas_util.a
+%{nidas_prefix}/lib/libnidas.so
+%{nidas_prefix}/lib/libnidas_dynld.so
+%config %{nidas_prefix}/lib/pkgconfig/nidas.pc
 %config %{_libdir}/pkgconfig/nidas.pc
 %attr(0775,-,-) %{nidas_prefix}/bin/start_podman
 
