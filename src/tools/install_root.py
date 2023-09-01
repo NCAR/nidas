@@ -29,6 +29,15 @@ _variables = None
 # installation, the variable is created here since the default depends on
 # PKGCONFIGDIR.
 
+# Just for reference, it seems reasonable to get the directory for installing
+# pkg-config files from pkg-config itself:
+#
+# $ pkg-config --variable pc_path pkg-config
+# /usr/lib64/pkgconfig:/usr/share/pkgconfig
+#
+# I'm not sure which versions of pkg-config support that, but it could be
+# useful if at some point it is unreasonable to derive the default here.
+
 # This tool is loaded after the BUILD target is set, so it should be possible
 # to derive different defaults based on the target.  However, at present that
 # is not needed.  All redhat variants are native builds, and for debian vortex
