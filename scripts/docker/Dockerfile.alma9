@@ -11,7 +11,7 @@ RUN dnf -y install gcc-c++ git python3-scons doxygen graphviz flex
 RUN dnf -y install boost-devel libftdi-devel doxygen
 RUN dnf -y install libxml2-devel cmake
 
-RUN dnf -y install gsl-devel libpcap-devel bzip2-devel bzip2-libs bzip2 bluez-libs-devel jsoncpp-devel libcurl-devel xerces-c-devel
+RUN dnf -y install gsl-devel kernel-devel libcap-devel libpcap-devel bzip2-devel bzip2-libs bzip2 bluez-libs-devel jsoncpp-devel libcurl-devel xerces-c-devel
 
 RUN rpm -ihv http://www.eol.ucar.edu/software/rpms/eol-repo-epel-1-5.noarch.rpm
 
