@@ -46,16 +46,12 @@ if False:
 # same config file.
 opts = eol_scons.GlobalVariables('nidas.conf')
 opts: Variables
-opts.AddVariables(('PREFIX',
-                   'installation path',
+opts.AddVariables(('PREFIX', 'installation path',
                    '/opt/nidas', None, eol_scons.PathToAbsolute))
-
-env.Tool('install_root')
 
 # Only one target architecture can be built in a single scons run, and each
 # target uses a different variant build dir.
-opts.Add('BUILD',
-"""
+opts.Add('BUILD', """
  Target architecture and machine to build and install.  The default, 'host',
  is a native build, everything else requires a cross-compiler.  BUILD can be a
  fully qualified target name, or it can be just the machine name or
@@ -72,24 +68,10 @@ opts.Add(BoolVariable('GDBDEBUG', 'Enable -ggdb flag.', 'off'))
 opts.Add(BoolVariable('ENABLE_VALGRIND',
                       'Enable valgrind run-time hints.',
                       'off'))
-opts.Add('REPO_TAG',
-"""
+opts.Add('REPO_TAG', """
  git tag of the source, in the form "vX.Y", when building outside of a git
  repository
 """)
-opts.Add('PKG_CONFIG_PATH',
-"""
- Path to pkg-config files, if you need other than the system default
-""")
-
-# Generally can let this default to the values set below.
-# For x86_64 builds it defaults to 'lib64'. When building
-# a Debian package for x86_64 (amd64), the Makefile that calls
-# scons pre-sets it to lib/x86_64-linux-gnu to be similar with
-# the arm libs and be more Debian-multiarch-like.
-opts.Add('ARCHLIBDIR', """
- Where to install NIDAS libraries relative to $PREFIX.
-""", None)
 
 opts.Update(env)
 
@@ -148,9 +130,11 @@ def check_target(env):
 
 build = check_target(env)
 
-# as soon as we know the target, apply the tool to set the variant build dir
-# in the VARIANT_DIR environment variable.
+# once target is known, apply the variant build dir tool to set the
+# VARIANT_DIR environment variable.  also add the install-related variables,
+# whose defaults might vary based the build target.
 env.Tool('variant_dir')
+env.Tool('install_root')
 
 # The target determines the default for linux modules.
 lmd = 'yes' if env['ARCH'] not in ['armhf'] else 'no'
@@ -164,11 +148,13 @@ opts.Add(EnumVariable('LINUX_MODULES',
                       'no: do not even try', lmd,
                       allowed_values=['yes', 'no', 'force']))
 
+
 def linux_modules_enabled(env: Environment):
     "Return True when builders for linux modules should be enabled."
     lm = env.get('LINUX_MODULES', 'yes')
     lmd = env.get('LINUX_MODULES_DEFAULT', 'yes')
     return lm == 'force' or (lm == 'yes' and lmd == lm)
+
 
 env.AddMethod(linux_modules_enabled, "LinuxModulesEnabled")
 
@@ -216,6 +202,10 @@ if env.get('GDBDEBUG'):
 # or external tools, so the settings can be stored in the variant dirs.
 env.Tool('nidasconfig')
 env.Tool(f'nidas_{ARCH}')
+
+# sharedlibrary tool will set and use ARCHLIBDIR if not set, so set it
+# explicitly here
+env['ARCHLIBDIR'] = 'lib'
 env.Require(['symlink', 'sharedlibrary', 'stackprotector'])
 
 # Threads

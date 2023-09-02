@@ -8,28 +8,74 @@ assemble a package.
 # automatic alias, so the caller can assign alternate aliases like install and
 # install.root.
 
-import traceback
+from pathlib import Path
 from SCons.Script import Environment, Variables, PathVariable
+import system_info as si
 
 
 _variables: Variables
 _variables = None
 
 
+# This tool also figures out the install path for pkg-config files, and it
+# creates a variable for that path called PKGCONFIGDIR.  The default for that
+# path depends on whether this is a debian cross-build, as indicated by the
+# multiarch setting, or a native build.  If a native build, and a
+# /usr/lib64/pkgconfig path exists, then this assumes that should be the
+# default PKGCONFIGDIR, ie, the lib64 path would not exist on a 32-bit native
+# system.  For Debian multiarch builds, the multiarch pkgconfig path is both
+# the default for PKGCONFIGDIR and also the first directory in the default
+# PKG_CONFIG_PATH.  Even though PKG_CONFIG_PATH is not related to
+# installation, the variable is created here since the default depends on
+# PKGCONFIGDIR.
+
+# Just for reference, it seems reasonable to get the directory for installing
+# pkg-config files from pkg-config itself:
+#
+# $ pkg-config --variable pc_path pkg-config
+# /usr/lib64/pkgconfig:/usr/share/pkgconfig
+#
+# I'm not sure which versions of pkg-config support that, but it could be
+# useful if at some point it is unreasonable to derive the default here.
+
+# This tool is loaded after the BUILD target is set, so it should be possible
+# to derive different defaults based on the target.  However, at present that
+# is not needed.  All redhat variants are native builds, and for debian vortex
+# builds, the multiarch setting can queried from the system using
+# si.get_debian_multiarch().
+
+
 def _setup_variables(env: Environment):
     global _variables
     if _variables is None:
+
+        multiarch = si.get_debian_multiarch()
+        pkgconfigdir = '/usr/lib/pkgconfig'
+        # Use the standard default unless it needs to be overridden for a
+        # cross-compile.
+        pkgconfigpath = None
+        if multiarch:
+            pkgconfigdir = f'/usr/lib/{multiarch}/pkgconfig'
+            pkgconfigpath = f'{pkgconfigdir}'
+            pkgconfigpath += ':/usr/lib/pkgconfig:/usr/share/pkgconfig'
+        elif Path("/usr/lib64/pkgconfig").exists():
+            pkgconfigdir = "/usr/lib64/pkgconfig"
+
         _variables = env.GlobalVariables()
         # These are sort-of related, so just include them in this one tool.
-        _variables.AddVariables(PathVariable('INSTALL_ROOT',
-                                'path to be prepended to all install paths',
-                                '', PathVariable.PathAccept))
-        _variables.AddVariables(PathVariable('SYSCONFIGDIR','/etc installation path',
-                                '/etc', PathVariable.PathAccept))
-        _variables.AddVariables(PathVariable('PKGCONFIGDIR',
-                                'system dir to install nc_server.pc',
-                                '/usr/$ARCHLIBDIR/pkgconfig',
-                                PathVariable.PathAccept))
+        _variables.AddVariables(
+            PathVariable('INSTALL_ROOT',
+                         'path to be prepended to all install paths',
+                         '', PathVariable.PathAccept))
+        _variables.AddVariables(
+            PathVariable('SYSCONFIGDIR', '/etc installation path',
+                         '/etc', PathVariable.PathAccept))
+        _variables.AddVariables(
+            PathVariable('PKGCONFIGDIR', 'system dir to install nidas.pc',
+                         pkgconfigdir, PathVariable.PathAccept))
+        _variables.Add('PKG_CONFIG_PATH', "Path to pkg-config files, "
+                       "otherwise use system default.", pkgconfigpath)
+
     _variables.Update(env)
 
 

@@ -12,7 +12,6 @@ tests = env.Program('tcore', ["tcore.cc", "tsamples.cc",
 # env.Depends(tests, libs)
 #
 
-env.AppendENVPath('LD_LIBRARY_PATH', '/opt/nc_server/lib')
 env.NidasRuntimeENV()
 runtest = env.Command("xtest", tests,
                       env.ChdirActions(["./$SOURCE.file"]))

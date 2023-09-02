@@ -145,11 +145,6 @@ EOD
             rpm filters src/SConstruct src/nidas src/tools src/firmware \
             src/systemd src/xml doc/doxygen_conf || exit $?
 
-    # edit_cal has an rpath of /usr/{lib,lib64}
-    # Setting QA_RPATHS here prevents rpmbuild from dying until
-    # that is fixed.
-    # export QA_RPATHS=$[ 0x0001|0x0010 ]
-
     # set _unpackaged_files_terminate_build to false, which risks the situation
     # of not knowing that an important file is missing from the RPM.
     # The warnings are printed out at the end of the script, so hopefully they'll

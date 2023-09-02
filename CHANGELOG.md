@@ -5,13 +5,33 @@ This file summarizes notable changes to NIDAS source.  The format is based on
 
 ## [2.0] - Unreleased
 
-The 2.0 version of NIDAS will be a merge of the [master], [refactor-builds],
-and [buster] branches.  Following are the significant recent changes on each
-branch:
+The 2.0 version of NIDAS will be a merge of the [master] and [buster]
+branches.  The [refactor-builds] branch has already been merged into [master].
+Following are the significant changes on each branch.  See the Changelog on
+the [buster] branch for the changes on that branch.
 
 ## [master] - Branch
 
-## [buster] - Branch
+### Libraries install into lib
+
+The nidas install layout now uses just `lib` for the library directory name,
+rather than an arch-specific path like `lib64` or `lib/i386-linux-gnu`.  The
+libraries in `lib` have the same architecture as the executables in `bin`.
+There are no NIDAS targets which require multiple architectures installed
+under the same `/opt/nidas` install path.
+
+For software that builds against nidas using the `nidas.py` tool from
+[eol_scons](https://github.com/NCAR/eol_scons), that tool already checks for a
+plain `lib` subdirectory if the arch-specific path is not found.  Likewise,
+`pkg-config` will return the new library path for linking to NIDAS libraries.
+However, if `PKG_CONFIG_PATH` is being used to select the `nidas.pc` settings
+for a specific NIDAS installation, then it probably needs to be adjusted.  For
+example, it must be set like below to use the `pkg-config` settings for a NIDAS
+install in `/opt/local/nidas`:
+
+```plain
+export PKG_CONFIG_PATH=/opt/local/nidas/lib/pkgconfig
+```
 
 ## [refactor-builds] - Branch
 
