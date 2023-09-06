@@ -33,8 +33,15 @@ struct trec_t trecs[] = {
       "2018 10 04 14:46:34.0000", false }
 };
 
+#if BOOST_VERSION <= 105300
+BOOST_AUTO_TEST_CASE_EXPECTED_FAILURES(test_gps_time_rejects, 1);
+#endif
+
 BOOST_AUTO_TEST_CASE(test_gps_time_rejects)
 {
+#if BOOST_VERSION <= 105300
+    BOOST_CHECK_MESSAGE(false, "boost test version is too old");
+#else
     Logger* logger = Logger::createInstance(&std::cerr);
     logger->setScheme(LogScheme().addConfig(LogConfig()));
 
@@ -148,4 +155,5 @@ BOOST_AUTO_TEST_CASE(test_gps_time_rejects)
         ++i;
     }
     delete gps;
+#endif
 }
