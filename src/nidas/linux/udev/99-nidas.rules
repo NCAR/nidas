@@ -2,11 +2,6 @@
 # Changes to system device permissions which are
 # useful for NIDAS data acquisition
 #
-# world read/write access to /dev/ttyS*, ttyUSB*, and ttyD*
-# I suppose if there is a login service running on one of these
-# serial ports that this is a (small) security hole, but
-# that is not common.
-#
 # world read/write access to USB 2D probes via nidas usbtwod driver
 KERNEL=="usbtwod*",          MODE="0666"
 #
