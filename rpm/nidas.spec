@@ -87,7 +87,7 @@ Group: Applications/Engineering
 BuildArch: noarch
 %description daq
 Package for doing data acquisition with NIDAS.  Contains some udev rules to
-expand permissions on /dev/tty[A-Z]* and /dev/usbtwod*.
+expand permissions on /dev/mesa and /dev/usbtwod*.
 
 %package devel
 Summary: Headers, symbolic links and pkg-config for building software which uses NIDAS.
@@ -216,7 +216,7 @@ rm -rf $RPM_BUILD_ROOT
 
 %files daq
 %defattr(0775,root,root,0775)
-%config /usr/lib/udev/rules.d/99-nidas.rules
+%config /etc/udev/rules.d/99-nidas.rules
 # Note that debian includes /etc/default files in nidas-daq for the emerald
 # and diamond modules, but for rpm they are just included as part of the
 # modules package.
