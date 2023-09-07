@@ -202,5 +202,5 @@ env.InstallModuleConf('nidas.conf')
 # The 99-nidas.rules file contains tty rules which are useful even if modules
 # are not built, so go ahead and install it so it can be included in the
 # nidas-daq package.
-rules = env.Install('/usr/lib/udev/rules.d', 'udev/99-nidas.rules')
+rules = env.Install('/etc/udev/rules.d', 'udev/99-nidas.rules')
 env.Alias('install.root', rules)
