@@ -215,7 +215,7 @@ rm -rf $RPM_BUILD_ROOT
 %endif
 
 %files daq
-%defattr(0775,root,root,0775)
+%defattr(0664,root,root,0775)
 %config /etc/udev/rules.d/99-nidas.rules
 # Note that debian includes /etc/default files in nidas-daq for the emerald
 # and diamond modules, but for rpm they are just included as part of the
