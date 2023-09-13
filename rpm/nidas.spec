@@ -135,6 +135,7 @@ rm -rf $RPM_BUILD_ROOT
 %{nidas_prefix}/bin/dsc_a2d_ck
 %caps(cap_sys_nice,cap_net_admin+p) %{nidas_prefix}/bin/dsm_server
 %caps(cap_sys_nice,cap_net_admin+p) %{nidas_prefix}/bin/dsm
+%{nidas_prefix}/bin/dsm.init
 %caps(cap_sys_nice,cap_net_admin+p) %{nidas_prefix}/bin/nidas_udp_relay
 %caps(cap_sys_nice+p) %{nidas_prefix}/bin/tee_tty
 %caps(cap_sys_nice+p) %{nidas_prefix}/bin/tee_i2c

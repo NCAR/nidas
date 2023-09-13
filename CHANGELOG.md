@@ -12,6 +12,17 @@ the [buster] branch for the changes on that branch.
 
 ## [master] - Branch
 
+### udev rules restored, nidas-daq package removed
+
+The `nidas-daq` package is no longer built.  Instead, the `dsm.init` script is
+now installed into the NIDAS bin directory with other scripts, where it can be
+copied or linked on systems which still use it.  The udev rules file no longer
+changes permissions on all serial devices.  It only sets permissions on
+devices associated with NIDAS Linux modules, so the rules file is only
+installed as part of a nidas modules package, such as `nidas-modules-vortex`.
+RPM and Debian packages are more consistent in when and how the rules file and
+the `dsm.init` script are packaged.
+
 ### Libraries install into lib
 
 The nidas install layout now uses just `lib` for the library directory name,
