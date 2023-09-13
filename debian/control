@@ -30,20 +30,6 @@ Depends: ${shlibs:Depends}, ${misc:Depends}, nidas-libs
 Description: Headers, library symbolic links and pkg-config for NIDAS
  NIDAS C/C++ headers, shareable library links, pkg-config.
 
-Package: nidas-modules-titan
-Architecture: armel
-Depends: ${misc:Depends}
-Provides: nidas-modules
-Description: NIDAS Linux kernel modules
- NIDAS kernel modules, built for Eurotech Titan, running Debian armel
-
-Package: nidas-modules-viper
-Architecture: armel
-Depends: ${misc:Depends}
-Provides: nidas-modules
-Description: NIDAS Linux kernel modules
- NIDAS kernel modules, built for Eurotech Viper, running Debian armel
-
 Package: nidas-modules-amd64
 Architecture: amd64
 Depends: ${misc:Depends}
@@ -57,18 +43,6 @@ Depends: ${misc:Depends}, lsb-base (>= 3.0-6)
 Provides: nidas-modules
 Description: NIDAS Linux kernel modules
  NIDAS kernel modules, built for VortexDX3 Viper
-
-Package: nidas-titan
-Architecture: armel
-Depends:  nidas, nidas-modules-titan, pxaregs
-Description: Meta-package for installation of NIDAS onto a Eurotech Titan
- Metapackage with sufficient dependencies to run NIDAS on a Eurotech Titan
-
-Package: nidas-viper
-Architecture: armel
-Depends:  nidas, nidas-modules-viper, pxaregs
-Description: Meta-package for installation of NIDAS onto a Eurotech Viper
- Metapackage with sufficient dependencies to run NIDAS on a Eurotech Viper.
 
 Package: nidas-vortex
 Architecture: i386
