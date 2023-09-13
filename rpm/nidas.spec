@@ -26,6 +26,7 @@ Version: %{gitversion}
 Release: %{releasenum}%{?dist}
 License: GPL
 Group: Applications/Engineering
+Obsoletes: nidas-daq <= 1.2
 Url: https://github.com/ncareol/nidas
 Vendor: UCAR
 Source: https://github.com/ncareol/%{name}/archive/master.tar.gz#/%{name}-%{version}.tar.gz
@@ -77,17 +78,6 @@ Prefix: %{nidas_prefix}
 %description modules
 NIDAS kernel modules.
 %endif
-
-%package daq
-Summary: Package for doing data acquisition with NIDAS.
-# remove dist from release on noarch RPM
-Release: %{releasenum}
-Requires: nidas
-Group: Applications/Engineering
-BuildArch: noarch
-%description daq
-Package for doing data acquisition with NIDAS.  Contains some udev rules to
-expand permissions on /dev/mesa and /dev/usbtwod*.
 
 %package devel
 Summary: Headers, symbolic links and pkg-config for building software which uses NIDAS.
@@ -212,14 +202,8 @@ rm -rf $RPM_BUILD_ROOT
 %{_sysconfdir}/modprobe.d/diamond.conf
 %{_sysconfdir}/modprobe.d/nidas.conf
 %{_sysconfdir}/modprobe.d/pcmcom8.conf
+/lib/udev/rules.d/99-nidas.rules
 %endif
-
-%files daq
-%defattr(0664,root,root,0775)
-%config /etc/udev/rules.d/99-nidas.rules
-# Note that debian includes /etc/default files in nidas-daq for the emerald
-# and diamond modules, but for rpm they are just included as part of the
-# modules package.
 
 %files devel
 %defattr(0664,root,root,2775)

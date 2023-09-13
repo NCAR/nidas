@@ -58,13 +58,6 @@ Provides: nidas-modules
 Description: NIDAS Linux kernel modules
  NIDAS kernel modules, built for VortexDX3 Viper
 
-Package: nidas-daq
-Architecture: all
-Depends: ${misc:Depends}, nidas, lsb-base (>= 3.0-6)
-Description: Package for doing data acquisition with NIDAS
- Some udev rules to expand permissions on /dev/tty[A-Z]* and /dev/usbtwod*,
- and /etc/defaults files for serial drivers.
-
 Package: nidas-titan
 Architecture: armel
 Depends:  nidas, nidas-modules-titan, pxaregs
