@@ -6,4 +6,4 @@ etc/default/pcmcom8
 etc/default/emerald
 etc/init.d/pcmcom8
 etc/init.d/emerald
-../src/nidas/linux/udev/99-nidas.rules /lib/udev/rules.d/
+../src/nidas/linux/udev/99-nidas.rules lib/udev/rules.d/
