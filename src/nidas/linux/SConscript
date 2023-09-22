@@ -199,8 +199,11 @@ env.Alias('install', env.Install('$LINUX_MODULES_INC', headers))
 
 env.InstallModuleConf('nidas.conf')
 
-# The 99-nidas.rules file contains tty rules which are useful even if modules
-# are not built, so go ahead and install it so it can be included in the
-# nidas-daq package.
-rules = env.Install('/etc/udev/rules.d', 'udev/99-nidas.rules')
-env.Alias('install.root', rules)
+# The 99-nidas.rules file sets permissions on nidas module devices, so do not
+# install it if modules not enabled.  Install into /lib/udev/rules.d because
+# that's where we think packages are supposed to install their rules, then
+# they can be overridden as needed on a particular system in
+# /etc/udev/rules.d.
+if env.LinuxModulesEnabled():
+    rules = env.Install('/lib/udev/rules.d', 'udev/99-nidas.rules')
+    env.Alias('install.root', rules)

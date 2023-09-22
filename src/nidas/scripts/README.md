@@ -2,7 +2,7 @@
 # NIDAS Utility Scripts
 
 This directory is for utility scripts which are installed alongside the NIDAS
-applications in [NIDAS Apps](../apps).
+applications from [NIDAS Apps](../apps) into the NIDAS bin directory.
 
 ## setup_nidas.sh
 
@@ -16,3 +16,10 @@ Development versions can be installed and updated with
 [dsm_rsync.sh](../../../scripts/dsm_rsync.sh), and then
 [setup_nidas.sh](setup_nidas.sh) can be used to switch between production and
 development in the current shell.
+
+## dsm.init
+
+This is the SysV init script originally installed as part of the `nidas-daq`
+package.  The `nidas-daq` package has been deprecated, but this script is
+still installed into the bin directory so it is available on systems which
+need it.  For example, it can be copied or linked into the `/etc/init.d` tree.

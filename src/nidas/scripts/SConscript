@@ -4,7 +4,7 @@ from SCons.Script import Environment, Import
 Import('env')
 env: Environment
 
-scripts = env.Split("cktty irqs setup_nidas.sh start_podman")
+scripts = env.Split("cktty irqs setup_nidas.sh start_podman dsm.init")
 
 # Install start_podman everywhere even though it's not likely to be useful
 # except on redhat systems, time and necessity to do otherwise are lacking.
