@@ -250,7 +250,7 @@ build_image()
             podman build -t $tag -f docker/Dockerfile.ubuntu_amd64
             ;;
         vortex)
-            podman build -t $tag -f docker/Dockerfile.ubuntu_i386_bionic
+            podman build -t $tag -f docker/Dockerfile.ubuntu_i386_bionic --build-arg=dolocal=yes
             ;;
     esac
 }

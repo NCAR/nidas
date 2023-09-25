@@ -15,10 +15,10 @@ LABEL organization="NCAR EOL"
 
 ARG dolocal=no
 
-RUN apt-get update
 # kmod provides modinfo command for querying modules
 # In ubuntu 18 bionic, you need libfl-dev for /usr/include/FlexLexer.h
-RUN apt-get install -y --no-install-recommends apt-utils vim curl \
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends apt-utils vim curl \
     build-essential fakeroot libncurses-dev bc dh-make ca-certificates \
     git ssh scons doxygen graphviz gnupg2 reprepro flex gawk \
     devscripts lintian pkg-config libbz2-dev libgsl23 libgsl-dev \
@@ -32,7 +32,8 @@ RUN apt-get install -y --no-install-recommends apt-utils vim curl \
 # nidas directory. debhelper on bionic-backports is
 # 12.1.1ubuntu1~ubuntu18.04.1# which falls back to a regular mv if the
 # rename fails.
-RUN apt-get -t bionic-backports install -y --no-install-recommends debhelper
+RUN apt-get update && \
+    apt-get -t bionic-backports install -y --no-install-recommends debhelper
 
 # Add EOL repository for local packages
 RUN echo "deb ftp://ftp.eol.ucar.edu/pub/archive/software/debian/codename-bionic bionic main" > /etc/apt/sources.list.d/eol.list 
@@ -58,22 +59,34 @@ RUN if [ $dolocal = yes ]; then apt-get update && \
     linux-headers-4.15.18-vortex86dx3 eol-scons eol-repo libxerces-c3.2; fi
 
 # net-tools is for netstat, used in tests, also valgrind
-RUN apt-get install -y --no-install-recommends debmake libmodbus-dev libusb-1.0-0-dev net-tools libboost-regex-dev libboost-test-dev valgrind
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends debmake libmodbus-dev \
+    libusb-1.0-0-dev net-tools libboost-regex-dev libboost-test-dev valgrind
 
 # installation of tzdata wants to ask user for the time zone.  We have to be noninterative
 RUN DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends tzdata
 
 # when installing local packages, must first do apt-get update to see new packages
-RUN if [ $dolocal = yes ]; then apt-get update; apt-get install -y --no-install-recommends nidas-dev uio48-dev; fi
+RUN if [ $dolocal = yes ]; then \
+        apt-get update; \
+        apt-get install -y --no-install-recommends uio48-dev; \
+    fi
 
 # make default python version 3
-RUN update-alternatives --install /usr/bin/python python /usr/bin/python2.7 1 && update-alternatives --install /usr/bin/python python /usr/bin/python3.6 2
+RUN update-alternatives --install /usr/bin/python python /usr/bin/python2.7 1 && \
+    update-alternatives --install /usr/bin/python python /usr/bin/python3.6 2
 
 # Need newer scons than 3.0.1, but it isn't on the bionic repos,
 # so install it with pip3. Point /usr/bin/scons to the new version.
 # Don't uninstall the old scons because eol-scons requires it
 # and will bring it back in on an update.
-RUN apt-get update && apt-get install -y --no-install-recommends python3-pip && pip3 install scons && { [ -L /usr/bin/scons ] || mv /usr/bin/scons /usr/bin/scons3.0.1; } && update-alternatives --install /usr/bin/scons scons /usr/bin/scons3.0.1 1 && update-alternatives --install /usr/bin/scons scons /usr/local/bin/scons 2 && apt-get upgrade -y eol-scons
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends python3-pip && \
+    pip3 install scons && \
+    { [ -L /usr/bin/scons ] || mv /usr/bin/scons /usr/bin/scons3.0.1; } && \
+    update-alternatives --install /usr/bin/scons scons /usr/bin/scons3.0.1 1 && \
+    update-alternatives --install /usr/bin/scons scons /usr/local/bin/scons 2 && \
+    apt-get upgrade -y eol-scons
 
 WORKDIR /root
 
