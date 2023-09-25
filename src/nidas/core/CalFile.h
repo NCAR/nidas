@@ -47,6 +47,8 @@ class DSMSensor;
  *
  * CalFile supports reading files like the following:
  *
+ * Records are assumed to be time-ordered.
+ *
  * <pre>
  *  # example cal file
  *  # dateFormat = "%Y %b %d %H:%M:%S"
