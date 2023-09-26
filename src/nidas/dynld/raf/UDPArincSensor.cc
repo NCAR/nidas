@@ -28,7 +28,6 @@
 #include "DSMArincSensor.h"
 
 #include <nidas/util/UTime.h>
-#include <nidas/util/Exception.h>
 #include <nidas/util/Logger.h>
 
 #include <csignal>
