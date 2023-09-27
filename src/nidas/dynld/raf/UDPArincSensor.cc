@@ -139,7 +139,7 @@ void UDPArincSensor::open(int flags)
         }
 
         args[argc] = (char *)0;
-        ILOG(("forking command %s", args[0]));
+        ILOG(("UDPArincSensor: forking command %s", args[0]));
         if (execvp(args[0], args) == -1)
         {
             ELOG(("UDPArincSensor: error executing command: ") << args[0] <<
@@ -153,6 +153,7 @@ void UDPArincSensor::close()
 {
     UDPSocketSensor::close();
 
+    ILOG(("UDPArincSensor: close _ctrl_pid = %d", _ctrl_pid));
     if (_ctrl_pid > 0)
     {
         if (kill(_ctrl_pid, SIGTERM) == -1)
