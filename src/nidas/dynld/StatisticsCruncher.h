@@ -153,6 +153,13 @@ public:
      **/
     static statisticsType getStatisticsType(const std::string& type);
 
+    /**
+     * Return string name for the given @p stype.
+     * 
+     * If @p stype does not match a known name, return "none".
+     */
+    static const std::string& getStatisticsString(statisticsType stype);
+
     void setStartTime(const nidas::util::UTime& val);
 
     nidas::util::UTime getStartTime() const

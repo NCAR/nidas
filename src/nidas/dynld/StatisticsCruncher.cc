@@ -173,29 +173,55 @@ void StatisticsCruncher::setStartTime(const nidas::util::UTime& val)
         _tout =  _startTime.toUsecs() + _periodUsecs - _startTime.toUsecs() % _periodUsecs;
 }
 
+
+
+std::map<std::string, StatisticsCruncher::statisticsType> StatsStrings
+{
+    { "minimum", StatisticsCruncher::STATS_MINIMUM },
+    { "min", StatisticsCruncher::STATS_MINIMUM },
+    { "maximum", StatisticsCruncher::STATS_MAXIMUM },
+    { "max", StatisticsCruncher::STATS_MAXIMUM },
+    { "mean", StatisticsCruncher::STATS_MEAN },
+    { "sum", StatisticsCruncher::STATS_SUM },
+    { "variance", StatisticsCruncher::STATS_VAR },
+    { "var", StatisticsCruncher::STATS_VAR },
+    { "covariance", StatisticsCruncher::STATS_COV },
+    { "flux", StatisticsCruncher::STATS_FLUX },
+    { "reducedflux", StatisticsCruncher::STATS_RFLUX },
+    { "scalarflux", StatisticsCruncher::STATS_SFLUX },
+    { "trivar", StatisticsCruncher::STATS_TRIVAR },
+    { "prunedtrivar", StatisticsCruncher::STATS_PRUNEDTRIVAR },
+    { "winddir", StatisticsCruncher::STATS_WINDDIR }
+};
+
+
 /* static */
 StatisticsCruncher::statisticsType
 StatisticsCruncher::getStatisticsType(const string& type)
 {
-    statisticsType stype;
-
-    if (type == "minimum" || type == "min")		stype = STATS_MINIMUM;
-    else if (type == "maximum" || type == "max") 	stype = STATS_MAXIMUM;
-    else if (type == "mean")				stype = STATS_MEAN;
-    else if (type == "sum")				stype = STATS_SUM;
-    else if (type == "variance" || type == "var") 	stype = STATS_VAR;
-    else if (type == "covariance")			stype = STATS_COV;
-    else if (type == "flux")				stype = STATS_FLUX;
-    else if (type == "reducedflux")			stype = STATS_RFLUX;
-    else if (type == "scalarflux")			stype = STATS_SFLUX;
-    else if (type == "trivar")				stype = STATS_TRIVAR;
-    else if (type == "prunedtrivar")			stype = STATS_PRUNEDTRIVAR;
-    else if (type == "winddir")  			stype = STATS_WINDDIR;
-    else throw n_u::InvalidParameterException(
-    	"StatisticsCruncher","unrecognized type type",type);
-
-    return stype;
+    auto it = StatsStrings.find(type);
+    if (it != StatsStrings.end())
+    {
+        return it->second;
+    }
+    throw n_u::InvalidParameterException(
+        "StatisticsCruncher", "unrecognized type type", type);
 }
+
+
+/* static */
+const std::string&
+StatisticsCruncher::getStatisticsString(statisticsType stype)
+{
+    static std::string none{"none"};
+    for (auto& it: StatsStrings)
+    {
+        if (it.second == stype)
+            return it.first;
+    }
+    return none;
+}
+
 
 void StatisticsCruncher::connect(SampleSource* source)
 {

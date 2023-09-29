@@ -213,25 +213,40 @@ void StatisticsProcessor::addRequestedSampleTag(SampleTag* tag)
                 ost.str());
         }
     } 
-    else _statsPeriod = sPeriod;
-
-    vector<string> vnames;
-    for (int i = 0; i < vparm->getLength(); i++) {
-	Variable* var = new Variable();
-	string vname = Project::getInstance()->expandString(vparm->getStringValue(i));
-        if (winddirCheck && vname.length() > 1 && vname[0] == 'u') {
-            ILOG(("wind direction statistics group for %s skipped since horizontal rotations are not enabled",vname.c_str()));
-            return;
-        }
-	var->setName(vname);
-	tag->addVariable(var);
-    }
+    else
+        _statsPeriod = sPeriod;
 
     // initial sample id of the requested tag.
     tag->setSampleId(getRequestedSampleTags().size() + 1);
 
+    vector<string> vnames;
+    for (int i = 0; i < vparm->getLength(); i++)
+    {
+        Variable* var = new Variable();
+        string vname = Project::getInstance()->expandString(vparm->getStringValue(i));
+        if (winddirCheck && vname.length() > 1 && vname[0] == 'u') {
+            ILOG(("wind direction statistics group for %s skipped since horizontal rotations are not enabled",vname.c_str()));
+            return;
+        }
+        var->setName(vname);
+        tag->addVariable(var);
+
+        static LogContext lp(LOG_VERBOSE);
+        if (lp.active() && stats_log_variable(var))
+        {
+            LogMessage msg(&lp);
+            dsm_sample_id_t id = tag->getId();
+            msg << "variable " << var->getName() << " added as input to tag "
+                << GET_DSM_ID(id) << ',' << GET_SPS_ID(id)
+                << ", stats type: "
+                << StatisticsCruncher::getStatisticsString(outputInfo.type);
+        }
+    }
+
     // save stuff that doesn't fit in the sample tag.
-    // cerr << "tag id=" << tag->getDSMId() << ',' << tag->getSpSId() << " statstype=" << outputInfo.type << endl;
+    VLOG(("") << "tag id=" << tag->getDSMId() << ','
+              << tag->getSpSId() << " statstype="
+              << StatisticsCruncher::getStatisticsString(outputInfo.type));
     _infoBySampleId[tag->getId()] = outputInfo;
 
     SampleIOProcessor::addRequestedSampleTag(tag);
@@ -279,8 +294,8 @@ void StatisticsProcessor::selectRequestedSampleTags(const vector<unsigned int>& 
 
 void StatisticsProcessor::connectSource(SampleSource* source)
 {
-    VLOG(("") << "StatisticsProcessor connect, #of tags=" <<
-    	source->getSampleTags().size());
+    VLOG(("") << "StatisticsProcessor connect, #of tags="
+              << source->getSampleTags().size());
 
     source = source->getProcessedSampleSource();
     assert(source);
