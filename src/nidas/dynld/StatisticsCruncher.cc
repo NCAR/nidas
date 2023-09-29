@@ -1695,6 +1695,34 @@ void StatisticsCruncher::computeStats()
                 outData[l++] = floatNAN;
 	}
 	break;
+    case STATS_VAR:
+	// Variances were previously computed in the default case below, as
+	// the first and second moments.  However, that case assumes that all
+	// the terms share the same number of samples, whereas that is not
+	// true for variances, where each variable can have a different number
+	// of samples because of missing values.  So just use similar code
+	// here, but simplified.
+
+	// compute mean
+	for (i = 0; i < _ninvars; i++) {
+	    if (_nSamples[i] == 0)
+	    	_xSum[i] = floatNAN;
+	    else
+	        _xSum[i] /= _nSamples[i];
+	    if (i < _n1mom) outData[l++] = (float)_xSum[i];
+	}
+
+	// compute variance
+	for (i = 0; i < _ninvars; i++, l++) {
+	    if (_nSamples[i] == 0)
+	        outData[l] = floatNAN;
+	    else {
+		xr = _xySum[i][i] / _nSamples[i] - _xSum[i] * _xSum[i];
+		if ((xr < 0.0) || _nSamples[i] < 2) xr = 0.0;
+		outData[l] = xr;
+	    }
+	}
+	break;
     case STATS_WINDDIR:
         if (_nSamples[0] > 0) {
             double u = _xSum[0] / _nSamples[0];
@@ -1723,8 +1751,8 @@ void StatisticsCruncher::computeStats()
 	if (_statsType == STATS_SFLUX && _ninvars > 3) nr = 1;
 
 	for (i = 0; i < nr; i++) {
-	    // no cross terms in STATS_VAR or in STATS_FLUX for scalar:scalar terms
-	    nx = (_statsType == STATS_VAR || (_statsType == STATS_FLUX && i > 2) ? i+1 : _ninvars);
+	    // no cross terms in STATS_FLUX for scalar:scalar terms
+	    nx = (_statsType == STATS_FLUX && i > 2) ? i+1 : _ninvars;
 	    for (j=i; j < nx; j++,l++) {
 		xr = _xySum[i][j] / nSamp - _xSum[i] * _xSum[j];
 		if ((i == j && xr < 0.0) || nSamp < 2) xr = 0.0;
