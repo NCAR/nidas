@@ -1127,7 +1127,10 @@ void StatisticsCruncher::setupReducedScalarFluxes()
 
 void StatisticsCruncher::setupMinMax(const string& suffix)
 {
-    _nsum = 0;
+    // not technically doing sums, but we need _nSamples to be allocated to
+    // count each variable.  likewise not technically computing moments, but
+    // that way the variables get counted in _ntot.
+    _nsum = _ninvars;
     _n1mom = _ninvars;
 
     for (unsigned int i = 0; i < _ninvars; i++) {
@@ -1353,8 +1356,8 @@ void StatisticsCruncher::zeroStats()
     for (i = 0; i < _ntri; i++) _xyzSum[i] = 0.;
     for (i = 0; i < _n3mom; i++) _xyzSum[i] = 0.;
     for (i = 0; i < _n4mom; i++) _x4Sum[i] = 0.;
-    if (_xMin) for (i = 0; i < _ninvars; i++) _xMin[i] = 1.e37;
-    if (_xMax) for (i = 0; i < _ninvars; i++) _xMax[i] = -1.e37;
+    if (_xMin) for (i = 0; i < _ninvars; i++) _xMin[i] = floatNAN;
+    if (_xMax) for (i = 0; i < _ninvars; i++) _xMax[i] = floatNAN;
     for (i = 0; i < _nsum; i++) _nSamples[i] = 0;
 }
 
@@ -1427,8 +1430,8 @@ bool StatisticsCruncher::receive(const Sample* samp) throw()
 	    vi = vindices[i][0];
 	    if (vi < nvsamp && !std::isnan(x = samp->getDataValue(vi))) {
 		vo = vindices[i][1];
-		if (x < _xMin[vo]) _xMin[vo] = x;
-		_nSamples[vo]++;
+		if (++_nSamples[vo] == 1 || x < _xMin[vo])
+		    _xMin[vo] = x;
 	    }
 	}
 	return true;
@@ -1437,8 +1440,8 @@ bool StatisticsCruncher::receive(const Sample* samp) throw()
 	    vi = vindices[i][0];
 	    if (vi < nvsamp && !std::isnan(x = samp->getDataValue(vi))) {
 		vo = vindices[i][1];
-		if (x > _xMax[vo]) _xMax[vo] = x;
-		_nSamples[vo]++;
+		if (++_nSamples[vo] == 1 || x > _xMax[vo])
+		    _xMax[vo] = x;
 	    }
 	}
 	return true;
@@ -1666,14 +1669,14 @@ void StatisticsCruncher::computeStats()
     switch (_statsType) {
     case STATS_MINIMUM:
 	for (i=0; i < _ninvars; i++) {
-	    if (_nSamples[i] > 0) outData[l++] = _xMin[i];
-	    else outData[l++] = floatNAN;
+	    // if there were no samples, then xmin is still NAN
+	    outData[l++] = _xMin[i];
 	}
 	break;
     case STATS_MAXIMUM:
 	for (i=0; i < _ninvars; i++) {
-	    if (_nSamples[i] > 0) outData[l++] = _xMax[i];
-	    else outData[l++] = floatNAN;
+	    // if there were no samples, then xmax is still NAN
+	    outData[l++] = _xMax[i];
 	}
 	break;
     case STATS_MEAN:
