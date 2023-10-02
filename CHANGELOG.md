@@ -12,6 +12,14 @@ the [buster] branch for the changes on that branch.
 
 ## [master] - Branch
 
+## [1.2.1] - 2023-10-01
+
+### bug fixes for min/max and variance statistics
+
+The min/max statistics could be reported as +- 1e37 even when there were no
+values during a time period.  Similarly, the mean in the variance statistics
+could be 0 even when there were no values during the statistics period.
+
 ### udev rules restored, nidas-daq package removed
 
 The `nidas-daq` package is no longer built.  Instead, the `dsm.init` script is
@@ -157,4 +165,5 @@ to `v1.2-1721-g1ebc8bcd4`.
 [refactor-builds]: https://github.com/ncareol/nidas/tree/refactor-builds
 [2.0]: https://github.com/ncareol/nidas/compare/master
 [1.3]: https://github.com/ncareol/nidas/compare/master...v1.3
+[1.2.1]: https://github.com/ncareol/nidas/releases/tag/v1.2.1
 [1.2]: https://github.com/ncareol/nidas/releases/tag/v1.2
