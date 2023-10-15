@@ -100,8 +100,8 @@ void UDPArincSensor::open(int flags)
     int argc = 0;
 
 // Do this, and start arinc_ctrl manually outisde of nidas, until get it debugged.
-UDPSocketSensor::open(flags);
-return;
+//UDPSocketSensor::open(flags);
+//return;
 
     args[argc++] = (char *)"arinc_ctrl";
     if (_ipAddr.length() > 0) {
@@ -132,6 +132,7 @@ return;
     }
     args[argc] = (char *)0;
 
+    ILOG(("forking command %s", args[0]));
     _ctrl_pid = fork();
 
     if (_ctrl_pid == -1)
@@ -141,7 +142,6 @@ return;
     else
     if (_ctrl_pid == 0)
     {
-        ILOG(("forking command %s", args[0]));
         if (execvp(args[0], args) == -1)
         {
             ELOG(("UDPArincSensor: error executing command: ") << args[0] <<
