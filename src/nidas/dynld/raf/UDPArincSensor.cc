@@ -99,10 +99,6 @@ void UDPArincSensor::open(int flags)
     char *args[20], port[32];
     int argc = 0;
 
-// Do this, and start arinc_ctrl manually outisde of nidas, until get it debugged.
-//UDPSocketSensor::open(flags);
-//return;
-
     args[argc++] = (char *)"arinc_ctrl";
     if (_ipAddr.length() > 0) {
             args[argc++] = (char *)"-i";
