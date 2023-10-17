@@ -173,7 +173,9 @@ void UDPiPMSensor::open(int flags)
         }
     }
 
+
     // Fork child process
+    ILOG(("UDPiPMSensor: forking command ") << cmd);
     _ctrl_pid = fork();
 
     if (_ctrl_pid == -1)
@@ -183,8 +185,6 @@ void UDPiPMSensor::open(int flags)
     else
     if (_ctrl_pid == 0)
     {
-        ILOG(("UDPiPMSensor: forking command ") << cmd);
-
         // The exec function only returns if an error has occurred and the
         // return value is always -1. errno is set to indicate the error
         if (execvp(args[0], args) == -1)
