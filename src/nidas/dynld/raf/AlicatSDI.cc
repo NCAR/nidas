@@ -42,7 +42,8 @@ const float AlicatSDI::Tstd = 298.15;
 
 AlicatSDI::AlicatSDI() :
     _nTASav(5), _tas(0.0), _tasIdx(0), _tasWeight(0), _at(20.0), _ps(1000.0),
-    _Qmin(100), _Qmax(500), _Qfac(0.0)
+    _P_SDI(0.0), _T_SDI(0.0),
+    _Qmin(100), _Qmax(500), _Qfac(0.0), _Q_VOL_OFFSET(0.0)
 {
 
 }
@@ -82,6 +83,7 @@ void AlicatSDI::validate()
     float tipDiam = param->getNumericValue(0);
 
 
+
     _tas.clear();
     float w[_nTASav], wSum = 0.0;
     for (int i = 0; i < _nTASav; ++i) {
@@ -94,6 +96,11 @@ void AlicatSDI::validate()
         _tasWeight[i] = w[i] / wSum;
 
     _Qfac = 100.0 * M_PI * pow(tipDiam / 2.0, 2.0) * 60.0 / 1000.0;
+
+    param = getParameter("Q_VOL_OFFSET");
+    if (!param) throw n_u::InvalidParameterException(getName(),
+          "Q_VOL_OFFSET","not found");
+    _Q_VOL_OFFSET = param->getNumericValue(0);
 }
 
 void AlicatSDI::open(int flags)
@@ -192,11 +199,13 @@ float AlicatSDI::computeFlow()
 
     float Qiso = _Qfac * (_ps / STANDARD_ATMOSPHERE) * Tstd / (_at + KELVIN_AT_0C) * tasSum;
 
+    float Q_std_offset = _Q_VOL_OFFSET * ( _P_SDI /  STANDARD_ATMOSPHERE ) * ( Tstd / ( _T_SDI + KELVIN_AT_0C ) );
+    Qiso = Qiso -  Q_std_offset;
+
     if (Qiso < _Qmin || isnan(Qiso)) Qiso = _Qmin;
     else
     if (Qiso > _Qmax) Qiso = _Qmax;
 
-    DLOG(("ALICAT QISO %f", Qiso));
     return Qiso;
 }
 
@@ -206,5 +215,16 @@ void AlicatSDI::sendFlow(float flow)
     char tmp[128];
     sprintf(tmp, "AS%.1f\r", flow);
     write(tmp, strlen(tmp));
-    DLOG(("ALICAT sendFlow %s", tmp));
+    //DLOG(("ALICAT sendFlow %s", tmp));
+}
+
+Sample * AlicatSDI::nextSample()
+{
+    Sample *samp = DSMSensor::nextSample();
+    if (samp) {
+      const char *input = (const char *)samp->getConstVoidDataPtr();
+      sscanf(input, "A %f %f", &_P_SDI, &_T_SDI);
+    }
+    return(samp);
+
 }
