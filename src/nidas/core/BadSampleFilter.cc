@@ -11,8 +11,7 @@ using nidas::core::NidasAppException;
 using nidas::util::LogContext;
 using nidas::util::LogMessage;
 using std::string;
-using std::mem_fun;
-using std::bind1st;
+using std::mem_fn;
 
 BadSampleFilter::
 BadSampleFilter() :
@@ -209,13 +208,13 @@ namespace {
     template <typename T, typename F>
     inline bool
     check_rule(const string& name, const string& key,
-               const string& value, const F& f)
+               const string& value, const F& f, BadSampleFilter* bsf)
     {
         if (key == name)
         {
             T setting;
             convert(value, setting);
-            f(setting);
+            f(bsf, setting);
             return true;
         }
         return false;
@@ -224,8 +223,8 @@ namespace {
     inline bool
     check_time_rule(const string& name, const string& key,
                     const string& value,
-                    BadSampleFilter* target,
-                    void (BadSampleFilter::*f)(const UTime&))
+                    void (BadSampleFilter::*f)(const UTime&),
+                    BadSampleFilter* target)
     {
         if (key == name)
         {
@@ -266,29 +265,29 @@ setRule(const std::string& rule)
     else if (!value.empty() &&
         (check_rule<unsigned int>
          ("mindsm", field, value,
-          bind1st(mem_fun(&BadSampleFilter::setMinDsmId), this)) ||
+          mem_fn(&BadSampleFilter::setMinDsmId), this) ||
          check_rule<unsigned int>
          ("maxdsm", field, value,
-          bind1st(mem_fun(&BadSampleFilter::setMaxDsmId), this)) ||
+          mem_fn(&BadSampleFilter::setMaxDsmId), this) ||
          check_rule<unsigned int>
          ("minlen", field, value,
-          bind1st(mem_fun(&BadSampleFilter::setMinSampleLength), this)) ||
+          mem_fn(&BadSampleFilter::setMinSampleLength), this) ||
          check_rule<unsigned int>
          ("maxlen", field, value,
-          bind1st(mem_fun(&BadSampleFilter::setMaxSampleLength), this)) ||
+          mem_fn(&BadSampleFilter::setMaxSampleLength), this) ||
          check_time_rule
-         ("mintime", field, value, this, &BadSampleFilter::setMinSampleTime) ||
+         ("mintime", field, value, &BadSampleFilter::setMinSampleTime, this) ||
          check_time_rule
-         ("maxtime", field, value, this, &BadSampleFilter::setMaxSampleTime) ||
+         ("maxtime", field, value, &BadSampleFilter::setMaxSampleTime, this) ||
          check_rule<bool>
          ("skipnidasheader", field, value,
-          bind1st(mem_fun(&BadSampleFilter::setSkipNidasHeader), this)) ||
+          mem_fn(&BadSampleFilter::setSkipNidasHeader), this) ||
          check_rule<bool>
          ("on", field, value,
-          bind1st(mem_fun(&BadSampleFilter::setFilterBadSamples), this)) ||
+          mem_fn(&BadSampleFilter::setFilterBadSamples), this) ||
          check_rule<bool>
          ("off", field, value,
-          bind1st(mem_fun(&BadSampleFilter::setFilterBadSamples), this))))
+          mem_fn(&BadSampleFilter::setFilterBadSamples), this)))
     {
         // all good.
     }
