@@ -38,7 +38,9 @@ using namespace std;
 
 namespace n_u = nidas::util;
 
-NearestResamplerAtRate::NearestResamplerAtRate(const std::vector<const Variable*>& vars,bool nansVariable):
+NearestResamplerAtRate::
+NearestResamplerAtRate(const std::vector<const Variable*>& vars,
+                       bool nansVariable):
     _source(false),_outSample(),
     _reqVars(), _outVarIndices(),
     _inmap(),_lenmap(),_outmap(),_ndataValues(0),_outlen(0),_rate(0.0),
@@ -48,41 +50,6 @@ NearestResamplerAtRate::NearestResamplerAtRate(const std::vector<const Variable*
     _prevTT(0),_nearTT(0),_prevData(0),_nearData(0),_samplesSinceOutput(0),
     _osamp(0),_fillGaps(false),
     _ttOutOfOrder()
-{
-    ctorCommon(vars,nansVariable);
-}
-
-NearestResamplerAtRate::NearestResamplerAtRate(const std::vector<Variable*>& vars,bool nansVariable):
-    _source(false),_outSample(),
-    _reqVars(), _outVarIndices(),
-    _inmap(),_lenmap(),_outmap(),_ndataValues(0),_outlen(0),_rate(0.0),
-    _deltatUsec(0),_deltatUsecD10(0),_deltatUsecD2(0),
-    _exactDeltatUsec(true),_middleTimeTags(true),
-    _outputTT(LONG_LONG_MIN),_nextOutputTT(LONG_LONG_MIN),
-    _prevTT(0),_nearTT(0),_prevData(0),_nearData(0),_samplesSinceOutput(0),
-    _osamp(0),_fillGaps(false),
-    _ttOutOfOrder()
-{
-    vector<const Variable*> newvars;
-    for (unsigned int i = 0; i < vars.size(); i++)
-    	newvars.push_back(vars[i]);
-    ctorCommon(newvars,nansVariable);
-}
-
-NearestResamplerAtRate::~NearestResamplerAtRate()
-{
-    delete [] _prevTT;
-    delete [] _nearTT;
-    delete [] _prevData;
-    delete [] _nearData;
-    delete [] _samplesSinceOutput;
-    if (_osamp) _osamp->freeReference();
-
-    vector<Variable*>::iterator ti = _reqVars.begin();
-    for ( ; ti != _reqVars.end(); ++ti) delete *ti;
-}
-
-void NearestResamplerAtRate::ctorCommon(const vector<const Variable*>& vars,bool nansVariable)
 {
     _ndataValues = 0;
     int dsmId = -1;
@@ -91,9 +58,9 @@ void NearestResamplerAtRate::ctorCommon(const vector<const Variable*>& vars,bool
         const Variable* vin = vars[i];
         Variable * reqVar = new Variable(*vin);
 
-#ifdef DEBUG
-        cerr << "vin=" << vin->getName() << '(' << vin->getSampleTag()->getDSMId() << ',' << vin->getSampleTag()->getSpSId() << ')' << endl;
-#endif
+        VLOG(("") << "vin=" << vin->getName() << '('
+                  << vin->getSampleTag()->getDSMId() << ','
+                  << vin->getSampleTag()->getSpSId() << ')');
         dsm_sample_id_t id = 0;
 
         const SampleTag * vtag;
@@ -145,6 +112,19 @@ void NearestResamplerAtRate::ctorCommon(const vector<const Variable*>& vars,bool
 
     setRate(10.);       // pick a default
     _outputTT = _nextOutputTT = 0;
+}
+
+NearestResamplerAtRate::~NearestResamplerAtRate()
+{
+    delete [] _prevTT;
+    delete [] _nearTT;
+    delete [] _prevData;
+    delete [] _nearData;
+    delete [] _samplesSinceOutput;
+    if (_osamp) _osamp->freeReference();
+
+    vector<Variable*>::iterator ti = _reqVars.begin();
+    for ( ; ti != _reqVars.end(); ++ti) delete *ti;
 }
 
 void NearestResamplerAtRate::setRate(double val)

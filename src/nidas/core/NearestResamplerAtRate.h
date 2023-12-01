@@ -76,11 +76,11 @@ class NearestResamplerAtRate : public Resampler {
 public:
 
     /**
-     * Constructor.
+     * Use the given list of Variables as inputs and use them to generate an
+     * output sample tag.
      */
-    NearestResamplerAtRate(const std::vector<const Variable*>& vars,bool nansVariable=true);
-
-    NearestResamplerAtRate(const std::vector<Variable*>& vars,bool nansVariable=true);
+    NearestResamplerAtRate(const std::vector<const Variable*>& vars,
+                           bool nansVariable=true);
 
     ~NearestResamplerAtRate();
 
@@ -213,11 +213,6 @@ public:
 private:
 
     /**
-     * Common tasks of constructors.
-     */
-    void ctorCommon(const std::vector<const Variable*>& vars, bool nansVariable);
-
-    /**
      * Add a SampleTag to this SampleSource.
      */
     void addSampleTag(const SampleTag* tag) throw()
@@ -328,12 +323,12 @@ private:
     /**
      * No assignment.
      */
-    NearestResamplerAtRate& operator=(const NearestResamplerAtRate&);
+    NearestResamplerAtRate& operator=(const NearestResamplerAtRate&) = delete;
 
     /**
      * No copy.
      */
-    NearestResamplerAtRate(const NearestResamplerAtRate& x);
+    NearestResamplerAtRate(const NearestResamplerAtRate& x) = delete;
 };
 
 }}	// namespace nidas namespace core
