@@ -1,5 +1,5 @@
 # -*- python -*-
-##  Copyright 2005,2006 UCAR, NCAR, All Rights Reserved
+#  Copyright 2005,2006 UCAR, NCAR, All Rights Reserved
 
 import textwrap
 import SCons
@@ -21,14 +21,12 @@ targets = {
     'armel-titan': ('armel', 'titan'),
     'armel-viper': ('armel', 'viper'),
     'armhf-rpi2': ('armhf', 'rpi2'),
-    'armhf-rpi3': ('armhf', 'rpi3'), # not actually different, but accept it
+    'armhf-rpi3': ('armhf', 'rpi3'),  # not actually different, but accept it
     'host-host': ('host', 'host')
 }
 
 eol_scons.EnableInstallAlias(False)
 
-# eol_scons.debug.SetDebug("true")
-#
 # Don't load tools that perform compiler or pkg-config checks until the cross
 # tool is loaded, PKG_CONFIG_PATH is set, and the custom config filename
 # nidas.conf can be set.
@@ -180,7 +178,7 @@ if 'PKG_CONFIG_PATH' in env:
     env.PrependENVPath('PKG_CONFIG_PATH', env['PKG_CONFIG_PATH'])
 
 # env['CXX'] = 'clang++'
-env['CFLAGS'] = ['-Wall','-O2']
+env['CFLAGS'] = ['-Wall', '-O2']
 env['CXXFLAGS'] = ['-Wall', '-O2']
 if env['CXX'] == 'clang++':
     # Someday it might be nice to refactor the remaining overloaded virtual
@@ -216,14 +214,14 @@ if not env.get('DEBUG'):
 
 # Now start loading SConscript files...
 
-##
-##  Install firmware
-##
+#
+#  Install firmware
+#
 SConscript("firmware/anythingIO/SConscript", exports={'env': env})
 
-##
-##  Install a2d filters
-##
+#
+#  Install a2d filters
+#
 SConscript("../filters/SConscript", exports={'env': env})
 
 
@@ -244,8 +242,10 @@ if ARCH == 'host' and env.File("tests/SConscript").exists():
 env.Alias('install', env.Install('$PREFIX/share/xml', '#xml/nidas.xsd'))
 
 dox = env.Command('#/../doc/doxygen',
-              '#/../doc/doxygen_conf/nidas.doxy',
-              'cd .. && rm -rf doc/doxygen && ( cat $SOURCE; echo PROJECT_NUMBER=$REPO_TAG ) | doxygen -')
+                  '#/../doc/doxygen_conf/nidas.doxy',
+                  'cd .. && rm -rf doc/doxygen && '
+                  '( cat $SOURCE; echo PROJECT_NUMBER=$REPO_TAG ) | '
+                  'doxygen -')
 env.Alias('dox', dox)
 env.AlwaysBuild(dox)
 
@@ -261,12 +261,12 @@ for sysdfile in ['README.md', 'dsm.service', 'dsm_server.service']:
 # with the other install targets.
 if 'doxinstall' in COMMAND_LINE_TARGETS:
     env.Alias('doxinstall',
-              env.InstallAs('$PREFIX/doxygen','#/../doc/doxygen'))
+              env.InstallAs('$PREFIX/doxygen', '#/../doc/doxygen'))
 
 
 # Override the SCons variable help formatter before calling SetHelp(), since
 # that actually generates all the text.
-def BriefVariableHelpText(env, key, help, default, actual, aliases=None) -> str:
+def BriefVariableHelpText(env, key, help, dflt, actual, aliases=None) -> str:
     briefs = ['PREFIX', 'BUILD', 'LINUX_MODULES',
               'PKG_CONFIG_PATH', 'BUILD_ARINC']
     if key not in briefs:
@@ -278,6 +278,7 @@ def BriefVariableHelpText(env, key, help, default, actual, aliases=None) -> str:
     brief = f'  {brief}\n' if brief else brief
     text = "%s [%s]\n%s" % (key, actual, brief)
     return text
+
 
 AddOption("--help-all", dest="helpall", action="store_true")
 if not env.GetOption("helpall"):
@@ -292,7 +293,7 @@ nidas_help = f"""
 Main targets:
 
 <target> or BUILD=<target>
-  Build libraries, executables and kernel modules for target system.  See BUILD.
+  Build binaries and kernel modules for target system.  See BUILD.
   {target_names}
 install
   Build and install all modules, libraries, headers and executables.
