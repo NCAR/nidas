@@ -226,7 +226,7 @@ SConscript("../filters/SConscript", exports={'env': env})
 
 
 SConscript('nidas/SConscript', variant_dir=env['VARIANT_DIR'],
-           duplicate=1, exports={'env': env})
+           duplicate=False, exports={'env': env})
 
 # need at least one default target, else scons will build everything.  this
 # makes the default everything built into the variant dir.  the alias allows
