@@ -32,6 +32,7 @@
 
 #include <sstream>
 #include <limits>
+#include <functional>
 
 using namespace nidas::dynld::isff;
 using namespace nidas::core;
@@ -56,10 +57,11 @@ NCAR_TRH::NCAR_TRH():
     _raw_rh_handler(0),
     _compute_order()
 {
+    using namespace std::placeholders;
     _raw_t_handler = makeCalFileHandler
-        (std::bind1st(std::mem_fun(&NCAR_TRH::handleRawT), this));
+        (std::bind(&NCAR_TRH::handleRawT, this, _1));
     _raw_rh_handler = makeCalFileHandler
-        (std::bind1st(std::mem_fun(&NCAR_TRH::handleRawRH), this));
+        (std::bind(&NCAR_TRH::handleRawRH, this, _1));
 }
 
 NCAR_TRH::~NCAR_TRH()
