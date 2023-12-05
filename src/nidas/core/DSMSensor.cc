@@ -666,12 +666,14 @@ void DSMSensor::fromDOMElement(const xercesc::DOMElement* node)
                         aname,aval);
 		setLatency(val);
 	    }
+            // SOS introduced variable substitutions in the height attribute,
+            // so may as well expand depth and suffix also.
 	    else if (aname == "height")
-                setHeight(aval);
+                setHeight(expandString(aval));
 	    else if (aname == "depth")
-                setDepth(aval);
+                setDepth(expandString(aval));
 	    else if (aname == "suffix")
-                setSuffix(aval);
+                setSuffix(expandString(aval));
 	    else if (aname == "type") setTypeName(aval);
             else if (aname == "duplicateIdOK") {
                 istringstream ist(aval);

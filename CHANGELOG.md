@@ -10,7 +10,12 @@ branches.  The [refactor-builds] branch has already been merged into [master].
 Following are the significant changes on each branch.  See the Changelog on
 the [buster] branch for the changes on that branch.
 
-## [master] - Branch
+## [master] - Unreleased on master branch
+
+Variable substitution is now done on sensor element attributes height, depth,
+and suffix when they are applied to a sensor object.  This accommodates the
+SOS config which uses variables to specify changes in sonic heights during the
+project.
 
 ## [1.2.1] - 2023-10-01
 
