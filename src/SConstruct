@@ -8,6 +8,8 @@ from SCons.Script import Environment, SConscript, BoolVariable, EnumVariable
 from SCons.Script import COMMAND_LINE_TARGETS, ARGUMENTS, AddOption
 import eol_scons
 
+eol_scons.RunScripts()
+
 # Here are the supported build targets, expressed in the form arch-machine,
 # which loosely follows the GNU GCC machine configuration name of
 # arch-company-system, where system is implied to be linux.  Only one of these

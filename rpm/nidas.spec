@@ -22,7 +22,11 @@
 
 Summary: NIDAS: NCAR In-Situ Data Acquistion Software
 Name: nidas
+%if %{defined gitversion}
 Version: %{gitversion}
+%else
+Version: 1.2.1
+%endif
 Release: %{releasenum}%{?dist}
 License: GPL
 Group: Applications/Engineering
@@ -88,13 +92,15 @@ Group: Applications/Engineering
 NIDAS C/C++ headers, shareable library links, pkg-config.
 
 %prep
+%if %{defined gitversion}
 %setup -q -c
-
+%else
+%setup
+%endif
 
 %build
 
-cd src
-%{scons} -j 4 --config=force gitinfo=off BUILD=host \
+%{scons} -C src -j 4 --config=force gitinfo=off BUILD=host \
  REPO_TAG=v%{version} %{buildarinc} %{buildmodules} \
  PREFIX=%{nidas_prefix} PKGCONFIGDIR=%{_libdir}/pkgconfig \
  SYSCONFIGDIR=%{_sysconfdir}
@@ -102,13 +108,11 @@ cd src
 %install
 rm -rf $RPM_BUILD_ROOT
 
-cd src
-%{scons} -j 4 --config=force gitinfo=off BUILD=host \
+%{scons} -C src -j 4 --config=force gitinfo=off BUILD=host \
  REPO_TAG=v%{version} %{buildarinc} %{buildmodules} \
  PREFIX=%{nidas_prefix} PKGCONFIGDIR=%{_libdir}/pkgconfig \
  SYSCONFIGDIR=%{_sysconfdir} \
  INSTALL_ROOT=$RPM_BUILD_ROOT install install.root
-cd -
 
 %post libs
 # Separate lib64 context is no longer needed, so make sure it gets removed.
