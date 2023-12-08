@@ -211,9 +211,6 @@ env.Require(['symlink', 'sharedlibrary', 'stackprotector'])
 # Threads
 env.MergeFlags('-pthread')
 
-if not env.get('DEBUG'):
-    env.AppendUnique(CPPDEFINES = ['NDEBUG'])
-
 # Now start loading SConscript files...
 
 #
