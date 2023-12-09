@@ -245,7 +245,7 @@ public:
 
     void parseFields(CalFile* cf);
 
-    std::string toString() const;
+    virtual std::string toString() const override;
 
     /**
      * @throws nidas::util::InvalidParameterException
@@ -291,7 +291,7 @@ public:
 
     void parseFields(CalFile* cf);
 
-    std::string toString() const;
+    virtual std::string toString() const override;
 
     /**
      * @throws nidas::util::InvalidParameterException
