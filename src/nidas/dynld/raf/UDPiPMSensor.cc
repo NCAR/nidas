@@ -112,7 +112,7 @@ void UDPiPMSensor::open(int flags)
 
     // Construct command for child process
     char *args[40];
-    char port[32];
+    // unused: char port[32];
     char m_rate[32];
     char r_period[32];
     char baud[32];

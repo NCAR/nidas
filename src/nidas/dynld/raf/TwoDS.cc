@@ -160,7 +160,7 @@ return false;  // Remove when ready.
     setupBuffer(&cp, &eod);
 
     // Loop through all slices in record.
-    long long firstTimeWord = 0;        // First timing word in this record.
+    // unused: long long firstTimeWord = 0;        // First timing word in this record.
     for (; cp < eod - (wordSize - 1); )
     {
         /* Four cases, syncWord, overloadWord, blank or legitimate slice.
