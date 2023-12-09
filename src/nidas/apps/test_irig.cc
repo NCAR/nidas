@@ -116,7 +116,7 @@ main()
 	if (slen == offsetof(dsm_clock_data_3, end)) {
 		if (fread(&samp3, slen, 1, irig) != 1)
 		{
-		    fprintf(stderr, "%s: Failed to read %zu bytes\n",
+		    fprintf(stderr, "%s: Failed to read %u bytes\n",
 			    devname, slen);
 		    return 1;
 		}
@@ -128,7 +128,7 @@ main()
 	else if (slen == offsetof(dsm_clock_data_2, end)) {
 		if (fread(&samp2, slen, 1, irig) != 1)
 		{
-		    fprintf(stderr, "%s: Failed to read %zu bytes\n",
+		    fprintf(stderr, "%s: Failed to read %u bytes\n",
 			    devname, slen);
 		    continue;
 		}
@@ -140,7 +140,7 @@ main()
 		seqnum = samp2.seqnum;
 	}
 	else {
-	    fprintf(stderr,"%s: unrecognized sample length=%zu\n",
+	    fprintf(stderr,"%s: unrecognized sample length=%u\n",
 		devname, slen);
 	    return 1;
 	}
