@@ -94,7 +94,9 @@ using nidas::core::NidasAppException;
 
 namespace n_u = nidas::util;
 
+#ifdef HAVE_I2C_SMBUS_READ_BYTE
 bool interrupted = false;
+#endif
 
 // Whether to read the length values in registers 0xfd, 0xfe
 // before reading the message stream in 0xff.
@@ -234,24 +236,6 @@ TeeI2C::~TeeI2C()
     if (_outputFp) ::fclose(_outputFp);
 }
 
-static void sigAction(int sig, siginfo_t* siginfo, void*)
-{
-
-    NLOG(("received signal ") << strsignal(sig) << '(' << sig << ')' <<
-	", si_signo=" << (siginfo ? siginfo->si_signo : -1) <<
-	", si_errno=" << (siginfo ? siginfo->si_errno : -1) <<
-	", si_code=" << (siginfo ? siginfo->si_code : -1));
-
-
-    switch(sig) {
-    case SIGHUP:
-    case SIGTERM:
-    case SIGINT:
-    case SIGUSR1:
-        interrupted = true;
-    break;
-    }
-}
 
 int TeeI2C::parseRunstring(int argc, char** argv)
 {
