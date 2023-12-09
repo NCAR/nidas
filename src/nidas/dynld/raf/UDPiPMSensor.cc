@@ -45,7 +45,7 @@ const int UDPiPMSensor::MAX_CHANNELS = 8;
 
 
 UDPiPMSensor::UDPiPMSensor() :
-    _deviceAddr(), _measureRate(0), _recordPeriod(0),
+    _deviceAddr(), _statusPort(0), _measureRate(0), _recordPeriod(0),
     _baudRate(0), _numAddr(0), _addrInfo(8), _ctrl_pid(0)
 {
 
