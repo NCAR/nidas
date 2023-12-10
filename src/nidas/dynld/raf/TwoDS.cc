@@ -43,6 +43,7 @@ namespace n_u = nidas::util;
 
 NIDAS_CREATOR_FUNCTION_NS(raf, TwoDS)
 
+const unsigned char TwoDS::_syncString[] = { 0xaa, 0xaa, 0xaa };
 const unsigned char TwoDS::_blankString[] =
     { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
 
@@ -160,7 +161,10 @@ return false;  // Remove when ready.
     setupBuffer(&cp, &eod);
 
     // Loop through all slices in record.
-    long long firstTimeWord = 0;        // First timing word in this record.
+
+// quiet compiler warning until we are ready to complete this function.
+//    long long firstTimeWord = 0;        // First timing word in this record.
+
     for (; cp < eod - (wordSize - 1); )
     {
         /* Four cases, syncWord, overloadWord, blank or legitimate slice.
@@ -176,17 +180,28 @@ return false;  // Remove when ready.
          * a possible syncWord or overloadWord */
         const unsigned char* eow = cp + wordSize;
 
-        for (; cp < eow; ) {
-            switch (*cp) {
-            case 0x55:  // start of possible overload string
+        for (; cp < eow; ++cp) {
+            if (*cp == 0xaa) { // start of possible particle string
                 if (cp + wordSize > eod) {
                     createSamples(samp->getTimeTag(), results);
                     saveBuffer(cp,eod);
                     return !results.empty();
                 }
-            default:
-                cp++;
-                break;
+                if (cp[1] == _syncString[1]) {  // is a syncWord
+                    _totalParticles++;
+/*
+
+                    if (firstTimeWord == 0)
+                        firstTimeWord = thisTimeWord;
+
+                    // Approx microseconds since start of record.
+                    long long thisParticleTime = startTime + (thisTimeWord - firstTimeWord);
+
+
+                    // This is incomplete, needs to be fully flushed out.
+                    // See TwoD64_USB.cc  This will be the same but different.
+*/
+                }
             }
         }
         if (sos) {
