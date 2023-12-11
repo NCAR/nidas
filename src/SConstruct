@@ -187,8 +187,12 @@ if 'PKG_CONFIG_PATH' in env:
 # env['CXX'] = 'clang++'
 env['CFLAGS'] = ['-Wall']
 env['CCFLAGS'] = ['-g', '-O2']
-env['CXXFLAGS'] = ['-Wall', '-Wextra', '-Weffc++']
+env['CXXFLAGS'] = ['-Wall', '-Wextra']
 env.AppendUnique(CCFLAGS=['-Wformat', '-Werror=format-security'])
+
+# Skip effc++ warnings on platforms with older jsoncpp
+if env['VARIANT_OS'] not in ['centos7', 'ubuntu18']:
+    env.Append(CXXFLAGS=['-Weffc++'])
 
 # Take advantage of buffer overflow detection wherever available.
 # https://www.redhat.com/en/blog/enhance-application-security-fortifysource
@@ -199,10 +203,6 @@ env.Append(CCFLAGS=['-Werror'])
 
 # all active targets now support c++11
 env.AppendUnique(CXXFLAGS=['-std=c++11'])
-
-# Ignore effc++ warnings on platforms with older jsoncpp
-if 'centos7' in env['VARIANT_OS'] or 'ubuntu18' in env['VARIANT_OS']:
-    env.Append(CCFLAGS=['-Wno-effc++'])
 
 if env['CXX'] == 'clang++':
     # Someday it might be nice to refactor the remaining overloaded virtual
