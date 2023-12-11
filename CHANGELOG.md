@@ -21,12 +21,14 @@ project.
 in the code will now be compiled everywhere, where before they were being
 omitted everywhere.
 
-The SCons variant builds are now done with `duplicate` disabled.
+The SCons variant builds are now done with `duplicate` disabled.  This has the
+side effect of causing kernel modules to be built in the source directories,
+but hopefully that will not be a problem, especially now that only one target
+architecture is built at a time.
 
 Fix `fork()` and `exec()` problems in the _UDPArinc_ and _UDPiPM_ sensors.
 
-Clean up compiler warnings, with a goal of compiling without any warnings on
-all targets.
+Clean up compiler warnings and escalate warnings to errors.
 
 ## [1.2.1] - 2023-10-01
 
