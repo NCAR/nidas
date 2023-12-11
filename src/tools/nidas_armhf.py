@@ -9,11 +9,8 @@ def generate(env: Environment):
     env.Require(['armhfcross'])
     if 'ARCHLIBDIR' not in env:
         env['ARCHLIBDIR'] = 'lib/arm-linux-gnueabihf'
-    env.AppendUnique(CCFLAGS = ['-g', '-fpie',
-        '-Wformat', '-Werror=format-security',
-        '-D_FORTIFY_SOURCE=2'])
-    env.AppendUnique(CXXFLAGS = ['-Wextra','-Weffc++'])
-    env.AppendUnique(LINKFLAGS = ['-pie', '-Wl,-z,relro', '-Wl,-z,now'])
+    env.AppendUnique(CCFLAGS=['-fpie'])
+    env.AppendUnique(LINKFLAGS=['-pie', '-Wl,-z,relro', '-Wl,-z,now'])
 
 
 def exists(env):
