@@ -95,7 +95,14 @@ protected:
      */
     bool processImageRecord(const Sample * samp, std::list < const Sample * >&results);
 
+//@{
+    /**
+     * Sync and overload words/masks.
+     */
+    static const unsigned char _syncString[];
     static const unsigned char _blankString[];
+//@}
+
 
 
 private:
