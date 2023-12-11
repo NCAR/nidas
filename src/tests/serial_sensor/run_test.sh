@@ -15,16 +15,16 @@ installed=false
 
 if ! $installed; then
 
-    echo $PATH | fgrep -q build/apps || PATH=../../build/apps:$PATH
+    echo $PATH | grep -F -q build/apps || PATH=../../build/apps:$PATH
 
     llp=../../build/util:../../build/core:../../build/dynld
-    echo $LD_LIBRARY_PATH | fgrep -q build || \
+    echo $LD_LIBRARY_PATH | grep -F -q build || \
         export LD_LIBRARY_PATH=$llp${LD_LIBRARY_PATH:+":$LD_LIBRARY_PATH"}
 
     echo LD_LIBRARY_PATH=$LD_LIBRARY_PATH
     echo PATH=$PATH
 
-    if ! which dsm | fgrep -q build/; then
+    if ! which dsm | grep -F -q build/; then
         echo "dsm program not found on build directory. PATH=$PATH"
         exit 1
     fi
@@ -39,10 +39,10 @@ fi
 
 echo "dsm executable: `which dsm`"
 echo "nidas libaries:"
-ldd `which dsm` | fgrep libnidas
+ldd `which dsm` | grep -F libnidas
 
 valgrind_errors() {
-    egrep -q "^==[0-9]*== ERROR SUMMARY:" $1 && \
+    grep -E -q "^==[0-9]*== ERROR SUMMARY:" $1 && \
         sed -n 's/^==[0-9]*== ERROR SUMMARY: \([0-9]*\).*/\1/p' $1 || echo 1
 }
 
@@ -79,7 +79,7 @@ find_udp_port() {
     local -a inuse=(`netstat -uan | awk '/^udp/{print $4}' | sed -r 's/.*:([0-9]+)$/\1/' | sort -u`)
     local port1=$(( $(cat /proc/sys/net/ipv4/ip_local_port_range | awk '{print $1}') - 1))
     for (( port = $port1; ; port--)); do
-        echo ${inuse[*]} | fgrep -q $port || break
+        echo ${inuse[*]} | grep -F -q $port || break
     done
     echo $port
 }
@@ -158,8 +158,8 @@ ndone=0
 while [ $ndone -lt $nsensors -a $sleep -lt $sleepmax ]; do
     for (( n = 0; n < $nsensors; n++ )); do
         if [ ${sspids[$n]} -gt 0 ]; then
-            # if fgrep -q "opened: ${HOSTNAME}:$TEST/test$n" $TEST/dsm.log; then
-            if fgrep -q "opening: $TEST/test$n" $TEST/dsm.log; then
+            # if grep -F -q "opened: ${HOSTNAME}:$TEST/test$n" $TEST/dsm.log; then
+            if grep -F -q "opening: $TEST/test$n" $TEST/dsm.log; then
                 echo "sending CONT to ${sspids[$n]} for $TEST/test$n"
                 kill -CONT ${sspids[$n]}
                 sspids[$n]=-1
@@ -192,7 +192,7 @@ fi
 while true; do
     ndone=0
     for (( n = 0; n < $nsensors; n++ )); do
-        if fgrep -q "closing: $TEST/test$n" $TEST/dsm.log; then
+        if grep -F -q "closing: $TEST/test$n" $TEST/dsm.log; then
             ndone=$(($ndone + 1))
         else
             sleep 1
@@ -216,7 +216,7 @@ fi
 statsf=$TEST/data_stats.out
 data_stats $ofiles > $statsf
 
-ns=`egrep "^$HOSTNAME:$TEST/test" $statsf | wc | awk '{print $1}'`
+ns=`grep -E "^$HOSTNAME:$TEST/test" $statsf | wc | awk '{print $1}'`
 if [ $ns -ne $nsensors ]; then
     echo "Expected $nsensors sensors in $statsf, got $ns"
     badexit
@@ -265,7 +265,7 @@ fi
 statsf=$TEST/data_stats.out
 valgrind --suppressions=suppressions.txt --gen-suppressions=all --leak-check=full data_stats -l 6 -p $ofiles > $statsf
 
-ns=`egrep "^test1" $statsf | wc | awk '{print $1}'`
+ns=`grep -E "^test1" $statsf | wc | awk '{print $1}'`
 if [ $ns -ne $nsensors ]; then
     echo "Expected $nsensors sensors in $statsf, got $ns"
     badexit

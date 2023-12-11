@@ -15,16 +15,16 @@ installed=false
 
 if ! $installed; then
 
-    echo $PATH | fgrep -q build/apps || PATH=../../build/apps:$PATH
+    echo $PATH | grep -F -q build/apps || PATH=../../build/apps:$PATH
 
     llp=../../build/util:../../build/core:../../build/dynld
-    echo $LD_LIBRARY_PATH | fgrep -q build || \
+    echo $LD_LIBRARY_PATH | grep -F -q build || \
         export LD_LIBRARY_PATH=$llp${LD_LIBRARY_PATH:+":$LD_LIBRARY_PATH"}
 
     echo LD_LIBRARY_PATH=$LD_LIBRARY_PATH
     echo PATH=$PATH
 
-    if ! which ck_xml | fgrep -q build/; then
+    if ! which ck_xml | grep -F -q build/; then
         echo "ck_xml program not found on build directory. PATH=$PATH"
         exit 1
     fi
@@ -39,10 +39,10 @@ fi
 
 echo "ck_xml executable: `which ck_xml`"
 echo "nidas libaries:"
-ldd `which ck_xml` | fgrep libnidas
+ldd `which ck_xml` | grep -F libnidas
 
 valgrind_errors() {
-    egrep -q "^==[0-9]*== ERROR SUMMARY:" $1 && \
+    grep -E -q "^==[0-9]*== ERROR SUMMARY:" $1 && \
         sed -n 's/^==[0-9]*== ERROR SUMMARY: \([0-9]*\).*/\1/p' $1 || echo 1
 }
 

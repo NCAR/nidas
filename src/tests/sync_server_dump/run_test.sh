@@ -10,16 +10,16 @@ installed=false
 
 if ! $installed; then
 
-    echo $PATH | fgrep -q build/apps || PATH=../../build/apps:$PATH
+    echo $PATH | grep -F -q build/apps || PATH=../../build/apps:$PATH
 
     llp=../../build/util:../../build/core:../../build/dynld
-    echo $LD_LIBRARY_PATH | fgrep -q build || \
+    echo $LD_LIBRARY_PATH | grep -F -q build || \
         export LD_LIBRARY_PATH=$llp${LD_LIBRARY_PATH:+":$LD_LIBRARY_PATH"}
 
     echo LD_LIBRARY_PATH=$LD_LIBRARY_PATH
     echo PATH=$PATH
 
-    if ! which dsm | fgrep -q build/; then
+    if ! which dsm | grep -F -q build/; then
         echo "dsm program not found on build directory. PATH=$PATH"
         exit 1
     fi
@@ -42,7 +42,7 @@ find_tcp_port() {
     local -a inuse=(`netstat -tan | awk '/^tcp/{print $4}' | sed -r 's/.*:([0-9]+)$/\1/' | sort -u`)
     local port1=`cat /proc/sys/net/ipv4/ip_local_port_range | awk '{print $1}'`
     for (( port = $port1; ; port++)); do
-        echo ${inuse[*]} | fgrep -q $port || break
+        echo ${inuse[*]} | grep -F -q $port || break
     done
     echo $port
 }
@@ -50,7 +50,7 @@ find_tcp_port() {
 check_tcp_port() {
     local port=$1
     local -a inuse=(`netstat -tan | awk '/^tcp/{print $4}' | sed -r 's/.*:([0-9]+)$/\1/' | sort -u`)
-    echo ${inuse[*]} | fgrep -q $port && echo "true"
+    echo ${inuse[*]} | grep -F -q $port && echo "true"
     echo "false"
 }
         
@@ -92,7 +92,7 @@ cat << EOD > $tmp1
 2006 09 08 20:03:08.000 nan
 EOD
 
-egrep "^2006 09" sync_dump.log > $tmp2
+grep -E "^2006 09" sync_dump.log > $tmp2
 
 dataok=true
 if ! diff $tmp1 $tmp2; then

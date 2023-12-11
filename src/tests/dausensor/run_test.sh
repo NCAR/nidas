@@ -15,16 +15,16 @@ installed=false
 [ $# -gt 0 -a "$1" == "-i" ] && installed=true
 if ! $installed; then
 
-    echo $PATH | fgrep -q build/apps || PATH=../../build/apps:$PATH
+    echo $PATH | grep -F -q build/apps || PATH=../../build/apps:$PATH
 
     llp=../../build/util:../../build/core:../../build/dynld
-    echo $LD_LIBRARY_PATH | fgrep -q build || \
+    echo $LD_LIBRARY_PATH | grep -F -q build || \
         export LD_LIBRARY_PATH=$llp${LD_LIBRARY_PATH:+":$LD_LIBRARY_PATH"}
 
     echo LD_LIBRARY_PATH=$LD_LIBRARY_PATH
     echo PATH=$PATH
 
-    if ! which data_dump | fgrep -q build/; then
+    if ! which data_dump | grep -F -q build/; then
         echo "dsm program not found on build directory. PATH=$PATH"
         exit 1
     fi
@@ -36,7 +36,7 @@ fi
 
 echo "data_dump executable: `which data_dump`"
 echo "nidas libraries:"
-ldd `which data_dump` | fgrep libnidas
+ldd `which data_dump` | grep -F libnidas
 
 compare() #based on compare() in tests/data_dump/runtest.sh
 {
@@ -69,7 +69,7 @@ compare data/sample_caltest.txt data_dump -p -H -i 1,20-21 -x config/calibration
 
 #try valgrind.
 valgrind_errors() {
-    egrep -q "^==[0-9]*== ERROR SUMMARY:" $1 && \
+    grep -E -q "^==[0-9]*== ERROR SUMMARY:" $1 && \
         sed -n 's/^==[0-9]*== ERROR SUMMARY: \([0-9]*\).*/\1/p' $1 || echo 1
 }
 
@@ -136,7 +136,7 @@ check_line(){ #send appropriate numbers to their type of checker (based on unit)
 
 data_dump -p -H -i 1,21 -x config/moxa.xml data/testdata_20161121_00.dat > outputs/check_val.txt 2>outputs/check_val.txt.stderr #generate file to read over for sanity checking.
 
-egrep -v deltaT outputs/check_val.txt |
+grep -E -v deltaT outputs/check_val.txt |
 while read p; do
     check_line $p
 done

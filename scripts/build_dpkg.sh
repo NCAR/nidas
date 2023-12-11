@@ -118,10 +118,10 @@ fi
 if [ -n "$repo" -a -d "$repo" ]; then
     distconf=$repo/conf/distributions
     if [ -r $distconf ]; then
-        distcodename=$(fgrep Codename: $distconf | cut -d : -f 2)
-        key=$(fgrep SignWith: $distconf | cut -d : -f 2)
+        distcodename=$(grep -F Codename: $distconf | cut -d : -f 2)
+        key=$(grep -F SignWith: $distconf | cut -d : -f 2)
         # first architecture listed
-        primarch=$(fgrep Architectures: $distconf | cut -d : -f 2 | awk '{print $1}')
+        primarch=$(grep -F Architectures: $distconf | cut -d : -f 2 | awk '{print $1}')
     fi
 
     if [ -z "$distcodename" ]; then
