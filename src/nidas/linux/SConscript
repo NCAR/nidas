@@ -1,15 +1,17 @@
 # -*- python -*-
-## 2006, Copyright University Corporation for Atmospheric Research
+# 2006, Copyright University Corporation for Atmospheric Research
 
 import os
+from pathlib import Path
+
 import SCons
 from SCons.Script import Environment, Import
 
 env: Environment
 
-##
-##  Import the build environment.
-##
+#
+# Import the build environment.
+#
 Import('env')
 
 headers = env.Split("""
@@ -60,66 +62,106 @@ def SymbolModules(env: Environment, *keys):
 
 def NidasKernelModule(env, modules, sources, headers=None):
     """
-    Pseudo-builder for all NIDAS kernel modules.  Return the module targets if
-    build enabled, else None.
+    Pseudo-builder for NIDAS kernel modules, where the module names are in
+    list @p modules.  Return the module targets if build enabled, else None.
 
-    headers are added to sources and also installed into the nidas/linux
+    @p sources are the source paths relative to the module directory.
+
+    @p headers are added to sources and also installed into the nidas/linux
     include directory.
 
     Makefile is added to sources if not present.  The Makefile must be listed
     in the source dependencies so that it is copied/linked to the variant_dir.
     The Kmake builder runs the make command in variant_dir.
 
-    Also, the SConscript command that invokes this SConscript file should set
-    duplicate=1, so that all the linux module source files, including the
-    Makefile, are copied to the variant_dir.  so that make can find them and
-    do its work outside of the source tree.
-
-    All modules must be built by the same kmake builder so SCons will setup
-    all the variant_dir copies/links before running make.  Otherwise make
-    fails because not all the dependencies exist yet.
+    This pseudo-builder should work with variant builds with or without
+    duplicate enabled, because it explicitly creates builders to link all the
+    source files, including the Makefile, into the build directory.  The
+    kernel make command expects to find the source files in the build
+    directory.
     """
     targets = None
-    thisdir = env.Dir('.').srcnode().abspath
-    env.LogDebug("NidasKernelModule setup in %s..." % (thisdir))
+    # paths to the source and the variant build dir, relative to root
+    thisdir = env.Dir('.').srcnode().path
+    builddir = env.Dir('.').path
+    env.LogDebug("NidasKernelModule: setup %s to build in %s..." %
+                 (thisdir, builddir))
     subdir = os.path.basename(thisdir)
+
+    # create a complete list of source files, everything needed in the build
+    # directory to make the kernel module
+    sources += headers or []
+    if 'Makefile' not in sources:
+        sources += ['Makefile']
 
     # If Linux modules are enabled, then try to build them, which means
     # failing if KERNELDIR is not set.
+    exists = False
     if env.LinuxModulesEnabled():
         if not env.get("KERNELDIR"):
             msg = "Linux modules enabled but KERNELDIR not set."
             raise SCons.Errors.StopError(msg)
 
-        if 'Makefile' not in sources:
-            sources += ['Makefile']
-
+        linkpaths = []
         # Make sure all the source files exist, otherwise the module is
         # presumed to be a git submodule which has not been populated and
         # cannot be built.
-        exists = True
-        for source in [env.File(s).srcnode().abspath for s in sources]:
+        for sourcepath in sources:
+            # root-relative path to the source file:
+            source = env.File(sourcepath).srcnode().path
             if not source.startswith(thisdir):
+                env.LogDebug("skipping %s: not in %s" % (source, thisdir))
                 continue
-            if os.path.exists(source):
+            # need to check absolute path since cwd is the builddir when the
+            # SConscript file is being executed.
+            exists = os.path.exists(env.Dir('#').File(source).abspath)
+            if exists:
                 env.LogDebug(f"{subdir} kernel module source "
                              f"file found: {source}")
+                linkpaths.append(sourcepath)
             else:
                 print(f"{subdir} kernel module will not be built, "
                       f"source file missing: {source}")
-                exists = False
                 break
 
-        if exists:
-            targets = env.Kmake(modules, sources + (headers or []))
-            installs = env.Install('$LINUX_MODULES_INST_PATH', modules)
-            env.Alias('install.root', installs)
-            # This should be unnecessary now that modules can be installed
-            # directly into the system modules path, but package specs still
-            # refer to them and maybe they are useful to have in the tree for
-            # other reasons.  I think rpms in particular expect the modules in
-            # this directory and not in the system path.
-            env.Alias('install', env.Install('$PREFIX/modules', modules))
+    if exists:
+        # In case of variant build dirs without duplicate enabled, explicitly
+        # create symbolic links back to the source directory.  Not sure if
+        # kernel makes could be made to work with VPATH.
+        for sourcepath in linkpaths:
+            source = env.File(sourcepath).srcnode()
+            # Build the paths for creating a symbolic link relative to the
+            # root directory where builders execute.
+            target = env.File(sourcepath)
+            targetdir = Path(target.path).parent
+            env.LogDebug("relpath(%s, %s" % (source.path, targetdir))
+            relpath = os.path.relpath(source.path, targetdir)
+            cmd = f"mkdir -p {targetdir}"
+            cmd += f" && ln -sf {relpath} {target.path}"
+            # No need to link the same path to itself, as would happen if
+            # variant dirs were not in use.  samefile() must stat the file,
+            # but the file may not exist yet, so rely on path equality.
+            if target.path == source.path:
+                env.LogDebug("skipping link between same files: "
+                             "target=%s, source=%s" %
+                             (target.path, source.path))
+                continue
+            env.LogDebug("creating builder: %s" % (cmd))
+            # the built targets are the symbolic links in the variant build
+            # dir, and they have the same path as the sources which are passed
+            # to Kmake(), so SCons will figure out the dependency without
+            # passing the targets to Kmake().
+            env.Command(target, source, cmd)
+
+        targets = env.Kmake(modules, sources)
+        installs = env.Install('$LINUX_MODULES_INST_PATH', modules)
+        env.Alias('install.root', installs)
+        # This should be unnecessary now that modules can be installed
+        # directly into the system modules path, but package specs still
+        # refer to them and maybe they are useful to have in the tree for
+        # other reasons.  I think rpms in particular expect the modules in
+        # this directory and not in the system path.
+        env.Alias('install', env.Install('$PREFIX/modules', modules))
 
     # Not sure if headers are meant to be installed even when the module
     # is not being built...
@@ -193,7 +235,7 @@ env['LINUX_MODULES_INC'] = '$PREFIX/include/nidas/linux'
 # for the entire variant target.
 
 for subdir in subdirs:
-    env.SConscript('%s/SConscript' % subdir, exports=[{'env': env}])
+    env.SConscript(f'{subdir}/SConscript', exports=[{'env': env}])
 
 env.Alias('install', env.Install('$LINUX_MODULES_INC', headers))
 
