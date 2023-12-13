@@ -2647,7 +2647,11 @@ static int __init ncar_a2d_init(void)
 	// that are non-zero
 	memset(BoardInfo, 0, NumBoards * sizeof (struct A2DBoard));
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6,0,0)
         ncar_a2d_class = class_create(THIS_MODULE, "ncar_a2d");
+#else
+        ncar_a2d_class = class_create("ncar_a2d");
+#endif
         if (IS_ERR(ncar_a2d_class)) {
                 error = PTR_ERR(ncar_a2d_class);
                 goto err;

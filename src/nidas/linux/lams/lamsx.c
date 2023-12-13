@@ -829,7 +829,11 @@ static int __init lams_init(void)
         if (!boards) goto err;
         memset(boards,0,numboards * sizeof(struct LAMS_board));
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6,0,0)
         lams_class = class_create(THIS_MODULE, driver_name);
+#else
+        lams_class = class_create(driver_name);
+#endif
         if (IS_ERR(lams_class)) {
                 result = PTR_ERR(lams_class);
                 goto err;

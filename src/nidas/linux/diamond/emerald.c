@@ -1021,7 +1021,12 @@ static int __init emerald_init_module(void)
         }
         memset(emerald_boards, 0, emerald_nr_addrs * sizeof(emerald_board));
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6,0,0)
         emerald_class = class_create(THIS_MODULE, "emerald");
+#else
+        emerald_class = class_create("emerald");
+#endif
+
         if (IS_ERR(emerald_class)) {
                 result = PTR_ERR(emerald_class);
                 goto fail;

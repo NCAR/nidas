@@ -514,7 +514,11 @@ static int __init pcmcom8_init_module(void)
         }
         memset(pcmcom8_boards, 0, pcmcom8_numboards * sizeof(pcmcom8_board));
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6,0,0)
         pcmcom8_class = class_create(THIS_MODULE, DRIVER_NAME);
+#else
+        pcmcom8_class = class_create(DRIVER_NAME);
+#endif
         if (IS_ERR(pcmcom8_class)) {
                 result = PTR_ERR(pcmcom8_class);
                 goto fail;
