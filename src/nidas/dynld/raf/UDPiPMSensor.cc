@@ -45,7 +45,7 @@ const int UDPiPMSensor::MAX_CHANNELS = 8;
 
 
 UDPiPMSensor::UDPiPMSensor() :
-    _deviceAddr(), _measureRate(0), _recordPeriod(0),
+    _deviceAddr(), _statusPort(0), _measureRate(0), _recordPeriod(0),
     _baudRate(0), _numAddr(0), _addrInfo(8), _ctrl_pid(0)
 {
 
@@ -112,7 +112,7 @@ void UDPiPMSensor::open(int flags)
 
     // Construct command for child process
     char *args[40];
-    char port[32];
+    // unused: char port[32];
     char m_rate[32];
     char r_period[32];
     char baud[32];

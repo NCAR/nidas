@@ -14,16 +14,16 @@ installed=false
 
 if ! $installed; then
 
-    echo $PATH | fgrep -q build/apps || PATH=../../build/apps:$PATH
+    echo $PATH | grep -F -q build/apps || PATH=../../build/apps:$PATH
 
     llp=../../build/util:../../build/core:../../build/dynld
-    echo $LD_LIBRARY_PATH | fgrep -q build || \
+    echo $LD_LIBRARY_PATH | grep -F -q build || \
         export LD_LIBRARY_PATH=$llp${LD_LIBRARY_PATH:+":$LD_LIBRARY_PATH"}
 
     echo LD_LIBRARY_PATH=$LD_LIBRARY_PATH
     echo PATH=$PATH
 
-    if ! which dsm | fgrep -q build/; then
+    if ! which dsm | grep -F -q build/; then
         echo "dsm program not found on build directory. PATH=$PATH"
         exit 1
     fi
@@ -38,10 +38,10 @@ fi
 
 echo "dsm executable: `which dsm`"
 echo "nidas libaries:"
-ldd `which dsm` | fgrep libnidas
+ldd `which dsm` | grep -F libnidas
 
 valgrind_errors() {
-    egrep -q "^==[0-9]*== ERROR SUMMARY:" $1 && \
+    grep -E -q "^==[0-9]*== ERROR SUMMARY:" $1 && \
         sed -n 's/^==[0-9]*== ERROR SUMMARY: \([0-9]*\).*/\1/p' $1 || echo 1
 }
 
@@ -68,7 +68,7 @@ find_udp_port() {
     local -a inuse=(`netstat -uan | awk '/^udp/{print $4}' | sed -r 's/.*:([0-9]+)$/\1/' | sort -u`)
     local port1=`cat /proc/sys/net/ipv4/ip_local_port_range | awk '{print $1}'`
     for (( port = $port1; ; port++)); do
-        echo ${inuse[*]} | fgrep -q $port || break
+        echo ${inuse[*]} | grep -F -q $port || break
     done
     echo $port
 }

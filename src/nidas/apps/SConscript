@@ -19,34 +19,14 @@ import os
 import eol_scons
 import eol_scons.parseconfig as pc
 
+from SCons.Script import Environment, Import, ARGUMENTS, Split
+
 
 def check_pkg_config(env, pkg):
     found = pc.ParseConfig(env, 'pkg-config %s --libs --cflags' % (pkg))
     env.PrintProgress("pkg-config found for %s: %s" %
                       (pkg, ["no", "yes"][int(found)]))
     return found
-
-
-cpp11_source = """
-#include <string>  //for converting data to_string
-#include <future> //async function calls
-
-int main(int argc, char** argv) {
-std::string one = std::to_string(1);
-return 0;
-}
-"""
-
-
-def CheckCpp11(context):
-    context.env.Append(CXXFLAGS='-std=c++11')
-    context.Message('Checking for C++11 support...')
-    result = context.TryCompile(cpp11_source, '.cc')
-    context.Result(result)
-    return result
-
-
-custom_tests = {'CheckCpp11': CheckCpp11}
 
 
 def target(prog):
@@ -135,15 +115,12 @@ for prog in programs:
     env.Alias(prog[0].name, prog)
 
 didbenv = env.Clone()
-dbconf = didbenv.Configure(custom_tests=custom_tests)
-if not dbconf.CheckCpp11():
-    env.PrintProgress("No C++11 support, data_influxdb will not be built.")
-elif bool(arch == 'host' and jsoncpp_enabled and
-          check_pkg_config(didbenv, 'libcurl')):
+dbconf = didbenv.Configure()
+if bool(arch == 'host' and jsoncpp_enabled and
+        check_pkg_config(didbenv, 'libcurl')):
     env.PrintProgress("C++11, jsoncpp, and libcurl found, "
                       "building data_influxdb.")
-    didbenv.AppendUnique(CXXFLAGS='-std=c++11')
-    didbenv.Append(CXXFLAGS='-Wno-effc++')
+    didbenv.Append(CCFLAGS='-Wno-effc++')
     didb = didbenv.NidasProgram(target('data_influxdb'), 'data_influxdb.cc')
     didbenv.Alias('data_influxdb', didb)
 dbconf.Finish()

@@ -47,7 +47,7 @@ RebsLinear* RebsLinear::clone() const
     return new RebsLinear(*this);
 }
 
-string RebsLinear::toString()
+std::string RebsLinear::toString() const
 {
     const std::vector<float>& coefs = getCoefficients();
 

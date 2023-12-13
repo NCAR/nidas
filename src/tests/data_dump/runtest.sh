@@ -12,16 +12,16 @@ installed=false
 
 if ! $installed; then
 
-    echo $PATH | fgrep -q build/apps || PATH=../../build/apps:$PATH
+    echo $PATH | grep -F -q build/apps || PATH=../../build/apps:$PATH
 
     llp=../../build/util:../../build/core:../../build/dynld
-    echo $LD_LIBRARY_PATH | fgrep -q build || \
+    echo $LD_LIBRARY_PATH | grep -F -q build || \
         export LD_LIBRARY_PATH=$llp${LD_LIBRARY_PATH:+":$LD_LIBRARY_PATH"}
 
     echo LD_LIBRARY_PATH=$LD_LIBRARY_PATH
     echo PATH=$PATH
 
-    if ! which data_dump | fgrep -q build/; then
+    if ! which data_dump | grep -F -q build/; then
         echo "data_dump program not found on build directory. PATH=$PATH"
         exit 1
     fi
@@ -42,7 +42,7 @@ trap "{ rm $tmperr $awkcom $tmpout1 $tmpout2; }" EXIT
 
 echo "data_dump executable: `which data_dump`"
 echo "nidas libaries:"
-ldd `which data_dump` | fgrep libnidas
+ldd `which data_dump` | grep -F libnidas
 
 diff_warn() {
     echo $1

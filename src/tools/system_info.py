@@ -34,6 +34,7 @@ def _parse_settings(contents: str):
 def _os_from_settings(settings):
     os_id = settings.get('ID', '')
     os_release = settings.get('VERSION_ID', '')
+    os_release = re.sub(r'\..*', '', os_release)
     return (os_id + os_release).lower()
 
 
@@ -159,9 +160,25 @@ SUPPORT_URL="https://www.debian.org/support"
 BUG_REPORT_URL="https://bugs.debian.org/"
 """
 
+ubuntu18 = """
+NAME="Ubuntu"
+VERSION="18.04.6 LTS (Bionic Beaver)"
+ID=ubuntu
+ID_LIKE=debian
+PRETTY_NAME="Ubuntu 18.04.6 LTS"
+VERSION_ID="18.04"
+HOME_URL="https://www.ubuntu.com/"
+SUPPORT_URL="https://help.ubuntu.com/"
+BUG_REPORT_URL="https://bugs.launchpad.net/ubuntu/"
+PRIVACY_POLICY_URL="https://www.ubuntu.com/legal/terms-and-policies/privacy-policy"
+VERSION_CODENAME=bionic
+UBUNTU_CODENAME=bionic
+"""
+
 
 def test_os_release():
     assert _os_from_settings(_parse_settings(fedora37)) == 'fedora37'
     assert _os_from_settings(_parse_settings(raspbian10)) == 'raspbian10'
     assert _os_from_settings(_parse_settings(debian10)) == 'debian10'
     assert _os_from_settings(_parse_settings(centos7)) == 'centos7'
+    assert _os_from_settings(_parse_settings(ubuntu18)) == 'ubuntu18'

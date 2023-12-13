@@ -39,7 +39,8 @@ NIDAS_CREATOR_FUNCTION_NS(raf, LSZ_HW_EB7032239);
 double LSZ_HW_EB7032239::processLabel(const int data, sampleType *stype)
 {
     int label = data & 0xff;
-    int nTargets, mode;
+    // unused: int nTargets;
+    int mode;
 
     // Default to single precision. If some label needs to be
     // DOUBLE_ST, change it in the appropriate case.
@@ -53,7 +54,7 @@ double LSZ_HW_EB7032239::processLabel(const int data, sampleType *stype)
     switch (label)
     {
         case 0001:  // BNR - Preamble word.  Page 2.
-            nTargets = (data>>23) & 0x3f;
+            // unused: nTargets = (data>>23) & 0x3f;
             mode = (data>>8) & 0x7fff;
             return mode;
 

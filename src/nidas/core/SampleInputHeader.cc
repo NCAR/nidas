@@ -158,10 +158,10 @@ bool SampleInputHeader::parse(IOStream* iostream)
         case PARSE_START:
             _size = 0;
             _stage = PARSE_MAGIC;
-            // fallthrough
+            // FALLTHRU
         case PARSE_MAGIC:
             if (!parseMagic(iostream)) return false;
-            // fallthrough
+            // FALLTHRU
         case PARSE_TAG:
             if (!parseTag(iostream)) return false;
             // don't fall through. The end tag doesn't have a value

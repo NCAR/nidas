@@ -1474,7 +1474,7 @@ static int twod_probe(struct usb_interface *interface,
          * number will be based on the next available free minor, starting at the
          * class_driver->minor_base.
          *
-         * On Vortex, fgrep CONFIG_USB_DYNAMIC_MIN /boot/config-4.15.18-vortex86dx3  returns y.
+         * On Vortex, grep -F CONFIG_USB_DYNAMIC_MIN /boot/config-4.15.18-vortex86dx3  returns y.
          */
         switch(dev->ptype) {
                 case TWOD_64_V3:

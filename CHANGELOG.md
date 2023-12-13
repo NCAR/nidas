@@ -17,6 +17,18 @@ and suffix when they are applied to a sensor object.  This accommodates the
 SOS config which uses variables to specify changes in sonic heights during the
 project.
 
+`NDEBUG` is never defined by default for any target, so any `assert()` calls
+in the code will now be compiled everywhere, where before they were being
+omitted everywhere.
+
+The SCons variant builds are now done with `duplicate` disabled.  Kernel
+modules are built in the variant directories by using explicit symbolic links
+to the module source files.
+
+Fixed `fork()` and `exec()` problems in the _UDPArinc_ and _UDPiPM_ sensors.
+
+Cleaned up compiler warnings.
+
 ## [1.2.1] - 2023-10-01
 
 ### bug fixes for min/max and variance statistics

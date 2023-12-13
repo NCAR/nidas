@@ -175,8 +175,8 @@ if [ $dopkg == $pkg ]; then
 fi
 
 echo "RPMS:"
-egrep "^Wrote:" $log
-rpms=`egrep '^Wrote:' $log | egrep RPMS/ | awk '{print $2}'`
+grep -E "^Wrote:" $log
+rpms=`grep -E '^Wrote:' $log | grep -E RPMS/ | awk '{print $2}'`
 echo "rpms=$rpms"
 
 # print out warnings: and the following file list

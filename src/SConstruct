@@ -179,9 +179,36 @@ env.PrintProgress(f"Setting up for {ARCH} build, {MACH} target machine...")
 if 'PKG_CONFIG_PATH' in env:
     env.PrependENVPath('PKG_CONFIG_PATH', env['PKG_CONFIG_PATH'])
 
+# Initialize compiler options.  CFLAGS is for C compiler only. CXXFLAGS is for
+# C++ compiler.  CCFLAGS is for C and C++ but appears *after* CXXFLAGS on
+# commmand-line.  So -Wall is added to CFLAGS and CXXFLAGS at the beginning in
+# case any warnings need to be disabled using CCFLAGS.
+
 # env['CXX'] = 'clang++'
-env['CFLAGS'] = ['-Wall', '-O2']
-env['CXXFLAGS'] = ['-Wall', '-O2']
+env['CFLAGS'] = ['-Wall']
+env['CCFLAGS'] = ['-g', '-O2']
+env['CXXFLAGS'] = ['-Wall', '-Wextra']
+env.AppendUnique(CCFLAGS=['-Wformat', '-Werror=format-security'])
+
+# Skip effc++ warnings on platforms with older jsoncpp
+if env['VARIANT_OS'] not in ['centos7', 'ubuntu18']:
+    env.Append(CXXFLAGS=['-Weffc++'])
+
+# Take advantage of buffer overflow detection wherever available.
+# https://www.redhat.com/en/blog/enhance-application-security-fortifysource
+env.AppendUnique(CCFLAGS=['-D_FORTIFY_SOURCE=2'])
+
+# The goal was to error out on any warnings.  However, in the end it is
+# difficult to use separate compiler flags for configure checks, and there are
+# a few which fail on warnings.  There is an attempt in eol_scons to get
+# around this with ConfigureTools(), but that's not ready for production.
+# SCons may just not have a good way around this.
+#
+# env.Append(CCFLAGS=['-Werror'])
+
+# all active targets now support c++11
+env.AppendUnique(CXXFLAGS=['-std=c++11'])
+
 if env['CXX'] == 'clang++':
     # Someday it might be nice to refactor the remaining overloaded virtual
     # functions, but for now they're working and haven't seemed to bite us yet.
@@ -194,7 +221,6 @@ if env['CXX'] == 'clang++':
 if env.get('DEBUG'):
     env.AppendUnique(CPPDEFINES=['DEBUG'])
 
-env['CCFLAGS'] = []
 if env.get('GDBDEBUG'):
     env.AppendUnique(CCFLAGS=['-ggdb'])
 
@@ -210,9 +236,6 @@ env.Require(['symlink', 'sharedlibrary', 'stackprotector'])
 
 # Threads
 env.MergeFlags('-pthread')
-
-if not env.get('DEBUG'):
-    env.AppendUnique(CPPDEFINES = ['NDEBUG'])
 
 # Now start loading SConscript files...
 

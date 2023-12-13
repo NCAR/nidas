@@ -340,7 +340,7 @@ push_packages() # path
         echo "push <path>"
         exit 1
     fi
-    packages=`ls "$path"/*.deb | egrep -v dbgsym`
+    packages=`ls "$path"/*.deb | grep -E -v dbgsym`
     echo $packages
     case "$alias" in
         pi3)

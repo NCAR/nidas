@@ -49,7 +49,7 @@ public:
 
     RebsLinear* clone() const;
 
-    std::string toString();
+    virtual std::string toString() const override;
 
     /**
      * Apply linear conversion.

@@ -88,7 +88,7 @@ modprobe_emerald()
 #
 rmmod_emerald()
 {
-        lsmod | fgrep -q $NAME || return 1
+        lsmod | grep -F -q $NAME || return 1
         rmmod $NAME
         RETVAL="$?"
         return "$RETVAL"
@@ -119,7 +119,7 @@ check_ports() {
                                 # address.
                                 if [ $portval -ge 256 -a $portval -le 1016 ]; then
                                         # If a duplicate ioport address is found, report the error.
-                                        if echo ${ports[*]} | fgrep -q $port; then
+                                        if echo ${ports[*]} | grep -F -q $port; then
                                                 echo "Duplicate port=$port on $brddev"
                                                 result=1
                                                 break
@@ -131,7 +131,7 @@ check_ports() {
                                                 break
                                         fi
                                         # Also don't share interrupts across boards
-                                        if echo ${birqs[*]} | fgrep -q $birq; then
+                                        if echo ${birqs[*]} | grep -F -q $birq; then
                                                 echo "Duplicate irq=$irq on $brddev, port $port"
                                                 result=1
                                                 break

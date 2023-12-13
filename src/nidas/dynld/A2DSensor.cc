@@ -460,7 +460,7 @@ void A2DSensor::validate()
             int ichan = _prevChan + 1;
             float corSlope = 1.0;
             float corIntercept = 0.0;
-            bool rawCounts = false;
+            // unused: bool rawCounts = false;
 
             nvalues += var->getLength();
 
@@ -503,7 +503,14 @@ void A2DSensor::validate()
                     if (param->getLength() != 1)
                         throw n_u::InvalidParameterException(getName(),
                             pname,"no value");
-                    rawCounts = param->getNumericValue(0);
+                    // even though rawCounts is not used, this code still
+                    // validates the xml, ie, the parameter must have a value
+                    // same as before.  getNumericValue() does not check that
+                    // the underlying Parameter type is numeric, it just
+                    // returns nan if not, so there's no need to call it in
+                    // case it triggers an exception.
+                    //
+                    // unused: rawCounts = param->getNumericValue(0);
                 }
             }
             if (ichan < 0 || ichan >= getMaxNumChannels()) {

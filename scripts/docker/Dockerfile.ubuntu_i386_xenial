@@ -17,10 +17,10 @@ LABEL organization="NCAR EOL"
 # VERSION_CODENAME=xenial
 # UBUNTU_CODENAME=xenial
 # 
-# dpkg -l | fgrep linux-image
+# dpkg -l | grep -F linux-image
 # linux-image-4.4.6
 
-# dpkg -l | fgrep linux-headers
+# dpkg -l | grep -F linux-headers
 # linux-headers-4.4.6   i386
 #
 # NOTE, don't do this:

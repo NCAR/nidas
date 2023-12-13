@@ -12,16 +12,16 @@ installed=false
 
 if ! $installed; then
 
-    echo $PATH | fgrep -q build_x86/build_apps || PATH=../../../build_x86/build_apps:$PATH
+    echo $PATH | grep -F -q build_x86/build_apps || PATH=../../../build_x86/build_apps:$PATH
 
     llp=../../../build_x86/build_util:../../../build_x86/build_core:../../../build_x86/build_dynld
-    echo $LD_LIBRARY_PATH | fgrep -q build_x86 || \
+    echo $LD_LIBRARY_PATH | grep -F -q build_x86 || \
         export LD_LIBRARY_PATH=$llp${LD_LIBRARY_PATH:+":$LD_LIBRARY_PATH"}
 
     # echo LD_LIBRARY_PATH=$LD_LIBRARY_PATH
     # echo PATH=$PATH
 
-    if ! which dsm | fgrep -q build_x86; then
+    if ! which dsm | grep -F -q build_x86; then
         echo "dsm program not found on build_x86 directory. PATH=$PATH"
         exit 1
     fi
@@ -36,7 +36,7 @@ fi
 
 echo "dsm executable: `which dsm`"
 echo "nidas libaries:"
-ldd `which dsm` | fgrep libnidas
+ldd `which dsm` | grep -F libnidas
 
 valgrind_errors() {
     sed -n 's/^==[0-9]*== ERROR SUMMARY: \([0-9]*\).*/\1/p' $1
@@ -107,7 +107,7 @@ ndone=0
 while [ $ndone -lt $nsensors -a $sleep -lt $sleepmax ]; do
     for (( n = 0; n < $nsensors; n++ )); do
         if [ ${pids[$n]} -gt 0 ]; then
-            if fgrep -q "opening: tmp/test$n" tmp/dsm.log; then
+            if grep -F -q "opening: tmp/test$n" tmp/dsm.log; then
                 echo "sending CONT to ${pids[$n]}"
                 kill -CONT ${pids[$n]}
                 pids[$n]=-1
@@ -137,7 +137,7 @@ fi
 while true; do
     ndone=0
     for (( n = 0; n < $nsensors; n++ )); do
-        if fgrep -q "closing: tmp/test$n" tmp/dsm.log; then
+        if grep -F -q "closing: tmp/test$n" tmp/dsm.log; then
             ndone=$(($ndone + 1))
         else
             sleep 1
@@ -153,5 +153,5 @@ dump_errs=`valgrind_errors tmp/dsm.log`
 echo "$dump_errs errors reported by valgrind in tmp/dsm.log"
 
 # ignore capget error in valgrind.
-# fgrep -q "Syscall param capget(data) points to unaddressable byte(s)" tmp/dsm.log && dump_errs=$(($dump_errs - 1))
+# grep -F -q "Syscall param capget(data) points to unaddressable byte(s)" tmp/dsm.log && dump_errs=$(($dump_errs - 1))
 
