@@ -19,6 +19,8 @@ import os
 import eol_scons
 import eol_scons.parseconfig as pc
 
+from SCons.Script import Environment, Import, ARGUMENTS, Split
+
 
 def check_pkg_config(env, pkg):
     found = pc.ParseConfig(env, 'pkg-config %s --libs --cflags' % (pkg))
@@ -31,7 +33,7 @@ cpp11_source = """
 #include <string>  //for converting data to_string
 #include <future> //async function calls
 
-int main(int argc, char** argv) {
+int main(int, char**) {
 std::string one = std::to_string(1);
 return 0;
 }
