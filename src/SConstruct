@@ -198,8 +198,13 @@ if env['VARIANT_OS'] not in ['centos7', 'ubuntu18']:
 # https://www.redhat.com/en/blog/enhance-application-security-fortifysource
 env.AppendUnique(CCFLAGS=['-D_FORTIFY_SOURCE=2'])
 
-# Error out on any warnings.
-env.Append(CCFLAGS=['-Werror'])
+# The goal was to error out on any warnings.  However, in the end it is
+# difficult to use separate compiler flags for configure checks, and there are
+# a few which fail on warnings.  There is an attempt in eol_scons to get
+# around this with ConfigureTools(), but that's not ready for production.
+# SCons may just not have a good way around this.
+#
+# env.Append(CCFLAGS=['-Werror'])
 
 # all active targets now support c++11
 env.AppendUnique(CXXFLAGS=['-std=c++11'])

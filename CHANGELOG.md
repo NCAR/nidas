@@ -27,7 +27,7 @@ to the module source files.
 
 Fixed `fork()` and `exec()` problems in the _UDPArinc_ and _UDPiPM_ sensors.
 
-Cleaned up compiler warnings and enabled warnings as errors.
+Cleaned up compiler warnings.
 
 ## [1.2.1] - 2023-10-01
 
