@@ -32,6 +32,12 @@ pipeline {
     //   }
     // }
 
+    stage('Compile and test') {
+      steps {
+        sh './jenkins.sh test'
+      }
+    }
+
     stage('Build RPM packages') {
       steps {
         sh './jenkins.sh build_rpms'

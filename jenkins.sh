@@ -18,12 +18,30 @@ export TOPDIR=${TOPDIR:-$(rpmbuild --eval %_topdir)_$(hostname)}
 DEBIAN_REPOSITORY="${DEBIAN_REPOSITORY:-/net/ftp/pub/archive/software/debian}"
 YUM_REPOSITORY="${YUM_REPOSITORY:-/net/www/docs/software/rpms}"
 export DEBIAN_REPOSITORY YUM_REPOSITORY
-export GPGKEY="NCAR EOL Software <eol-prog@eol.ucar.edu>"
+export GPGKEY="NCAR EOL Software <eol-prog2@eol.ucar.edu>"
 
 echo WORKSPACE=$WORKSPACE
 echo TOPDIR=$TOPDIR
 echo DEBIAN_REPOSITORY=$DEBIAN_REPOSITORY
 echo YUM_REPOSITORY=$YUM_REPOSITORY
+
+
+compile()
+{
+    # cache configuration first, then compile with warnings as errors
+    (set -x; cd src
+     scons --config=force configure
+     scons --config=cache allow_warnings=off -j5)
+}
+
+
+runtests()
+{
+    compile
+    # run test with same options as compile to avoid recompiling
+    (set -x; cd src
+     scons --config=cache allow_warnings=off test)
+}
 
 
 build_rpms()
@@ -35,7 +53,7 @@ build_rpms()
         (set -x; rm -rf "$TOPDIR/RPMS"; rm -rf "$TOPDIR/SRPMS")
     fi
     # this conveniently creates a list of built rpm files in rpms.txt.
-    (set -x; scons -C src build_rpm ../rpm/nidas.spec build)
+    (set -x; scons -C src build_rpm ../rpm/nidas.spec "$@")
 }
 
 
@@ -81,8 +99,20 @@ shift
 
 case "$method" in
 
+    compile)
+        compile "$@"
+        ;;
+
+    test)
+        runtests "$@"
+        ;;
+
     build_rpms)
-        build_rpms "$@"
+        build_rpms build "$@"
+        ;;
+
+    snapshot)
+        build_rpms snapshot "$@"
         ;;
 
     sign_rpms)

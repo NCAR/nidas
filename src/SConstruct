@@ -73,6 +73,8 @@ opts.Add('REPO_TAG', """
  repository
 """)
 
+opts.Add(BoolVariable('allow_warnings', 'If off, warnings are errors.', 'on'))
+
 opts.Update(env)
 
 
@@ -198,13 +200,24 @@ if env['VARIANT_OS'] not in ['centos7', 'ubuntu18']:
 # https://www.redhat.com/en/blog/enhance-application-security-fortifysource
 env.AppendUnique(CCFLAGS=['-D_FORTIFY_SOURCE=2'])
 
-# The goal was to error out on any warnings.  However, in the end it is
-# difficult to use separate compiler flags for configure checks, and there are
-# a few which fail on warnings.  There is an attempt in eol_scons to get
-# around this with ConfigureTools(), but that's not ready for production.
-# SCons may just not have a good way around this.
+# The goal is to keep builds free of warnings by reporting warnings as errors.
+# However, it is difficult to use separate compiler flags for configure checks
+# to avoid failing the ones which have warnings.  There is an attempt in
+# eol_scons to get around this with ConfigureTools(), but that's not ready for
+# production.
 #
-# env.Append(CCFLAGS=['-Werror'])
+# Instead, there is variable which by default does not treat warnings as
+# errors.  To use it safely, first setup the configuration with warnings
+# allowed, then run the cached configuration without allowing warnings:
+#
+#     scons --config=cache allow_warnings=off
+#
+# The $( and $) syntax below prevents the flag from being used in compile
+# command signatures.  Otherwise the cached configuration builds would be
+# invalidated by the addition of -Werror to the compile command line.
+#
+if not env.get('allow_warnings', True):
+    env.Append(CCFLAGS=['$(-Werror$)'])
 
 # all active targets now support c++11
 env.AppendUnique(CXXFLAGS=['-std=c++11'])
@@ -227,6 +240,8 @@ if env.get('GDBDEBUG'):
 # Load nidasconfig tool before any Configure contexts are created in this tree
 # or external tools, so the settings can be stored in the variant dirs.
 env.Tool('nidasconfig')
+# Create an alias which just runs the Configure compiles.
+env.Alias('configure', "$VARIANT_DIR/.sconf_temp")
 env.Tool(f'nidas_{ARCH}')
 
 # sharedlibrary tool will set and use ARCHLIBDIR if not set, so set it
