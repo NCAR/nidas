@@ -57,7 +57,7 @@ topdir=${TOPDIR:-$(rpmbuild --eval %_topdir)$host}
 [ -d $topdir/RPMS ] || mkdir -p $topdir/RPMS
 
 log=`mktemp /tmp/${script}_XXXXXX.log`
-trap "{ rm -f $log }" EXIT
+trap "{ rm -f $log; }" EXIT
 
 set -o pipefail
 
