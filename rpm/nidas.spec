@@ -25,7 +25,7 @@ Name: nidas
 %if %{defined gitversion}
 Version: %{gitversion}
 %else
-Version: 1.2.1
+Version: 1.2.2
 %endif
 Release: %{releasenum}%{?dist}
 License: GPL
@@ -202,12 +202,15 @@ rm -rf $RPM_BUILD_ROOT
 %{nidas_prefix}/modules/short_filters.ko
 %{nidas_prefix}/modules/usbtwod.ko
 %{nidas_prefix}/firmware
+%{_sysconfdir}/init.d/emerald
+%{_sysconfdir}/init.d/pcmcom8
 %{_sysconfdir}/default/emerald
 %{_sysconfdir}/default/pcmcom8
 %{_sysconfdir}/modprobe.d/diamond.conf
 %{_sysconfdir}/modprobe.d/nidas.conf
 %{_sysconfdir}/modprobe.d/pcmcom8.conf
 /lib/udev/rules.d/99-nidas.rules
+/lib/modules/*/nidas/*.ko
 %endif
 
 %files devel
@@ -227,3 +230,6 @@ rm -rf $RPM_BUILD_ROOT
 %attr(0775,-,-) %{nidas_prefix}/bin/start_podman
 
 %changelog
+* Wed Dec 13 2023 Gary Granger <granger@ucar.edu> - 1.2.2-1
+- update package to v1.2.2:
+  https://github.com/ncareol/nidas/releases/tag/v1.2.2

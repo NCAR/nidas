@@ -12,6 +12,8 @@ the [buster] branch for the changes on that branch.
 
 ## [master] - Unreleased on master branch
 
+## [1.2.2] - 2023-12-13
+
 Variable substitution is now done on sensor element attributes height, depth,
 and suffix when they are applied to a sensor object.  This accommodates the
 SOS config which uses variables to specify changes in sonic heights during the
@@ -182,5 +184,6 @@ to `v1.2-1721-g1ebc8bcd4`.
 [refactor-builds]: https://github.com/ncareol/nidas/tree/refactor-builds
 [2.0]: https://github.com/ncareol/nidas/compare/master
 [1.3]: https://github.com/ncareol/nidas/compare/master...v1.3
+[1.2.2]: https://github.com/ncareol/nidas/releases/tag/v1.2.2
 [1.2.1]: https://github.com/ncareol/nidas/releases/tag/v1.2.1
 [1.2]: https://github.com/ncareol/nidas/releases/tag/v1.2

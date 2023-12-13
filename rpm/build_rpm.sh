@@ -57,9 +57,7 @@ topdir=${TOPDIR:-$(rpmbuild --eval %_topdir)$host}
 [ -d $topdir/RPMS ] || mkdir -p $topdir/RPMS
 
 log=`mktemp /tmp/${script}_XXXXXX.log`
-tmpspec=`mktemp /tmp/${script}_XXXXXX.spec`
-awkcom=`mktemp /tmp/${script}_XXXXXX.awk`
-trap "{ rm -f $log $tmpspec $awkcom; }" EXIT
+trap "{ rm -f $log }" EXIT
 
 set -o pipefail
 
@@ -81,13 +79,6 @@ if [ $dopkg == nidas -o $dopkg == nidas-doxygen ]; then
         withmodules=
     fi
 
-    # In the RPM changelog, copy most recent commit subject lines
-    # since this tag (max of 100).
-    sincetag=v1.2
-
-    # to get the most recent tag of the form: vN
-    # sincetag=$(git tag -l --sort=version:refname "[vV][0-9]*" | tail -n 1)
-
     if ! gitdesc=$(git describe --match "v[0-9]*"); then
         echo "git describe failed, looking for a tag of the form v[0-9]*"
         exit 1
@@ -99,34 +90,6 @@ if [ $dopkg == nidas -o $dopkg == nidas-doxygen ]; then
     release=${gitdesc#*-}       # 14-gabcdef123
     release=${release%-*}       # 14
     [ $gitdesc == "$release" ] && release=0 # no dash
-
-    # run git describe on each hash to create a version
-    cat << \EOD > $awkcom
-/^[0-9a-f]{7}/ {
-    cmd = "git describe --match '[vV][0-9]*' " $0 " 2>/dev/null"
-    res = (cmd | getline version)
-    close(cmd)
-    if (res == 0) {
-        version = ""
-    }
-}
-/^\*/ { print $0,version }
-/^-/ { print $0 }
-/^$/ { print $0 }
-EOD
-
-    # create change log from git log messages since the tag $sincetag.
-    # Put SHA hash by itself on first line. Above awk script then
-    # converts it to the output of git describe, and appends it to "*" line.
-    # Truncate subject line at 60 characters 
-    # git convention is that the subject line is supposed to be 50 or shorter
-    # Delete the date lines for a few commits with bad timestamps, else rpmbuild
-    # aborts because the change log is not chronological.
-    git log --max-count=100 --date-order --format="%H%n* %cd %aN%n- %s%n" --date=local $excludes ${sincetag}.. | \
-    sed -r 's/[0-9]+:[0-9]+:[0-9]+ //' | sed -r 's/(^- .{,60}).*/\1/' | \
-    awk --re-interval -f $awkcom | \
-    sed -e '/g8ea1e5f/d' -e '/ga1e79ab/d' -e '/g45a0f80/d' -e '/g51f0946/d' | \
-    cat rpm/${dopkg}.spec - > $tmpspec
 
     if [ $dopkg == nidas ]; then
         # Don't build nidas source package.  We cannot release the source
@@ -165,7 +128,7 @@ EOD
         --define "_topdir $topdir" \
         --define "_unpackaged_files_terminate_build 0" \
         --define "debug_package %{nil}" \
-        $tmpspec 2>&1 | tee -a $log  || exit $?
+        rpm/${dopkg}.spec 2>&1 | tee -a $log  || exit $?
 
 fi
 
