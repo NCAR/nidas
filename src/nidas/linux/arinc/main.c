@@ -1042,7 +1042,11 @@ static int __init arinc_init(void)
         }
         KLOG_INFO("mapaddr:  0x%p\n", board.mapaddr);
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6,0,0)
         board.class = class_create(THIS_MODULE, "arinc");
+#else
+        board.class = class_create("arinc");
+#endif
         if (IS_ERR(board.class)) {
                 err = PTR_ERR(board.class);
                 goto fail;

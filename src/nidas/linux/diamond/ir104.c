@@ -386,7 +386,11 @@ static int __init ir104_init(void)
         }
         memset(boards, 0, num_boards * sizeof(struct IR104));
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6,0,0)
         ir104_class = class_create(THIS_MODULE, "ir104");
+#else
+        ir104_class = class_create("ir104");
+#endif
         if (IS_ERR(ir104_class)) {
                 result = PTR_ERR(ir104_class);
                 goto err;
