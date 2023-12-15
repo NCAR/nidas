@@ -52,7 +52,7 @@ build_rpms()
     if [ -n "$WORKSPACE" ]; then
         (set -x; rm -rf "$TOPDIR/RPMS"; rm -rf "$TOPDIR/SRPMS")
     fi
-    # this conveniently creates a list of built rpm files in rpms.txt.
+    # this conveniently creates a list of built rpm files in src/rpms.txt.
     (set -x; scons -C src build_rpm ../rpm/nidas.spec "$@")
 }
 
@@ -66,14 +66,14 @@ build_rpms()
 
 sign_rpms()
 {
-    (set -x; exec rpm --addsign --define="%_gpg_name ${GPGKEY}" `cat rpms.txt`)
+    (set -x; exec rpm --addsign --define="%_gpg_name ${GPGKEY}" --define='_gpg_digest_algo sha256' `cat src/rpms.txt`)
 }
 
 
 push_eol_repo()
 {
     source $YUM_REPOSITORY/scripts/repo_funcs.sh
-    move_rpms_to_eol_repo `cat rpms.txt`
+    move_rpms_to_eol_repo `cat src/rpms.txt`
     update_eol_repo $YUM_REPOSITORY
 }
 
