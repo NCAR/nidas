@@ -41,7 +41,6 @@
 #include <nidas/core/Socket.h>
 #include <nidas/dynld/RawSampleInputStream.h>
 #include <nidas/dynld/StatisticsProcessor.h>
-#include <nidas/dynld/AsciiOutput.h>
 #include <nidas/core/SampleOutputRequestThread.h>
 #include <nidas/core/XMLParser.h>
 #include <nidas/core/Version.h>
