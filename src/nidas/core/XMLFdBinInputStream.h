@@ -55,11 +55,7 @@ public:
 	// std::cerr << "~XMLFdBinInputStream" << std::endl;
     }
 
-#if XERCES_VERSION_MAJOR < 3
-    unsigned int
-#else
     XMLFilePos
-#endif
     curPos() const { return curpos; }
 
     /**
@@ -67,17 +63,9 @@ public:
      *
      * @throws nidas::util::IOException
      */
-#if XERCES_VERSION_MAJOR < 3
-    unsigned int
-#else
     XMLSize_t
-#endif
     readBytes(XMLByte* const toFill,
-#if XERCES_VERSION_MAJOR < 3
-    	const unsigned int maxToRead
-#else
     	const XMLSize_t maxToRead
-#endif
     )
     {
         if (_eof) return 0;
@@ -98,23 +86,17 @@ public:
 	return l;
     }
 
-#if XERCES_VERSION_MAJOR >= 3
     const XMLCh* getContentType() const
     {
 	return 0;
     }
-#endif
 
 protected:
     
     std::string name;
     
     int fd;
-#if XERCES_VERSION_MAJOR < 3
-    unsigned int curpos;
-#else
     XMLFilePos curpos;
-#endif
 
     bool _eof;
 

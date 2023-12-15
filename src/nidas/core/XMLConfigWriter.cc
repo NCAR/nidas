@@ -65,11 +65,7 @@ XMLConfigWriterFilter::XMLConfigWriterFilter(const DSMConfig* dsm):
 {
 }
 
-#if XERCES_VERSION_MAJOR < 3
-    short
-#else
-    xercesc::DOMNodeFilter::FilterAction
-#endif
+xercesc::DOMNodeFilter::FilterAction
 XMLConfigWriterFilter::acceptNode(const xercesc::DOMNode* node) const
 {
     XDOMElement xnode((xercesc::DOMElement*)node);
@@ -107,11 +103,7 @@ XMLConfigWriterFilter::acceptNode(const xercesc::DOMNode* node) const
     else return xercesc::DOMNodeFilter::FILTER_ACCEPT;
 }
 
-#if XERCES_VERSION_MAJOR < 3
-    short
-#else
-    xercesc::DOMNodeFilter::FilterAction
-#endif
+xercesc::DOMNodeFilter::FilterAction
 XMLConfigWriterFilter::acceptDSMNode(const xercesc::DOMNode* node) const
 {
     XDOMElement xnode((xercesc::DOMElement*) node);

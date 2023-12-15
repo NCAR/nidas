@@ -37,11 +37,7 @@
 #include <xercesc/dom/DOMDocument.hpp>
 #include <xercesc/sax/InputSource.hpp>
 
-#if XERCES_VERSION_MAJOR < 3
-#include <xercesc/dom/DOMBuilder.hpp>
-#else
 #include <xercesc/dom/DOMLSParser.hpp>
-#endif
 
 #include <string>
 #include <map>
@@ -258,11 +254,7 @@ protected:
     
     xercesc::DOMImplementation *_impl;
 
-#if XERCES_VERSION_MAJOR < 3
-    xercesc::DOMBuilder *_parser;
-#else
     xercesc::DOMLSParser *_parser;
-#endif
     XMLErrorHandler _errorHandler;
 
 private:
