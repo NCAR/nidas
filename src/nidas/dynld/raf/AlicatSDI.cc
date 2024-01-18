@@ -129,29 +129,29 @@ void AlicatSDI::open(int flags)
         n_u::Logger::getInstance()->log(LOG_WARNING, "ALICAT AHC");
         write("AHC\r", 4);   // Hold valve closed
         nsleep.tv_sec = 1;
-        nsleep.tv_nsec = 0;
-        ::nanosleep(&nsleep, 0);    // sleep for 1 second.
-        rc = readBuffer(MSECS_PER_SEC / 2);
+        nsleep.tv_nsec = NSECS_PER_SEC/2;
+        ::nanosleep(&nsleep, 0);    // sleep for 1.5 second.
+        rc = readBuffer(MSECS_PER_SEC ); // read for 1 second
         for (Sample* samp = nextSample(); samp; samp = nextSample())  distributeRaw(samp);
 
         n_u::Logger::getInstance()->log(LOG_WARNING, "ALICAT AV rc=%d", rc);
         write("AV\r", 3);    // Tare the Alicat
-        nsleep.tv_sec = 0;
-        nsleep.tv_nsec = NSECS_PER_SEC / 2;
+        nsleep.tv_sec = 1;
+        nsleep.tv_nsec = 0;
         ::nanosleep(&nsleep, 0);
-        rc = readBuffer(MSECS_PER_SEC / 2);
+        rc = readBuffer(MSECS_PER_SEC);
         for (Sample* samp = nextSample(); samp; samp = nextSample())  distributeRaw(samp);
 
         n_u::Logger::getInstance()->log(LOG_WARNING, "ALICAT AC rc=%d", rc);
         write("AC\r", 3);   // Cancel hold
-        rc = readBuffer(MSECS_PER_SEC / 2);
+        rc = readBuffer(MSECS_PER_SEC );
         for (Sample* samp = nextSample(); samp; samp = nextSample())  distributeRaw(samp);
 
         n_u::Logger::getInstance()->log(LOG_WARNING, "ALICAT AS rc=%d", rc);
         char msg[32];
         sprintf(msg, "AS%d\r", _Qmin);
         write(msg, strlen(msg));
-        rc = readBuffer(MSECS_PER_SEC / 2);
+        rc = readBuffer(MSECS_PER_SEC);
         for (Sample* samp = nextSample(); samp; samp = nextSample())  distributeRaw(samp);
     }
 }
