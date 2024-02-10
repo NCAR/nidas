@@ -36,7 +36,10 @@
 #include <iomanip>
 
 using namespace std;
-using namespace nidas::util;
+
+namespace nidas {
+namespace util {
+
 
 /* static */
 Mutex UTime::_fmtMutex;
@@ -106,6 +109,20 @@ UTime::UTime(bool utc, const struct tm* tmp,int usecs):
 	_utime(fromTm(utc,tmp,usecs)),_fmt(),_utc(utc)
 {
 }
+
+
+const UTime UTime::MIN(LONG_LONG_MIN);
+const UTime UTime::MAX(LONG_LONG_MAX);
+const UTime UTime::NONE(LONG_LONG_MIN);
+
+/**
+ * @brief Return true if this UTime is equivalent to UTime::NONE.
+ */
+bool UTime::is_none() const
+{
+    return _utime == LONG_LONG_MIN;
+}
+
 
 /* static */
 long long UTime::fromTm(bool utc,const struct tm* tmp, int usecs)
@@ -686,7 +703,7 @@ template<class charT, class Traits>
 }
 #endif
 
-bool nidas::util::sleepUntil(unsigned int periodMsec, unsigned int offsetMsec)
+bool sleepUntil(unsigned int periodMsec, unsigned int offsetMsec)
 {
     struct timespec sleepTime;
     /*
@@ -706,3 +723,5 @@ bool nidas::util::sleepUntil(unsigned int periodMsec, unsigned int offsetMsec)
     return false;
 }
 
+} // namespace util
+} // namespace nidas

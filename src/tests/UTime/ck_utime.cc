@@ -66,6 +66,29 @@ main( int argc, char* argv[] )
 }
 
 
+BOOST_AUTO_TEST_CASE(test_utime_constants)
+{
+    UTime min(UTime::MIN);
+    UTime max(UTime::MAX);
+    UTime none(UTime::NONE);
+
+    BOOST_TEST(min == UTime(LONG_LONG_MIN));
+    BOOST_TEST(max == UTime(LONG_LONG_MAX));
+    BOOST_TEST(none.is_none());
+
+    UTime one;
+    BOOST_TEST(!one.is_none());
+    BOOST_TEST(one != min);
+    BOOST_TEST(one != max);
+
+    BOOST_TEST(!max.is_none());
+
+    // really this should be an implementation detail, but lots of prior usage
+    // depends on it.
+    BOOST_TEST(min.is_none());
+}
+
+
 BOOST_AUTO_TEST_CASE(test_utime)
 {
     time_t now = ::time(0);       // current time

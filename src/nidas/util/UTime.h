@@ -67,6 +67,16 @@ namespace nidas { namespace util {
  * which includes output to std::ostream, which is std::basic_ostream<char>.
  * The general support for basic_ostream<charT> is only useful to support wide
  * character output, which is not likely, but it works.
+ * 
+ * There is no explicit support for an unset UTime value.  The default
+ * constructor initializes from the current system time; there is no way to
+ * construct an invalid or null time.  Instead, historical practice has been
+ * to use LONG_LONG_MIN or sometimes just (time_t)0 to indicate an unset
+ * UTime.  Therefore the static constants MIN, MAX, and NONE exist to
+ * formalize this practice.  Use Utime(UTime::NONE) to construct a single time
+ * for which is_none() returns true.  For backwards compatibility, UTime::NONE
+ * is equivalent to UTime::MIN.  Use NONE to indicate an unset value, use MIN
+ * when the intention is to use the earliest possible UTime value.
  */
 class UTime {
 public:
@@ -82,6 +92,15 @@ public:
      * @param t Non-leap microseconds since Jan 1, 1970 00:00 UTC
      */
     UTime(long long t): _utime(t),_fmt(),_utc(true) {}
+
+    static const UTime MIN;
+    static const UTime MAX;
+    static const UTime NONE;
+
+    /**
+     * @brief Return true if this UTime is equivalent to UTime::NONE.
+     */
+    bool is_none() const;
 
     /**
      * Constructor.
