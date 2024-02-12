@@ -110,19 +110,29 @@ UTime::UTime(bool utc, const struct tm* tmp,int usecs):
 {
 }
 
-
 const UTime UTime::MIN(LONG_LONG_MIN);
 const UTime UTime::MAX(LONG_LONG_MAX);
-const UTime UTime::NONE(LONG_LONG_MIN);
+const UTime UTime::ZERO(0ll);
 
-/**
- * @brief Return true if this UTime is equivalent to UTime::NONE.
- */
-bool UTime::is_none() const
+bool UTime::isZero() const
+{
+    return _utime == 0ll;
+}
+
+bool UTime::isMin() const
 {
     return _utime == LONG_LONG_MIN;
 }
 
+bool UTime::isMax() const
+{
+    return _utime == LONG_LONG_MAX;
+}
+
+bool UTime::isSet() const
+{
+    return _utime != LONG_LONG_MIN && _utime != LONG_LONG_MAX;
+}
 
 /* static */
 long long UTime::fromTm(bool utc,const struct tm* tmp, int usecs)

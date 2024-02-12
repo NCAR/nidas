@@ -68,15 +68,29 @@ namespace nidas { namespace util {
  * The general support for basic_ostream<charT> is only useful to support wide
  * character output, which is not likely, but it works.
  * 
- * There is no explicit support for an unset UTime value.  The default
- * constructor initializes from the current system time; there is no way to
- * construct an invalid or null time.  Instead, historical practice has been
- * to use LONG_LONG_MIN or sometimes just (time_t)0 to indicate an unset
- * UTime.  Therefore the static constants MIN, MAX, and NONE exist to
- * formalize this practice.  Use Utime(UTime::NONE) to construct a single time
- * for which is_none() returns true.  For backwards compatibility, UTime::NONE
- * is equivalent to UTime::MIN.  Use NONE to indicate an unset value, use MIN
- * when the intention is to use the earliest possible UTime value.
+ * There is no explicit support for an "unset" or "null" UTime value.  The
+ * default constructor initializes from the current system time; there is no
+ * way to construct an invalid or null time.  Instead, historical practice has
+ * been to use LONG_LONG_MIN or sometimes just (time_t)0 to indicate an unset
+ * UTime.  Therefore the static constants MIN, MAX, and ZERO exist to
+ * formalize this practice.  Use Utime(UTime::ZERO) to construct a single time
+ * for which isZero() returns true.  Use MIN when the intention is to use the
+ * earliest possible UTime value, and similarly for MAX.  The meaning of
+ * (time_t)0 should be made explicit by replacing it with MIN, MAX, or ZERO.
+ * Instead of comparing a UTime to LONG_LONG_MIN or LONG_LONG_MAX, call
+ * isMin() or isMax() or isSet().  Typically, MIN is used as the default to
+ * indicate an unset start time while MAX is used for a default end time, so
+ * calling isSet() works for either start or end times, returning true if the
+ * UTime is neither MIN nor MAX.
+ * 
+ * The stored microseconds since the Posix epoch is a signed long long, so 0
+ * represents the epoch but not the earliest possible UTime.  The minimum
+ * possible UTime is represented by the negative value LONG_LONG_MIN.  ZERO
+ * and isZero() are available in case an application really does want the
+ * default to be the epoch or otherwise needs a convenient UTime constant for
+ * the Posix epoch, but generally it should be avoided since the intention is
+ * less clear, either zero as epoch or zero as unset.  In particular,
+ * ZERO.isSet() returns true.
  */
 class UTime {
 public:
@@ -95,12 +109,27 @@ public:
 
     static const UTime MIN;
     static const UTime MAX;
-    static const UTime NONE;
+    static const UTime ZERO;
 
     /**
-     * @brief Return true if this UTime is equivalent to UTime::NONE.
+     * Return true if this UTime is equivalent to UTime::ZERO.
      */
-    bool is_none() const;
+    bool isZero() const;
+
+    /**
+     * Return true if this UTime is equivalent to UTime::MIN.
+     */
+    bool isMin() const;
+
+    /**
+     * Return true if this UTime is equivalent to UTime::MAX.
+     */
+    bool isMax() const;
+
+    /**
+     * Return true if UTime is neither MIN nor MAX.
+     */
+    bool isSet() const;
 
     /**
      * Constructor.
@@ -315,24 +344,21 @@ public:
 
     static int month(std::string monstr);
 
-    // conversion operator
-    // operator long long() const { return _utime; }
-
     long long toUsecs() const
     {
-	return _utime;
+        return _utime;
     } 
 
     double toDoubleSecs() const
     {
-	// should work for positive and negative.
-	return (time_t)(_utime/USECS_PER_SEC) +
-		(double)(_utime % USECS_PER_SEC) / USECS_PER_SEC;
+        // should work for positive and negative.
+        return (time_t)(_utime/USECS_PER_SEC) +
+                (double)(_utime % USECS_PER_SEC) / USECS_PER_SEC;
     } 
 
     time_t toSecs() const
     {
-	return (_utime + USECS_PER_SEC / 2) / USECS_PER_SEC;
+        return (_utime + USECS_PER_SEC / 2) / USECS_PER_SEC;
     } 
 
     /**
@@ -342,7 +368,7 @@ public:
     UTime& setFormat(const std::string& val)
     {
         _fmt = val;
-	return *this;
+        return *this;
     }
 
     /**
@@ -405,20 +431,20 @@ protected:
      */
     static long long fromSecs(double x)
     {
-	double xf = floor(x);
+        double xf = floor(x);
         return (long long)xf * USECS_PER_SEC +
-		(int)rint((x-xf) * USECS_PER_SEC) ;
+                (int)rint((x-xf) * USECS_PER_SEC) ;
     } 
 
     static double toDoubleSecs(long long x)
     {
-	// should work for positive and negative.
-	return (time_t)(x/USECS_PER_SEC) + (double)(x % USECS_PER_SEC) / USECS_PER_SEC;
+        // should work for positive and negative.
+        return (time_t)(x/USECS_PER_SEC) + (double)(x % USECS_PER_SEC) / USECS_PER_SEC;
     } 
 
     static time_t toSecs(long long x)
     {
-	return x / USECS_PER_SEC;
+        return x / USECS_PER_SEC;
     } 
 
 private:

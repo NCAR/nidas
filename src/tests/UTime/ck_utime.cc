@@ -70,22 +70,35 @@ BOOST_AUTO_TEST_CASE(test_utime_constants)
 {
     UTime min(UTime::MIN);
     UTime max(UTime::MAX);
-    UTime none(UTime::NONE);
+    UTime zero(UTime::ZERO);
 
     BOOST_TEST(min == UTime(LONG_LONG_MIN));
     BOOST_TEST(max == UTime(LONG_LONG_MAX));
-    BOOST_TEST(none.is_none());
+    BOOST_TEST(zero == UTime(0ll));
+    BOOST_TEST(zero.isZero());
+    BOOST_TEST(zero.isSet());
+
+    BOOST_TEST(min == UTime::MIN);
+    BOOST_TEST(max == UTime::MAX);
 
     UTime one;
-    BOOST_TEST(!one.is_none());
+    BOOST_TEST(!one.isZero());
     BOOST_TEST(one != min);
     BOOST_TEST(one != max);
+    BOOST_TEST(one.isSet());
 
-    BOOST_TEST(!max.is_none());
+    BOOST_TEST(!max.isZero());
 
-    // really this should be an implementation detail, but lots of prior usage
-    // depends on it.
-    BOOST_TEST(min.is_none());
+    // really this should be an implementation detail, but some prior usage
+    // may depend on it.
+    BOOST_TEST(!min.isZero());
+
+    BOOST_TEST(min.isMin());
+    BOOST_TEST(max.isMax());
+    BOOST_TEST(!min.isMax());
+    BOOST_TEST(!max.isMin());
+    BOOST_TEST(!min.isSet());
+    BOOST_TEST(!max.isSet());
 }
 
 
