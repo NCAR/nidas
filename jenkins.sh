@@ -83,7 +83,7 @@ update_local_packages()
     # These commands must be matched by a NOPWCMDS setting in /etc/sudoers.
     # Since centos7 does not support --refresh, we cannot use the more
     # convenient combined command.
-    yum="yum -y --disablerepo=* --enablerepo=eol-signed"
+    yum="yum -y --disablerepo=* --enablerepo=eol"
     pkgs="nc_server-lib nc_server-devel nc_server-clients nc_server"
     if false ; then
         sudo -n $yum --refresh -- update $pkgs
