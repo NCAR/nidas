@@ -39,12 +39,11 @@ using namespace nidas::core;
 using namespace std;
 
 namespace n_u = nidas::util;
+using nidas::util::UTime;
 
 ProjectConfig::ProjectConfig(): _name(),_xmlName(),
-    _beginTime(LONG_LONG_MIN),_endTime(LONG_LONG_MIN),_envVars()
+    _beginTime(UTime::MIN),_endTime(UTime::MAX),_envVars()
 {
-    // default end of project is a year after the start
-    setEndTime(getBeginTime() + USECS_PER_DAY * 365 * 2);
 }
 
 void ProjectConfig::initProject(Project& project) const

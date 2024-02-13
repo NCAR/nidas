@@ -56,6 +56,7 @@ using nidas::util::Logger;
 using nidas::util::LogScheme;
 
 namespace n_u = nidas::util;
+using nidas::util::UTime;
 
 class StatsProcess
 {
@@ -170,7 +171,7 @@ StatsProcess::StatsProcess():
     _xmlFileName(),_dsmName(),
     _configName(),
     _sorterLength(5.0),_daemonMode(false),
-    _startTime(LONG_LONG_MIN),_endTime(LONG_LONG_MAX),
+    _startTime(UTime::MIN),_endTime(UTime::MAX),
     _niceValue(0),_period(DEFAULT_PERIOD),
     _configsXMLName(),
     _fillGaps(false),_doListOutputSamples(false),
@@ -334,13 +335,12 @@ int StatsProcess::parseRunstring(int argc, char** argv)
         //  3. a time period and a $PROJECT environment variable
         //  3b a configuration name and a $PROJECT environment variable
         if (app.dataFileNames().size() == 0 && !app.socketAddress() &&
-            _startTime.toUsecs() == LONG_LONG_MIN && _configName.length() == 0)
+            _startTime.isMin() && _configName.length() == 0)
         {
             return usage(argv[0]);
         }
 
-        if (_startTime.toUsecs() != LONG_LONG_MIN &&
-            _endTime.toUsecs() == LONG_LONG_MAX)
+        if (_startTime.isSet() && !_endTime.isSet())
         {
             _endTime = _startTime + 7 * USECS_PER_DAY;
         }
@@ -511,9 +511,9 @@ int StatsProcess::run() throw()
                     cfg->initProject(project);
                     _xmlFileName = n_u::Process::expandEnvVars(cfg->getXMLName());
 
-                    if (_startTime.toUsecs() == LONG_LONG_MIN)
+                    if (_startTime.isMin())
                         _startTime = cfg->getBeginTime();
-                    if (_endTime.toUsecs() == LONG_LONG_MAX)
+                    if (_endTime.isMax())
                         _endTime = cfg->getEndTime();
                 }
 
@@ -553,9 +553,9 @@ int StatsProcess::run() throw()
                 // must clone, since fsets.front() belongs to project
                 fset = fsets.front()->clone();
 
-                if (_startTime.toUsecs() != LONG_LONG_MIN)
+                if (_startTime.isSet())
                     fset->setStartTime(_startTime);
-                if (_endTime.toUsecs() != LONG_LONG_MAX)
+                if (_endTime.isSet())
                     fset->setEndTime(_endTime);
             }
             else
@@ -643,7 +643,7 @@ int StatsProcess::run() throw()
             sproc->selectRequestedSampleTags(_selectedOutputSampleIds);
 
         try {
-            if (_startTime.toUsecs() != LONG_LONG_MIN) {
+            if (_startTime.isSet()) {
                 ILOG(("Searching for time ") <<
                     _startTime.format(true,"%Y %m %d %H:%M:%S"));
                 sis.search(_startTime);
@@ -651,7 +651,7 @@ int StatsProcess::run() throw()
                 sproc->setStartTime(_startTime);
             }
 
-            if (_endTime.toUsecs() != LONG_LONG_MAX)
+            if (_endTime.isSet())
                 sproc->setEndTime(_endTime);
 
             pipeline.connect(&sis);
@@ -809,10 +809,10 @@ int StatsProcess::listOutputSamples()
 
             if (_configName.length() > 0)
                 cfg = configs.getConfig(_configName);
-            else if (_startTime.toUsecs() > LONG_LONG_MIN) 
+            else if (_startTime.isSet())
                 cfg = configs.getConfig(_startTime);
             else
-                cfg = configs.getConfig(n_u::UTime());
+                cfg = configs.getConfig(UTime());
 
             cfg->initProject(project);
             // cerr << "cfg=" <<  cfg->getName() << endl;

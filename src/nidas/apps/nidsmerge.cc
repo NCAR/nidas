@@ -167,8 +167,8 @@ int NidsMerge::main(int argc, char** argv) throw()
 
 NidsMerge::NidsMerge():
     inputFileNames(),outputFileName(),lastTimes(),
-    readAheadUsecs(30*USECS_PER_SEC),startTime(LONG_LONG_MIN),
-    endTime(LONG_LONG_MAX), outputFileLength(0),header(),
+    readAheadUsecs(30*USECS_PER_SEC),startTime(UTime::MIN),
+    endTime(UTime::MAX), outputFileLength(0),header(),
     configName(), allowed_dsms(),
     sorter(),
     samplesRead(),
@@ -353,8 +353,7 @@ int NidsMerge::parseRunstring(int argc, char** argv) throw()
                     "output filenames with time specifiers.";
             throw NidasAppException(xmsg.str());
         }
-        if (requiretimes && (startTime.toUsecs() == LONG_LONG_MIN ||
-                             endTime.toUsecs() == LONG_LONG_MAX))
+        if (requiretimes && (startTime.isMin() || endTime.isMax()))
         {
             xmsg << "Start and end times must be set when a fileset uses "
                  << "a % time specifier.";
@@ -588,7 +587,7 @@ int NidsMerge::run() throw()
                         lastTime = samp->getTimeTag();
                         // set startTime to the first time read if user
                         // did not specify it in the runstring.
-                        if (startTime.toUsecs() == LONG_LONG_MIN) {
+                        if (startTime.isMin()) {
                             startTime = lastTime;
                             tcur = startTime.toUsecs();
                         }

@@ -59,10 +59,16 @@ public:
 
     void setXMLName(const std::string& val) { _xmlName = val; }
 
+    /**
+     * Returns UTime::MIN if unset.
+     */
     const nidas::util::UTime& getBeginTime() const { return _beginTime; }
 
     void setBeginTime(const nidas::util::UTime& val) { _beginTime = val; }
 
+    /**
+     * Returns UTime::MAX if unset.
+     */
     const nidas::util::UTime& getEndTime() const { return _endTime; }
 
     void setEndTime(const nidas::util::UTime& val) { _endTime = val; }

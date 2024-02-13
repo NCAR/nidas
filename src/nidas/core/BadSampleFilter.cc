@@ -103,11 +103,11 @@ setDefaultTimeRange(const UTime& start, const UTime& end)
 {
     // Set the start and end times as filter times only if unset,
     // and do not change whether the filter is enabled.
-    if (_minSampleTime == LONG_LONG_MIN && start != UTime(LONG_LONG_MIN))
+    if (_minSampleTime == LONG_LONG_MIN && start.isSet())
     {
         _minSampleTime = start.toUsecs() - USECS_PER_DAY;
     }
-    if (_maxSampleTime == LONG_LONG_MAX && end != UTime(LONG_LONG_MAX))
+    if (_maxSampleTime == LONG_LONG_MAX && end.isSet())
     {
         _maxSampleTime = end.toUsecs() + USECS_PER_DAY;
     }
@@ -357,10 +357,10 @@ operator<<(std::ostream& out, const BadSampleFilter& bsf)
         out << "," << "type=" << (int)bsf.sampleTypeLimit();
     else
         out << "," << "type=valid";
-    if (bsf.minSampleTime().toUsecs() != LONG_LONG_MIN)
+    if (bsf.minSampleTime().isSet())
         out << "," << "mintime="
             << bsf.minSampleTime().format(true, "%Y-%m-%dT%H:%M:%S.%f");
-    if (bsf.maxSampleTime().toUsecs() != LONG_LONG_MAX)
+    if (bsf.maxSampleTime().isSet())
         out << "," << "maxtime="
             << bsf.maxSampleTime().format(true, "%Y-%m-%dT%H:%M:%S.%f");
     return out;

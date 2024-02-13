@@ -40,6 +40,7 @@ using namespace nidas::core;
 using namespace std;
 
 namespace n_u = nidas::util;
+using nidas::util::UTime;
 
 class ProjConfigIO 
 {
@@ -152,8 +153,8 @@ argv0 << " -f \"%Y %b %d %H:%M\" -t \"2007 Jan 14 01:40\"\n\
 }
 
 ProjConfigIO::ProjConfigIO(): xmlFile(),
-    task(NUTTIN_TO_DO),cname(),cbegin(LONG_LONG_MIN),
-    cend(LONG_LONG_MIN),cxml(),timeformat(),configs()
+    task(NUTTIN_TO_DO),cname(),cbegin(UTime::MIN),
+    cend(UTime::MAX),cxml(),timeformat(),configs()
 {
 }
 
@@ -363,7 +364,7 @@ void ProjConfigIO::getConfigForTime()
 
     for( ; ci != cfgs.end(); ++ci) {
         const ProjectConfig* cfg = *ci;
-        if (cbegin >= cfg->getBeginTime().toUsecs() &&
+        if (cbegin >= cfg->getBeginTime() &&
                 cbegin < cfg->getEndTime()) {
             cout << cfg->getName() << ' ' << cfg->getXMLName() << ' ';
             if (timeformat.length() > 0)

@@ -31,6 +31,7 @@ using namespace nidas::core;
 using namespace std;
 
 namespace n_u = nidas::util;
+using nidas::util::UTime;
 
 int usage(const char* argv0)
 {
@@ -49,11 +50,11 @@ int main(int argc, char** argv)
     cf.setFile(argv[2]);
 
     float data[60];
-    n_u::UTime tlast((time_t)0);
+    n_u::UTime tlast(UTime::ZERO);
 
     try {
         for (;;) {
-            n_u::UTime calTime((long long)0);
+            n_u::UTime calTime(UTime::ZERO);
             if (cf.eof()) break;
             int n = cf.readCF(calTime, data,sizeof data/sizeof data[0]);
             cout << calTime.format(true,"%Y %m %d %H:%M:%S.%3f %Z ");
