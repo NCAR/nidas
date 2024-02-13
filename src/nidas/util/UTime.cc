@@ -57,8 +57,9 @@ UTime::UTime():_utime(0),_fmt(),_utc(true)
 // If utc is false, then these fields will be interpreted in the
 // local time zone, otherwise UTC
 //
-UTime::UTime(bool utc, int year,int mon, int day, int hour, int minute,
-	double dsec): _utime(0),_fmt(),_utc(utc)
+UTime::UTime(bool utc, int year, int mon, int day, int hour, int minute,
+             double dsec):
+    _utime(0),_fmt(),_utc(utc)
 {
     if (year > 1900) year -= 1900;	// convert to years since 1900
     else if (year < 50) year += 100;
@@ -84,7 +85,7 @@ UTime::UTime(bool utc, int year,int mon, int day, int hour, int minute,
     _utime = fromTm(utc,&tms) + fromSecs(dsec);
 }
 
-UTime::UTime(bool utc, int year,int yday, int hour, int minute, double dsec):
+UTime::UTime(bool utc, int year, int yday, int hour, int minute, double dsec):
     _utime(0),_fmt(),_utc(utc)
 {
 
@@ -106,7 +107,9 @@ UTime::UTime(bool utc, int year,int yday, int hour, int minute, double dsec):
 }
 
 UTime::UTime(bool utc, const struct tm* tmp,int usecs):
-	_utime(fromTm(utc,tmp,usecs)),_fmt(),_utc(utc)
+    _utime(fromTm(utc,tmp,usecs)),
+    _fmt(),
+    _utc(utc)
 {
 }
 
@@ -143,10 +146,10 @@ long long UTime::fromTm(bool utc,const struct tm* tmp, int usecs)
     int yday = -1;
 
     if (tms.tm_yday >= 0 && (tms.tm_mon < 0 || tms.tm_mday < 1)) {
-	yday = tms.tm_yday;
+        yday = tms.tm_yday;
         tms.tm_yday = -1;	// ::mktime ignores yday
-	tms.tm_mon = 0;
-	tms.tm_mday = 1;
+        tms.tm_mon = 0;
+        tms.tm_mday = 1;
     }
 
     if (utc) tms.tm_isdst = 0;
@@ -155,16 +158,16 @@ long long UTime::fromTm(bool utc,const struct tm* tmp, int usecs)
 
 #ifdef DEBUG
     cerr << "yr=" << tms.tm_year <<
-  	" mn=" << tms.tm_mon <<
-  	" dy=" << tms.tm_mday <<
-  	" ydy=" << tms.tm_yday <<
-  	" hr=" << tms.tm_hour <<
-  	" mn=" << tms.tm_min <<
-  	" sc=" << tms.tm_sec <<
-  	" isdst=" << tms.tm_isdst <<
-  	" utc=" << utc <<
-  	" timezone=" << timezone <<
-  	" ut=" << ut << endl;
+            " mn=" << tms.tm_mon <<
+            " dy=" << tms.tm_mday <<
+            " ydy=" << tms.tm_yday <<
+            " hr=" << tms.tm_hour <<
+            " mn=" << tms.tm_min <<
+            " sc=" << tms.tm_sec <<
+            " isdst=" << tms.tm_isdst <<
+            " utc=" << utc <<
+            " timezone=" << timezone <<
+            " ut=" << ut << endl;
 #endif
 
     // utc means input time is to be interpreted as UTC, even
@@ -172,17 +175,17 @@ long long UTime::fromTm(bool utc,const struct tm* tmp, int usecs)
     if (utc) ut -= timezone;
 
     if (yday >= 0) {
-	// this is close, but off by an hour if there is DST
-	// change between Jan 1 and the time of interest.
-	ut += yday * 86400;
-	if (!utc) {			// correct for DST switch
-	    int d1dst = tms.tm_isdst;
-	    struct tm tm2;
-	    localtime_r(&ut,&tm2);
-	    int yddst = tm2.tm_isdst;
-	    if (d1dst == 0 && yddst > 0) ut -= 3600;
-	    else if (d1dst > 0 && yddst == 0) ut += 3600;
-	}
+        // this is close, but off by an hour if there is DST
+        // change between Jan 1 and the time of interest.
+        ut += yday * 86400;
+        if (!utc) {			// correct for DST switch
+            int d1dst = tms.tm_isdst;
+            struct tm tm2;
+            localtime_r(&ut,&tm2);
+            int yddst = tm2.tm_isdst;
+            if (d1dst == 0 && yddst > 0) ut -= 3600;
+            else if (d1dst > 0 && yddst == 0) ut += 3600;
+        }
     }
     return (long long) ut * USECS_PER_SEC + usecs;
 }
@@ -426,7 +429,7 @@ checkParse(bool utc, const std::string& str, const std::string& fmt,
     if (i0 < flen) newfmt.append(fmt.substr(i0));
     // cerr << "fmt=" << fmt << " newfmt=" << newfmt << endl;
     if (newfmt.length() > 0) {
-    	cp2 = strptime(cptr,newfmt.c_str(),&tms);
+        cp2 = strptime(cptr,newfmt.c_str(),&tms);
         if (!cp2)
         {
             if (throwx)
@@ -472,21 +475,21 @@ std::string UTime::format(bool utc, const std::string& fmt) const
 
     for (i0 = 0;  (i1 = fmt.find('%',i0)) != string::npos; i0 = i1 ) {
 
-	// cerr << "i0=" << i0 << " i1=" << i1 << endl;
-	newfmt.append(fmt.substr(i0,i1-i0));	// append up to %
+        // cerr << "i0=" << i0 << " i1=" << i1 << endl;
+        newfmt.append(fmt.substr(i0,i1-i0));	// append up to %
 
-	i1++;	// points to one past the % sign
-	int n = -1;
-	if (flen > i1) {
-	    if (fmt[i1] == 'f') {
-		i1++;
-	        n = 3;
-	    }
-	    else if (flen > i1 + 1 && ::isdigit(fmt[i1]) && fmt[i1+1] == 'f') {
-		n = fmt[i1] - '0';
-		i1 += 2;
-	    }
-	    else if (fmt[i1] == 's') {
+        i1++;	// points to one past the % sign
+        int n = -1;
+        if (flen > i1) {
+            if (fmt[i1] == 'f') {
+                i1++;
+                n = 3;
+            }
+            else if (flen > i1 + 1 && ::isdigit(fmt[i1]) && fmt[i1+1] == 'f') {
+                n = fmt[i1] - '0';
+                i1 += 2;
+            }
+            else if (fmt[i1] == 's') {
                 // %s format descriptor requires some special handling.
                 // strftime always assumes that the input struct tm is time in
                 // the local time zone.  struct tm contains no information
@@ -496,7 +499,7 @@ std::string UTime::format(bool utc, const std::string& fmt) const
                 // So, catch it here and use localtime_r to fill in struct tm
                 // and call strftime with %s by itself.  One could set the
                 // local timezone to GMT, but that would effect other threads.
-		i1++;
+                i1++;
                 struct tm tms;
                 localtime_r(&ut,&tms);
 #ifdef USE_STRFTIME
@@ -511,35 +514,35 @@ std::string UTime::format(bool utc, const std::string& fmt) const
                 newfmt.append(ostr.str());
 #endif
                 continue;
-	    }
-	}
-	// cerr << "i0=" << i0 << " i1=" << i1 << " n=" << n << endl;
-	if (n < 0) {		// not a %f or %nf, append %
-	    newfmt.push_back('%');
-	    continue;
-	}
-	    
-	int div = USECS_PER_SEC;
-	int mult = 1;
-	for (int j=0; j < n; j++)
-	    if (div > 1) div /= 10;
-	    else mult *= 10;
+            }
+        }
+        // cerr << "i0=" << i0 << " i1=" << i1 << " n=" << n << endl;
+        if (n < 0) {		// not a %f or %nf, append %
+            newfmt.push_back('%');
+            continue;
+        }
+            
+        int div = USECS_PER_SEC;
+        int mult = 1;
+        for (int j=0; j < n; j++)
+            if (div > 1) div /= 10;
+            else mult *= 10;
 
-	/*
-	 * Round printed value.
-	 */
-	int modusecs = (_utime - ute) + div / 2;
-	// cerr << "modusecs=" << modusecs <<
-	// 	" div=" << div << " mult=" << mult << endl;
-	if (modusecs > USECS_PER_SEC) {
-	    ut++;		// round up
-	    modusecs = 0;
-	}
-	modusecs = modusecs / div * mult;
-	ostringstream ost;
-	ost << setw(n) << setfill('0') << modusecs;
-	// cerr << "n=" << n << " modusecs=" << modusecs << " ost=" << ost.str() << endl;
-	newfmt.append(ost.str());
+        /*
+         * Round printed value.
+         */
+        int modusecs = (_utime - ute) + div / 2;
+        // cerr << "modusecs=" << modusecs <<
+        // 	" div=" << div << " mult=" << mult << endl;
+        if (modusecs > USECS_PER_SEC) {
+            ut++;		// round up
+            modusecs = 0;
+        }
+        modusecs = modusecs / div * mult;
+        ostringstream ost;
+        ost << setw(n) << setfill('0') << modusecs;
+        // cerr << "n=" << n << " modusecs=" << modusecs << " ost=" << ost.str() << endl;
+        newfmt.append(ost.str());
     }
     if (i0 < flen) newfmt.append(fmt.substr(i0));
 
@@ -642,77 +645,6 @@ long long UTime::pmod(long long x, long long y)
     else return x % y;
 }
 
-#ifdef USE_LOCALE_TIME
-template<class charT, class Traits>
-basic_istream<charT, Traits>& operator >> 
-    (basic_istream<charT, Traits >& is, UTime& ut)
-{
-    ios_base::iostate err = 0;
-    typedef istreambuf_iterator<charT,Traits> iter_type;
-
-
-    try {
-	typename basic_istream<charT, Traits>::sentry ipfx(is);
-	if(ipfx) {
-	     struct tm tms;
-	     use_facet<time_get<charT,Traits> >(is.getloc())
-		.get_date(is, istreambuf_iterator<charT,Traits>()
-		,is, err, &tms);
-	    ut = UTime(false,&tms);
-	    if (err == ios_base::goodbit && *is == '.') {
-		double fsecs;
-	        is >> fsecs;
-		ut += (long long)(fsecs * USECS_PER_SEC);
-	    }
-	}
-    }
-    catch(...) {
-	bool flag = false;
-	try { is.setstate(ios_base::failbit); }
-	catch( ios_base::failure ) { flag= true; }
-	if ( flag ) throw;
-    }
- 
-    if ( err ) is.setstate(err);
-    return is;
-}
-
-template<class charT, class Traits>
-    basic_ostream<charT, Traits>& operator << 
-    (basic_ostream<charT, Traits >& os, const UTime& ut)
-{
-    ios_base::iostate err = 0;
-
-    try {
-	typename basic_ostream<charT, Traits>::sentry opfx(os);
-	if(opfx) {
-	    string patt = ut.getFormat();
-	    string::size_type pl = patt.length();
-	    auto_ptr<charT> fmt(new charT[pl]);
-	    use_facet<ctype<charT> >(os.getloc())
-	    	.widen(patt.begin(),patt.end(),fmt);
-	    struct tm tms = ut.tm(false);
-	    if (use_facet<time_put<charT,ostreambuf_iterator<charT,Traits> > >
-		 (os.getloc())
-		.put(os,os,os.fill(),&tms,fmt,(fmt.get()+pl)).failed())
-		err = ios_base::badbit;
-		os.width(0);
-	}
-	// would like to output fractional seconds
-    }
-    catch(...) {
-	bool flag = false;
-	try {
-	    os.setstate(ios_base::failbit);
-	}
-	catch( ios_base::failure ) { flag= true; }
-	if ( flag ) throw;
-    }
-    if ( err ) os.setstate(err);
-    return os;
-}
-#endif
-
 bool sleepUntil(unsigned int periodMsec, unsigned int offsetMsec)
 {
     struct timespec sleepTime;
@@ -727,8 +659,8 @@ bool sleepUntil(unsigned int periodMsec, unsigned int offsetMsec)
     sleepTime.tv_sec = mSecVal / MSECS_PER_SEC;
     sleepTime.tv_nsec = (mSecVal % MSECS_PER_SEC) * NSECS_PER_MSEC;
     if (::nanosleep(&sleepTime,0) < 0) {
-	if (errno == EINTR) return true;
-	throw IOException("Looper","nanosleep",errno);
+        if (errno == EINTR) return true;
+        throw IOException("Looper","nanosleep",errno);
     }
     return false;
 }
