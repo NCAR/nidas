@@ -5,7 +5,8 @@
 #include "Version.h"
 
 #include <nidas/util/Process.h>
-#include <nidas/util/FileSet.h>
+#include <nidas/core/FileSet.h>
+#include <nidas/core/SampleOutput.h>
 
 #include <unistd.h>
 #include <signal.h>
@@ -33,6 +34,8 @@ using nidas::util::Logger;
 using nidas::util::LogScheme;
 
 using namespace std;
+
+using nidas::util::UTime;
 
 namespace 
 {
@@ -65,6 +68,10 @@ namespace
   }
 
 }
+
+
+namespace nidas {
+namespace core {
 
 
 NidasAppArg::
@@ -501,6 +508,16 @@ NidasApp(const std::string& name) :
    "Set environment variables specifed for the dataset\n"
    "as found in the xml file specifed by $NIDAS_DATASETS or\n"
    "$ISFS/projects/$PROJECT/ISFS/config/datasets.xml"),
+  Clipping
+  ("--clip", "",
+   "Clip the output samples to the given time range,\n"
+   "and expand the input time boundaries by 5 minutes.\n"
+   "The input times are expanded to catch all raw samples\n"
+   "whose processed sample times might fall within the output times.\n"
+   "This option only applies to netcdf outputs.\n"),
+  SorterLength("-s,--sortlen,--sorterlength", "<seconds>",
+               "Sorter length for processed samples in "
+               "floating point seconds (optional)", "5.0"),
   PidFile
   ("--pid", "<pidfile>",
    "Write the PID to <pidfile>, or exit if <pidfile> already exists.\n"
@@ -515,8 +532,8 @@ NidasApp(const std::string& name) :
   _xmlFileName(),
   _idFormat(),
   _sampleMatcher(),
-  _startTime(LONG_LONG_MIN),
-  _endTime(LONG_LONG_MAX),
+  _startTime(UTime::MIN),
+  _endTime(UTime::MAX),
   _dataFileNames(),
   _sockAddr(),
   _outputFileName(),
@@ -1168,7 +1185,6 @@ loggingArgs()
 
 
 nidas_app_arglist_t
-nidas::core::
 operator|(nidas_app_arglist_t arglist1, nidas_app_arglist_t arglist2)
 {
   nidas_app_arglist_t::iterator it;
@@ -1636,3 +1652,67 @@ checkPidFile()
   }
   return 0;
 }
+
+
+float
+NidasApp::
+getSorterLength()
+{
+  auto length = SorterLength.asFloat();
+  if (length < 0 || length > 10000)
+  {
+    throw std::invalid_argument("Invalid sorter length: " +
+                                SorterLength.getValue());
+  }
+  return length;
+}
+
+
+void
+NidasApp::
+setOutputClipping(const UTime& start, const UTime& end,
+                  SampleOutputBase* output)
+{
+  if (Clipping.asBool())
+  {
+    ILOG(("clipping netcdf output [")
+          << _startTime.format(true,"%Y %m %d %H:%M:%S")
+          << ","
+          << _endTime.format(true,"%Y %m %d %H:%M:%S")
+          << ")");
+    output->setTimeClippingWindow(start, end);
+  }
+}
+
+
+void
+NidasApp::
+setFileSetTimes(const UTime& start, const UTime& end, FileSet* fset)
+{
+  if (!start.isMin())
+  {
+    UTime xtime = start;
+    if (Clipping.asBool())
+    {
+      xtime = xtime - 300*USECS_PER_SEC;
+      ILOG(("expanding input start time to ")
+            << xtime.format(true, "%Y %m %d %H:%M:%S"));
+    }
+    fset->setStartTime(xtime);
+  }
+  if (!end.isMax())
+  {
+    UTime xtime = end;
+    if (Clipping.asBool())
+    {
+      xtime = xtime + 300*USECS_PER_SEC;
+      ILOG(("expanding input end time to ")
+            << xtime.format(true, "%Y %m %d %H:%M:%S"));
+    }
+    fset->setEndTime(xtime);
+  }
+}
+
+
+} // namespace core
+} // namespace nidas

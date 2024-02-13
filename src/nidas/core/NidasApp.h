@@ -23,6 +23,8 @@
 namespace nidas { namespace core {
 
 class Project;
+class FileSet;
+class SampleOutputBase;
 
 /**
  * The NidasApp class throws a NidasAppException when command-line options
@@ -672,6 +674,8 @@ public:
     NidasAppArg DebugDaemon;
     NidasAppArg ConfigsArg;
     NidasAppArg DatasetName;
+    NidasAppArg Clipping;
+    NidasAppArg SorterLength;
 
     /**
      * It is not enough to enable this arg in an app, the app must must
@@ -1081,17 +1085,45 @@ public:
     nidas::core::Dataset
     getDataset(const std::string& datasetname);
 
+    /**
+     * @brief Return the StartTime as a UTime.
+     *
+     * The value is UTime::MIN unless set by the StartTime argument.
+     *
+     * @return nidas::util::UTime 
+     */
     nidas::util::UTime
     getStartTime()
     {
         return _startTime;
     }
- 
+
+    /**
+     * @brief Return the EndTime as a UTime.
+     *
+     * The value is UTime::MAX unless set by the EndTime argument.
+     *
+     * @return nidas::util::UTime 
+     */
     nidas::util::UTime
     getEndTime()
     {
         return _endTime;
     }
+
+    /**
+     * If Clipping has been enabled, call setTimeClippingWindow() on the given
+     * @p output using @p start and @p end.
+     */
+    void
+    setOutputClipping(const nidas::util::UTime& start,
+                      const nidas::util::UTime& end,
+                      nidas::core::SampleOutputBase* output);
+
+    void
+    setFileSetTimes(const nidas::util::UTime& start,
+                    const nidas::util::UTime& end,
+                    nidas::core::FileSet* fset);
 
     /**
      * Return the value of the global interrupted flag.  If @p
@@ -1381,6 +1413,17 @@ public:
      **/
     int
     checkPidFile();
+
+    /**
+     * @brief Return sorter length value, or throw std::invalid_argument.
+     *
+     * This checks the sorter length against reasonable limits after parsing
+     * it as a float.
+     * 
+     * @return float 
+     */
+    float
+    getSorterLength();
 
 private:
 
