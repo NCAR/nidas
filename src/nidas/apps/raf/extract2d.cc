@@ -205,7 +205,7 @@ int ExtractFast2D::run() throw()
                 {
 //cout << "Sensor = " << (*dsm_it)->getCatalogName() << (*dsm_it)->getSuffix() << endl;
                     if ( ! dynamic_cast<raf::TwoD_USB *>((*dsm_it)) &&
-                         (*dsm_it)->getCatalogName().compare(0, 5, "TWODS") != 0 &&
+//                         (*dsm_it)->getCatalogName().compare(0, 5, "TWODS") != 0 &&
                          ! dynamic_cast<raf::TwoD_USB *>((*dsm_it)) )
                         continue;
 
