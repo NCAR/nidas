@@ -112,9 +112,13 @@ XMLConfigWriterFilter::acceptDSMNode(const xercesc::DOMNode* node) const
     if(!node->hasAttributes()) 
 	return xercesc::DOMNodeFilter::FILTER_REJECT;	// no attribute
 
-    const string dsmName = _dsm->getProject()->expandString(xnode.getAttributeValue("name"));
+    // If the <dsm> has an ID attribute, it's in the dsmcatalog, so accept it.
+    if (xnode.getAttributeValue("ID").length() > 0) 
+	return xercesc::DOMNodeFilter::FILTER_ACCEPT;
+
+    const string dsmName = _dsm->expandString(xnode.getAttributeValue("name"));
     if (dsmName == _dsm->getName()) {
-	// cerr << "accepting dsm node, name=" << dsmName << endl;
+        // cerr << "accepting dsm node, name=" << dsmName << endl;
 	return xercesc::DOMNodeFilter::FILTER_ACCEPT;
     }
     // cerr << "rejecting dsm node, name=" << dsmName << endl;

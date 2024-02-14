@@ -75,14 +75,8 @@ extern xercesc::DOMDocument* n_c::requestXMLConfig(bool all,
 
         // If parsing xml received from a server over a socket,
         // turn off validation - assume the server has validated the XML.
+        // Server should have also expanded any XML includes.
         parser->setDOMValidation(false);
-        parser->setDOMValidateIfSchema(false);
-        parser->setDOMNamespaces(true);
-        parser->setXercesSchema(false);
-        parser->setXercesSchemaFullChecking(false);
-        parser->setXercesHandleMultipleImports(true);
-        parser->setXercesDoXInclude(true);
-        parser->setDOMDatatypeNormalization(false);
 
         // It seems important to declare the XMLFdInputSource after the XMLParser,
         // otherwise seg faults were happening in the destructor of XMLFdInputSource.

@@ -137,6 +137,17 @@ void XMLConfigService::Worker::interrupt()
 int XMLConfigService::Worker::run() 
 {
     XMLCachingParser* parser = XMLCachingParser::getInstance();
+    // This server has parsed the XML, but perhaps someone has changed it since then,
+    // so we'll validate it.
+    // Expand any XML includes, so the DSM gets the full XML.
+    // Not sure whether all the other options are needed...
+    parser->setDOMValidation(true);
+    parser->setDOMValidateIfSchema(true);
+    parser->setDOMNamespaces(true);
+    parser->setXercesSchema(true);
+    parser->setXercesSchemaFullChecking(true);
+    parser->setXercesHandleMultipleImports(true);
+    parser->setXercesDoXInclude(true);
 
     xercesc::DOMDocument* doc = parser->parse(
         n_u::Process::expandEnvVars(_svc->getDSMServer()->getXMLConfigFileName()));
