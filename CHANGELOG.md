@@ -12,6 +12,10 @@ the [buster] branch for the changes on that branch.
 
 ## [master] - Unreleased on master branch
 
+- Removed TWODS detection.
+- Statsproc now supports netcdf output clipping like prep.
+- UTime API improvements for unset times.
+
 ## [1.2.2] - 2023-12-13
 
 Variable substitution is now done on sensor element attributes height, depth,
