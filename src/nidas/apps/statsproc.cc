@@ -127,7 +127,6 @@ private:
 
     NidasApp _app;
     NidasAppArg NiceValue;
-    NidasAppArg SorterLength;
     NidasAppArg Period;
     NidasAppArg DaemonMode;
     NidasAppArg SetDSM;
@@ -170,7 +169,7 @@ int StatsProcess::main(int argc, char** argv) throw()
 StatsProcess::StatsProcess():
     _xmlFileName(),_dsmName(),
     _configName(),
-    _sorterLength(5.0),_daemonMode(false),
+    _sorterLength(0),_daemonMode(false),
     _startTime(UTime::MIN),_endTime(UTime::MAX),
     _niceValue(0),_period(DEFAULT_PERIOD),
     _configsXMLName(),
@@ -179,8 +178,6 @@ StatsProcess::StatsProcess():
     _app("statsproc"),
     NiceValue("-n,--nice", "<nice>",
               "Run at a lower priority (nice > 0)", "0"),
-    SorterLength("-s,--sorterlength", "<seconds>",
-                 "Input data sorter length in fractional seconds.", "5.0"),
     Period("-p,--period", "<seconds>",
            "Statistics period in seconds. If -S is used to specify a dataset,\n"
            "then the period is read from \n"
@@ -237,7 +234,8 @@ int StatsProcess::parseRunstring(int argc, char** argv)
     app.allowUnrecognized(true);
     app.enableArguments(app.DatasetName | app.Hostname |
                         app.StartTime | app.EndTime | app.XmlHeaderFile |
-                        app.InputFiles | Period | SorterLength |
+                        app.InputFiles | Period | app.SorterLength |
+                        app.Clipping |
                         NiceValue | DaemonMode | SetDSM | DSMName |
                         FilterArg |
                         app.loggingArgs() | app.Version | app.Help);
@@ -256,7 +254,7 @@ int StatsProcess::parseRunstring(int argc, char** argv)
         return usage(argv[0]);
     }
     _period = Period.asInt();
-    _sorterLength = SorterLength.asFloat();
+    _sorterLength = app.getSorterLength(0, 1800);
     _niceValue = NiceValue.asInt();
     _daemonMode = DaemonMode.asBool();
     _startTime = app.getStartTime();
@@ -264,11 +262,6 @@ int StatsProcess::parseRunstring(int argc, char** argv)
     _xmlFileName = app.xmlHeaderFile();
     _dsmName = DSMName.getValue();
 
-    if (_sorterLength < 0.0 || _sorterLength > 1800.0)
-    {
-        throw NidasAppException("Invalid sorter length: " +
-                                SorterLength.getValue());
-    }
     if (_period < 0.0)
     {
         throw NidasAppException("Invalid period: " + Period.getValue());
@@ -438,7 +431,7 @@ int StatsProcess::run() throw()
             project.setDataset(dataset);
         }
 
-        IOChannel* iochan = 0;
+        std::unique_ptr<IOChannel> iochan;
 
         if (_xmlFileName.length() > 0) {
             _xmlFileName = n_u::Process::expandEnvVars(_xmlFileName);
@@ -483,11 +476,11 @@ int StatsProcess::run() throw()
                 return 1;
             }
             sock->setKeepAliveIdleSecs(60);
-            iochan = new nidas::core::Socket(sock);
+            iochan.reset(new nidas::core::Socket(sock));
             ILOG(("connected: ") <<  sock->getRemoteSocketAddress().toString());
         }
         else {
-            nidas::core::FileSet* fset;
+            std::unique_ptr<nidas::core::FileSet> fset;
 
             // no file names listed in runstring
             if (_app.dataFileNames().size() == 0)
@@ -551,21 +544,18 @@ int StatsProcess::run() throw()
                 }
 
                 // must clone, since fsets.front() belongs to project
-                fset = fsets.front()->clone();
+                fset.reset(fsets.front()->clone());
 
-                if (_startTime.isSet())
-                    fset->setStartTime(_startTime);
-                if (_endTime.isSet())
-                    fset->setEndTime(_endTime);
+                _app.setFileSetTimes(_startTime, _endTime, fset.get());
             }
             else
             {
-                fset = nidas::core::FileSet::getFileSet(_app.dataFileNames());
+                fset.reset(nidas::core::FileSet::getFileSet(_app.dataFileNames()));
             }
-            iochan = fset;
+            iochan.reset(fset.release());
         }
 
-        RawSampleInputStream sis(iochan);
+        RawSampleInputStream sis(iochan.release());
         BadSampleFilter& bsf = FilterArg.getFilter();
         bsf.setDefaultTimeRange(_startTime, _endTime);
         sis.setBadSampleFilter(bsf);
@@ -669,6 +659,12 @@ int StatsProcess::run() throw()
                 for ( ; oi != outputs.end(); ++oi) {
                     SampleOutput* output = *oi;
                     output->requestConnection(sproc);
+                    // perhaps shortsighted of me, but setOutputclipping() is
+                    // not defined in the SampleOutput interface, only in
+                    // SampleOutputBase.
+                    auto sob = dynamic_cast<SampleOutputBase*>(output);
+                    if (sob)
+                        _app.setOutputClipping(_startTime, _endTime, sob);
                 }
             }
 

@@ -551,7 +551,7 @@ int DataPrep::parseRunstring(int argc, char** argv)
     _dosOut = DOSOutput.asBool();
     _doHeader = !NoHeader.asBool();
     _xmlFileName = _app.xmlHeaderFile();
-    _sorterLength = _app.getSorterLength();
+    _sorterLength = _app.getSorterLength(0, 10000);
 
     _asciiPrecision = Precision.asInt();
     if (_asciiPrecision < 1)

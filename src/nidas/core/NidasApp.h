@@ -1417,13 +1417,12 @@ public:
     /**
      * @brief Return sorter length value, or throw std::invalid_argument.
      *
-     * This checks the sorter length against reasonable limits after parsing
-     * it as a float.
-     * 
-     * @return float 
+     * This checks the sorter length against the given min and max after
+     * parsing it as a float.  Throws NidasAppException if the value is out of
+     * range, otherwise returns the value.
      */
     float
-    getSorterLength();
+    getSorterLength(float min, float max);
 
 private:
 

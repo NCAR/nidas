@@ -1656,10 +1656,10 @@ checkPidFile()
 
 float
 NidasApp::
-getSorterLength()
+getSorterLength(float min, float max)
 {
   auto length = SorterLength.asFloat();
-  if (length < 0 || length > 10000)
+  if (length < min || length > max)
   {
     throw std::invalid_argument("Invalid sorter length: " +
                                 SorterLength.getValue());
@@ -1689,7 +1689,7 @@ void
 NidasApp::
 setFileSetTimes(const UTime& start, const UTime& end, FileSet* fset)
 {
-  if (!start.isMin())
+  if (start.isSet())
   {
     UTime xtime = start;
     if (Clipping.asBool())
@@ -1700,7 +1700,7 @@ setFileSetTimes(const UTime& start, const UTime& end, FileSet* fset)
     }
     fset->setStartTime(xtime);
   }
-  if (!end.isMax())
+  if (end.isSet())
   {
     UTime xtime = end;
     if (Clipping.asBool())
