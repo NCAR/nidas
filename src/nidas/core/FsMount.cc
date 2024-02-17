@@ -326,29 +326,32 @@ FsMountWorkerThread::FsMountWorkerThread(FsMount* fsmnt):
 
 int FsMountWorkerThread::run()
 {
-    int sleepsecs = 30;
+    int sleepsecs = 1;
+    int nsecs = 30;
     for (int i = 0;; i++) {
         if (isInterrupted()) break;
-	try {
-            // try "real" mount first, then autoMount
-	    if (!(i % 2)) fsmount->mount();
-            else fsmount->autoMount();
-	    break;
-	}
-	catch(const n_u::IOException& e) {
-	    if (e.getErrno() == EINTR) break;
-            if (isInterrupted()) break;
-            if (i == 0) PLOG(("%s mount: %s", getName().c_str(),e.what()));
-            else {
-                if (i < 2) PLOG(("%s mount: %s, trying every %d secs",
-                    getName().c_str(),e.what(),sleepsecs));
-                struct timespec slp = { sleepsecs, 0};
-                ::nanosleep(&slp,0);
+        if (! (i % nsecs)) {
+            try {
+                // try "real" mount first, then autoMount
+                if (!(i % 2)) fsmount->mount();
+                else fsmount->autoMount();
+                break;
             }
-	}
-	catch(const n_u::Exception& e) {
-            PLOG(("%s mount: %s", getName().c_str(),e.what()));
+            catch(const n_u::IOException& e) {
+                if (e.getErrno() == EINTR) break;
+                if (isInterrupted()) break;
+                if (i == 0) {
+                    PLOG(("%s mount: %s", getName().c_str(),e.what()));
+                    PLOG(("%s mount: %s, trying every %d secs",
+                        getName().c_str(),e.what(),nsecs));
+                }
+            }
+            catch(const n_u::Exception& e) {
+                PLOG(("%s mount: %s", getName().c_str(),e.what()));
+            }
         }
+        struct timespec slp = { sleepsecs, 0};
+        ::nanosleep(&slp,0);
     }
     fsmount->finished();
     n_u::ThreadJoiner* joiner = new n_u::ThreadJoiner(this);
