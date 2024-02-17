@@ -338,77 +338,54 @@ DSMServer* Project::findServer(const n_u::Inet4Address& addr) const
 
 const DSMConfig* Project::findDSM(const n_u::Inet4Address& addr) const
 {
-    const DSMConfig* dsm = 0;
-    for (SiteIterator si = getSiteIterator(); si.hasNext(); ) {
-        const Site* site = si.next();
-        DLOG(("checking site ") << site->getName()
-             << " for dsm with address " << addr.getHostAddress());
-        dsm = site->findDSM(addr);
-        if (dsm)
-        {
-            DLOG(("matched site ") << site->getName()
-                 << " with dsm " << dsm->getName()
-                 << " for address " << addr.getHostAddress());
-            return dsm;
-        }
-    }
-
-    // No match. Check if addr corresponds to one of my interfaces.
+    // First check if addr corresponds to one of my interfaces.
+    bool myInterface = false;
     try {
         n_u::Inet4NetworkInterface iface =
             n_u::Inet4NetworkInterface::getInterface(addr);
-        if (iface.getIndex() < 0)
-        {
-            DLOG(("address ") << addr.getHostAddress()
-                 << " does not have an interface.");
-            return dsm;   // not one of my interfaces, return NULL
-        }
+        myInterface = iface.getIndex() >= 0;
     }
     catch(const n_u::IOException& e) {
         WLOG(("Cannot determine local interfaces: %s",e.what()));
-        return dsm;
     }
 
-    // Address is one of my interfaces.  Check if there is a 
-    // DSM that also has an address of one of my interfaces.
-    for (DSMConfigIterator di = getDSMConfigIterator(); !dsm && di.hasNext(); ) {
-        const DSMConfig* dsm2 = di.next();
+    // do a DNS lookup of each dsm name in the config to see if the
+    // address matches. This can be slow if the names aren't known to 
+    // /etc/hosts or a local DNS server, which then has to query remote
+    // DNS for more than a few DSMs.
+    for (DSMConfigIterator di = getDSMConfigIterator(); di.hasNext(); ) {
+        const DSMConfig* dsm = di.next();
         try {
             list<n_u::Inet4Address> saddrs =
-                n_u::Inet4Address::getAllByName(dsm2->getName());
+                n_u::Inet4Address::getAllByName(dsm->getName());
             list<n_u::Inet4Address>::const_iterator ai = saddrs.begin();
-            for ( ; !dsm && ai != saddrs.end(); ++ai) {
-                n_u::Inet4NetworkInterface iface =
-                    n_u::Inet4NetworkInterface::getInterface(*ai);
-                if (iface.getIndex() >= 0)
-                {
-                    DLOG(("address ") << ai->getHostAddress()
-                         << " of dsm " << dsm2->getName()
-                         << " matches interface " << iface.getName());
-                    dsm = dsm2;
-                }
-                else
-                {
-                    DLOG(("address ") << ai->getHostAddress()
-                         << " of dsm " << dsm2->getName()
-                         << " does not match any interfaces");
+            for ( ; ai != saddrs.end(); ++ai) {
+                if (*ai == addr) return dsm;
+                // If addr and a dsm's address are both one of my interfaces
+                // then the dsm is a match (i.e. this host).
+                if (myInterface) {
+                    n_u::Inet4NetworkInterface iface =
+                        n_u::Inet4NetworkInterface::getInterface(*ai);
+                    if (iface.getIndex() >= 0) {
+                        DLOG(("address ") << ai->getHostAddress()
+                             << " of dsm " << dsm->getName()
+                             << " matches a local interface " << iface.getName());
+                        return dsm;
+                    }
                 }
             }
         }
         catch(const n_u::UnknownHostException& e)
         {
-            WLOG(("cannot determine address for DSM named %s",dsm2->getName().c_str()));
+            WLOG(("cannot determine address for DSM named %s",dsm->getName().c_str()));
         }
         catch(const n_u::IOException& e) {
             WLOG(("Cannot determine network interfaces on this host: %s",e.what()));
         }
     }
-    if (!dsm) {
-        n_u::Logger::getInstance()->log(LOG_WARNING,
-                "dsm with address %s not found in project configuration",
-            addr.getHostAddress().c_str());
-    }
-    return dsm;
+
+    WLOG(("DSM with address ") << addr.getHostAddress() << " not found in project configuration");
+    return 0;
 }
 
 const DSMConfig* Project::findDSM(unsigned int id) const
@@ -430,73 +407,52 @@ const DSMConfig* Project::findDSM(unsigned int id) const
 	    return dsm;
 	}
     }
-    DLOG(("dsm with id %u not found",id));
-    return 0;
-}
-
-const DSMConfig* Project::findDSM(const std::string& name) const
-{
-    for (SiteIterator si = getSiteIterator(); si.hasNext(); ) {
-        const Site* site = si.next();
-	const DSMConfig* dsm = site->findDSM(name);
-	if (dsm) return dsm;
-    }
-
-    try {
-        list<n_u::Inet4Address> saddrs =
-            n_u::Inet4Address::getAllByName(name);
-        list<n_u::Inet4Address>::const_iterator ai = saddrs.begin();
-        for ( ; ai != saddrs.end(); ++ai) {
-            const DSMConfig* dsm = findDSM(*ai);
-            if (dsm) return dsm;
-        }
-    }
-    catch(const n_u::UnknownHostException& e) {}
-    WLOG(("dsm with name ") << name << "  not found in project configuration");
+    DLOG(("DSM with id %u not found",id));
     return 0;
 }
 
 
-DSMConfig*
+const DSMConfig*
 Project::
-findDSMFromHostname(const std::string& hostname)
+findDSM(const std::string& hostname) const
 {
-    // location of first dot of hostname, or if not found 
-    // the host string match will be done against entire hostname
-    string::size_type dot = hostname.find('.');
-
-    DSMConfig* dsmConfig = 0;
-    DSMConfig* dsm = 0;
     int ndsms = 0;
+    const DSMConfig* dsm = 0;
 
     const list<Site*>& sites = getSites();
     list<Site*>::const_iterator si;
-    for (si = sites.begin(); !dsmConfig && si != sites.end(); ++si)
+    for (si = sites.begin(); si != sites.end(); ++si)
     {
         Site* site = *si;
         const list<DSMConfig*>& dsms = site->getDSMConfigs();
 
         list<DSMConfig*>::const_iterator di;
-        for (di = dsms.begin(); !dsmConfig && di != dsms.end(); ++di)
+        for (di = dsms.begin(); di != dsms.end(); ++di)
         {
             dsm = *di;
             ndsms++;
-            if (dsm->getName() == hostname ||
-                dsm->getName() == hostname.substr(0, dot))
-            {
-                dsmConfig = dsm;
-                n_u::Logger::getInstance()->log(LOG_INFO,
-                    "Project: found <dsm> for %s", hostname.c_str());
-                break;
+            if (dsm->getName() == hostname) {
+                DLOG(("Project: found <dsm> for ") << hostname);
+                return dsm;
             }
         }
     }
-    if (ndsms == 1)
-        dsmConfig = dsm;
-    return dsmConfig;
+    if (ndsms == 1) {
+        DLOG(("Project: matching ") << hostname << " to only <dsm> in configuration");
+        return dsm;
+    }
+
+    string::size_type dot = hostname.find('.');
+    if (dot != string::npos) {
+        // cerr << "found dot, new hostname=" << hostname.substr(0, dot) << endl;
+        // recursive
+        dsm = findDSM(hostname.substr(0, dot));
+        if (dsm) return dsm;
+    }
+
+    WLOG(("DSM with name ") << hostname << " not found in project configuration");
+    return 0;
 }
-
-
 
 list<nidas::core::FileSet*> Project::findSampleOutputStreamFileSets() const
 {

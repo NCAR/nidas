@@ -170,12 +170,6 @@ public:
     DSMServer* findServer(const std::string& hostname) const;
 
     /**
-     * Find a DSM whose name corresponds to
-     * a given IP address.
-     */
-    const DSMConfig* findDSM(const nidas::util::Inet4Address& addr) const;
-
-    /**
      * Find a DSM by id.
      */
     const DSMConfig* findDSM(unsigned int id) const;

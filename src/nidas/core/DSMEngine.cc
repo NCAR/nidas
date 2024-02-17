@@ -361,6 +361,7 @@ int DSMEngine::run() throw()
         // first fetch the configuration
         try {
             if (_configFile.length() == 0) {
+                // fetch from XMLConfigService on server
                 projectDoc = n_c::requestXMLConfig(false,_configSockAddr, &_signalMask);
             }
             else {
@@ -678,12 +679,18 @@ void DSMEngine::initialize(xercesc::DOMDocument* projectDoc)
 	_project->setConfigName(_configFile);
 
     std::string hostname = _app.getHostName();
-    _dsmConfig = _project->findDSMFromHostname(hostname);
+    _dsmConfig = const_cast<DSMConfig*>(_project->findDSM(hostname));
     if (!_dsmConfig)
-    {
         throw n_u::InvalidParameterException("dsm","no match for hostname",
                                              hostname);
-    }
+    // If the DSM name does not match hostname, then XMLConfigService
+    // matched the address of the requesting DSM to a configured DSM, and
+    // sent only one DSM configuration over the socket.
+    if (_dsmConfig->getName() != hostname)
+        ILOG(("DSM with name ") << _dsmConfig->getName() <<
+                " matched to hostname " << hostname << " in configuration");
+    else
+        ILOG(("DSM with name ") << hostname << " found in configuration");
 }
 
 void DSMEngine::openSensors()

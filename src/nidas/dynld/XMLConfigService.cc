@@ -90,15 +90,18 @@ IOChannelRequester* XMLConfigService::connected(IOChannel* iochan) throw()
     n_u::Inet4Address remoteAddr = iochan->getConnectionInfo().getRemoteSocketAddress().getInet4Address();
     DLOG(("findDSM, addr=") << remoteAddr.getHostAddress());
 
-    const DSMConfig* dsm = Project::getInstance()->findDSM(remoteAddr);
+    string hostname = remoteAddr.getHostName();
+    const DSMConfig* dsm = Project::getInstance()->findDSM(hostname);
 
     if (!dsm) {
-        n_u::Logger::getInstance()->log(LOG_WARNING,
-            "can't find DSM for address %s" ,
-            remoteAddr.getHostAddress().c_str());
+        WLOG(("No match by name in config for DSM ") << hostname << " (" << remoteAddr.getHostAddress() << ")");
+        dsm = Project::getInstance()->findDSM(remoteAddr);
+        if (!dsm)
+            PLOG(("No match by address in config for DSM ") << hostname << " (" << remoteAddr.getHostAddress() << ")");
+        else
+            NLOG(("Match by address to DSM ") << dsm->getName() << " in config for " << hostname << " (" << remoteAddr.getHostAddress() << ")");
     }
-    if (dsm)
-        DLOG(("findDSM, dsm=") << dsm->getName());
+    else NLOG(("Match by name in config for DSM ") << hostname << " (" << remoteAddr.getHostAddress() << ")");
 
     // The iochan should be a new iochan, created from the configured
     // iochans, since it should be a newly connected Socket.
@@ -182,6 +185,9 @@ int XMLConfigService::Worker::run()
     output->setByteStream(&formatter);
     output->setSystemId((const XMLCh*)convname);
     writer->writeNode(output,*doc);
+    if (writer->getNumDSM() != 1)
+        PLOG(("Wrote ") << writer->getNumDSM() << " <dsm> nodes to XMLConfigService output");
+
     output->release();
 
     _iochan->close();

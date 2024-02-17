@@ -55,14 +55,18 @@ public:
 
     void setWhatToShow(unsigned long val);
 
+    int getNumDSM() const { return _numDSM; }
+
 private:
 
     const DSMConfig* _dsm;
 
     unsigned long _whatToShow;
 
+    mutable int _numDSM;
+
     xercesc::DOMNodeFilter::FilterAction
-    acceptDSMNode(const xercesc::DOMNode* node) const;
+    acceptDSMNode(const xercesc::DOMNode* node, bool count) const;
 
     /** No copying. */
     XMLConfigWriterFilter(const XMLConfigWriterFilter&);
@@ -82,6 +86,8 @@ public:
     XMLConfigWriter(const DSMConfig* dsm);
 
     ~XMLConfigWriter();
+
+    int getNumDSM() const { return _filter->getNumDSM(); }
 
 private:
     

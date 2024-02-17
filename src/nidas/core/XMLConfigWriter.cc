@@ -61,7 +61,8 @@ XMLConfigWriter::~XMLConfigWriter()
 
 XMLConfigWriterFilter::XMLConfigWriterFilter(const DSMConfig* dsm):
     _dsm(dsm),
-    _whatToShow((1<<(xercesc::DOMNode::ELEMENT_NODE-1)) | (1<<(xercesc::DOMNode::DOCUMENT_NODE-1)))
+    _whatToShow((1<<(xercesc::DOMNode::ELEMENT_NODE-1)) | (1<<(xercesc::DOMNode::DOCUMENT_NODE-1))),
+    _numDSM(0)
 {
 }
 
@@ -86,8 +87,8 @@ XMLConfigWriterFilter::acceptNode(const xercesc::DOMNode* node) const
 	    if (child->getNodeType() != xercesc::DOMNode::ELEMENT_NODE) continue;
 	    XDOMElement xchild((xercesc::DOMElement*) child);
 	    if (xchild.getNodeName() == "dsm" &&
-	    	acceptDSMNode(child) == xercesc::DOMNodeFilter::FILTER_ACCEPT)
-	    	return xercesc::DOMNodeFilter::FILTER_ACCEPT;
+	    	acceptDSMNode(child, false) == xercesc::DOMNodeFilter::FILTER_ACCEPT)
+                    return xercesc::DOMNodeFilter::FILTER_ACCEPT;
 	}
 	// dsm not found for this aircraft/site
 	// cerr << "rejecting " << nodename << " node, name=" <<
@@ -95,7 +96,7 @@ XMLConfigWriterFilter::acceptNode(const xercesc::DOMNode* node) const
 	return xercesc::DOMNodeFilter::FILTER_REJECT;
     }
     else if (xnode.getNodeName() == "dsm")
-        return acceptDSMNode(node);
+        return acceptDSMNode(node, true);
     else if (xnode.getNodeName() == "server")
 	return xercesc::DOMNodeFilter::FILTER_REJECT;
     else if (xnode.getNodeName() == "project")
@@ -104,7 +105,7 @@ XMLConfigWriterFilter::acceptNode(const xercesc::DOMNode* node) const
 }
 
 xercesc::DOMNodeFilter::FilterAction
-XMLConfigWriterFilter::acceptDSMNode(const xercesc::DOMNode* node) const
+XMLConfigWriterFilter::acceptDSMNode(const xercesc::DOMNode* node, bool count) const
 {
     XDOMElement xnode((xercesc::DOMElement*) node);
     if (xnode.getNodeName() != "dsm")
@@ -116,12 +117,24 @@ XMLConfigWriterFilter::acceptDSMNode(const xercesc::DOMNode* node) const
     if (xnode.getAttributeValue("ID").length() > 0) 
 	return xercesc::DOMNodeFilter::FILTER_ACCEPT;
 
-    const string dsmName = _dsm->expandString(xnode.getAttributeValue("name"));
-    if (dsmName == _dsm->getName()) {
-        // cerr << "accepting dsm node, name=" << dsmName << endl;
-	return xercesc::DOMNodeFilter::FILTER_ACCEPT;
+    // Check for a match of this <dsm> node's id (lower case "id") attribute
+    // with _dsm->getId().  This is better than a name comparison, because
+    // for large ISFS projects the <dsm> name attribute could be "$SITE",
+    // which with _dsm->expandString() will expand to the name of the site
+    // for _dsm, and all <dsm>s will match.
+    string idstr = xnode.getAttributeValue("id");
+    if (idstr.length() > 0) {
+        unsigned int id;
+        idstr = _dsm->expandString(idstr);
+        istringstream ist(idstr);
+        ist >> id;
+        if (ist.fail()) return xercesc::DOMNodeFilter::FILTER_REJECT;
+        if (id == _dsm->getId()) {
+            if (count) _numDSM++;
+            return xercesc::DOMNodeFilter::FILTER_ACCEPT;
+        }
     }
-    // cerr << "rejecting dsm node, name=" << dsmName << endl;
+
     return xercesc::DOMNodeFilter::FILTER_REJECT;	// no match
 }
 
