@@ -100,45 +100,6 @@ pipeline {
           }
         }
 
-        stage('CentOS9_x86_64') {
-          agent {
-            node {
-              label 'CentOS9_x86_64'
-            }
-          }
-          stages {
-            stage('Compile and test') {
-              steps {
-                sh './jenkins.sh test'
-              }
-            }
-
-            stage('Build RPM packages') {
-              steps {
-                sh './jenkins.sh build_rpms'
-              }
-            }
-
-            stage('Sign RPM packages') {
-              steps {
-                sh './jenkins.sh sign_rpms'
-              }
-            }
-
-            stage('Push RPM packages to EOL repository') {
-              steps {
-                sh './jenkins.sh push_rpms'
-              }
-            }
-
-            stage('Update packages on local host') {
-              steps {
-                sh './jenkins.sh update_rpms'
-              }
-            }
-          }
-        }
-
         stage('Ubuntu32 (Vortex)') {
           agent {
             node {
