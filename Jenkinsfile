@@ -168,8 +168,7 @@ pipeline {
   post {
     changed
     {
-      emailext
-        from: "granger@ucar.edu",
+      emailext from: "granger@ucar.edu",
         to: "granger@ucar.edu, cjw@ucar.edu",
         recipientProviders: [developers(), requestor()],
         subject: "Jenkins build ${env.JOB_NAME}: ${currentBuild.currentResult}",
