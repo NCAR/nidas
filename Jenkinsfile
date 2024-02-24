@@ -54,6 +54,9 @@ pipeline {
             }
 
             stage('Update packages on local host') {
+              when {
+                environment name: 'NIDAS_UPDATE_HOST', value: 'true'
+              }
               steps {
                 sh './jenkins.sh update_rpms'
               }
@@ -93,6 +96,9 @@ pipeline {
             }
 
             stage('Update packages on local host') {
+              when {
+                environment name: 'NIDAS_UPDATE_HOST', value: 'true'
+              }
               steps {
                 sh './jenkins.sh update_rpms'
               }
