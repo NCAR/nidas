@@ -25,7 +25,7 @@ Name: nidas
 %if %{defined gitversion}
 Version: %{gitversion}
 %else
-Version: 1.2.2
+Version: 1.2.3
 %endif
 Release: %{releasenum}%{?dist}
 License: GPL
@@ -230,6 +230,10 @@ rm -rf $RPM_BUILD_ROOT
 %attr(0775,-,-) %{nidas_prefix}/bin/start_podman
 
 %changelog
+* Sat Mar 02 2024 Gary Granger <granger@ucar.edu> - 1.2.3-1
+- package 1.2.3
+  https://github.com/ncareol/nidas/releases/tag/v1.2.3
+
 * Wed Dec 13 2023 Gary Granger <granger@ucar.edu> - 1.2.2-1
 - update package to v1.2.2:
   https://github.com/ncareol/nidas/releases/tag/v1.2.2

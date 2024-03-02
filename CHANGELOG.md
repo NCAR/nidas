@@ -12,16 +12,18 @@ the [buster] branch for the changes on that branch.
 
 ## [master] - Unreleased on master branch
 
+## [1.2.3] - 2024-03-02
+
 - Removed TWODS detection.
-- Statsproc now supports netcdf output clipping like prep.
+- Statsproc now supports --clip argument to clip netcdf output like prep.
 - UTime API improvements for unset times.
 
 ## [1.2.2] - 2023-12-13
 
 Variable substitution is now done on sensor element attributes height, depth,
 and suffix when they are applied to a sensor object.  This accommodates the
-SOS config which uses variables to specify changes in sonic heights during the
-project.
+SOS config which uses environment  variables to specify changes in sonic
+heights during the project.
 
 `NDEBUG` is never defined by default for any target, so any `assert()` calls
 in the code will now be compiled everywhere, where before they were being
@@ -188,6 +190,7 @@ to `v1.2-1721-g1ebc8bcd4`.
 [refactor-builds]: https://github.com/ncareol/nidas/tree/refactor-builds
 [2.0]: https://github.com/ncareol/nidas/compare/master
 [1.3]: https://github.com/ncareol/nidas/compare/master...v1.3
+[1.2.3]: https://github.com/ncareol/nidas/releases/tag/v1.2.3
 [1.2.2]: https://github.com/ncareol/nidas/releases/tag/v1.2.2
 [1.2.1]: https://github.com/ncareol/nidas/releases/tag/v1.2.1
 [1.2]: https://github.com/ncareol/nidas/releases/tag/v1.2
