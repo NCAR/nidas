@@ -199,7 +199,8 @@ void ParameterT<T>::fromDOMElement(const xercesc::DOMElement* node,
 			getLength() << std::endl;
 #endif
 	    }
-	    else if (aname != "type")
+	    else if (aname != "type" && aname != "xmlns")
+                // XMLConfigWriter seems to add xmlns attributes
 		throw n_u::InvalidParameterException(
 		    "parameter",aname,aval);
 	}

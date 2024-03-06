@@ -375,7 +375,8 @@ void SampleTag::fromDOMElement(const xercesc::DOMElement* node)
                 }
                 setTimetagAdjust(val);
 	    }
-            else {
+            else if (aname != "xmlns") {
+                // XMLConfigWriter seems to add xmlns attributes
                 ostringstream ost;
                 ost << "sample id=" << getDSMId() << ',' << getSpSId();
                 throw n_u::InvalidParameterException(ost.str(),

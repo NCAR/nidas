@@ -135,22 +135,19 @@ public:
      */
     const DSMConfig* findDSM(const nidas::util::Inet4Address& addr) const;
 
-    const DSMConfig* findDSM(const std::string& name) const;
-
     /**
      * Find a DSMConfig in any site in this project whose name matches the
      * given @p hostname.  If the hostname is fully qualified, then the
      * match is attempted against the long name first and then the
      * shortened name, with everything past the first '.' removed.
      *
-     * If there is only one DSM in the entire project config, then that DSM
+     * If there is only one DSM in the project config, then that DSM
      * is always returned.
      *
      * DSMEngine uses this method to look up it's DSMConfig instance on
      * startup, based on the current hostname setting.
      **/
-    DSMConfig*
-    findDSMFromHostname(const std::string& hostname);
+    const DSMConfig* findDSM(const std::string& name) const;
 
     /**
      * Find a DSM matching id;

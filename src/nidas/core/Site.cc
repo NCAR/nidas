@@ -398,26 +398,6 @@ DSMServer* Site::findServer(const string& hostname) const
     return server;
 }
 
-const DSMConfig* Site::findDSM(const n_u::Inet4Address& addr) const
-{
-    for (list<const DSMConfig*>::const_iterator di=_dsms.begin();
-         di != _dsms.end(); ++di)
-    {
-        const DSMConfig* dsm = *di;
-        VLOG(("Checking dsm ") << dsm->getName());
-        try {
-            list<n_u::Inet4Address> addrs =
-                n_u::Inet4Address::getAllByName(dsm->getName());
-            for (list<n_u::Inet4Address>::const_iterator ai=addrs.begin();
-                 ai != addrs.end(); ++ai) {
-                if (*ai == addr) return dsm;
-            }
-        }
-        catch(n_u::UnknownHostException &e) {}
-    }
-    return 0;
-}
-
 const DSMConfig* Site::findDSM(unsigned int id) const
 {
     for (list<const DSMConfig*>::const_iterator di=_dsms.begin();
@@ -434,9 +414,16 @@ const DSMConfig* Site::findDSM(const std::string& name) const
     for (list<const DSMConfig*>::const_iterator di=_dsms.begin();
 	di != _dsms.end(); ++di) {
 	const DSMConfig* dsm = *di;
-    VLOG(("Checking dsm ") << dsm->getName() << " for name=" << name);
+        VLOG(("Checking dsm ") << dsm->getName() << " for name=" << name);
 	if (dsm->getName() == name) return dsm;
     }
+
+    string::size_type dot = name.find('.');
+    if (dot != string::npos) {
+        // recursive
+        return findDSM(name.substr(0, dot));
+    }
+
     return 0;
 }
 
