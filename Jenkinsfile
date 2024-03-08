@@ -37,7 +37,7 @@ pipeline {
 
             stage('Build RPM packages') {
               steps {
-                sh './jenkins.sh build_rpms'
+                sh './jenkins.sh snapshot'
               }
             }
 
@@ -79,7 +79,7 @@ pipeline {
 
             stage('Build RPM packages') {
               steps {
-                sh './jenkins.sh build_rpms'
+                sh './jenkins.sh snapshot'
               }
             }
 
