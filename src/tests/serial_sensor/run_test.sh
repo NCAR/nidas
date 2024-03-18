@@ -9,9 +9,18 @@
 
 # scons may not set HOSTNAME
 export HOSTNAME=`hostname`
+vgopts="--suppressions=suppressions.txt --gen-suppressions=all --leak-check=full"
+valgrind="valgrind $vgopts"
 
 installed=false
-[ $# -gt 0 -a "$1" == "-i" ] && installed=true
+debugging=false
+while [ $# -gt 0 ]; do
+    case "$1" in
+        -i) installed=true;;
+        -d) debugging=true ;;
+    esac
+    shift
+done
 
 if ! $installed; then
 
@@ -41,12 +50,37 @@ echo "dsm executable: `which dsm`"
 echo "nidas libaries:"
 ldd `which dsm` | grep -F libnidas
 
+if $debugging; then
+    export TEST=/tmp/test_debug
+    mkdir $TEST
+else
+    export TEST=$(mktemp -d --tmpdir test_XXXXXX)
+    trap "{ rm -rf $TEST; }" EXIT
+fi
+echo "TEST=$TEST"
+
+
 valgrind_errors() {
     grep -E -q "^==[0-9]*== ERROR SUMMARY:" $1 && \
         sed -n 's/^==[0-9]*== ERROR SUMMARY: \([0-9]*\).*/\1/p' $1 || echo 1
 }
 
+start_dsm()
+{
+    export NIDAS_SVC_PORT_UDP=`find_udp_port`
+    echo "Using port=$NIDAS_SVC_PORT_UDP"
+
+    rm -f $TEST/dsm.log
+    rm -f $TEST/${HOSTNAME}_*
+
+    # start dsm data collection
+    rm -f $TEST/dsm.pid
+    ( $valgrind dsm -d --pid $TEST/dsm.pid -l 6 config/test.xml 2>&1 | tee $TEST/dsm.log ) &
+    dsmpid=$!
+}
+
 kill_dsm() {
+    echo "doing kill_dsm"
     # send a TERM signal to dsm process
     nkill=0
     dsmpid=`pgrep -f "valgrind.* dsm -d"`
@@ -74,6 +108,30 @@ kill_sims() {
 }
 
 
+remove_devices() {
+    for dev in $*; do
+        rm -f $TEST/$dev
+    done
+}
+
+
+wait_for_devices() {
+    nsleeps=0
+    for dev in $* ; do
+        while [ ! -e "$TEST/$dev" ]; do
+            if [ $nsleeps -ge 10 ]; then
+                echo "Missing devices after 10 seconds!"
+                exit 1
+            fi
+            echo "waiting for device $TEST/${dev}..."
+            nsleeps=$(($nsleeps + 1))
+            sleep 1
+        done
+    done
+    echo "Devices found: $*"
+}
+
+
 find_udp_port() {
     which netstat >& /dev/null || { echo "netstat not found, install net-tools" && exit 1; }
     local -a inuse=(`netstat -uan | awk '/^udp/{print $4}' | sed -r 's/.*:([0-9]+)$/\1/' | sort -u`)
@@ -84,125 +142,103 @@ find_udp_port() {
     echo $port
 }
 
-kill_dsm
-
-for f in /tmp/run/nidas/dsm.pid; do
-    if [ -f $f ]; then
-        echo "$f exists, deleting"
-        rm $f || exit 1
-    fi
-done
-
-export TEST=$(mktemp -d --tmpdir test_XXXXXX)
-echo "TEST=$TEST"
-
-trap "{ rm -rf $TEST; }" EXIT
 
 badexit() {
-    save=/tmp/test_save1
-    echo "Saving $TEST as $save"
-    [ -d $save ] && rm -rf $save
-    mv $TEST $save
+    if $debugging; then
+        echo "See test debug directory: $TEST"
+    else
+        save=/tmp/test_save1
+        echo "Saving $TEST as $save"
+        [ -d $save ] && rm -rf $save
+        mv $TEST $save
+    fi
     exit 1
 }
 
 
-# build the local sensor_sim program
-#cd src || exit 1
-#scons
-#cd ..
+sspids=()
+
+start_sim() # device [arg ...]
+{
+    device="$1"
+    shift
+    # default to waiting for HUP to clear on pts.  It can be overridden if -C
+    # is passed to skip the wait, but really there's no reason for the
+    # simulator not to wait for the dsm to open the pts.
+    (set -x;
+     exec sensor_sim -v -a 60 -H -t "$@" "$TEST/$device" > $TEST/${device}.log 2>&1) &
+    pid=$!
+    sspids=(${sspids[*]} $pid)
+    nsensors=${#sspids[*]}
+    echo started sensor $TEST/$device, pid $pid, nsensors=$nsensors
+}
+
+
+wait_on_sims()
+{
+    # technically this could be wait ${pids[*]}, but a loop might be useful to
+    # diagnose failures
+    for (( n = 0; n < $nsensors; n++ )); do
+        echo "waiting on ${sspids[$n]} for $TEST/test$n"
+        wait ${sspids[$n]}
+    done
+}
+
 
 # Start sensor simulations on pseudo-terminals.
-# Once sensor_sim opens the pseudo-terminal it does a kill -STOP on itself.
-# After starting the sensor_sims, this script then starts the dsm process.
-# This script scans the dsm process output for an "opening $TEST/testN" message
-# indicating that the the dsm process has opened the device. At that point
-# do a kill -CONT on the corresponding sensor_sim so it starts sending data
-# on the pseudo terminal.
-sspids=()
-# enable verbose on this first sensor_sim
-sensor_sim -f data/test.dat -e "\n" -r 10 -t $TEST/test0 &
-sspids=(${sspids[*]} $!)
-sensor_sim -f data/test.dat -b $'\e' -r 10 -t $TEST/test1 &
-sspids=(${sspids[*]} $!)
+
+# Previously, this script scanned for "opening $TEST/testN" messages in the
+# dsm.log to know when it was safe to signal the simulators to continue.
+# However, the "opening" message is actually logged before the open() attempt,
+# so there was a race condition between when the simulator started writing to
+# the pty and when the dsm opened it.  This is now synchronized by using a new
+# -H option to sensor_sim, so sensor_sim does not continue until the HUP is
+# cleared, meaning the dsm has opened it's port.
+
+# This synchronization ensures that the DSM does not write the sonic data mode
+# prompts until sensor_sim is ready to read them, and sensor_sim does not
+# start writing data messages until dsm is ready to read them.
+
+# Since sensor_sim exits when it is done writing data, that is enough to
+# synchronize when the dsm should be stopped.  Previously this script scanned
+# for "closed" messages for each of the ports, but that could cause confusion
+# when a sensor was closed because sensor_sim was not responding soon enough
+# (ie, a sonic was not answering to data mode prompts and not reporting data).
+# (It would be hard to guarantee that sensor_sim can respond like a hardware
+# sensor, since it is subject to the process scheduler just like dsm.)
+
+# It is safe to wait on the sensor_sim processes to finish, because they are
+# guaranteed to exit on the alarm timeout.
+
+# There is also no way to guarantee that all the sensors will even be opened
+# at the same time.  It is possible (and has been observed) that some of the
+# sensor_sim processes finish before the other ports have been opened.  Since
+# port opens are handled by a different dsm thread and not synchronized in any
+# way, the ordering depends entirely on the scheduler.  To synchronize the
+# simulated sensors with each other, so their data are interleaved in the dsm
+# reads, the sensor_sim processes would have to be synchronized somehow, such
+# as by all running in one process.
+
+kill_dsm
+
+devices="test0 test1 test2 test3 test4 test5"
+remove_devices $devices
+
+# even though the sonic on test2 and prompted sensor on test5 will wait before
+# sending data, they cannot start reading until the other pty is open, so they
+# do not use -C either.
+start_sim test0 -f data/test.dat -e "\n" -r 10
+start_sim test1 -f data/test.dat -b $'\e' -r 10
 # simulate Campbell sonic
-sensor_sim -c -r 60 -n 256 $TEST/test2 -t > $TEST/csat3.log 2>&1 &
-sspids=(${sspids[*]} $!)
-sensor_sim -f data/repeated_sep.dat -e xxy -r 1 -t $TEST/test3 &
-sspids=(${sspids[*]} $!)
-sensor_sim -f data/repeated_sep.dat -b xxy -r 1 -t $TEST/test4 &
-sspids=(${sspids[*]} $!)
-sensor_sim -f data/repeated_sep.dat -p "hello\n" -e "\n" -t $TEST/test5 &
-sspids=(${sspids[*]} $!)
+start_sim test2 -c -r 60 -n 256
+start_sim test3 -f data/repeated_sep.dat -e xxy -r 1
+start_sim test4 -f data/repeated_sep.dat -b xxy -r 1
+start_sim test5 -f data/repeated_sep.dat -p "hello\n" -e "\n"
 
-# number of simulated sensors
-nsensors=${#sspids[*]}
-
-rm -f $TEST/dsm.log
-
-export NIDAS_SVC_PORT_UDP=`find_udp_port`
-echo "Using port=$NIDAS_SVC_PORT_UDP"
-
-# start dsm data collection
-( valgrind --suppressions=suppressions.txt --gen-suppressions=all --leak-check=full dsm -d -l 6 config/test.xml 2>&1 | tee $TEST/dsm.log ) &
-dsmpid=$!
-
-while ! [ -f $TEST/dsm.log ]; do
-    sleep 1
-done
-
-# look for "opening" messages in dsm output
-sleep=0
-sleepmax=40
-ndone=0
-while [ $ndone -lt $nsensors -a $sleep -lt $sleepmax ]; do
-    for (( n = 0; n < $nsensors; n++ )); do
-        if [ ${sspids[$n]} -gt 0 ]; then
-            # if grep -F -q "opened: ${HOSTNAME}:$TEST/test$n" $TEST/dsm.log; then
-            if grep -F -q "opening: $TEST/test$n" $TEST/dsm.log; then
-                echo "sending CONT to ${sspids[$n]} for $TEST/test$n"
-                kill -CONT ${sspids[$n]}
-                sspids[$n]=-1
-                ndone=$(($ndone + 1))
-            else
-                sleep 1
-                sleep=$(($sleep + 1))
-            fi
-        fi
-    done
-done
-
-if [ $sleep -ge $sleepmax ]; then
-    echo "Cannot find $nsensors \"opening\" messages in dsm output. ndone=$ndone"
-    echo "dsm process is apparently not running successfully."
-    echo "${0##*/}: serial_sensor test failed"
-    kill_sims
-    kill_dsm
-    cat $TEST/dsm.log
-    badexit
-fi
-
-
-# When a sensor_sim finishes and closes its pseudo-terminal
-# the dsm process gets an I/O error reading the pseudo-terminal device.
-# The dsm process then closes the device, and schedules it to be re-opened.
-# Look for these "closed" messages in the dsm output, which indicate
-# that the sensor_sim processes have finished.  We could instead
-# check their process ids.
-while true; do
-    ndone=0
-    for (( n = 0; n < $nsensors; n++ )); do
-        if grep -F -q "closing: $TEST/test$n" $TEST/dsm.log; then
-            ndone=$(($ndone + 1))
-        else
-            sleep 1
-        fi
-    done
-    echo "ndone=$ndone, nsensors=$nsensors"
-    [ $ndone -eq $nsensors ] && break
-done
-
-echo "doing kill_dsm"
+# this makes sure the pseudo terminals have been created before starting dsm
+wait_for_devices $devices
+start_dsm
+wait_on_sims
 kill_dsm
 
 # check output data file for the expected number of samples
@@ -263,7 +299,7 @@ fi
 
 # run data through process methods
 statsf=$TEST/data_stats.out
-valgrind --suppressions=suppressions.txt --gen-suppressions=all --leak-check=full data_stats -l 6 -p $ofiles > $statsf
+$valgrind data_stats -l 6 -p $ofiles > $statsf
 
 ns=`grep -E "^test1" $statsf | wc | awk '{print $1}'`
 if [ $ns -ne $nsensors ]; then
