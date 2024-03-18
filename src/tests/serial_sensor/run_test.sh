@@ -7,44 +7,57 @@
 # Otherwise if build/apps is not found in PATH, prepend it, and if LD_LIBRARY_PATH 
 # doesn't contain the string build, prepend ../build/{util,core,dynld}.
 
+# -------------- GLOBALS --------------
+
 # scons may not set HOSTNAME
 export HOSTNAME=`hostname`
 vgopts="--suppressions=suppressions.txt --gen-suppressions=all --leak-check=full"
 valgrind="valgrind $vgopts"
+sspids=()
+dsmpid=
+# The version of xmlrpc we're using on bionic debian does not do a pselect/ppoll
+# when it waits for connections, meaning that it can't atomically detect
+# a signal and exit.  So on these systems don't start xmlrpc thread with
+# the -r option, because dsm_server won't shut down with a simple TERM signal,
+# and has to be killed with -9, which causes the test to fail.
+source /etc/os-release
+xmlrpcopt=
+[ "$ID" != ubuntu ] && xmlrpcopt=-r
+dsm_errs=0
+svr_errs=0
 
 installed=false
 debugging=false
+testnames=
 while [ $# -gt 0 ]; do
     case "$1" in
         -i) installed=true;;
         -d) debugging=true ;;
+        *) testnames="$testnames $1";;
     esac
     shift
 done
+echo testnames=$testnames
+
+# ---------------------------------------
 
 if ! $installed; then
 
-    echo $PATH | grep -F -q build/apps || PATH=../../build/apps:$PATH
-
-    llp=../../build/util:../../build/core:../../build/dynld
-    echo $LD_LIBRARY_PATH | grep -F -q build || \
-        export LD_LIBRARY_PATH=$llp${LD_LIBRARY_PATH:+":$LD_LIBRARY_PATH"}
-
-    echo LD_LIBRARY_PATH=$LD_LIBRARY_PATH
-    echo PATH=$PATH
-
-    if ! which dsm | grep -F -q build/; then
+    # I'm not sure this is actually necessary, since scons should set this
+    # up already...
+    # 
+    if [ -n "$VARIANT_DIR" ]; then
+        source "$VARIANT_DIR/bin/setup_nidas.sh"
+    fi
+    if ! which dsm | grep -F -q build_; then
         echo "dsm program not found on build directory. PATH=$PATH"
         exit 1
     fi
-    if ! ldd `which dsm` | awk '/libnidas/{if (index($0,"build/") == 0) exit 1}'; then
+    if ! ldd `which dsm` | awk '/libnidas/{if (index($0,"build_") == 0) exit 1}'; then
         echo "using nidas libraries from somewhere other than a build directory"
         exit 1
     fi
 fi
-
-# echo PATH=$PATH
-# echo LD_LIBRARY_PATH=$LD_LIBRARY_PATH
 
 echo "dsm executable: `which dsm`"
 echo "nidas libaries:"
@@ -52,7 +65,7 @@ ldd `which dsm` | grep -F libnidas
 
 if $debugging; then
     export TEST=/tmp/test_debug
-    mkdir $TEST
+    mkdir -p $TEST
 else
     export TEST=$(mktemp -d --tmpdir test_XXXXXX)
     trap "{ rm -rf $TEST; }" EXIT
@@ -65,21 +78,23 @@ valgrind_errors() {
         sed -n 's/^==[0-9]*== ERROR SUMMARY: \([0-9]*\).*/\1/p' $1 || echo 1
 }
 
-start_dsm()
+start_dsm() # config
 {
-    export NIDAS_SVC_PORT_UDP=`find_udp_port`
-    echo "Using port=$NIDAS_SVC_PORT_UDP"
+    config="$1"
 
     rm -f $TEST/dsm.log
     rm -f $TEST/${HOSTNAME}_*
 
     # start dsm data collection
     rm -f $TEST/dsm.pid
-    ( $valgrind dsm -d --pid $TEST/dsm.pid -l 6 config/test.xml 2>&1 | tee $TEST/dsm.log ) &
+    (set -x
+     $valgrind dsm -d --pid $TEST/dsm.pid -l 6 $config 2>&1 | \
+     tee $TEST/dsm.log ) &
     dsmpid=$!
 }
 
-kill_dsm() {
+kill_dsm()
+{
     echo "doing kill_dsm"
     # send a TERM signal to dsm process
     nkill=0
@@ -88,6 +103,40 @@ kill_dsm() {
         echo "Doing kill -TERM $dsmpid"
         kill -TERM $dsmpid
         while ps -p $dsmpid > /dev/null; do
+            if [ $nkill -gt 10 ]; then
+                echo "Doing kill -9 $dsmpid"
+                kill -9 $dsmpid
+            fi
+            nkill=$(($nkill + 1))
+            sleep 1
+        done
+    fi
+}
+
+start_dsm_server()
+{
+    rm -f $TEST/dsm_server.log
+    rm -f $TEST/server_*
+
+    export NIDAS_CONFIGS=config/configs.xml
+    # valgrind --tool=helgrind dsm_server -d -l 6 -r -c > $TEST/dsm_server.log 2>&1 &
+    # --gen-suppressions=all
+    (set -x; exec $valgrind dsm_server -d -l 6 $xmlrpcopt -c > $TEST/dsm_server.log 2>&1) &
+
+    # seems like this should be synchronized on something, but I'm not sure
+    # what.
+    sleep 10
+}
+
+
+kill_dsm_server() {
+    # send a TERM signal to valgrind dsm_server process
+    nkill=0
+    dsmpid=`pgrep -f "valgrind.* dsm_server"`
+    if [ -n "$dsmpid" ]; then
+        echo "Doing kill -TERM $dsmpid"
+        kill -TERM $dsmpid
+        while ps -p $dsmpid -f; do
             if [ $nkill -gt 10 ]; then
                 echo "Doing kill -9 $dsmpid"
                 kill -9 $dsmpid
@@ -142,6 +191,9 @@ find_udp_port() {
     echo $port
 }
 
+export NIDAS_SVC_PORT_UDP=`find_udp_port`
+echo "Using port=$NIDAS_SVC_PORT_UDP"
+
 
 badexit() {
     if $debugging; then
@@ -155,8 +207,6 @@ badexit() {
     exit 1
 }
 
-
-sspids=()
 
 start_sim() # device [arg ...]
 {
@@ -185,7 +235,164 @@ wait_on_sims()
 }
 
 
-# Start sensor simulations on pseudo-terminals.
+start_sensors()
+{
+    sspids=()
+    devices="test0 test1 test2 test3 test4 test5"
+    remove_devices $devices
+
+    # even though the sonic on test2 and prompted sensor on test5 will wait before
+    # sending data, they cannot start reading until the other pty is open, so they
+    # do not use -C either.
+    start_sim test0 -f data/test.dat -e "\n" -r 10
+    start_sim test1 -f data/test.dat -b $'\e' -r 10
+    # simulate Campbell sonic
+    start_sim test2 -c -r 60 -n 256
+    start_sim test3 -f data/repeated_sep.dat -e xxy -r 1
+    start_sim test4 -f data/repeated_sep.dat -b xxy -r 1
+    start_sim test5 -f data/repeated_sep.dat -p "hello\n" -e "\n"
+    # make sure the pseudo terminals have been created before starting dsm
+    wait_for_devices $devices
+}
+
+
+check_output() # fileprefix
+{
+    fp=$1
+    # check output data file for the expected number of samples
+    ofiles=($TEST/${fp}_*)
+    if [ ${#ofiles[*]} -ne 1 ]; then
+        echo "Expected one output file, got ${#ofiles[*]}"
+        badexit
+    fi
+
+    # run data_stats on raw data file
+    statsf=$TEST/data_stats_${fp}.out
+    data_stats $ofiles > $statsf
+
+    ns=`grep -E "^$HOSTNAME:$TEST/test" $statsf | wc | awk '{print $1}'`
+    if [ $ns -ne $nsensors ]; then
+        echo "Expected $nsensors sensors in $statsf, got $ns"
+        badexit
+    fi
+
+    # should see these numbers of raw samples
+    nsamps=(53 52 257 6 5 5)
+    rawok=true
+    rawsampsok=true
+    for (( i = 0; i < $nsensors; i++)); do
+        sname=test$i
+        awk "
+            /^$HOSTNAME:\/.*\/$sname/{
+                nmatch++
+            }
+            END{
+                if (nmatch != 1) {
+                    print \"can't find sensor $TEST/$sname in raw data_stats output\"
+                    exit(1)
+                }
+            }
+        " $statsf || rawok=false
+
+        nsamp=${nsamps[$i]}
+        awk -v nsamp=$nsamp "
+            /^$HOSTNAME:\/.*\/$sname/{
+                if (\$4 < nsamp) {
+                    print \"sensor $sname, nsamps=\" \$4 \", should be \" nsamp
+                    exit(1)
+                }
+            }
+    " $statsf || rawsampsok=false
+    done
+
+    cat $statsf
+    if ! $rawok || ! $rawsampsok; then
+        echo "${0##*/}: raw sample test failed"
+    else
+        echo "${0##*/}: raw sample test OK"
+    fi
+
+    # run data through process methods
+    data_stats -p $ofiles > $statsf
+
+    ns=`grep -E "^test1" $statsf | wc | awk '{print $1}'`
+    if [ $ns -ne $nsensors ]; then
+        echo "Expected $nsensors sensors in $statsf, got $ns"
+        badexit
+    fi
+
+    # should see these numbers of processed samples
+    # The data file for the first 2 sensors has one bad record, so we
+    # see one less processed sample.
+    # The CSAT3 sonic sensor_sim sends out 1 query sample, and 256 data samples.
+    # The process method discards first two samples so we see 254.
+
+    nsamps=(52 50 254 5 4 5)
+    procok=true
+    procsampsok=true
+    for (( i = 0; i < $nsensors; i++)); do
+        sname=test1.t$(($i + 1))
+        awk "
+            /^$sname/{
+                nmatch++
+            }
+            END{
+                if (nmatch != 1) {
+                    print \"can't find variable $sname in processed data_stats output\"
+                    exit(1)
+                }
+            }
+            " $statsf || procok=false
+
+        nsamp=${nsamps[$i]}
+        awk -v nsamp=$nsamp "
+            /^$sname/{
+                if (\$4 != nsamp) {
+                    print \"sensor $sname, nsamps=\" \$4 \", should be \" nsamp
+                    exit(1)
+                }
+            }
+            " $statsf || procsampsok=false
+    done
+
+    cat $statsf
+
+    if ! $procok || ! $procsampsok; then
+        echo "${0##*/}: proc sample test failed"
+    else
+        echo "${0##*/}: proc sample test OK"
+    fi
+
+    if [ $fp != server ]; then
+        # check for valgrind errors in dsm process
+        dsm_errs=`valgrind_errors $TEST/dsm.log`
+        echo "$dsm_errs errors reported by valgrind in $TEST/dsm.log"
+    else
+        # check for valgrind errors in dsm_server
+        if [ -f $TEST/dsm_server.log ]; then
+            svr_errs=`valgrind_errors $TEST/dsm_server.log`
+            echo "$svr_errs errors reported by valgrind in $TEST/dsm_server.log"
+        fi
+    fi
+}
+
+
+finish_test()
+{
+    ! $procok || ! $rawok && badexit
+
+    ! $procsampsok || ! $rawsampsok && badexit
+
+    if [ $dsm_errs -eq 0 -a $svr_errs -eq 0 ]; then
+        echo "${0##*/}: $test_name OK"
+    else
+        [ $dsm_errs -gt 0 ] && cat $TEST/dsm.log
+        [ $svr_errs -gt 0 ] && cat $TEST/dsm_server.log
+        echo "${0##*/}: $test_name failed"
+        badexit
+    fi
+}
+
 
 # Previously, this script scanned for "opening $TEST/testN" messages in the
 # dsm.log to know when it was safe to signal the simulators to continue.
@@ -219,151 +426,33 @@ wait_on_sims()
 # reads, the sensor_sim processes would have to be synchronized somehow, such
 # as by all running in one process.
 
-kill_dsm
-
-devices="test0 test1 test2 test3 test4 test5"
-remove_devices $devices
-
-# even though the sonic on test2 and prompted sensor on test5 will wait before
-# sending data, they cannot start reading until the other pty is open, so they
-# do not use -C either.
-start_sim test0 -f data/test.dat -e "\n" -r 10
-start_sim test1 -f data/test.dat -b $'\e' -r 10
-# simulate Campbell sonic
-start_sim test2 -c -r 60 -n 256
-start_sim test3 -f data/repeated_sep.dat -e xxy -r 1
-start_sim test4 -f data/repeated_sep.dat -b xxy -r 1
-start_sim test5 -f data/repeated_sep.dat -p "hello\n" -e "\n"
-
-# this makes sure the pseudo terminals have been created before starting dsm
-wait_for_devices $devices
-start_dsm
-wait_on_sims
-kill_dsm
-
-# check output data file for the expected number of samples
-ofiles=($TEST/${HOSTNAME}_*)
-if [ ${#ofiles[*]} -ne 1 ]; then
-    echo "Expected one output file, got ${#ofiles[*]}"
-    badexit
-fi
-
-# run data_stats on raw data file
-statsf=$TEST/data_stats.out
-data_stats $ofiles > $statsf
-
-ns=`grep -E "^$HOSTNAME:$TEST/test" $statsf | wc | awk '{print $1}'`
-if [ $ns -ne $nsensors ]; then
-    echo "Expected $nsensors sensors in $statsf, got $ns"
-    badexit
-fi
-
-# should see these numbers of raw samples
-nsamps=(53 52 257 6 5 5)
-rawok=true
-rawsampsok=true
-for (( i = 0; i < $nsensors; i++)); do
-    sname=test$i
-
-    awk "
-/^$HOSTNAME:\/.*\/$sname/{
-    nmatch++
+test_serial_dsm()
+{
+    start_sensors
+    start_dsm config/test.xml
+    wait_on_sims
+    kill_dsm
+    check_output
+    finish_test
 }
-END{
-    if (nmatch != 1) {
-        print \"can't find sensor $TEST/$sname in raw data_stats output\"
-        exit(1)
-    }
-}
-" $statsf || rawok=false
 
-    nsamp=${nsamps[$i]}
-    awk -v nsamp=$nsamp "
-/^$HOSTNAME:\/.*\/$sname/{
-    nmatch++
-    if (\$4 < nsamp) {
-        print \"sensor $sname, nsamps=\" \$4 \", should be \" nsamp
-        # if (\$4 < nsamp - 2) exit(1)
-        exit(1)
-    }
+
+test_serial_dsm_server()
+{
+    # like test_serial_dsm, but run dsm_server too
+    start_sensors
+    start_dsm_server
+    start_dsm sock:localhost:$NIDAS_SVC_PORT_UDP
+    wait_on_sims
+    kill_dsm
+    kill_dsm_server
+    check_output $HOSTNAME
+    check_output server
+    finish_test
 }
-" $statsf || rawsampsok=false
+
+
+for test in $testnames ; do
+    test_name=$test
+    eval $test
 done
-
-cat $statsf
-if ! $rawok; then
-    echo "${0##*/}: raw sample test failed"
-else
-    echo "${0##*/}: raw sample test OK"
-fi
-
-# run data through process methods
-statsf=$TEST/data_stats.out
-$valgrind data_stats -l 6 -p $ofiles > $statsf
-
-ns=`grep -E "^test1" $statsf | wc | awk '{print $1}'`
-if [ $ns -ne $nsensors ]; then
-    echo "Expected $nsensors sensors in $statsf, got $ns"
-    badexit
-fi
-
-# should see these numbers of processed samples
-# The data file for the first 2 sensors has one bad record, so we
-# see one less processed sample.
-# The CSAT3 sonic sensor_sim sends out 1 query sample, and 256 data samples.
-# The process method discards first two samples so we see 254.
-
-# we sometimes see less than the expected number of samples.
-# Needs investigation.
-
-nsamps=(52 50 254 5 4 5)
-procok=true
-procsampsok=true
-for (( i = 0; i < $nsensors; i++)); do
-    sname=test1.t$(($i + 1))
-    awk "
-/^$sname/{
-    nmatch++
-}
-END{
-    if (nmatch != 1) {
-        print \"can't find variable $sname in processed data_stats output\"
-        exit(1)
-    }
-}
-" $statsf || procok=false
-
-    nsamp=${nsamps[$i]}
-    awk -v nsamp=$nsamp "
-/^$sname/{
-    nmatch++
-    if (\$4 != nsamp) {
-        print \"sensor $sname, nsamps=\" \$4 \", should be \" nsamp
-        # if (\$4 < nsamp - 2) exit(1)
-        exit(1)
-    }
-}
-" $statsf || procsampsok=false
-done
-
-cat $statsf
-
-# check for valgrind errors in dsm process
-dsm_errs=`valgrind_errors $TEST/dsm.log`
-echo "$dsm_errs errors reported by valgrind in $TEST/dsm.log"
-
-echo "rawok=$rawok, procok=$procok, dsm_errs=$dsm_errs"
-
-! $procok || ! $rawok && badexit
-
-! $procsampsok || ! $rawsampsok && badexit
-
-if [ $dsm_errs -eq 0 ]; then
-    echo "${0##*/}: serial_sensor test OK"
-    exit 0
-else
-    cat $TEST/dsm.log
-    echo "${0##*/}: serial_sensor test failed"
-    badexit
-fi
-
