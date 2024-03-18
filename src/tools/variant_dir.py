@@ -32,6 +32,8 @@ def generate(env: Environment):
     env['VARIANT_OS'] = si.get_os()
     env['VARIANT_ARCH'] = si.get_arch()
     env.AddMethod(si.get_debian_multiarch, "GetDebianMultiarch")
+    # add it to the environment for scripts to use, especially test scripts.
+    env['ENV']['VARIANT_DIR'] = env.Dir('$VARIANT_DIR').abspath
 
 
 def exists(env):
