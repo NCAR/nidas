@@ -1,17 +1,17 @@
 
-#include <iostream>
-#include <string>
-#include <sstream>
-#include <iomanip>
-#include <unistd.h>
 #include <fcntl.h>
 #include <fstream>
-#include <stdlib.h>
-#include <nidas/core/NidasApp.h>
-#include <nidas/core/HardwareInterface.h>
-#include <nidas/util/Termios.h>
-#include <nidas/util/Exception.h>
+#include <iomanip>
+#include <iostream>
 #include <json/json.h>
+#include <nidas/core/HardwareInterface.h>
+#include <nidas/core/NidasApp.h>
+#include <nidas/util/Exception.h>
+#include <nidas/util/Termios.h>
+#include <sstream>
+#include <stdlib.h>
+#include <string>
+#include <unistd.h>
 
 using namespace nidas::core;
 using namespace nidas::util;
@@ -20,19 +20,16 @@ using std::cerr;
 using std::cout;
 using std::endl;
 
-
 NidasApp app("button_action");
-
-
-
 
 std::string Path;
 std::string checkedDevice;
-int slp=1;
+int slp = 1;
 
-void usage()
+void
+usage()
 {
-    cerr << R""""(Usage: button_action [path] [checkedDevice] [sleep]
+  cerr << R""""(Usage: button_action [path] [checkedDevice] [sleep]
 
 Read input from button and depending on current state (indicated by led), turn associated functions on or off.
     
@@ -48,17 +45,19 @@ Read input from button and depending on current state (indicated by led), turn a
 
     Optional int indicating how long between each check for button press. If no value provided, defaults to 1.
     )""""
-    <<endl<<app.usage()<<endl;
+       << endl
+       << app.usage() << endl;
 }
 
-
-int toomany(const std::string& msg)
+int
+toomany(const std::string& msg)
 {
     cerr << msg << ": too many arguments.  Use -h for help." << endl;
     return 1;
 }
 
-int parseRunString(int argc, char* argv[])
+int
+parseRunString(int argc, char* argv[])
 {
     app.enableArguments(app.loggingArgs() | app.Help | app.DebugDaemon);
 
@@ -69,66 +68,72 @@ int parseRunString(int argc, char* argv[])
         return 1;
     }
 
-      // Get positional args
+    // Get positional args
     ArgVector pargs = app.unparsedArgs();
-    if(pargs.size()==0)
+    if (pargs.size() == 0)
     {
         usage();
         return 1;
     }
-    for (auto& arg: pargs)
-    {   
-        if(pargs.size()>3){
+    for (auto& arg : pargs)
+    {
+        if (pargs.size() > 3)
+        {
             return toomany(arg);
         }
-        if(Path.empty()){
-            Path=arg;
+        if (Path.empty())
+        {
+            Path = arg;
             continue;
         }
-        if(checkedDevice.empty()){
-            checkedDevice=arg;
+        if (checkedDevice.empty())
+        {
+            checkedDevice = arg;
             continue;
         }
         int f;
-        try{
-            f=std::stoi(arg);
+        try
+        {
+            f = std::stoi(arg);
         }
-        catch(...){
-            std::cerr<<"Please enter valid sleep value >0."<<endl;
+        catch (...)
+        {
+            std::cerr << "Please enter valid sleep value >0." << endl;
             return 1;
         }
-        if(f>0){
-            slp=f;
+        if (f > 0)
+        {
+            slp = f;
         }
-        else{
-            std::cerr<<"Please enter valid sleep value >0."<<endl;
+        else
+        {
+            std::cerr << "Please enter valid sleep value >0." << endl;
             return 1;
         }
         continue;
-  
+
         std::cerr << "operation unknown: " << arg << endl;
         return 1;
     }
     return 0;
-
-
 }
 
-//runs whatever action is associated with given button, such as turning wifi on/off
-void runaction(std::string Device, bool isOn, Json::Value root)
-{ 
-    Json::Value devRoot=root[Device];
+// runs whatever action is associated with given button, such as turning wifi
+// on/off
+void
+runaction(std::string Device, bool isOn, Json::Value root)
+{
+    Json::Value devRoot = root[Device];
     std::string com;
-    if(isOn)
+    if (isOn)
     {
-        com= devRoot["off"].asString();
-        
+        com = devRoot["off"].asString();
     }
-    else{
-        com=devRoot["on"].asString();
-
+    else
+    {
+        com = devRoot["on"].asString();
     }
-    ILOG(("Running command ")<<com);
+    ILOG(("Running command ") << com);
     auto status = system(com.c_str());
     if (!WIFEXITED(status) || WEXITSTATUS(status) != 0)
     {
@@ -136,38 +141,43 @@ void runaction(std::string Device, bool isOn, Json::Value root)
     }
 }
 
-std::tuple<Json::Value, Json::Value::Members> readJson()
+std::tuple<Json::Value, Json::Value::Members>
+readJson()
 {
-    if(Path.empty()){
+    if (Path.empty())
+    {
         PLOG(("No json file path entered"));
         exit(1);
     }
-    std::ifstream jFile(Path,std::ifstream::in);
-    if(!jFile.is_open()){
-        PLOG(("Could not open ")<<Path);
+    std::ifstream jFile(Path, std::ifstream::in);
+    if (!jFile.is_open())
+    {
+        PLOG(("Could not open ") << Path);
         exit(1);
     }
     Json::Value root;
-    try{
-        jFile>>root;
+    try
+    {
+        jFile >> root;
     }
-    catch(...){
-        PLOG(("Could not parse file ")<<Path);
+    catch (...)
+    {
+        PLOG(("Could not parse file ") << Path);
         jFile.close();
         exit(1);
     }
     jFile.close();
-    auto devs=root.getMemberNames();
-    if(devs.size()<1){
-        PLOG(("Format error in file ")<<Path);
+    auto devs = root.getMemberNames();
+    if (devs.size() < 1)
+    {
+        PLOG(("Format error in file ") << Path);
         exit(1);
     }
-    std::tuple<Json::Value, Json::Value::Members> res(root,devs);
+    std::tuple<Json::Value, Json::Value::Members> res(root, devs);
     return res;
-
 }
 
-/*json file example format 
+/*json file example format
 {
     "device1":{
         "on": "command",
@@ -181,125 +191,137 @@ std::tuple<Json::Value, Json::Value::Members> readJson()
 
 }
 */
-//checks status of wifi using rfkill
-bool wifiStatus(std::string file, std::string device){
-    std::string command= "rfkill -J > ";
+
+// checks status of wifi using rfkill
+bool
+wifiStatus(std::string file, std::string device)
+{
+    std::string command = "rfkill -J > ";
     command.append(file);
     int status = system(command.c_str());
     if (!WIFEXITED(status) || WEXITSTATUS(status) != 0)
     {
         throw nidas::util::Exception(command, errno);
     }
-    std::ifstream jFile(file,std::ifstream::in);
-    if(!jFile.is_open()){
-        PLOG(("Could not open ")<<file);
+    std::ifstream jFile(file, std::ifstream::in);
+    if (!jFile.is_open())
+    {
+        PLOG(("Could not open ") << file);
         exit(1);
     }
     Json::Value root;
-    try{
-        jFile>>root;
+    try
+    {
+        jFile >> root;
     }
-    catch(...){
-        PLOG(("Could not parse file ")<<file);
+    catch (...)
+    {
+        PLOG(("Could not parse file ") << file);
         jFile.close();
         exit(1);
     }
     jFile.close();
-    std::string arrName=root.getMemberNames()[0];
+    std::string arrName = root.getMemberNames()[0];
     Json::Value wifi;
-    for(auto i : root[arrName]){
-        if(i["device"]==device){
-            wifi=i;
+    for (auto i : root[arrName])
+    {
+        if (i["device"] == device)
+        {
+            wifi = i;
         }
     }
-    bool notBlocked=false;
-    if(wifi["soft"]=="unblocked"){
-        notBlocked=true;
+    bool notBlocked = false;
+    if (wifi["soft"] == "unblocked")
+    {
+        notBlocked = true;
     }
     return notBlocked;
 }
-//checks given device for button and led states, calls associated action, and toggles led
-int check(std::string Device, Json::Value root,bool wifiStatus)
+
+// checks given device for button and led states, calls associated action, and
+// toggles led
+int
+check(std::string Device, Json::Value root, bool wifiStatus)
 {
-    HardwareDevice device= HardwareDevice::lookupDevice(Device);
-    
+    HardwareDevice device = HardwareDevice::lookupDevice(Device);
+
     if (device.isEmpty())
     {
-        PLOG(("Unrecognized device: ")<<Device);
+        PLOG(("Unrecognized device: ") << Device);
         return 2;
     }
     auto output = device.iOutput();
-    if(!output)
+    if (!output)
     {
-        PLOG(("Unable to open ")<<Device);
+        PLOG(("Unable to open ") << Device);
         return 3;
     }
-    auto ledState=output->getState();
-    if(Device==checkedDevice){
-        if(wifiStatus==true && ledState==OutputState::OFF){
+    auto ledState = output->getState();
+    if (Device == checkedDevice)
+    {
+        if (wifiStatus == true && ledState == OutputState::OFF)
+        {
             output->on();
         }
-        else if(wifiStatus==false && ledState==OutputState::ON){
+        else if (wifiStatus == false && ledState == OutputState::ON)
+        {
             output->off();
         }
     }
     auto button = device.iButton();
-    if(button->isDown())
+    if (button->isDown())
     {
-        if(ledState==OutputState::OFF)
+        if (ledState == OutputState::OFF)
         {
-            runaction(Device,false,root);
-            output->on(); //turns LED on
+            runaction(Device, false, root);
+            output->on(); // turns LED on
         }
         else
-        {    
-            runaction(Device,true,root);
-            output->off(); //turns LED off
-                
+        {
+            runaction(Device, true, root);
+            output->off(); // turns LED off
         }
-        bool release=false;
-        while(release==false){
-            if(button->isUp()){
-                release=true;
+        bool release = false;
+        while (release == false)
+        {
+            if (button->isUp())
+            {
+                release = true;
             }
             sleep(1);
         }
-       
-        
     }
     return 0;
-
 }
 
-
-
-int main(int argc, char* argv[]) {
+int
+main(int argc, char* argv[])
+{
 
     if (parseRunString(argc, argv))
-     {
+    {
         exit(1);
-     }
-    auto tup=readJson();
-    auto root=std::get<0>(tup);
-    auto devs=std::get<1>(tup);
-    app.setupDaemon(); 
-    int count=6;
-    bool status=false;
-    while(true){
+    }
+    auto tup = readJson();
+    auto root = std::get<0>(tup);
+    auto devs = std::get<1>(tup);
+    app.setupDaemon();
+    int count = 6;
+    bool status = false;
+    while (true)
+    {
         for (auto i : devs)
-        {   
-            if(i==checkedDevice && count==6){
-                status=wifiStatus("rfkill.json",root[i]["deviceName"].asString());
-                count=0;
+        {
+            if (i == checkedDevice && count == 6)
+            {
+                status = wifiStatus("rfkill.json",
+                                    root[i]["deviceName"].asString());
+                count = 0;
             }
-            check(i, root,status);
+            check(i, root, status);
         }
-      
+
         sleep(slp);
         count++;
     }
-
 }
-
-
-
