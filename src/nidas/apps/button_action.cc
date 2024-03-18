@@ -26,11 +26,12 @@ NidasApp app("button_action");
 
 
 std::string Path;
-float slp=1;
+std::string checkedDevice;
+int slp=1;
 
 void usage()
 {
-    cerr << R""""(Usage: button_action [path] [sleep]
+    cerr << R""""(Usage: button_action [path] [checkedDevice] [sleep]
 
 Read input from button and depending on current state (indicated by led), turn associated functions on or off.
     
@@ -38,9 +39,13 @@ Read input from button and depending on current state (indicated by led), turn a
 
     File path to json file containing commands to be executed on button press.
 
+    checkedDevice:
+
+    HardwareDevice which needs to check for status from rfkill. Currently only 'wifi' implemented.
+
     sleep:
 
-    Optional float indicating how long between each check for button press. If no value provided, defaults to 1.
+    Optional int indicating how long between each check for button press. If no value provided, defaults to 1.
     )""""
     <<endl<<app.usage()<<endl;
 }
@@ -79,9 +84,13 @@ int parseRunString(int argc, char* argv[])
             Path=arg;
             continue;
         }
-        float f;
+        if(checkedDevice.empty()){
+            checkedDevice=arg;
+            continue;
+        }
+        int f;
         try{
-            f=std::stof(arg);
+            f=std::stoi(arg);
         }
         catch(...){
             std::cerr<<"Please enter valid sleep value >0."<<endl;
@@ -154,11 +163,13 @@ std::tuple<Json::Value, Json::Value::Members> readJson()
     return res;
 
 }
+
 /*json file example format 
 {
     "device1":{
         "on": "command",
         "off": "command",
+        "deviceName": "rfkilldevicename"
     },
     "device2": {
         "on": "command"
@@ -167,8 +178,42 @@ std::tuple<Json::Value, Json::Value::Members> readJson()
 
 }
 */
+//checks status of wifi using rfkill
+bool wifiStatus(std::string file, std::string device){
+    std::string command= "rfkill -J > ";
+    command.append(file);
+    const char* commandp=command.c_str();
+    system(commandp);
+    std::ifstream jFile(file,std::ifstream::in);
+    if(!jFile.is_open()){
+        PLOG(("Could not open ")<<file);
+        exit(1);
+    }
+    Json::Value root;
+    try{
+        jFile>>root;
+    }
+    catch(...){
+        PLOG(("Could not parse file ")<<file);
+        jFile.close();
+        exit(1);
+    }
+    jFile.close();
+    std::string arrName=root.getMemberNames()[0];
+    Json::Value wifi;
+    for(auto i : root[arrName]){
+        if(i["device"]==device){
+            wifi=i;
+        }
+    }
+    bool notBlocked=false;
+    if(wifi["soft"]=="unblocked"){
+        notBlocked=true;
+    }
+    return notBlocked;
+}
 //checks given device for button and led states, calls associated action, and toggles led
-int check(std::string Device, Json::Value root)
+int check(std::string Device, Json::Value root,bool wifiStatus)
 {
     HardwareDevice device= HardwareDevice::lookupDevice(Device);
     
@@ -183,10 +228,18 @@ int check(std::string Device, Json::Value root)
         PLOG(("Unable to open ")<<Device);
         return 3;
     }
+    auto ledState=output->getState();
+    if(Device==checkedDevice){
+        if(wifiStatus==true && ledState==OutputState::OFF){
+            output->on();
+        }
+        else if(wifiStatus==false && ledState==OutputState::ON){
+            output->off();
+        }
+    }
     auto button = device.iButton();
     if(button->isDown())
     {
-         auto ledState=output->getState();
         if(ledState==OutputState::OFF)
         {
             runaction(Device,false,root);
@@ -212,6 +265,8 @@ int check(std::string Device, Json::Value root)
 
 }
 
+
+
 int main(int argc, char* argv[]) {
 
     if (parseRunString(argc, argv))
@@ -222,15 +277,20 @@ int main(int argc, char* argv[]) {
     auto root=std::get<0>(tup);
     auto devs=std::get<1>(tup);
     app.setupDaemon(); 
+    int count=6;
+    bool status=false;
     while(true){
-        bool buttonPress=false;
         for (auto i : devs)
-        { 
-            check(i, root);
+        {   
+            if(i==checkedDevice && count==6){
+                status=wifiStatus("rfkill.json",root[i]["deviceName"].asString());
+                count=0;
+            }
+            check(i, root,status);
         }
       
-            sleep(slp);
-        
+        sleep(slp);
+        count++;
     }
 
 }
