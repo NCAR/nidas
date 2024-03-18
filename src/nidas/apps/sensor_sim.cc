@@ -30,6 +30,7 @@
 #include <cstring>
 
 #include <nidas/core/Looper.h>
+#include <nidas/core/NidasApp.h>
 
 #include <nidas/core/CharacterSensor.h>
 #include <nidas/util/SerialPort.h>
@@ -597,53 +598,48 @@ C0o=-2-2-2 C0b=-2-2-2 RC=0 tlo=8 8 8 tlb=8 8 8 DTR=01740 CA=1 TD=  duty=086     
 class SensorSimApp
 {
 public:
-    SensorSimApp();
+    SensorSimApp() = default;
     int parseRunstring(int argc, char** argv);
     static int usage(const char* argv0);
     int main();
 
 private:
-    string _device;
-    enum sens_type _type;
-    enum sep_type _septype;
-    string _outputMessage;
-    string _separator;
-    bool _prompted;
-    string _prompt;
-    bool _openpty;
-    bool _verbose;
-    float _rate;
-    int _nmessages;
-    string _fixedMessage;
-    string _inputFile;
-    bool _onceThru;
+    string _device {};
+    enum sens_type _type {UNKNOWN};
+    enum sep_type _septype {EOM_SEPARATOR};
+    string _outputMessage {};
+    string _separator {"\r\n"};
+    bool _prompted {false};
+    string _prompt {};
+    bool _openpty {false};
+    bool _verbose {false};
+    float _rate {1.0};
+    int _nmessages {-1};
+    string _fixedMessage {};
+    string _inputFile {};
+    bool _onceThru {false};
     static string defaultTermioOpts;
-    string _termioOpts;
-    bool _continue;
+    string _termioOpts {SensorSimApp::defaultTermioOpts};
+    bool _continue {false};
+    int _timeout {0};
+    bool _wait_for_hup {false};
 };
 
 /* static */
 string SensorSimApp::defaultTermioOpts = "9600n81lnr";
 
-SensorSimApp::SensorSimApp():
-    _device(),
-    _type(UNKNOWN),
-    _septype(EOM_SEPARATOR),
-    _outputMessage(),
-    _separator("\r\n"),
-    _prompted(false),
-    _prompt(),
-    _openpty(false),
-    _verbose(false),
-    _rate(1.0),
-    _nmessages(-1),
-    _fixedMessage(),
-    _inputFile(),
-    _onceThru(false),
-    _termioOpts(defaultTermioOpts),
-    _continue(false)
+
+void
+handle_alarm(int signum)
 {
+    if (signum == SIGALRM)
+    {
+        cerr << "timeout reached, exiting." << endl;
+        exit(9);
+    }
 }
+
+
 
 int
 SensorSimApp::parseRunstring(int argc, char** argv)
@@ -652,7 +648,8 @@ SensorSimApp::parseRunstring(int argc, char** argv)
     extern int optind;   /* "  "     "     */
     int opt_char;        /* option character */
 
-    while ((opt_char = getopt(argc, argv, "b:B:ce:f:F:igm:n:o:p:r:tvC")) != -1)
+    while ((opt_char = getopt(argc, argv,
+                              "b:B:ce:f:F:igm:n:o:p:r:tvCa:H")) != -1)
     {
         switch (opt_char)
         {
@@ -713,6 +710,12 @@ SensorSimApp::parseRunstring(int argc, char** argv)
         case 'C':
             _continue = true;
             break;
+        case 'a':
+            _timeout = atoi(optarg);
+            break;
+        case 'H':
+            _wait_for_hup = true;
+            break;
         case '?':
             return usage(argv[0]);
         }
@@ -732,9 +735,8 @@ int
 SensorSimApp::usage(const char* argv0)
 {
     cerr << "\
-Usage: " << argv0
-         << " [-b sep] [-c] [-e sep] [-f file|-] [-F file|-]\n\
-    [-i] [-m msg] [-o termio_opts] [-p prompt] [-r rate] [-v] [-t] device\n\
+Usage: " << argv0 << " [options ...] device\n"
+         << "\
   -b sep: send separator at beginning of message\n\
     separator can contain backslash sequences, like \\r, \\n or \\xhh,\n\
     where hh are two hex digits\n\
@@ -775,8 +777,10 @@ Usage: " << argv0
   -p prompt: read given prompt string on serial port before sending data record\n\
   -r rate: generate data at given rate, in Hz (for unprompted sensor)\n\
   -C: continue immediately rather than waiting for the CONT signal\n\
+  -H: continue when HUP clears rather than waiting for CONT signal\n\
   -v: Verbose mode.  Echo simulated output and other messages.\n\
   -t: create pseudo-terminal device instead of opening serial device\n\
+  -a seconds: set a timeout in seconds to exit with alarm()\n\
   device: Name of serial device or pseudo-terminal, e.g. /dev/ttyS1, or /tmp/pty/dev0\n\n\
 " << n_u::SerialOptions::usage()
          << "\n\
@@ -794,7 +798,8 @@ SensorSimApp::main()
 
         if (_openpty)
         {
-            int fd = n_u::SerialPort::createPtyLink(_device);
+            int fd = n_u::SerialPort::createPty(_wait_for_hup);
+            n_u::SerialPort::createLinkToPty(_device, fd);
             port.reset(new n_u::SerialPort("/dev/ptmx", fd));
         }
         else
@@ -843,12 +848,33 @@ SensorSimApp::main()
         // After terminal is opened, STOP and wait for instructions...
         if (!_continue && (_nmessages >= 0 || _onceThru))
         {
-            if (_verbose)
-                cerr << "stopping, continue with kill -CONT %1 ..." << endl;
-            kill(getpid(), SIGSTOP);
+            if (_wait_for_hup)
+            {
+                // do not continue until HUP clears.
+                if (_verbose)
+                    cerr << "waiting for pts to be opened ..." << endl;
+                int timeout = (_timeout != 0 ? _timeout : -1);
+                bool opened = n_u::SerialPort::waitForOpen(port->getFd(),
+                                                           timeout);
+                if (!opened)
+                {
+                    cerr << "timeout waiting for HUP to clear." << endl;
+                    exit(1);
+                }
+            }
+            else
+            {
+                if (_verbose)
+                    cerr << "waiting for kill -CONT %1 ..." << endl;
+                kill(getpid(), SIGSTOP);
+            }
         }
 
-        // sleep(1);
+        if (_timeout > 0)
+        {
+            NidasApp::addSignal(SIGALRM, handle_alarm);
+            alarm(_timeout);
+        }
 
         sim->run();
 
