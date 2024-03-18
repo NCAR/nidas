@@ -5,10 +5,10 @@ pipeline {
   options {
     buildDiscarder(
       logRotator(
-        artifactDaysToKeepStr: '7',
-        daysToKeepStr: '14',
-        numToKeepStr: '2',
-        artifactNumToKeepStr: '2'
+        artifactDaysToKeepStr: '28',
+        daysToKeepStr: '28',
+        numToKeepStr: '5',
+        artifactNumToKeepStr: '5'
       )
     )
   }
