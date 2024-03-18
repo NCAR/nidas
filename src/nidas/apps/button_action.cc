@@ -10,6 +10,7 @@
 #include <nidas/core/NidasApp.h>
 #include <nidas/core/HardwareInterface.h>
 #include <nidas/util/Termios.h>
+#include <nidas/util/Exception.h>
 #include <json/json.h>
 
 using namespace nidas::core;
@@ -114,7 +115,7 @@ int parseRunString(int argc, char* argv[])
 }
 
 //runs whatever action is associated with given button, such as turning wifi on/off
-int runaction(std::string Device, bool isOn, Json::Value root)
+void runaction(std::string Device, bool isOn, Json::Value root)
 { 
     Json::Value devRoot=root[Device];
     std::string com;
@@ -128,9 +129,11 @@ int runaction(std::string Device, bool isOn, Json::Value root)
 
     }
     ILOG(("Running command ")<<com);
-    return system(com.c_str());
-    
-
+    auto status = system(com.c_str());
+    if (!WIFEXITED(status) || WEXITSTATUS(status) != 0)
+    {
+        PLOG(("") << "non-zero exit status: " << com);
+    }
 }
 
 std::tuple<Json::Value, Json::Value::Members> readJson()
@@ -182,8 +185,11 @@ std::tuple<Json::Value, Json::Value::Members> readJson()
 bool wifiStatus(std::string file, std::string device){
     std::string command= "rfkill -J > ";
     command.append(file);
-    const char* commandp=command.c_str();
-    system(commandp);
+    int status = system(command.c_str());
+    if (!WIFEXITED(status) || WEXITSTATUS(status) != 0)
+    {
+        throw nidas::util::Exception(command, errno);
+    }
     std::ifstream jFile(file,std::ifstream::in);
     if(!jFile.is_open()){
         PLOG(("Could not open ")<<file);
