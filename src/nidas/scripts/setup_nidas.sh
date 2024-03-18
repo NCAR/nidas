@@ -97,17 +97,21 @@ prepend() # epath edir
 
 setup_nidas_unset() # topdir
 {
-    if [ -z "$1" ]; then
+    if [ -n "$1" ]; then
+        topdir="$1"
+    elif [ -n "$NIDAS_TOPDIR" ]; then
+        topdir="$NIDAS_TOPDIR"
+    else
         echo "usage: setup_nidas_unset {topdir}"
         return
     fi
-    topdir="$1"
     # Make sure to include a trailing slash since these must match the full top
     # directory.
     ldpath=`remove "$LD_LIBRARY_PATH" "$topdir/"`
     epath=`remove "$PATH" "$topdir/"`
     export LD_LIBRARY_PATH="$ldpath"
     export PATH="$epath"
+    unset NIDAS_TOPDIR
 }
 
 setup_nidas_set() # topdir
@@ -128,6 +132,8 @@ setup_nidas_set() # topdir
         epath=`prepend "$PATH" "$bindir"`
         export LD_LIBRARY_PATH="$ldpath"
         export PATH="$epath"
+        # stash the current topdir, as a default for unset.
+        export NIDAS_TOPDIR="$topdir"
     else
         setup_nidas_error=1
     fi
@@ -160,10 +166,12 @@ if [ $setup_nidas_error -eq 0 ]; then
         sh)
             echo export PATH=\'"${PATH}"\' ';'
             echo export LD_LIBRARY_PATH=\'"${LD_LIBRARY_PATH}"\'
+            echo export NIDAS_TOPDIR=\'"${NIDAS_TOPDIR}"\'
             ;;
         csh)
             echo setenv PATH \'"${PATH}"\' ';'
             echo setenv LD_LIBRARY_PATH \'"${LD_LIBRARY_PATH}"\'
+            echo setenv NIDAS_TOPDIR \'"${NIDAS_TOPDIR}"\'
             ;;
 
     esac
