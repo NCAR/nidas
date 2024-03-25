@@ -53,7 +53,7 @@
 #include <netinet/tcp.h>
 
 #include <linux/sockios.h>
-                                                                                
+
 #include <iostream>
 
 using namespace nidas::util;
@@ -296,7 +296,7 @@ Socket* SocketImpl::accept()
 #ifdef HAVE_PPOLL
                 if (::ppoll(&fds,1,NULL,&sigmask) < 0)
                     throw IOException("ServerSocket: " + _localaddr->toAddressString(),"ppoll",errno);
-                
+
                 if (fds.revents & POLLERR)
                     throw IOException("ServerSocket: " + _localaddr->toAddressString(),"accept POLLERR",errno);
 

@@ -124,6 +124,7 @@ public:
         nsamps(0),
         minlens(0),
         maxlens(0),
+        totalBytes(0),
         minDeltaTs(0),
         maxDeltaTs(0),
         varnames(),
@@ -228,6 +229,7 @@ public:
         nsamps = 0;
         minlens = 0;
         maxlens = 0;
+        totalBytes = 0;
         minDeltaTs = 0;
         maxDeltaTs = 0;
         sums.clear();
@@ -284,6 +286,7 @@ public:
     size_t nsamps;
     size_t minlens;
     size_t maxlens;
+    size_t totalBytes;
     int minDeltaTs;
     int maxDeltaTs;
 
@@ -517,6 +520,7 @@ accumulateSample(const Sample* samp)
     t2s = sampt;
 
     size_t slen = samp->getDataByteLength();
+    totalBytes += slen;
     if (nsamps == 0)
     {
         minlens = slen;
@@ -612,7 +616,7 @@ namespace
             _value(value),
             _valid(valid)
         {
-        }            
+        }
 
         inline std::ostream&
         to_stream(std::ostream& outs) const
@@ -752,6 +756,7 @@ jsonStats()
         stats["maxdeltat"] = (double)maxDeltaTs / MSECS_PER_SEC;
         stats["minsamplebytes"] = Json::Value::UInt(minlens);
         stats["maxsamplebytes"] = Json::Value::UInt(maxlens);
+        stats["totalbytes"] = Json::Value::UInt(totalBytes);
     }
 
     // Store computed rate no matter what, so it will be null if not enough
@@ -1065,7 +1070,7 @@ DataStats::DataStats():
                         AllSamples | ShowData | SingleMote | Fullnames);
 #if NIDAS_JSONCPP_ENABLED
     app.enableArguments(JsonOutput);
-#endif               
+#endif
     app.InputFiles.allowFiles = true;
     app.InputFiles.allowSockets = true;
     app.InputFiles.setDefaultInput("sock:localhost", DEFAULT_PORT);
@@ -1434,7 +1439,7 @@ receive(const Sample* samp) throw()
 void DataStats::printReport(std::ostream& outs)
 {
     size_t maxnamelen = 6;
-    int lenpow[2] = {5,5};
+    int field_width[3] = {5,5,6};
     int dtlog10[2] = {7,7};
 
     sample_map_t::iterator si;
@@ -1447,8 +1452,9 @@ void DataStats::printReport(std::ostream& outs)
         maxnamelen = std::max(maxnamelen, name.length());
         if (ss.nsamps >= 1)
         {
-            lenpow[0] = std::max(lenpow[0], ndigits(ss.minlens)+1);
-            lenpow[1] = std::max(lenpow[1], ndigits(ss.maxlens)+1);
+            field_width[0] = std::max(field_width[0], ndigits(ss.minlens)+1);
+            field_width[1] = std::max(field_width[1], ndigits(ss.maxlens)+1);
+            field_width[2] = std::max(field_width[2], ndigits(ss.totalBytes)-2);
         }
         // Skip min/max stats which will be printed as missing if there are
         // not at least two samples.
@@ -1460,7 +1466,7 @@ void DataStats::printReport(std::ostream& outs)
             dtlog10[1] = std::max(dtlog10[1], ndigits(dt+1)+2);
         }
     }
-        
+
     // Truncate maxnamelen when fullnames is in effect.
     if (_fullnames)
     {
@@ -1474,9 +1480,9 @@ void DataStats::printReport(std::ostream& outs)
          << "  dsm sampid    nsamps |------- start -------|  |------ end -----|"
          << "    rate"
          << setw(dtlog10[0] + dtlog10[1]) << " minMaxDT(sec)"
-         << setw(lenpow[0] + lenpow[1]) << " minMaxLen"
+         << setw(field_width[0] + field_width[1]) << " minMaxLen totalMB"
          << endl;
-    
+
     for (si = _samples.begin(); si != _samples.end(); ++si)
     {
         SampleCounter& ss = si->second;
@@ -1529,8 +1535,10 @@ void DataStats::printReport(std::ostream& outs)
              << setw(dtlog10[1]) << setprecision(3)
              << check_valid((float)ss.maxDeltaTs / MSECS_PER_SEC, (ss.nsamps > 1))
              << setprecision(0)
-             << setw(lenpow[0]) << check_valid(ss.minlens, (ss.nsamps > 0))
-             << setw(lenpow[1]) << check_valid(ss.maxlens, (ss.nsamps > 0))
+             << setw(field_width[0]) << check_valid(ss.minlens, (ss.nsamps > 0))
+             << setw(field_width[1]) << check_valid(ss.maxlens, (ss.nsamps > 0))
+             << setprecision(1)
+             << setw(field_width[2]) << check_valid((double)ss.totalBytes/1000000, (ss.nsamps > 0))
              << endl;
 
         if (_reportdata){
