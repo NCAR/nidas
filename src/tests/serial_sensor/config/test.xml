@@ -41,9 +41,7 @@
                 </output>
             </service>
             <service class="RawSampleService"
-                rawSorterLength="30" procSorterLength="30"
-                rawHeapMax="500M" procHeapMax="500M"
-                rawLateSampleCacheSize="100" procLateSampleCacheSize="100">
+                     rawSorterLength="0" procSorterLength="0">
                 <input class="RawSampleInputStream">
                     <socket port="$NIDAS_SVC_PORT_UDP" type="dgaccept"/>
                 </input>

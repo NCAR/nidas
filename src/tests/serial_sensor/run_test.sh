@@ -232,6 +232,13 @@ wait_on_sims()
         echo "waiting on ${sspids[$n]} for $TEST/test$n"
         wait ${sspids[$n]}
     done
+    # although the sims have written all their data, we don't know if the dsm
+    # (and possibly dsm_server in turn) have read all the data, and there's
+    # not really an easy way to check.  we know the final dat files should be
+    # 27860 bytes, however the archive files are not flushed until the dsm and
+    # dsm_server processes are shut down, so that doesn't help. so resort to
+    # sleeping, hopefully this is long enough.
+    sleep 5
 }
 
 
