@@ -333,7 +333,7 @@ int FsMountWorkerThread::run()
         if (! (i % nsecs)) {
             try {
                 // try "real" mount first, then autoMount
-                if (!(i % 2)) fsmount->mount();
+                if (!((i/nsecs) % 2)) fsmount->mount();
                 else fsmount->autoMount();
                 break;
             }
