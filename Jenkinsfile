@@ -128,6 +128,30 @@ pipeline {
             }
           }
         }
+
+        stage('Fedora') {
+          agent {
+            node {
+              label 'fedora'
+            }
+          }
+          stages {
+            stage('Compile and test') {
+              steps {
+                sh './jenkins.sh test'
+              }
+            }
+
+            stage('Build RPM packages') {
+              steps {
+                sh './jenkins.sh snapshot'
+              }
+            }
+
+            // skip signing and pushing rpms to EOL repo for now
+          }
+        }
+
       }
     }
   }
