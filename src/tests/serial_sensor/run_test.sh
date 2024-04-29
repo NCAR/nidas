@@ -28,12 +28,13 @@ svr_errs=0
 
 installed=false
 debugging=false
+alltests="test_serial_dsm_server test_serial_dsm"
 testnames=
 while [ $# -gt 0 ]; do
     case "$1" in
-        -i) installed=true;;
+        -i) installed=true ;;
         -d) debugging=true ;;
-        *) testnames="$testnames $1";;
+        *) testnames="$testnames $1" ;;
     esac
     shift
 done
@@ -235,9 +236,9 @@ wait_on_sims()
     # although the sims have written all their data, we don't know if the dsm
     # (and possibly dsm_server in turn) have read all the data, and there's
     # not really an easy way to check.  we know the final dat files should be
-    # 27860 bytes, however the archive files are not flushed until the dsm and
-    # dsm_server processes are shut down, so that doesn't help. so resort to
-    # sleeping, hopefully this is long enough.
+    # 27860 bytes (bz2 files 3050), however the archive files are not
+    # flushed until the dsm and dsm_server processes are shut down, so that
+    # doesn't help. so resort to sleeping, hopefully this is long enough.
     sleep 5
 }
 
@@ -452,6 +453,13 @@ test_serial_dsm_server()
     start_dsm sock:localhost:$NIDAS_SVC_PORT_UDP
     wait_on_sims
     kill_dsm
+    # dsm flushes it's last samples on shutdown, so give dsm_server time to
+    # read those last samples before shutting it down, which in turn finally
+    # flushes those samples to the archive file.  this is all speculative and
+    # not deterministic of course, since we have no way of synchronizing with
+    # the actual reads and writes of the samples, but the final tests depend
+    # on every sample getting through.
+    sleep 5
     kill_dsm_server
     check_output $HOSTNAME
     check_output server
@@ -459,7 +467,19 @@ test_serial_dsm_server()
 }
 
 
+if [ -z "$testnames" ]; then
+    echo "Available test names: $alltests"
+    exit 1
+fi
+
 for test in $testnames ; do
     test_name=$test
-    eval $test
+    case "$test" in
+        test_serial_dsm|dsm)
+            test_serial_dsm
+            ;;
+        test_serial_dsm_server|dsm_server)
+            test_serial_dsm_server
+            ;;
+    esac
 done
