@@ -10,7 +10,7 @@ LABEL organization="NCAR EOL"
 # Note that the container could be an earlier version (e.g. xenial) of ubuntu.
 # nidas/scripts/run_docker.sh vortex
 # From within the container
-# reprepro -b /net/ftp/pub/archive/software/debian/codename-bionic includedeb bionic linux-headers-4.15.18-vortex86dx3_i386.deb
+# reprepro -b /net/www/docs/software/debian/codename-bionic includedeb bionic linux-headers-4.15.18-vortex86dx3_i386.deb
 # old header package:  linux-headers-4.4.6
 
 ARG dolocal=no
@@ -36,8 +36,8 @@ RUN apt-get update && \
     apt-get -t bionic-backports install -y --no-install-recommends debhelper
 
 # Add EOL repository for local packages
-RUN echo "deb ftp://ftp.eol.ucar.edu/pub/archive/software/debian/codename-bionic bionic main" > /etc/apt/sources.list.d/eol.list 
-RUN curl ftp://ftp.eol.ucar.edu/pub/archive/software/debian/conf/eol-prog.gpg.key | apt-key add -
+RUN echo "deb https://archive.eol.ucar.edu/software/debian/codename-bionic bionic main" > /etc/apt/sources.list.d/eol.list 
+RUN curl https://archive.eol.ucar.edu/software/debian/conf/eol-prog.gpg.key | apt-key add -
 
 # Force override of libxerces-c3.2 from the EOL repo
 RUN printf 'Package: libxerces-c3.2\nPin: release l=EOL\nPin-Priority: 1001\n' > /etc/apt/preferences.d/libxerces-c

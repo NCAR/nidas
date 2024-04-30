@@ -153,7 +153,7 @@ ncsdir=$PWD/../nc-server
 [ -d $ncsdir ] && ncsvol="--volume $ncsdir:$destmnt/${ncsdir##*/}:rw$zopt"
 
 # check for EOL Debian repo
-repo=/net/ftp/pub/archive/software/debian
+repo=/net/www/docs/software/debian
 [ -d $repo ] && repovol="--volume $repo:$repo:rw$zopt"
 
 #####################################################################

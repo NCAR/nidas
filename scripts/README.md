@@ -74,9 +74,9 @@ run_podman.sh [-p] [ armel | armhf | armbe | xenial | bionic ]
 build_dpkg.sh [-c] [-I codename] [-i repo] arch
     Build debian packages of NIDAS for the specified architecture
     -c: build package under a chroot.  Not necessary from within docker/podman containers
-    -I codename: install packages to /net/ftp/pub/archive/software/debian/codename-<codename>
+    -I codename: install packages to /net/www/docs/software/debian/codename-<codename>
     -i repo: install debian packages to the given repository
     arch is armel, armhf, amd64 or i386 (vortex)
     codename is jessie (for armel), bionic (for vortex) or whatever distribution has been enabled
-    /net/ftp/pub/archive/software/debian
+    /net/www/docs/software/debian
 ```

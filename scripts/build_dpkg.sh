@@ -4,7 +4,7 @@
 set -e
 
 key='<eol-prog@eol.ucar.edu>'
-eolrepo=/net/ftp/pub/archive/software/debian
+eolrepo=/net/www/docs/software/debian
 codename=""
 
 # not currently used since the codename is passed in the -I argument, but

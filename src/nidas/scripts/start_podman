@@ -126,7 +126,7 @@ selinuxenabled && zopt=,Z
 cwdvol="--volume $PWD:$destmnt/current:rw$zopt"
 
 # check for EOL Debian repo
-repo=/net/ftp/pub/archive/software/debian
+repo=/net/www/docs/software/debian
 [ -d $repo ] && repovol="--volume $repo:$repo:rw$zopt"
 
 #####################################################################

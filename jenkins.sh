@@ -15,7 +15,7 @@ export TOPDIR=${TOPDIR:-$(rpmbuild --eval %_topdir)_$(hostname)}
 
 # In EOL Jenkins, these are global properties set in Manage Jenkins ->
 # Configure System.  Provide defaults here to test outside of Jenkins.
-DEBIAN_REPOSITORY="${DEBIAN_REPOSITORY:-/net/ftp/pub/archive/software/debian}"
+DEBIAN_REPOSITORY="${DEBIAN_REPOSITORY:-/net/www/docs/software/debian}"
 YUM_REPOSITORY="${YUM_REPOSITORY:-/net/www/docs/software/rpms}"
 export DEBIAN_REPOSITORY YUM_REPOSITORY
 export GPGKEY="NCAR EOL Software <eol-prog2@eol.ucar.edu>"

@@ -24,8 +24,8 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get update && \
     apt-get install -y --no-install-recommends tzdata
 
 # Add EOL repository for some local packages
-#RUN echo "deb ftp://ftp.eol.ucar.edu/pub/archive/software/debian/ jessie main" > /etc/apt/sources.list.d/eol.list 
-#RUN curl ftp://ftp.eol.ucar.edu/pub/archive/software/debian/conf/eol-prog.gpg.key | apt-key add -
+#RUN echo "deb https://archive.eol.ucar.edu/software/debian/ jessie main" > /etc/apt/sources.list.d/eol.list 
+#RUN curl https://archive.eol.ucar.edu/software/debian/conf/eol-prog.gpg.key | apt-key add -
 
 USER root:root
 WORKDIR /root

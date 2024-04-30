@@ -282,7 +282,7 @@ run_image() # command...
     fi
     # If the repository is available on this host, then mount that
     # too.
-    DEBIAN_REPOSITORY=/net/ftp/pub/archive/software/debian
+    DEBIAN_REPOSITORY=/net/www/docs/software/debian
     repomoun=""
     if [ -d $DEBIAN_REPOSITORY ]; then
         repomount="--volume ${DEBIAN_REPOSITORY}:/debian:rw,Z"
