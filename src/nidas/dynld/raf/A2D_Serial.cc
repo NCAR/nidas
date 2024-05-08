@@ -462,7 +462,7 @@ void A2D_Serial::parseConfigLine(const char *data)
 
     // data is terminated with a NULL char
 
-    if (sscanf(data, "!OCHK %d", &value) == 1) {
+    if (sscanf(data, "!OCHK=%d", &value) == 1) {
         _haveCkSum = value != 0;
         return;
     }
