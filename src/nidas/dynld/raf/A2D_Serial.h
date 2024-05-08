@@ -120,7 +120,7 @@ protected:
     /**
      * Parse a configuration line from from either open() or process().
      */
-    void parseConfigLine(const char *data, unsigned int len);
+    void parseConfigLine(const char *data);
 
     void dumpConfig() const;
 
@@ -132,7 +132,7 @@ protected:
     bool checkCkSum(const Sample *samp, const char *data);
 
     /**
-     * Search _channels[] to see if we are sampling the target channel.
+     * Check _ivarByChan[] to see if we are sampling the target channel.
      */
     bool samplingChannel(int channel) const;
 
@@ -193,18 +193,28 @@ protected:
     size_t _havePPS;
 
     /**
+     * Mapping from channel index to variable index.
+     */
+    int _ivarByChan[NUM_GPDAQ_A2D_CHANNELS];
+
+    /**
+     * Full scale range, 0=+-10, 1=+-5.
+     */
+    int _ifsr[NUM_GPDAQ_A2D_CHANNELS];
+    /**
      * This device will only support/use 2 voltage ranges. -5 to +5 and
      * -10 to +10 Vdc.  So bipolar will always be true, I am leaving it in
      *  in case we ever want to change support positive only voltage range.
      */
-    int _channels[NUM_GPDAQ_A2D_CHANNELS];
-
-    // read these in from XML, use to validate against
-    int _ifsr[NUM_GPDAQ_A2D_CHANNELS];      // 0 = +-10, 1 = +-5 Vdc
     int _ipol[NUM_GPDAQ_A2D_CHANNELS];
 
     // We will need these to map to cal files.
     int _gains[NUM_GPDAQ_A2D_CHANNELS];     // map _ifsr to this; 0->1, 1->2
+    /**
+     * This device will only support/use 2 voltage ranges. -5 to +5 and
+     * -10 to +10 Vdc.  So bipolar will always be true, I am leaving it in
+     *  in case we ever want to change support positive only voltage range.
+     */
     int _bipolar[NUM_GPDAQ_A2D_CHANNELS];   // true
 
     int _calset;        // Diagnostic (auto_cal) channels, toggle bit per channel.

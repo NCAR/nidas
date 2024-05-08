@@ -54,10 +54,10 @@ A2D_Serial::A2D_Serial() :
 {
     for (int i = 0; i < getMaxNumChannels(); ++i)
     {
-        _channels[i] = 0;
+        _ivarByChan[i] = -1;
         _gains[i] = 1;          // 1 or 2 is all we support at this time.
         _ifsr[i] = 0;           // plus/minus 10
-        _bipolar[i] = 1;       // Fixed 1 for this device
+        _bipolar[i] = 1;        // Fixed 1 for this device
         _ipol[i] = 0;
     }
 
@@ -101,7 +101,7 @@ void A2D_Serial::readConfig()
                 nsamp++;
                 const char* msg = (const char*) samp->getConstVoidDataPtr();
                 if (strstr(msg, "!EOC")) done = true;   // last line of config
-                parseConfigLine(msg, samp->getDataByteLength());
+                parseConfigLine(msg);
 
                 // send it on to the clients and freeReference
                 distributeRaw(samp);
@@ -130,12 +130,14 @@ void A2D_Serial::dumpConfig() const
     if (_calFile)
         cout << "CalFileName = " << _calFile->getCurrentFileName() << endl;
 
-    for (int i = 0; i < _nVars; ++i)
+    for (int i = 0; i < getMaxNumChannels(); ++i)
     {
-        cout << "ifsr=" << _ifsr[i] << ", ipol=" << _ipol[i] << ", cals=";
-        for (size_t j = 0; j < _polyCals[i].size(); ++j)
-            cout << _polyCals[i].at(j) << ", ";
-        cout << endl;
+        if (_ivarByChan[i] >= 0) {
+            cout << "chan=" << i << ", var#=" << _ivarByChan[i] << ", ifsr=" << _ifsr[i] << ", ipol=" << _ipol[i] << ", cals=";
+            for (size_t j = 0; j < _polyCals[i].size(); ++j)
+                cout << _polyCals[i].at(j) << ", ";
+            cout << endl;
+        }
     }
 }
 
@@ -191,7 +193,7 @@ void A2D_Serial::validate()
             Variable* var = vars[iv];
 
             int ichan = prevChan + 1;
-            int fgain = 0;
+            int ifsr = 0;
             int ipol = 0;
 
             const std::list<const Parameter*>& vparams = var->getParameters();
@@ -204,7 +206,7 @@ void A2D_Serial::validate()
                         throw n_u::InvalidParameterException(getName(),
                             pname,"no value");
 
-                    fgain = param->getNumericValue(0);
+                    ifsr = param->getNumericValue(0);
                 }
                 else if (pname == "ipol") {
                     if (param->getLength() != 1)
@@ -227,13 +229,15 @@ void A2D_Serial::validate()
             }
 
 
-            // cerr << "A2D_Serial: ichan=" << ichan << " gain=" << fgain << " bipolar=" << ipol << endl;
+            // cerr << "A2D_Serial: ichan=" << ichan << " ifsr=" << ifsr << " bipolar=" << ipol << endl;
             var->setA2dChannel(ichan);
 
-            _channels[iv] = ichan;
+            if (_ivarByChan[ichan] >= 0)
+                WLOG(("%s: channel %d is assigned to more than one variable",getName().c_str(),ichan));
+            _ivarByChan[ichan] = iv;
             _ipol[ichan] = ipol;
-            _ifsr[ichan] = fgain;
-            _gains[ichan] = fgain + 1;  // this works for now, will not if more gains are added
+            _ifsr[ichan] = ifsr;
+            _gains[ichan] = ifsr + 1;  // this works for now, will not if more gains are added
             prevChan = ichan;
         }
     }
@@ -336,7 +340,7 @@ bool A2D_Serial::process(const Sample * samp,
     // Process non-data lines (i.e. process header).
     if (cp[0] == '!')   // Startup device configuration.
     {
-        parseConfigLine(cp, samp->getDataByteLength());
+        parseConfigLine(cp);
         return false;
     }
     if (cp[0] != '#')   // Header line at start of each second.
@@ -368,7 +372,11 @@ bool A2D_Serial::process(const Sample * samp,
      * Process data-lines.  We should have otherwise returned.
      */
 
-    // copy off data and null-terminate.
+    // Since a sample for this sensor has a scanfFormat, a null char
+    // is appended at acquisition time.  Therefore the
+    // following memcpy and null termination should be unnecessary.
+    // However, in case some data has been taken without null termination
+    // we'll leave it in.
     int nbytes = samp->getDataByteLength();
     char input[nbytes+1];
     ::memcpy(input, cp, nbytes);
@@ -414,25 +422,28 @@ bool A2D_Serial::process(const Sample * samp,
         outs->setTimeTag(ttag);
     }
 
-
     readCalFile(ttag);    // A2D Cals
     float * dout = outs->getDataPtr();
-    int data, ival = 0;
+
+    // initialize dout
+    for (int iv = 0; iv < _nVars; iv++) dout[iv] = float(NAN);
+
+    int data, ichan;
     const char *p = ::strchr(input, ',');
-    for (int idx = 0; ival < _nVars && p; idx++)
+    for (ichan = 0; p && ichan < getMaxNumChannels(); ichan++)
     {
         cp = p + 1;
         p = ::strchr(cp, ',');
 
+        int iv = _ivarByChan[ichan]; // variable index for this channel
+
         // This skips a channel we are not using/decoding
-        if (idx != _channels[ival])
+        if (iv < 0)
             continue;
+        assert(iv < _nVars);
 
         if (sscanf(cp, "%x", &data) == 1)
-            dout[ival] = applyCalibration(float(data), _polyCals[ival]);
-        else
-            dout[ival] = float(NAN);
-        ++ival;
+            dout[iv] = applyCalibration(float(data), _polyCals[ichan]);
     }
 
     if (_outputMode == Engineering) {
@@ -445,75 +456,71 @@ bool A2D_Serial::process(const Sample * samp,
 }
 
 
-void A2D_Serial::parseConfigLine(const char *data, unsigned int len)
+void A2D_Serial::parseConfigLine(const char *data)
 {
     int channel, value;
 
     // data is terminated with a NULL char
 
-    if (strstr(data, "!OCHK") && len > 6) _haveCkSum = atoi(&data[6]);
-    else
-    if (strstr(data, "!BID") && len > 5)  configStatus["BID"] = atoi(&data[5]);
-    else
-    if (strstr(data, "!IFSR") && len > 8) {
-        channel = atoi(&data[6]);
-        value = atoi(&data[8]);
+    if (sscanf(data, "!OCHK %d", &value) == 1) {
+        _haveCkSum = value != 0;
+        return;
+    }
+
+    if (sscanf(data, "!BID=%d", &value) == 1) {
+        configStatus["BID"] = value;
+        return;
+    }
+    if (sscanf(data, "!IFSR_%d=%d", &channel, &value) == 2) {
         if (samplingChannel(channel) && _ifsr[channel] != value) {
             configStatus["IFSR"] = false;
             WLOG(("%s: SerialA2D config mismatch: ifsr chan=%d: xml=%d != dev=%d",
                 getName().c_str(), channel, _ifsr[channel], value ));
         }
+        return;
     }
-    else
-    if (strstr(data, "!IPOL") && len > 8) {
-        channel = atoi(&data[6]);
-        value = atoi(&data[8]);
+    if (sscanf(data, "!IPOL_%d=%d", &channel, &value) == 2) {
         if (samplingChannel(channel) && _ipol[channel] != value) {
             configStatus["IPOL"] = false;
             WLOG(("%s: SerialA2D config mismatch: ipol chan=%d: xml=%d != dev=%d",
                 getName().c_str(), channel, _ipol[channel], value ));
         }
+        return;
     }
-    else
-    if (strstr(data, "!ISEL") && len > 8) {
-        channel = atoi(&data[6]);
-        value = atoi(&data[8]);
+    if (sscanf(data, "!ISEL_%d=%d", &channel, &value) == 2) {
         if (samplingChannel(channel) && value != 0) {
             configStatus["ISEL"] = false;
             WLOG(("%s: SerialA2D ISEL not default: chan=%d val=%d",
                 getName().c_str(), channel, value ));
         }
+        return;
     }
-    else
-    if (strstr(data, "!OSEL") && len > 6) {
+    if (sscanf(data, "!OSEL=%d", &value) == 1) {
         configStatus["OSEL"] = true;
-        value = atoi(&data[6]);
         if (value != 0) {
             configStatus["OSEL"] = false;
             WLOG(("%s: SerialA2D OSEL not default: val=%d",
                 getName().c_str(), value ));
         }
+        return;
     }
-    else
-    if (strstr(data, "!FILT") && len > 6) {
+    if (sscanf(data, "!FILT=%d", &value) == 1) {
         configStatus["FILT"] = true;
-        value = atoi(&data[6]);
         if (value == 10)
             _staticLag *= 5;   // TempDACQ shifts 5 samples.
-
-        if ((value == 0 || value == 5) && _sampleRate != 250)
+        else if ((value == 0 || value == 5) && _sampleRate != 250)
             configStatus["FILT"] = false;
-        if ((value == 1 || value == 6 || value == 10) && _sampleRate != 100)
+        else if ((value == 1 || value == 6 || value == 10) && _sampleRate != 100)
             configStatus["FILT"] = false;
-        if ((value == 2 || value == 7) && _sampleRate != 50)
+        else if ((value == 2 || value == 7) && _sampleRate != 50)
             configStatus["FILT"] = false;
-        if ((value == 3 || value == 8) && _sampleRate != 25)
+        else if ((value == 3 || value == 8) && _sampleRate != 25)
             configStatus["FILT"] = false;
-        if ((value == 4 || value == 9) && _sampleRate != 10)
+        else if ((value == 4 || value == 9) && _sampleRate != 10)
             configStatus["FILT"] = false;
+        return;
     }
 }
-
 
 void A2D_Serial::extractStatus(const char *msg, int len)
 {
@@ -610,11 +617,7 @@ int A2D_Serial::getBipolar(int ichan) const
 
 bool A2D_Serial::samplingChannel(int channel) const
 {
-    for (int i = 0; i < _nVars; ++i)
-        if (channel == _channels[i])
-            return true;
-
-    return false;
+    return channel >= 0 && channel < getMaxNumChannels() && _ivarByChan[channel] >= 0;
 }
 
 float A2D_Serial::applyCalibration(float value, const std::vector<float> &cals) const
