@@ -507,7 +507,7 @@ public:
 
     int run() throw();
 
-    int usage(const char* argv0);
+    int usage(const char* argv0, bool brief);
 
     static int main(int argc, char** argv);
 
@@ -577,7 +577,7 @@ DataDump::parseRunstring(int argc, char** argv)
     ArgVector args = app.parseArgs(argc, argv);
     if (app.helpRequested())
     {
-        return usage(argv[0]);
+        return usage(argv[0], app.briefHelp());
     }
     warntime = std::abs(WarnTime.asFloat());
 
@@ -630,7 +630,7 @@ DataDump::parseRunstring(int argc, char** argv)
 }
 
 int
-DataDump::usage(const char* argv0)
+DataDump::usage(const char* argv0, bool brief)
 {
     cerr << "\
 Usage: " << argv0
@@ -638,27 +638,34 @@ Usage: " << argv0
          << "[inputURL ...]\n"
          << "\
 Standard options:\n"
-         << app.usage() << "data_dump options:\n\
-\
-    -A: ASCII output of character data (for samples from a serial sensor)\n\
-    -7: 7-bit ASCII output\n\
-    -F: floating point output (typically for processed output)\n\
-    -H: hex output (typically for raw output)\n\
-    -n: naked output, unadorned samples written exactly as they were read,\n\
-        useful for ascii serial data to be replayed through sensor_sim\n\
-    -I: output of IRIG clock samples. Status of \"SYMPCS\" means sync, year,\n\
-        major-time, PPS, code and esync are OK. Lower case letters indicate not OK.\n\
-        sync and esync (extended status sync) are probably always equal\n\
-    -L: ASCII output of signed 32 bit integers\n\
-    -S: ASCII output of signed 16 bit integers (useful for samples from an A2D)\n\
-\
-    If a format is specified, that format is used for all the samples, except\n\
-    that a floating point format is always used for floating point samples.\n\
-    Otherwise the format is chosen according to the type in the sample, so\n\
-    it is possible to dump samples in different formats.  This is useful for\n\
-    dumping both raw and processed samples.  (See example below.)\n\
-\n\
-Examples:\n\
+         << app.usage()
+         << "data_dump options:";
+    cerr << R"(
+    -A: ASCII output of character data (for samples from a serial sensor)
+    -7: 7-bit ASCII output
+    -F: floating point output (typically for processed output)
+    -H: hex output (typically for raw output)
+    -n: naked output, unadorned samples written exactly as they were read,
+        useful for ascii serial data to be replayed through sensor_sim
+    -I: output of IRIG clock samples. Status of \"SYMPCS\" means sync, year,
+        major-time, PPS, code and esync are OK. Lower case letters indicate not OK.
+        sync and esync (extended status sync) are probably always equal
+    -L: ASCII output of signed 32 bit integers
+    -S: ASCII output of signed 16 bit integers (useful for samples from an A2D)
+)";
+
+    if (brief)
+        return 1;
+
+    cerr << R"(
+If a format is specified, that format is used for all the samples, except
+that a floating point format is always used for floating point samples.
+Otherwise the format is chosen according to the type in the sample, so
+it is possible to dump samples in different formats.  This is useful for
+dumping both raw and processed samples.  (See examples.)
+)";
+
+    cerr << "\nExamples:\n\
 Display IRIG data of sensor 100 on dsm 1 from sock:localhost:\n\
   " << argv0
          << " -i 1,100 -I\n\

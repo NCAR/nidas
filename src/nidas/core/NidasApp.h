@@ -185,7 +185,8 @@ public:
     /**
      * Render the usage string for this particular argument, taking into
      * account which flags are enabled.  The returned string is formatted like
-     * below, and always ends in a newline:
+     * below, each line prefixed with @p indent,  and always ends in a
+     * newline.  If * @p brief is true, the usage lines are omitted.
      *
      * <indent><flag>[,<flag>...] [<syntax>] [default: <default>]
      * <indent><indent>Description line one
@@ -193,7 +194,7 @@ public:
      * ...
      **/
     std::string
-    usage(const std::string& indent = "  ");
+    usage(const std::string& indent = "  ", bool brief = false);
 
     /**
      * Return true if this argument has been filled in from a command-line
@@ -1182,8 +1183,15 @@ public:
     /**
      * Return a usage string describing the arguments accepted by this
      * application, rendering each argument by calling NidasAppArg::usage()
-     * with the given indent string.
+     * with the given @p indent string and @p brief parameter.
      **/
+    std::string
+    usage(const std::string& indent, bool brief);
+
+    /**
+     * Return the usage string, formatted according to the current
+     * brief setting.
+     */
     std::string
     usage(const std::string& indent = "  ");
 
@@ -1222,6 +1230,15 @@ public:
     helpRequested()
     {
         return _help;
+    }
+
+    /**
+     * Return true if brief help requested, such as with -h.
+     */
+    bool
+    briefHelp()
+    {
+        return _brief;
     }
 
     /**
@@ -1455,6 +1472,7 @@ private:
     int _outputFileLength;
 
     bool _help;
+    bool _brief;
 
     std::string _username;
 

@@ -1012,14 +1012,14 @@ DataStats::DataStats():
     _app("data_stats"),
     Period("-P,--period", "<seconds>",
            "Compute statistics over the given number of seconds.\n"
-           "Defaults to the update period, if that is specified.", "0"),
+           "Defaults to the update period, if specified.", "0"),
     Update("-U,--update", "<seconds>",
-           "Update the rolling statistics at the given update interval.\n"
+           "Update rolling statistics at given interval.\n"
            "Defaults to the sample period, if that is specified.\n"
            "For example, '--period 60 --update 5' computes statistics\n"
            "every 5 seconds over the last 60 seconds of data", "0"),
     Count("-n,--count", "<count>",
-          "When --period specified, generate <count> reports.\n"
+          "Generate <count> reports with --period.\n"
           "Use a count of zero to continue reports until interrupted.", "1"),
     AllSamples("-a,--all", "",
                "Show statistics for all sample IDs, including those for which "
@@ -1039,11 +1039,10 @@ DataStats::DataStats():
                "type of sensor.  If there are two motes on a DSM, then any\n"
                "sensor duplication will report a warning, including Vmote."),
     Fullnames("-F,--fullnames", "",
-              "Report all the variable names and the device name for each\n"
-              "for each sensor."),
+              "Report variable and device names for each for each sensor."),
     FilterArg(),
     JsonOutput("--json", "<path>",
-               "Write json stream headers to the given file path.\n"
+               "Write json stream headers to path.\n"
                "The output is first written to a filename with .tmp\n"
                "appended, then renamed to the given path.\n"
                "The json file contains an object which maps\n"
@@ -1127,12 +1126,15 @@ int DataStats::usage(const char* argv0)
         "Usage: " << argv0 << " [options] [inputURL] ...\n";
     cerr <<
         "Standard options:\n"
-         << _app.usage() <<
-        "Examples:\n" <<
-        argv0 << " xxx.dat yyy.dat\n" <<
-        argv0 << " file:/tmp/xxx.dat file:/tmp/yyy.dat\n" <<
-        argv0 << " -p -x ads3.xml sock:hyper:30000\n" <<
-        argv0 << " --period 60 --update 5 -a -p -D -F" << endl;
+         << _app.usage();
+    if (!_app.briefHelp())
+    {
+        cerr << "Examples:\n" <<
+            argv0 << " xxx.dat yyy.dat\n" <<
+            argv0 << " file:/tmp/xxx.dat file:/tmp/yyy.dat\n" <<
+            argv0 << " -p -x ads3.xml sock:hyper:30000\n" <<
+            argv0 << " --period 60 --update 5 -a -p -D -F" << endl;
+    }
     return 1;
 }
 
