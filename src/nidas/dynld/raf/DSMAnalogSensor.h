@@ -27,6 +27,7 @@
 #define NIDAS_DYNLD_RAF_DSMANALOGSENSOR_H
 
 #include <nidas/dynld/A2DSensor.h>
+#include <nidas/core/A2DConverter.h>
 #include <nidas/linux/ncar_a2d.h>
 #include <nidas/linux/irigclock.h>
 
@@ -35,12 +36,11 @@ namespace nidas { namespace dynld { namespace raf {
 using namespace nidas::core;
 
 /**
- * A sensor connected to the DSM A2D
+ * Support for the PC104 A2D, developed at NCAR EOL.
  */
 class DSMAnalogSensor : public A2DSensor {
 
 public:
-    enum OutputMode { Counts, Volts, Engineering };
 
     DSMAnalogSensor();
     ~DSMAnalogSensor();
@@ -84,18 +84,14 @@ public:
     /**
      * @throws nidas::util::InvalidParameterException
      **/
-    void setA2DParameters(int ichan, int gain, int bipolar);
+    void setGainBipolar(int ichan, int gain, int bipolar);
 
-    void getBasicConversion(int ichan,float& intercept, float& slope) const;
+    void getDefaultConversion(int ichan, float& intercept, float& slope) const;
 
     /**
      * @throws nidas::util::InvalidParameterException
      **/
     void setConversionCorrection(int ichan, float corIntercept, float corSlope);
-
-    void setOutputMode(OutputMode mode) { _outputMode = mode; }
-
-    OutputMode getOutputMode() const { return _outputMode; }
 
     /**
      * Process a raw sample, which in this case means unpack the
@@ -117,12 +113,6 @@ public:
      **/
     float getTemp();
 
-    /**
-     * Read calibration file for this A2D. Does not throw exceptions,
-     * since it is used in the process method, but instead logs errors.
-     */
-    void readCalFile(dsm_time_t tt) throw();
-
     int getInt32TimeTagUsecs() const
     {
         return USECS_PER_MSEC;
@@ -137,7 +127,31 @@ public:
     void testVoltage(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue& result)
         throw();
 
+    /**
+     * Initial A2DConverter, containing the default conversion from
+     * counts to volts based on the gain and bipolar settings of each channel.
+     */
+    A2DConverter* getInitialConverter() const
+    {
+        return _initialConverter;
+    }
+
+    /**
+     * Final A2DConverter, updated from the CalFile, applied after the initial
+     * conversion, and an optional temperature compensation.
+     * Since all existing cal files have two coefficients
+     * for each channel, it must be a LinearA2DConverter.
+     */
+    A2DConverter* getFinalConverter() const
+    {
+        return _finalConverter;
+    }
+
 protected:
+
+    A2DConverter* _initialConverter;
+
+    A2DConverter* _finalConverter;
 
     bool processTemperature(const Sample*, std::list<const Sample*>& result) throw();
 
@@ -171,28 +185,9 @@ protected:
     enum irigClockRates _temperatureRate;
 
     /**
-     * CalFile for this DSMAnalogSensor.  This is for the A2D cals, not
-     * engineering cals.
-     */
-    CalFile* _calFile;
-
-    /**
-     * Whethere to output samples as counts, volts or engineering units.  Decides
-     * which calibrations to apply.
-     * @see enum OutputMode
-     */
-    OutputMode _outputMode;
-
-    /**
      * Conversion factor from 16 bit raw temperature to degC
      */
     static const float DEGC_PER_CNT;
-    /**
-     * On the NCAR A/D card for the purpose of A/D temperature compensation, we need
-     * to keep the basic conversion slope/offset around for the process() method.
-     */
-    float _basIntercept[NUM_NCAR_A2D_CHANNELS], _basSlope[NUM_NCAR_A2D_CHANNELS];
-
 //@{
     /**
      * Given a measured voltage and using the A/D temperature, perform a lookup

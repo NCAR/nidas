@@ -62,16 +62,22 @@ const float DSMAnalogSensor::TemperatureTableGain4[][N_COEFF] =
 NIDAS_CREATOR_FUNCTION_NS(raf,DSMAnalogSensor)
 
 DSMAnalogSensor::DSMAnalogSensor() :
-    A2DSensor(),_deltatUsec(0),
+    A2DSensor(getMaxNumChannels()),
+    _initialConverter(new LinearA2DConverter(getMaxNumChannels())),
+    _finalConverter(new LinearA2DConverter(getMaxNumChannels())),
+    _deltatUsec(0),
     _temperatureTag(0),_temperatureRate(IRIG_NUM_RATES),
-    _calFile(0),_outputMode(Volts),_currentTemperature(40.0)
+    _currentTemperature(40.0)
 {
     setScanRate(500);   // lowest scan rate supported by card
     setLatency(0.1);
+
 }
 
 DSMAnalogSensor::~DSMAnalogSensor()
 {
+    delete _initialConverter;
+    delete _finalConverter;
 }
 
 const float DSMAnalogSensor::DEGC_PER_CNT = 0.0625;
@@ -195,11 +201,7 @@ void DSMAnalogSensor::close()
 
 void DSMAnalogSensor::init()
 {
-    const map<string,CalFile*>& cfs = getCalFiles();
-    // Just use the first file. If, for some reason a second calibration
-    // is applied to this sensor, we must differentiate them by name.
-    // Note this calibration is separate from that applied to each variable.
-    if (!cfs.empty()) _calFile = cfs.begin()->second;
+    A2DSensor::init();
 }
 
 int DSMAnalogSensor::readFilterFile(const string& name,unsigned short* coefs,int nexpect)
@@ -243,7 +245,7 @@ int DSMAnalogSensor::readFilterFile(const string& name,unsigned short* coefs,int
     return ncoef;
 }
 
-void DSMAnalogSensor::setA2DParameters(int ichan, int gain, int bipolar)
+void DSMAnalogSensor::setGainBipolar(int ichan, int gain, int bipolar)
 {
     switch (gain) {
     case 1:
@@ -264,28 +266,26 @@ void DSMAnalogSensor::setA2DParameters(int ichan, int gain, int bipolar)
             throw n_u::InvalidParameterException(getName(),
                 "gain & offset",ost.str());
     }
-    A2DSensor::setA2DParameters(ichan,gain,bipolar);
-
+    A2DSensor::setGainBipolar(ichan, gain, bipolar);
 }
 
-void DSMAnalogSensor::getBasicConversion(int ichan,
+void DSMAnalogSensor::getDefaultConversion(int ichan,
     float& intercept, float& slope) const
 {
     /*
-     * A2D chip converts 0:4 V to -32767:32767
      * 1. Input voltages are first converted by a Gf/256 converter
      *     where Gf is the gainFactor, Gf=gain*10.
      * 1.a Then inputs go through a *5.11 multiplier.
      *    These two steps combined are a  F=gain*0.2
      *	(actually gain*10*5.11/256 = gain*0.19961)
      * 2. Then either a 2(bipolar) or 4(unipolar) volt offset is removed.
-     * 3. Then the voltage is inverted.
-     * 4. Converted to counts
+     * 3. Then the voltage is inverted (sign flipped).
+     * 4. Converted to counts by chip: 0:4 V to -32767:32767
      *
      * Example: -10:10 V input, gain=1,bipolar=true
      *	Gf=gain*10=10,  F=0.2,  offset=2
      *    Here are the values after the above steps:
-     *	-10:10 -> -2:2 -> -4:0 -> 4:0 -> 32767:-32767
+     *	-10:10 -> -2:2 -> -4:0 -> 4:0 -> 32767:-32767 (note the sign inversion)
      *
      * a2d_driver inverts the counts before passing them
      * back to user space, so for purposes here, it is as if
@@ -304,51 +304,31 @@ void DSMAnalogSensor::getBasicConversion(int ichan,
      *	where offset = 10/gain.
      *
      * corSlope and corIntercept are the slope and intercept
-     * of an A2D calibration, where
+     * of a fit to:
      *    Vcorr = Vuncorr * corSlope + corIntercept
+     * where Vcorr are the reference voltages, Vuncorr are the
+     * values reported by the A2D using the basicConversion.
+     * 
      *
-     * Note that Vcorr is the Y (independent) variable. This is
-     * because the A2D calibration is done in a similar
-     * way to normal sensor calibration, where Y are the
-     * set points from an input standard, and X is the measured
-     * voltage value.
+     * Note that in a calibration of an A2D, Vcorr are the
+     * input reference voltages, the independent X variable
+     * in a convertion, and Vuncorr are the values reported
+     * by the A2D.  Then a fit is done to the above linear model.
      *
-     *    Vcorr = Vuncorr * corSlope + corIntercept
      *	    = (cnts * 20 / 65536 / gain + offset) * corSlope +
      *			corIntercept
      *	    = cnts * 20 / 65536 / gain * corSlope +
      *		offset * corSlope + corIntercept
      */
-    if (getOutputMode() == Counts) {
-        slope = 1.0;
-        intercept = 0.0;
+
+    if (getGain(ichan) == 0) {
+        slope = floatNAN;
+        intercept = floatNAN;
     }
     else {
         slope = 20.0 / 65536 / getGain(ichan);
         if (getBipolar(ichan)) intercept = 0.0;
         else intercept = 10.0 / getGain(ichan);
-    }
-}
-
-void DSMAnalogSensor::setConversionCorrection(int ichan, float corIntercept,
-                                              float corSlope)
-{
-    if (getOutputMode() == Counts) {
-        corSlope = 1.0;
-        corIntercept = 0.0;
-    }
-    A2DSensor::setConversionCorrection(ichan, corIntercept, corSlope);
-
-    /* For the A/D temperature compensation that we are doing for gain of 4
-     * channels, do not multiply through BasicConversion here.  Just return
-     * the slope/offset from the cal file.
-     */
-    if (getGain(ichan) == 4) {
-        _convSlopes[ichan] = corSlope;
-        _convIntercepts[ichan] = corIntercept;
-
-        // Stash for ongoing use in the process method.
-        getBasicConversion(ichan, _basIntercept[ichan], _basSlope[ichan]);
     }
 }
 
@@ -469,12 +449,27 @@ bool DSMAnalogSensor::process(const Sample* insamp,list<const Sample*>& results)
 
     const signed short* spend = sp + nvalues;
 
-    readCalFile(insamp->getTimeTag());
+    if (getOutputMode() != Counts && _calFile) {
+        try {
+            getFinalConverter()->readCalFile(_calFile, insamp->getTimeTag());
+        }
+        catch(const n_u::EOFException& e) {
+        }
+        catch(const n_u::IOException& e) {
+            n_u::Logger::getInstance()->log(LOG_WARNING,"%s: %s",
+                _calFile->getCurrentFileName().c_str(),e.what());
+            _calFile = 0;
+        }
+        catch(const n_u::ParseException& e) {
+            n_u::Logger::getInstance()->log(LOG_WARNING,"%s: %s",
+                _calFile->getCurrentFileName().c_str(),e.what());
+            _calFile = 0;
+        }
+    }
 
     for (int isamp = 0; isamp < nsamp; isamp++) {
         A2DSampleInfo& sinfo = _sampleInfos[sindex];
         SampleTag* stag = sinfo.stag;
-        const vector<Variable*>& vars = stag->getVariables();
 
         SampleT<float>* osamp = getSample<float>(sinfo.nvars);
         dsm_time_t tt = insamp->getTimeTag() + isamp * _deltatUsec;
@@ -485,106 +480,32 @@ bool DSMAnalogSensor::process(const Sample* insamp,list<const Sample*>& results)
         int ival;
         for (ival = 0; ival < sinfo.nvars && sp < spend; ival++,fp++) {
             short sval = *sp++;
+            if (getOutputMode() == Counts) {
+                *fp = sval;
+                continue;
+            }
             int ichan = sinfo.channels[ival];
             if (sval == -32768 || sval == 32767) {
                 *fp = floatNAN;
                 continue;
             }
 
-            float val;
-
-            /* Apply analog card temperature compensation.  At this time it is only
-             * applied for 0-5 volt analog variables.
-             */
-            if (getGain(ichan) == 4) {
-                float basIntercept, basSlope;
-                getBasicConversion(ichan, basIntercept, basSlope);
-                val = _basIntercept[ichan] + _basSlope[ichan] * sval;
-
-                // Apply temperature compensation.
-                val = getIntercept(ichan) + getSlope(ichan) * voltageActual(val);
-            }
-            else {
-                // Default, do as before.
-                val = getIntercept(ichan) + getSlope(ichan) * sval;
-            }
-
-            // XXX @todo XXX
-            //
-            // I think this code could be replaced with a call to
-            // applyConversions() right before osamp is pushed onto the
-            // results, but just in case timing is tight I'll leave it
-            // here.  The only extra overhead would be for the function
-            // call (unless it were inlined) and the check against
-            // var->getMissingValue().
-            //
-            // ...I already replaced similar code in A2DSensor, so maybe
-            // it's silly not to do it here too.
-            //
-            Variable* var = vars[ival];
-            if (getApplyVariableConversions()) {
-                VariableConverter* conv = var->getConverter();
-                if (conv) val = conv->convert(osamp->getTimeTag(),val);
-            }
-            /* Screen values outside of min,max after the conversion */
-            if (val < var->getMinValue() || val > var->getMaxValue())
-                val = floatNAN;
-            *fp = val;
+            float fval = getInitialConverter()->convert(ichan, sval);
+            if (getGain(ichan) == 4)
+                /* Apply analog card temperature compensation.  At this time it is only
+                 * applied for 0-5 volt analog variables.
+                 */
+                fval = voltageActual(fval);
+            // Final conversion
+            fval = getFinalConverter()->convert(ichan, fval);
+            *fp = fval;
         }
         for ( ; ival < sinfo.nvars; ival++) *fp++ = floatNAN;
+        if (getOutputMode() == Engineering) applyConversions(stag, osamp);
         results.push_back(osamp);
     }
     return true;
 }
-
-void DSMAnalogSensor::readCalFile(dsm_time_t tt) throw()
-{
-    if (!_calFile) return;
-
-    if (getOutputMode() == Counts)
-        return;
-
-    // Read CalFile  containing the following fields after the time
-    // gain bipolar(1=true,0=false) intcp0 slope0 intcp1 slope1 ... intcp7 slope7
-
-    while(tt >= _calFile->nextTime().toUsecs()) {
-        int nd = 2 + getMaxNumChannels() * 2;
-        float d[nd];
-        try {
-            n_u::UTime calTime;
-            int n = _calFile->readCF(calTime, d,nd);
-            if (n < 2) continue;
-            int cgain = (int)d[0];
-            int cbipolar = (int)d[1];
-            for (int i = 0;
-                i < std::min((n-2)/2,getMaxNumChannels()); i++) {
-                    int gain = getGain(i);
-                    int bipolar = getBipolar(i);
-                    if ((cgain < 0 || gain == cgain) &&
-                        (cbipolar < 0 || bipolar == cbipolar))
-                        setConversionCorrection(i,d[2+i*2],d[3+i*2]);
-            }
-        }
-        catch(const n_u::EOFException& e)
-        {
-        }
-        catch(const n_u::IOException& e)
-        {
-            n_u::Logger::getInstance()->log(LOG_WARNING,"%s: %s",
-                _calFile->getCurrentFileName().c_str(),e.what());
-            _calFile = 0;
-            break;
-        }
-        catch(const n_u::ParseException& e)
-        {
-            n_u::Logger::getInstance()->log(LOG_WARNING,"%s: %s",
-                _calFile->getCurrentFileName().c_str(),e.what());
-            _calFile = 0;
-            break;
-        }
-    }
-}
-
 
 float DSMAnalogSensor::voltageActual(float voltageMeasured)
 {
@@ -615,10 +536,18 @@ float DSMAnalogSensor::voltageActual(float voltageMeasured)
   return voltageMeasured;	// Shouldn't get here, but a catchall.
 }
 
-
 void DSMAnalogSensor::validate()
 {
+    // setup conversions
     A2DSensor::validate();
+
+    float cfact[2];
+    for (int ichan = 0; ichan < getMaxNumChannels(); ichan++) {
+        _initialConverter->setGain(ichan, getGain(ichan));
+        _initialConverter->setBipolar(ichan, getBipolar(ichan));
+        getDefaultConversion(ichan, cfact[0], cfact[1]);
+        _initialConverter->set(ichan, cfact, sizeof(cfact) / sizeof(cfact[0]));
+    }
 
     const std::list<SampleTag*>& tags = getSampleTags();
     std::list<SampleTag*>::const_iterator ti = tags.begin();

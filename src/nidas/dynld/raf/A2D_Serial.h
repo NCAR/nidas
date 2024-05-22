@@ -28,9 +28,9 @@
 #define _nidas_dynld_raf_a2d_serial_h_
 
 #include <nidas/core/SerialSensor.h>
+#include <nidas/core/A2DConverter.h>
 
 #include <nidas/util/InvalidParameterException.h>
-
 
 // change this later to a const or something
 #define NUM_GPDAQ_A2D_CHANNELS    4
@@ -41,7 +41,8 @@ namespace nidas { namespace dynld { namespace raf {
 using namespace nidas::core;
 
 /**
- * A2D Serial Sensor.  This would be able to use the generic SerialSensor class
+ * A2D Serial Sensor supporting the GP-DACQ, developed at NCAR EOL .
+ * This would be able to use the generic SerialSensor class
  * except for the need to manfacture time-stamps.  Data is sampled in the A2D
  * at exact intervals, but serial time-stamping is mediocre.  We want no time-lagging
  * downstream that might affect spectral characteristics.
@@ -81,7 +82,6 @@ public:
 
     void printStatus(std::ostream& ostr) throw();
 
-
     bool process(const Sample* samp,std::list<const Sample*>& results);
 
     void validate();
@@ -99,19 +99,24 @@ public:
      */
     int getBipolar(int ichan) const;
 
-    /**
-     * Set the values for a linear correction.  An intercept of 0.
-     * and a slope of 1. would result in no additional correction.
-     */
-    virtual void setConversionCorrection(int ichan, const float d[],
-        int n);
+    void getDefaultConversion(int ichan, float& intercept, float& slope) const;
 
     void setOutputMode(OutputMode mode) { _outputMode = mode; }
 
     OutputMode getOutputMode() const { return _outputMode; }
 
-
 protected:
+
+    /**
+     * Initial A2DConverter.
+     */
+    A2DConverter* _initialConverter;
+
+    /**
+     * Final A2DConverter. This is the A2DConverter that is updated from the calibration file.
+     */
+    A2DConverter* _finalConverter;
+
     /**
      * Read configuration from sensor, this is on the DSM called from open().
      */
@@ -201,6 +206,10 @@ protected:
      * Full scale range, 0=+-10, 1=+-5.
      */
     int _ifsr[NUM_GPDAQ_A2D_CHANNELS];
+
+    // We will need these to map to cal files.
+    // int _gains[NUM_GPDAQ_A2D_CHANNELS];     // map _ifsr to this; 0->1, 1->2
+
     /**
      * This device will only support/use 2 voltage ranges. -5 to +5 and
      * -10 to +10 Vdc.  So bipolar will always be true, I am leaving it in
@@ -208,14 +217,7 @@ protected:
      */
     int _ipol[NUM_GPDAQ_A2D_CHANNELS];
 
-    // We will need these to map to cal files.
-    int _gains[NUM_GPDAQ_A2D_CHANNELS];     // map _ifsr to this; 0->1, 1->2
-    /**
-     * This device will only support/use 2 voltage ranges. -5 to +5 and
-     * -10 to +10 Vdc.  So bipolar will always be true, I am leaving it in
-     *  in case we ever want to change support positive only voltage range.
-     */
-    int _bipolar[NUM_GPDAQ_A2D_CHANNELS];   // true
+    // int _bipolar[NUM_GPDAQ_A2D_CHANNELS];   // true
 
     int _calset;        // Diagnostic (auto_cal) channels, toggle bit per channel.
     int _voltage;       // Diagnostic (auto_cal) voltage, -99 = normal operation.
@@ -229,15 +231,11 @@ protected:
      */
     std::map<std::string, int> configStatus;
 
-    // A/D calibration coefficients
-    std::vector<float> _polyCals[NUM_GPDAQ_A2D_CHANNELS];
-
     size_t _shortPacketCnt;
     size_t _badCkSumCnt;
     size_t _largeTimeStampOffset;
 
     int headerLines;
-
 
     void executeXmlRpc(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue& result)
         throw();
