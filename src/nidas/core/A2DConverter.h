@@ -36,15 +36,27 @@ class CalFile;
  * Virtual class with methods for performing conversions from
  * integer A2D counts to floating point voltages for each
  * channel of an A2D.
- * The readCalFile method reads an A2D calibration file,
- * containing the time of each calibration and the calculated
- * conversion coefficients to be applied for the channel gain
- * and polarity that were used in the calibration.
  *
- * Data members in this class include the gain and
- * bi-polarity of each channel to be converted.  The gain
- * and polarity are used when selecting records from the
- * calibration file.
+ * Two subclasses are defined, LinearA2DConverter and PolyA2DConverter.
+ * A2D sensor classes instantiate whichever type they want to use.
+ *
+ * The gain and bipolar value for each channel in the A2DConverter are
+ * set by the A2D sensor, typically at configuration time in the
+ * validate() method.  A gain of 0 indicates that a channel is not used.
+ *
+ * Our A2Ds (DSMAnalogSensor, DSC_A2DSensor, A2D_Serial) typically
+ * instantiate two converters. A LinearA2DConverter is used to convert
+ * counts to approximate voltages using the known voltage transformations
+ * of the A2D, at a given gain and bipolar value for each channel.
+ * 
+ * A second converter, often a 3rd order PolyA2DConverter, then
+ * applies corrections to obtain a calibrated voltage.
+
+ * If an A2D CalFile has been configured for the sensor, the readCalFile()
+ * method of the second converter can be called to read the conversion
+ * coefficients from the file.  See the doc for the readCalFile()
+ * method for information about the number of expected values
+ * in the calibration file.
  */
 class A2DConverter {
 
@@ -54,8 +66,15 @@ public:
 
     virtual ~A2DConverter();
 
+    /**
+     * Maximum possible number of channels.
+     */
     int getMaxNumChannels() const { return _maxNumChannels; }
 
+    /**
+     * One plus the index of the last active channel.
+     * An active channel has a gain > 0.
+     */
     int getNumConfigChannels() const { return _numConfigChannels; }
 
     /**
@@ -83,15 +102,28 @@ public:
 
     virtual void get(int ichan, float* d, int nd) const = 0;
 
-    virtual void fillNAN() = 0;
+    virtual void setNAN(int ichan) = 0;
+
+    virtual void setNAN() = 0;
 
     /**
      * Read records from a CalFile for calibration coefficients
      * with time tags less than or equal to tt, assuming they
      * are in increasingg order in the file. Each record
      * has a gain and bipolar value after the time, followed
-     * by coefficients for each channel. The A2DConverter
-     * for a channel with a matching gain and bipolar value are updated.
+     * by coefficients for each channel.
+     *
+     * A calibration record is used for a channel if its
+     * gain and bipolar fields match the values for the configured
+     * channel. A gain value of -1 in the file is a wildcard, matching
+     * any configured gain for a channel, and likewise for the bipolar value.
+     *
+     * readCalFile() expects there to be
+     *      getNumConfigChannels() X _ncoefs
+     * number of coefficients after the time, gain and bipolar fields in
+     * each CalFile record.  If there are less than the expected
+     * number, a warning is logged, and missing coefficients are
+     * set to floatNAN.
      *
      * @throws: EOFException, IOException, ParseException
      */
@@ -156,7 +188,9 @@ public:
 
     void get(int ichan, float* d, int nd) const;
 
-    void fillNAN();
+    void setNAN(int ichan);
+
+    void setNAN();
 
 private:
 
@@ -198,7 +232,9 @@ public:
 
     void get(int ichan, float* d, int nd) const;
 
-    void fillNAN();
+    void setNAN(int ichan);
+
+    void setNAN();
 private:
 
     float** _d;

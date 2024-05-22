@@ -174,13 +174,18 @@ void LinearA2DConverter::get(int ichan, float* d, int nd) const
     for (int i = 2; i < nd; i++) d[i] = 0.0;
 }
 
-void LinearA2DConverter::fillNAN()
+void LinearA2DConverter::setNAN(int ichan)
 {
-    for (int ichan = 0;  ichan < _maxNumChannels; ichan++) {
-        _b[ichan] = floatNAN;
-        _mx[ichan] = floatNAN;
-    }
+    _b[ichan] = floatNAN;
+    _mx[ichan] = floatNAN;
 }
+
+void LinearA2DConverter::setNAN()
+{
+    for (int ichan = 0;  ichan < _maxNumChannels; ichan++)
+        setNAN(ichan);
+}
+
 
 PolyA2DConverter::PolyA2DConverter(int nchan, int ncoefs):
     A2DConverter(nchan, ncoefs),
@@ -251,12 +256,16 @@ void PolyA2DConverter::get(int ichan, float* d, int nd) const
     for (; i < nd; i++) d[i] = 0.0;
 }
 
-void PolyA2DConverter::fillNAN()
+void PolyA2DConverter::setNAN(int ichan)
+{
+    for (int i = 0; i < _ncoefs; i++)
+        _d[ichan][i] = floatNAN;
+}
+
+void PolyA2DConverter::setNAN()
 {
     for (int ichan = 0;  ichan < _maxNumChannels; ichan++)
-        for (int i = 0; i < _ncoefs; i++)
-            _d[ichan][i] = floatNAN;
-
+        setNAN(ichan);
 }
 
 float PolyA2DConverter::convert(int ichan, float counts) const
@@ -287,15 +296,7 @@ void A2DConverter::readCalFile(CalFile* calFile, dsm_time_t tt)
         n_u::UTime calTime;
         int n = calFile->readCF(calTime, d,nd);
         if (n < 2) continue;
-        if ((n - 2) % _ncoefs) {
-            // total number of coefficients read is not a multiple of _ncoefs
-            n_u::Logger::getInstance()->log(LOG_WARNING,
-                "%s: record %d has %d values, should have at least %d (2 + nchan=%d X ncoef=%d)",
-                calFile->getCurrentFileName().c_str(),
-                calFile->getLineNumber()-1,
-                n, nd, getNumConfigChannels(), _ncoefs);
-            continue;
-        }
+
         int nchanInRecord = (n - 2) / _ncoefs;
         int cgain = (int)d[0];
         int cbipolar = (int)d[1];
@@ -314,6 +315,7 @@ void A2DConverter::readCalFile(CalFile* calFile, dsm_time_t tt)
                         calFile->getCurrentFileName().c_str(),
                         calFile->getLineNumber()-1,
                         n, nd, getNumConfigChannels(), _ncoefs);
+                    setNAN(ichan);
                     break;
                 }
             }
