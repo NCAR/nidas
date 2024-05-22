@@ -887,6 +887,8 @@ public:
 
     void resetResults();
 
+    void setStart(const UTime& start);
+
 private:
     static const int DEFAULT_PORT = 30000;
 
@@ -1002,9 +1004,9 @@ DataStats::DataStats():
     _singlemote(false),
     _fullnames(false),
     _realtime(false),
-    _period_start(time_t(0)),
-    _period_end(time_t(0)),
-    _start_time(time_t(0)),
+    _period_start(UTime::ZERO),
+    _period_end(UTime::ZERO),
+    _start_time(UTime::ZERO),
     _count(1), _period(0), _update(0), _nreports(0),
     _sampleq(),
     _app("data_stats"),
@@ -1412,25 +1414,33 @@ receive(const Sample* samp) throw()
     // The samples only need to be queued if they will need to be "replayed"
     // through the counters to update statistics, or to cache samples which
     // are received past the current sample period.  In other words, queue
-    // this sample if count is not 1 and a period has been set.  In
-    // real-time with no period set, period and update are zero.  Also, if
-    // not real-time (inputs are files), then there will only be one report,
-    // so there is no point keeping samples.  The stats will be accumulated
+    // this sample if count is not 1 and a period has been set.  If no period
+    // is set, meaning period and update are zero, stats will be accumulated
     // and updated in the Samplecounter even if the sample is not queue.  We
     // do nothing with samples which are too old.
     dsm_time_t sampt = samp->getTimeTag();
-    if (_realtime && _period > 0 && sampt < _period_start.toUsecs())
+    if (_start_time.isZero())
+    {
+        // not realtime since start not set yet, so use first sample time.
+        setStart(samp->getTimeTag());
+    }
+    if (_period > 0 && sampt < _period_start.toUsecs())
         return true;
-    if (_realtime && _count != 1 && _period > 0)
+    if (_count != 1 && _period > 0)
     {
         samp->holdReference();
         _sampleq.push_back(samp);
     }
     // Do not accumlate this sample into the statistics if it is not yet in
     // the current time period.
-    if (!_realtime || (_period == 0) || (sampt < _period_end.toUsecs()))
+    if ((_period == 0) || (sampt < _period_end.toUsecs()))
     {
         stats->receive(samp);
+    }
+    // Otherwise note the end of the period if not realtime.
+    if (_period && (sampt >= _period_end.toUsecs()))
+    {
+        _alarm = true;
     }
     return true;
 }
@@ -1606,7 +1616,7 @@ DataStats::
 report()
 {
     // Only report the period start and end when it's been set.
-    if (_period > 0 && _realtime)
+    if (_period > 0)
     {
         ILOG(("") << "Reporting stats from "
                 << iso_format(_period_start) << " to "
@@ -1727,6 +1737,18 @@ jsonReport()
 }
 
 
+void DataStats::setStart(const UTime& start)
+{
+    _period_start = start;
+    _period_end = _period_start + _period * USECS_PER_SEC;
+    if (_update < _period)
+    {
+        _period_end = _period_start + _update * USECS_PER_SEC;
+    }
+    _start_time = _period_start;
+}
+
+
 int DataStats::run()
 {
     int result = 0;
@@ -1819,15 +1841,11 @@ int DataStats::run()
         // period has filled, and then every update seconds after that.  If
         // update is shorter, then the period does not fill until enough
         // updates have passed.
+        //
+        // If not realtime, then the sample times will be used as the "clock".
         if (_realtime)
         {
-            _period_start = UTime();
-            _period_end = _period_start + _period * USECS_PER_SEC;
-            if (_update < _period)
-            {
-                _period_end = _period_start + _update * USECS_PER_SEC;
-            }
-            _start_time = _period_start;
+            setStart(UTime());
         }
         if (_period > 0 && _realtime)
         {
@@ -1841,7 +1859,7 @@ int DataStats::run()
         {
             readSamples(sis);
             report();
-            if (_realtime && _period > 0)
+            if (_period > 0)
             {
                 // Advance the period end by the update time, but do not
                 // advance the period start until the period is long enough.
