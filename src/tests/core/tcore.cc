@@ -178,6 +178,26 @@ BOOST_AUTO_TEST_CASE(test_sample_match_one)
 }
 
 
+BOOST_AUTO_TEST_CASE(test_sample_match_first)
+{
+  SampleMatcher sm;
+
+  // not allowed to match . in sample id
+  BOOST_TEST(!sm.addCriteria("1,."), ". not allowed in sid");
+  BOOST_TEST(!sm.addCriteria("-2,1"), "-1 only negative allowed in spec");
+  BOOST_TEST(!sm.addCriteria("1,-2"), "-1 only negative allowed in spec");
+  BOOST_TEST(sm.addCriteria("."));
+
+  // after setting first dsm on match, that's the only one that matches.
+  BOOST_TEST(sm.match(SampleId(10, 20)));
+  BOOST_TEST(sm.match(SampleId(10, 21)));
+  BOOST_TEST(sm.match(SampleId(10, 22)));
+  BOOST_TEST(!sm.match(SampleId(1, 20)));
+  BOOST_TEST(!sm.match(SampleId(2, 20)));
+  BOOST_TEST(!sm.match(SampleId(3, 20)));
+}
+
+
 BOOST_AUTO_TEST_CASE(test_sample_match_excluded)
 {
   SampleMatcher sm;

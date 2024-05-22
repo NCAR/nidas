@@ -906,6 +906,9 @@ private:
     bool _fullnames;
 
     bool _realtime;
+    bool _counters_created{false};
+    list<DSMSensor*> allsensors{};
+
     UTime _period_start;
     UTime _period_end;
     UTime _start_time;
@@ -1403,6 +1406,13 @@ receive(const Sample* samp) throw()
     {
         return false;
     }
+
+    if (!_counters_created)
+    {
+        _counters_created = true;
+        createCounters(allsensors);
+    }
+
     VLOG(("received and accepted sample ") << _app.formatId(sampid));
     SampleCounter* stats = getCounter(sampid);
     if (!stats)
@@ -1782,8 +1792,6 @@ int DataStats::run()
     readHeader(sis);
     const SampleInputHeader& header = sis.getInputHeader();
 
-    list<DSMSensor*> allsensors;
-
     string xmlFileName = _app.xmlHeaderFile();
     if (xmlFileName.length() == 0)
         xmlFileName = header.getConfigName();
@@ -1808,8 +1816,6 @@ int DataStats::run()
     XMLImplementation::terminate();
 
     SamplePipeline pipeline;
-    createCounters(allsensors);
-
     if (_app.processData())
     {
         pipeline.setRealTime(false);
