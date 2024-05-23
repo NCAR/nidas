@@ -115,12 +115,22 @@ match(int dsmid, int sid)
 }
 
 
+void
+SampleMatcher::RangeMatcher::
+set_first_dsm(int dsmid)
+{
+  if (dsm1 == MATCH_FIRST)
+    dsm1 = dsm2 = dsmid;
+}
+
+
 SampleMatcher::
 SampleMatcher() :
   _ranges(),
   _lookup(),
   _startTime(LONG_LONG_MIN),
-  _endTime(LONG_LONG_MAX)
+  _endTime(LONG_LONG_MAX),
+  _first_dsmid(0)
 {
 }
 
@@ -141,6 +151,8 @@ addCriteria(const std::string& ctext)
   {
     // invalidate the cache
     _lookup.clear();
+    if (_first_dsmid)
+      rm.set_first_dsm(_first_dsmid);
     _ranges.push_back(std::move(rm));
   }
   return valid;
@@ -158,6 +170,23 @@ match(dsm_sample_id_t id)
   }
   int did = GET_DSM_ID(id);
   int sid = GET_SHORT_ID(id);
+
+  // it is feasible to defer this setting until a range first matches a
+  // sample, and then fill in _just_ that range with the dsm id of that
+  // sample, and in fact RangeMatcher still supports that.  and this code
+  // could be separated into a method which the application has to call when
+  // it needs all MATCH_FIRST references resolved immediately, ie, data_stats.
+  // however, in the interest of having consistent sample matching behavior in
+  // all apps, force all dsm ids to be resolved after the very first sample.
+  // really this makes more sense for network streams anyway, so separate
+  // sample id ranges all with MATCH_FIRST dsm will all match the same DSM.
+  if (!_first_dsmid)
+  {
+    _first_dsmid = did;
+    for (auto& rm: _ranges)
+      rm.set_first_dsm(_first_dsmid);
+  }
+
   bool all_excludes = true;
   range_matches_t::iterator ri;
   for (ri = _ranges.begin(); ri != _ranges.end(); ++ri)

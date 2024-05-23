@@ -36,6 +36,12 @@ class SampleMatcher
         bool
         match(int dsmid, int sid);
 
+        /**
+         * Fill in any MATCH_FIRST references with the given @p dsmid.
+         */
+        void
+        set_first_dsm(int dsmid);
+
         int dsm1{0};
         int dsm2{0};
         int sid1{0};
@@ -137,6 +143,7 @@ private:
     id_lookup_t _lookup;
     nidas::util::UTime _startTime;
     nidas::util::UTime _endTime;
+    dsm_sample_id_t _first_dsmid;
 };
 
 
