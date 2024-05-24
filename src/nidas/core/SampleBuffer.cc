@@ -48,11 +48,7 @@ SampleBuffer::SampleBuffer(const std::string& name,bool raw) :
     _sampleBufs(),_inserterBuf(),_consumerBuf(),
 #endif
     _source(raw),_sampleBufCond(),_flushCond(),
-#ifdef NIDAS_EMBEDDED
-    _heapMax(5000000),
-#else
     _heapMax(50000000),
-#endif
     _heapSize(0),_heapBlock(false),_heapCond(),
     _discardedSamples(0),_realTimeFutureSamples(0),_discardWarningCount(1000),
     _doFlush(false),_flushed(true),

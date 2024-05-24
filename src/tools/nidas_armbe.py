@@ -37,7 +37,6 @@ def generate(env: Environment):
        ['-Xlinker', '-rpath-link=' + env.Dir('#/util').path + ':' +
         env.Dir('#/core').path])
 
-    env.AppendUnique(CPPDEFINES='NIDAS_EMBEDDED')
     # clock_gettime is in librt on vulcans
     env.AppendUnique(LIBS=['rt'])
 
