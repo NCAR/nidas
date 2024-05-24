@@ -12,6 +12,19 @@ the [buster] branch for the changes on that branch.
 
 ## [master] - Unreleased on master branch
 
+### data_stats and related improvements
+
+- `data_stats` JSON output includes problems detected in the statistics, so far
+  just sample rate mismatches and missing values.  The schema is still likely
+  to change.
+- The `-i` argument to programs like `data_dump` and `data_stats` now accepts
+  '.' to select the DSM ID in the first sample in the data, and '/' to accept
+  all IDs.  So this works to report on all of the samples from a single DSM:
+  `data_stats -i . -a sock:localhost`.
+- `data_stats` can generate periodic reports on archive data using the `-P
+  period` and `-n` arguments, and multiple json reports can be written by
+  adding time specifiers to the `--json` file path.
+
 ## [1.2.3] - 2024-03-02
 
 - Removed TWODS detection.

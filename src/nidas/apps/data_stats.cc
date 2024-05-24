@@ -146,7 +146,7 @@ public:
             if (value.isNumeric())
                 out << setprecision(5) << value.asDouble();
             else
-                out << value.asDouble();
+                out << value;
             first = false;
         }
         return out.str();
