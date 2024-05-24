@@ -342,11 +342,11 @@ getUsageFlags()
   }
   return uflags;
 }
-  
+
 
 std::string
 NidasAppArg::
-usage(const std::string& indent)
+usage(const std::string& indent, bool brief)
 {
   std::ostringstream oss;
   string flags = getUsageFlags();
@@ -359,15 +359,28 @@ usage(const std::string& indent)
   }
   if (!_default.empty())
     oss << " [default: " << _default << "]";
-  oss << "\n";
+
+  if (!brief)
+    oss << "\n";
 
   std::istringstream iss(_usage);
   std::string line;
   while (getline(iss, line))
   {
+    if (brief)
+    {
+      size_t len = oss.str().size();
+      oss << string((len < 29) ? 30 - len : 1, ' ');
+      if (line.size() > 40)
+      {
+        line.erase(37);
+        line.append("...");
+      }
+      oss << ' ' << line << "\n";
+      break;
+    }
     oss << indent << indent << line << "\n";
   }
-  oss << "\n";
   return oss.str();
 }
 
@@ -445,7 +458,7 @@ NidasApp(const std::string& name) :
   ("--logparam", "<name>=<value>",
    "Set a log scheme parameter with syntax <name>=<value>."),
   Help
-  ("-h,--help", "", "Print usage information."),
+  ("-h,--help", "", "Print usage, --help for full."),
   ProcessData
   ("-p,--process", "", "Enable processed samples."),
   StartTime
@@ -455,23 +468,25 @@ NidasApp(const std::string& name) :
   ("-e,--end", "<end-time>",
    "End samples at end-time, in the form 'YYYY {MMM|mm} dd HH:MM[:SS]'"),
   SampleRanges
-  ("-i,--samples", "[^]{<d1>[-<d2>|*},{<s1>[-<s2>]|*}",
-   "D is a dsm id or range of dsm ids separated by '-', or * (or -1) for all.\n"
-   "S is a sample id or range of sample ids separated by '-', "
-   "or * (or -1) for all.\n"
-   "Sample ids can be specified in 0x hex format with a leading 0x, in which\n"
-   "case they will also be output in hex.\n"
-   "Prefix the range option with ^ to exclude that range of samples.\n"
-   "Multiple range options can be specified.  Samples are either included\n"
-   "or excluded according to the first option which matches their ID.\n"
-   "If only exclusions are specified, then all other samples are implicitly\n"
-   "included.\n"
-   "Use data_stats to see DSM ids and sample ids in a data file.\n"
-   "More than one sample range can be specified.\n"
-   "Examples: \n"
-   " -i ^1,-1     Include all samples except those with DSM ID 1.\n"
-   " -i '^5,*' --samples 1-10,1-2\n"
-   "              Include sample IDs 1-2 for DSMs 1-10 except for DSM 5."),
+  ("-i,--samples", "[^]{<d1>[-<d2>]|*|/}[,{<s1>[-<s2>]|*|/}]",
+   R"(D is a range of dsm ids 'd1-d2', or /, *, or -1 for all, or '.'.
+S is a range of sample IDs 's1-s2', or all IDs if *, /, -1, or omitted.
+Sample ids can be specified in 0x hex format with a leading 0x, in which
+case they will also be output in hex.
+A DSM ID of '.' matches the DSM of the first sample received.
+Prefix the range option with ^ to exclude that range of samples.
+Multiple range options can be specified.  Samples are either included
+or excluded according to the first option which matches their ID.
+If only exclusions are specified, then all other samples are implicitly
+included.
+Use data_stats to see DSM ids and sample ids in a data file.
+More than one sample range can be specified.
+Examples:
+ -i /         All samples.
+ -i .,30-40   Samples 30-40 from only the first DSM ID in the data.
+ -i ^1        All samples except those with DSM ID 1.
+ -i '^5' -i 1-10,1-2
+              Sample IDs 1-2 for DSMs 1-10 except for DSM 5.)"),
   FormatHexId("-X", "", "Format sensor-plus-sample IDs in hex"),
   FormatSampleId
   ("--id-format", "auto|decimal|hex|octal",
@@ -539,6 +554,7 @@ NidasApp(const std::string& name) :
   _outputFileName(),
   _outputFileLength(0),
   _help(false),
+  _brief(false),
   _username(),
   _hostname(),
   _userid(0),
@@ -923,6 +939,7 @@ parseNext()
   else if (arg == &Help)
   {
     _help = true;
+    _brief = (arg->getFlag() == "-h");
   }
   return arg;
 }
@@ -1203,6 +1220,14 @@ std::string
 NidasApp::
 usage(const std::string& indent)
 {
+  return usage(indent, _brief);
+}
+
+
+std::string
+NidasApp::
+usage(const std::string& indent, bool brief)
+{
   // Iterate through the list this application's arguments, dumping usage
   // info for each.
   std::ostringstream oss;
@@ -1210,7 +1235,7 @@ usage(const std::string& indent)
   for (it = _app_arguments.begin(); it != _app_arguments.end(); ++it)
   {
     NidasAppArg& arg = (**it);
-    oss << arg.usage(indent);
+    oss << arg.usage(indent, brief);
   }
   return oss.str();
 }

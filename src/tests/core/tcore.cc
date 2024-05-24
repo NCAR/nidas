@@ -96,9 +96,14 @@ BOOST_AUTO_TEST_CASE(test_sample_match_all)
   {
     for (int sid = 1; sid < 10; ++sid)
     {
-      BOOST_CHECK_EQUAL(sm.match(SampleId(dsm, sid)), true);
+      BOOST_TEST(sm.match(SampleId(dsm, sid)));
     }
   }
+
+  sm = SampleMatcher();
+  // match everything, same as *,* or -1,-1
+  BOOST_REQUIRE(sm.addCriteria("/"));
+  BOOST_TEST(sm.match(SampleId(1, 1)));
 }
 
 
@@ -175,6 +180,26 @@ BOOST_AUTO_TEST_CASE(test_sample_match_one)
   BOOST_CHECK_EQUAL(sm.match(SampleId(2, 2)), false);
   BOOST_CHECK_EQUAL(sm.match(SampleId(2, 1)), false);
   BOOST_CHECK_EQUAL(sm.match(SampleId(1, 1)), true);
+}
+
+
+BOOST_AUTO_TEST_CASE(test_sample_match_first)
+{
+  SampleMatcher sm;
+
+  // not allowed to match . in sample id
+  BOOST_TEST(!sm.addCriteria("1,."), ". not allowed in sid");
+  BOOST_TEST(!sm.addCriteria("-2,1"), "-1 only negative allowed in spec");
+  BOOST_TEST(!sm.addCriteria("1,-2"), "-1 only negative allowed in spec");
+  BOOST_TEST(sm.addCriteria("."));
+
+  // after setting first dsm on match, that's the only one that matches.
+  BOOST_TEST(sm.match(SampleId(10, 20)));
+  BOOST_TEST(sm.match(SampleId(10, 21)));
+  BOOST_TEST(sm.match(SampleId(10, 22)));
+  BOOST_TEST(!sm.match(SampleId(1, 20)));
+  BOOST_TEST(!sm.match(SampleId(2, 20)));
+  BOOST_TEST(!sm.match(SampleId(3, 20)));
 }
 
 
