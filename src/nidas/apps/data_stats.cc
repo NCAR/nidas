@@ -117,15 +117,15 @@ public:
     static const std::string SAMPLE_RATE_MISMATCH;
     static const std::string MISSING_VALUES;
 
-    Problem(const std::string& kindid, const std::string& streamid):
-        kindid(kindid),
+    Problem(const std::string& kind, const std::string& streamid):
+        kind(kind),
         streamid(streamid)
     {}
 
     Json::Value json_value()
     {
         values["streamid"] = streamid;
-        values["kindid"] = kindid;
+        values["kind"] = kind;
         return values;
     }
 
@@ -135,7 +135,7 @@ public:
     std::string printout()
     {
         std::ostringstream out;
-        out << kindid << " in " << streamid;
+        out << kind << " in " << streamid;
         auto members = values.getMemberNames();
         bool first = true;
         for (auto& member: members)
@@ -161,7 +161,7 @@ public:
         return array;
     }
 
-    std::string kindid;
+    std::string kind;
     std::string streamid;
     Json::Value values{Json::objectValue};
 };
@@ -836,7 +836,7 @@ jsonStats(std::vector<Problem>& problems)
     {
         double xrate = header["rate"].asDouble();
         // probably this threshold should be a parameter eventually
-        if (xrate != 0 && (abs(xrate - rate) > 0.1))
+        if (xrate != 0 && (abs(xrate - rate) > 0.5))
         {
             Problem problem(Problem::SAMPLE_RATE_MISMATCH, streamid);
             problem.values["averagerate"] = Json::Value(rate);
@@ -867,6 +867,14 @@ jsonStats(std::vector<Problem>& problems)
         }
         variable["average"] = average;
         variables[varnames[i]] = variable;
+
+        if (nsamps > 0 && nnans[i] > 0)
+        {
+            Problem nans{Problem::MISSING_VALUES, streamid};
+            nans.values["variable"] = varnames[i];
+            nans.values["nnans"] = nnans[i];
+            problems.push_back(nans);
+        }
     }
     if (varnames.size() > 0)
     {
@@ -1127,19 +1135,19 @@ DataStats::DataStats():
               "Report variable and device names for each for each sensor."),
     FilterArg(),
     JsonOutput("--json", "<path>",
-               "Write json stream headers to path.\n"
-               "The output is first written to a filename with .tmp\n"
-               "appended, then renamed to the given path.\n"
-               "The json file contains an object which maps\n"
-               "each streamid to the header object for that stream.\n"
-               "The header contains stream metadata and a dictionary of\n"
-               "variables.  The sample data will be written to stdout as a\n"
-               "newline-separated json stream, where each json line is\n"
-               "an object with fields for each variable set to an array\n"
-               "of values.  The 'streamid' in the data object relates to\n"
-               "the header with that streamid.  Use with -p to compute stats\n"
-               "for individual variables.  Use with -D to include all the\n"
-               "sample data values as well.")
+R"(Write json stream headers to path.  The output is first
+written to a filename with .tmp appended, then renamed to the
+given path.  The json file contains an object which maps each
+streamid to the header object for that stream.  The header
+contains stream metadata and a dictionary of variables.  With
+--data, the sample data will be written to stdout as a
+newline-separated json stream, where each json line is an object
+with fields for each variable set to an array of values.  The
+'streamid' in the data object relates to the header with that
+streamid.  Use with -p to compute stats for individual variables.
+The path argument can include strptime() time specifiers, which
+will be interpolated with each stats period start time.)"
+               )
 #if NIDAS_JSONCPP_ENABLED
     ,streamWriter(),
     headerWriter()
@@ -1759,13 +1767,13 @@ DataStats::
 jsonReport()
 {
 #if NIDAS_JSONCPP_ENABLED
-    // Use the existence of the json writer to know if the headers have
-    // been written yet, so they are only written the first time.
     if (!streamWriter.get())
     {
         createJsonWriters();
-        ILOG(("writing json to ") << JsonOutput.getValue());
     }
+    std::string jsonname;
+    jsonname = _period_start.format(true, JsonOutput.getValue());
+    ILOG(("writing json to ") << jsonname);
 
     // Create a json object which contains all the headers and all the
     // data for all the SampleCounter streams, then write it out.
@@ -1815,7 +1823,6 @@ jsonReport()
 
     std::ofstream json;
     // Write to a temporary file first, then move into place.
-    std::string jsonname(JsonOutput.getValue());
     std::string tmpname = jsonname + ".tmp";
     json.open(tmpname.c_str());
 #if !NIDAS_JSONCPP_STREAMWRITER
