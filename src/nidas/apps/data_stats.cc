@@ -101,6 +101,76 @@ namespace {
 #endif
 }
 
+
+/**
+ * Problem is any issue detected in the data and statistics, distinguished
+ * by a kind id and a stream id, and an optionally including any related
+ * values.
+ *
+ * { "problem-class": "sample-rate-mismatch",
+ *   "streamid": stream-id }
+ */
+class Problem
+{
+public:
+
+    static const std::string SAMPLE_RATE_MISMATCH;
+    static const std::string MISSING_VALUES;
+
+    Problem(const std::string& kindid, const std::string& streamid):
+        kindid(kindid),
+        streamid(streamid)
+    {}
+
+    Json::Value json_value()
+    {
+        values["streamid"] = streamid;
+        values["kindid"] = kindid;
+        return values;
+    }
+
+    /**
+     * Return a one-line string enumerating this problem.
+     */
+    std::string printout()
+    {
+        std::ostringstream out;
+        out << kindid << " in " << streamid;
+        auto members = values.getMemberNames();
+        bool first = true;
+        for (auto& member: members)
+        {
+            out << (first ? ": " : "; ");
+            out << member << "=";
+            Json::Value& value = values[member];
+            if (value.isNumeric())
+                out << setprecision(5) << value.asDouble();
+            else
+                out << value.asDouble();
+            first = false;
+        }
+        return out.str();
+    }
+
+    static Json::Value
+    asJsonArray(std::vector<Problem>& problems)
+    {
+        Json::Value array(Json::arrayValue);
+        for (auto& p: problems)
+            array.append(p.json_value());
+        return array;
+    }
+
+    std::string kindid;
+    std::string streamid;
+    Json::Value values{Json::objectValue};
+};
+
+
+const std::string Problem::SAMPLE_RATE_MISMATCH{ "sample-rate-mismatch" };
+const std::string Problem::MISSING_VALUES{ "missing-values" };
+
+
 /**
  * SampleCounter accumulates samples and values for a particular sample stream.
  **/
@@ -337,10 +407,11 @@ public:
     jsonData();
 
     /**
-     * Return a json object with the statistics calculated for this stream.
+     * Return a json object with the statistics calculated for this stream,
+     * and append any Problem instances to the vector @p problems.
      **/
     Json::Value
-    jsonStats();
+    jsonStats(std::vector<Problem>& problems);
 
     /**
      * Return a Json::Value containing just the header for this SampleClient.
@@ -533,10 +604,7 @@ accumulateSample(const Sample* samp)
     }
     ++nsamps;
 
-    if (enable_data || enable_json)
-    {
-        accumulateData(samp);
-    }
+    accumulateData(samp);
 }
 
 
@@ -546,8 +614,8 @@ accumulateData(const Sample* samp)
 {
     dsm_time_t sampt = samp->getTimeTag();
 
-    // Only need sample times for JSON output with data.
-    if (enable_json && enable_data)
+    // Only need sample times to output data.
+    if (enable_data)
     {
         times.push_back(sampt);
     }
@@ -579,7 +647,7 @@ accumulateData(const Sample* samp)
     {
         double value = samp->getDataValue(i);
         // Only need data values for JSON output with data.
-        if (enable_json && enable_data)
+        if (enable_data)
         {
             values[i].push_back(value);
         }
@@ -736,7 +804,7 @@ jsonData()
 
 Json::Value
 SampleCounter::
-jsonStats()
+jsonStats(std::vector<Problem>& problems)
 {
     Json::Value stats;
     stats["streamid"] = streamid;
@@ -761,7 +829,21 @@ jsonStats()
 
     // Store computed rate no matter what, so it will be null if not enough
     // samples.
-    stats["averagerate"] = number_or_null(computeRate());
+    double rate = computeRate();
+    stats["averagerate"] = number_or_null(rate);
+
+    if (header.isMember("rate"))
+    {
+        double xrate = header["rate"].asDouble();
+        // probably this threshold should be a parameter eventually
+        if (xrate != 0 && (abs(xrate - rate) > 0.1))
+        {
+            Problem problem(Problem::SAMPLE_RATE_MISMATCH, streamid);
+            problem.values["averagerate"] = Json::Value(rate);
+            problem.values["expectedrate"] = Json::Value(xrate);
+            problems.push_back(problem);
+        }
+    }
 
     // Then include stats for each variable in the stream.
     Json::Value variables;
@@ -1505,9 +1587,17 @@ void DataStats::printReport(std::ostream& outs)
          << setw(field_width[0] + field_width[1]) << " minMaxLen totalMB"
          << endl;
 
+#if NIDAS_JSONCPP_ENABLED
+    std::vector<Problem> problems;
+#endif
+
     for (si = _samples.begin(); si != _samples.end(); ++si)
     {
         SampleCounter& ss = si->second;
+#if NIDAS_JSONCPP_ENABLED
+        Json::Value stats = ss.jsonStats(problems);
+#endif
+
         if (ss.nsamps == 0 && !_reportall)
             continue;
 
@@ -1567,6 +1657,12 @@ void DataStats::printReport(std::ostream& outs)
             ss.printData(outs);
         }
     }
+#if NIDAS_JSONCPP_ENABLED
+    for (auto& p: problems)
+    {
+        outs << "problem: " << p.printout() << std::endl;
+    }
+#endif
 }
 
 
@@ -1687,6 +1783,7 @@ jsonReport()
     stats["starttime"] = iso_format(_start_time);
     Json::Value& streamstats = createObject(stats["streams"]);
 
+    std::vector<Problem> problems;
     sample_map_t::iterator si;
     for (si = _samples.begin(); si != _samples.end(); ++si)
     {
@@ -1709,11 +1806,13 @@ jsonReport()
         {
             if (_reportdata)
                 data[stream->streamid] = stream->jsonData();
-            streamstats[stream->streamid] = stream->jsonStats();
+            streamstats[stream->streamid] = stream->jsonStats(problems);
         }
     }
     if (_reportdata)
         root["data"] = data;
+    stats["problems"] = Problem::asJsonArray(problems);
+
     std::ofstream json;
     // Write to a temporary file first, then move into place.
     std::string jsonname(JsonOutput.getValue());
