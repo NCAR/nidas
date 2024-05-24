@@ -31,8 +31,6 @@
 
 #include <vector>
 #include <limits> // numeric_limits<>
-
-// #include <unistd.h>	// for sleep
 #include <iostream>
 
 using namespace nidas::core;
@@ -42,11 +40,7 @@ namespace n_u = nidas::util;
 
 SampleBuffer::SampleBuffer(const std::string& name,bool raw) :
     SampleThread(name),
-#ifdef USE_DEQUE
-    _sampleBuf(),
-#else
     _sampleBufs(),_inserterBuf(),_consumerBuf(),
-#endif
     _source(raw),_sampleBufCond(),_flushCond(),
     _heapMax(50000000),
     _heapSize(0),_heapBlock(false),_heapCond(),
@@ -54,10 +48,8 @@ SampleBuffer::SampleBuffer(const std::string& name,bool raw) :
     _doFlush(false),_flushed(true),
     _realTime(false)
 {
-#ifndef USE_DEQUE
     _inserterBuf = &_sampleBufs[0];
     _consumerBuf = &_sampleBufs[1];
-#endif
 }
 
 SampleBuffer::~SampleBuffer()
@@ -66,13 +58,11 @@ SampleBuffer::~SampleBuffer()
     if (isRunning()) interrupt();
     if (!isJoined()) {
         try {
-#ifdef DEBUG
-            cerr << "~SampleBuffer, joining" << endl;
-#endif
+            VLOG(("~SampleBuffer, joining"));
             join();
         }
         catch(const n_u::Exception& e) {
-            n_u::Logger::getInstance()->log(LOG_WARNING,"%s",e.what());
+            WLOG(("") << e.what());
         }
     }
 
@@ -86,20 +76,12 @@ size_t SampleBuffer::size() const
 
 size_t SampleBuffer::sizeNoLock() const
 {
-#ifdef USE_DEQUE
-    return _sampleBuf.size();
-#else
     return _inserterBuf->size() + _consumerBuf->size();
-#endif
 }
 
 bool SampleBuffer::emptyNoLock() const
 {
-#ifdef USE_DEQUE
-    return _sampleBuf.empty();
-#else
     return _inserterBuf->empty() && _consumerBuf->empty();
-#endif
 }
 
 /**
@@ -107,10 +89,6 @@ bool SampleBuffer::emptyNoLock() const
  */
 int SampleBuffer::run()
 {
-#ifdef DEBUG
-    dsm_time_t tlast;
-#endif
-
 // #define TEST_CPU_TIME
 #ifdef TEST_CPU_TIME
     unsigned int ntotal = 0;
@@ -229,11 +207,6 @@ int SampleBuffer::run()
      * So, stick with sending condition signals.
      *********************************************************************************
      */
-#define USE_SAMPLE_SET_COND_SIGNAL
-#ifndef USE_SAMPLE_SET_COND_SIGNAL
-    struct timespec sleepr = { 0, NSECS_PER_SEC / 100 };
-#endif
-
     _sampleBufCond.lock();
 
     for (;;) {
@@ -241,12 +214,8 @@ int SampleBuffer::run()
 
 	if (isInterrupted()) break;
 
-#ifdef USE_DEQUE
-        size_t nsamp = _sampleBuf.size();
-#else
         assert(_consumerBuf->empty());
         size_t nsamp = _inserterBuf->size();
-#endif
 
 	if (nsamp == 0) {	// no samples, wait
             _flushed = true;
@@ -256,16 +225,7 @@ int SampleBuffer::run()
                 _flushCond.broadcast();
                 _doFlush = false;
             }
-            
-
-#ifdef USE_SAMPLE_SET_COND_SIGNAL
             _sampleBufCond.wait();
-#else
-            _sampleBufCond.unlock();
-            ::nanosleep(&sleepr,0);
-            _sampleBufCond.lock();
-#endif
-
             continue;
 	}
 
@@ -276,37 +236,14 @@ int SampleBuffer::run()
         nloop++;
 #endif
 
-#ifndef USE_DEQUE
         // switch buffers
         std::vector<const Sample*>* tmpPtr = _consumerBuf;
         _consumerBuf = _inserterBuf;
         _inserterBuf = tmpPtr;
         _sampleBufCond.unlock();
-#endif
 
 	// loop over the buffered samples
 	size_t ssum = 0;
-#ifdef USE_DEQUE
-        
-        // has at least one sample because of the nsamp check above
-        do {
-	    const Sample *s = _sampleBuf.front();
-	    _sampleBuf.pop_front();
-
-            _sampleBufCond.unlock();
-
-	    ssum += s->getDataByteLength() + s->getHeaderLength();
-	    _source.distribute(s);
-#ifdef TEST_CPU_TIME
-            if (ntotal++ == 1000 * 60 * 5) {
-		cerr << "nloop=" << nloop << " smax=" << smax << " smin=" << smin << " savg=" << (double)savg/nloop << endl;
-                exit(1);
-            }
-#endif
-            _sampleBufCond.lock();
-        } while(!_sampleBuf.empty());
-            
-#else
         // _sampleBufCond is unlocked, since the receiver thread
         // does not touch _consumerBuf.
 	std::vector<const Sample *>::const_iterator si;
@@ -322,17 +259,12 @@ int SampleBuffer::run()
 #endif
 	}
         _consumerBuf->clear();
-#endif
 	heapDecrement(ssum);
 
-#ifndef USE_DEQUE
 	_sampleBufCond.lock();
-#endif
     }
 
-#ifndef USE_DEQUE
     assert(_consumerBuf->empty());
-#endif
 
     // warn if remaining samples
     if (!emptyNoLock())
@@ -340,13 +272,6 @@ int SampleBuffer::run()
             (_source.getRawSampleSource() ? "raw" : "processed"),sizeNoLock()));
 
 
-#ifdef USE_DEQUE
-    deque<const Sample*>::const_iterator di = _sampleBuf.begin();
-    for ( ; di != _sampleBuf.end(); ++di) {
-        const Sample *s = *di;
-        s->freeReference();
-    }
-#else
     for (int i = 0; i < 2; i++) {
         vector<const Sample*>::const_iterator si;
         for (si = _sampleBufs[i].begin(); si != _sampleBufs[i].end();
@@ -356,7 +281,6 @@ int SampleBuffer::run()
         }
         _sampleBufs[i].clear();
     }
-#endif
     _flushed = true;
     _sampleBufCond.unlock();
 
@@ -384,9 +308,7 @@ void SampleBuffer::interrupt()
 
     Thread::interrupt();
     _sampleBufCond.unlock();
-#ifdef USE_SAMPLE_SET_COND_SIGNAL
     _sampleBufCond.signal();
-#endif
 }
 
 // We've removed some samples from the heap. Decrement heapSize
@@ -409,124 +331,6 @@ void SampleBuffer::heapDecrement(size_t bytes)
     _heapCond.unlock();
 }
 
-
-// #define DO_BUFFERING
-#ifdef DO_BUFFERING
-bool SampleBuffer::receive(const Sample *s) throw()
-{
-    size_t slen = s->getDataByteLength() + s->getHeaderLength();
-
-    if (_realTime) {
-        dsm_time_t systt = n_u::getSystemTime();
-        dsm_time_t samptt = s->getTimeTag();
-	// On DSMs with samples which are timetagged by an IRIG, the IRIG clock
-	// can be off if it doesn't have a lock
-        if (samptt > systt + USECS_PER_SEC * 2) {
-	    if (!(_realTimeFutureSamples++ % _discardWarningCount))
-	    	WLOG(("sample with timetag in future by %f secs. time: ",
-                    (float)(samptt - systt) / USECS_PER_SEC) <<
-                    n_u::UTime(samptt).format(true,"%Y %b %d %H:%M:%S.%3f") <<
-                    " id=" << GET_DSM_ID(s->getId()) << ',' << GET_SPS_ID(s->getId()) <<
-                    " total future samples=" << _realTimeFutureSamples);
-            return false;
-        }
-    }
-
-    // Check if the heapSize will exceed heapMax
-    _heapCond.lock();
-    if (!_heapBlock) {
-        // Real-time behavious, discard samples rather than blocking threads
-        if (_heapSize + slen > _heapMax) {
-	    _heapCond.unlock();
-	    if (!(_discardedSamples++ % _discardWarningCount))
-	    	n_u::Logger::getInstance()->log(LOG_WARNING,
-	"%d discarded samples because heapSize(%d) + sampleSize(%d) is > than heapMax(%d)",
-		_discardedSamples,_heapSize,slen,_heapMax);
-	    return false;
-	}
-	_heapSize += slen;
-    }
-    else {
-        // Post-processing behavour: this thread will block until heap
-        // gets smaller than _heapMax
-	_heapSize += slen;
-	// if heapMax will be exceeded, then wait until heapSize comes down
-	while (_heapSize > _heapMax) {
-	    // Wait until we've distributed enough samples
-	    // cerr << "waiting on heap condition, heapSize=" << _heapSize <<
-            //   " heapMax=" << _heapMax << endl;
-#ifdef USE_SAMPLE_SET_COND_SIGNAL
-	    _sampleBufCond.signal();
-#endif
-	    _heapCond.wait();
-	}
-    }
-    _heapCond.unlock();
-
-    s->holdReference();
-    _sampleBufCond.lock();
-#ifdef USE_DEQUE
-    _sampleBuf.push_back(s);
-#else
-    _inserterBuf->push_back(s);
-#endif
-    _flushed = false;
-    _sampleBufCond.unlock();
-
-#ifdef USE_SAMPLE_SET_COND_SIGNAL
-    _sampleBufCond.signal();
-#endif
-
-    return true;
-}
-
-/*
- * Wait until all samples in buffer have been distributed.
- */
-void SampleBuffer::flush() throw()
-{
-
-    _sampleBufCond.lock();
-    // After setting this lock, we know that the
-    // consumer thread is either:
-    //	* waiting on sampleBufCond,
-    // 	* distributing samples,
-    //	* hasn't started looping, or
-    //	* run method is finished
-    // since those are the only times sampleBufCond is unlocked.
-
-    // If we only did a signal without locking,
-    // the setting of _doFlush could be missed before
-    // the consumer side waits again.
-
-    if (_flushed) {
-        _sampleBufCond.unlock();
-        return;
-    }
-
-    _doFlush = true;
-
-    DLOG(("waiting for ") << sizeNoLock() << ' ' <<
-        (_source.getRawSampleSource() ? "raw" : "processed") <<
-        " samples to drain from SampleBuffer");
-
-    _sampleBufCond.unlock();
-
-#ifdef USE_SAMPLE_SET_COND_SIGNAL
-    _sampleBufCond.signal();
-#endif
-
-    _flushCond.lock();
-    while (!_flushed) _flushCond.wait();
-    _flushCond.unlock();
-
-    // may want to call flush() on the clients.
-
-    DLOG(((_source.getRawSampleSource() ? "raw" : "processed")) <<
-        " samples drained from SampleBuffer");
-}
-
-#else
 bool SampleBuffer::receive(const Sample *s) throw()
 {
     s->holdReference();
@@ -545,5 +349,3 @@ void SampleBuffer::flush() throw()
 {
     return;
 }
-#endif
-
