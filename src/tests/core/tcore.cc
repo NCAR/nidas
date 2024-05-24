@@ -96,9 +96,14 @@ BOOST_AUTO_TEST_CASE(test_sample_match_all)
   {
     for (int sid = 1; sid < 10; ++sid)
     {
-      BOOST_CHECK_EQUAL(sm.match(SampleId(dsm, sid)), true);
+      BOOST_TEST(sm.match(SampleId(dsm, sid)));
     }
   }
+
+  sm = SampleMatcher();
+  // match everything, same as *,* or -1,-1
+  BOOST_REQUIRE(sm.addCriteria("/"));
+  BOOST_TEST(sm.match(SampleId(1, 1)));
 }
 
 

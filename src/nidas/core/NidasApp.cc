@@ -468,9 +468,9 @@ NidasApp(const std::string& name) :
   ("-e,--end", "<end-time>",
    "End samples at end-time, in the form 'YYYY {MMM|mm} dd HH:MM[:SS]'"),
   SampleRanges
-  ("-i,--samples", "[^]{<d1>[-<d2>|*]}[,{<s1>[-<s2>]|*}]",
-   R"(D is a range of dsm ids 'd1-d2', or * (or -1) for all, or '.'.
-S is a range of sample IDs 's1-s2', or all IDs if *, -1, or omitted.
+  ("-i,--samples", "[^]{<d1>[-<d2>]|*|/}[,{<s1>[-<s2>]|*|/}]",
+   R"(D is a range of dsm ids 'd1-d2', or /, *, or -1 for all, or '.'.
+S is a range of sample IDs 's1-s2', or all IDs if *, /, -1, or omitted.
 Sample ids can be specified in 0x hex format with a leading 0x, in which
 case they will also be output in hex.
 A DSM ID of '.' matches the DSM of the first sample received.
@@ -482,9 +482,11 @@ included.
 Use data_stats to see DSM ids and sample ids in a data file.
 More than one sample range can be specified.
 Examples:
- -i ^1,-1     Include all samples except those with DSM ID 1.
- -i '^5,*' --samples 1-10,1-2
-              Include sample IDs 1-2 for DSMs 1-10 except for DSM 5.)"),
+ -i /         All samples.
+ -i .,30-40   Samples 30-40 from only the first DSM ID in the data.
+ -i ^1        All samples except those with DSM ID 1.
+ -i '^5' -i 1-10,1-2
+              Sample IDs 1-2 for DSMs 1-10 except for DSM 5.)"),
   FormatHexId("-X", "", "Format sensor-plus-sample IDs in hex"),
   FormatSampleId
   ("--id-format", "auto|decimal|hex|octal",

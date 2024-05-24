@@ -35,7 +35,7 @@ parse_range(const std::string& rngstr, int& rngid1, int& rngid2)
     rngid1 = int_from_string(rngstr.substr(0,ic));
     rngid2 = int_from_string(rngstr.substr(ic+1));
   }
-  else if (rngstr == "*")
+  else if (rngstr == "*" || rngstr == "/")
   {
     rngid1 = rngid2 = MATCH_ALL;
   }
