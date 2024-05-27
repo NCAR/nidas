@@ -672,7 +672,7 @@ Sample* MessageStreamScanner::nextSampleSepBOM(DSMSensor* sensor)
     // At this point we are currently scanning
     // for the message separator at the beginning of the next message.
     for (;_buftail < _bufhead;) {
-        register char c = _buffer[_buftail];
+        char c = _buffer[_buftail];
 
         if (_outSampRead + space > _outSampLengthAlloc &&
             (result = requestBiggerSample(space))) return result;
