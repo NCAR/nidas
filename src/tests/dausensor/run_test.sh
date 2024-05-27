@@ -3,62 +3,10 @@
 #Test script for DAUSensor, checking message reassembly and data processing.
 echo "Beginning DAUSensor tests."
 
-# straight up copied from ../sonic/run_test.sh
+source ../nidas_tests.sh
 
-# If the first runstring argument is "installed", then don't fiddle
-# with PATH or LD_LIBRARY_PATH, and run the nidas programs from
-# wherever they are found in PATH.
-# Otherwise if build/apps is not found in PATH, prepend it, and if
-# LD_LIBRARY_PATH doesn't contain the string build, prepend
-# ../build/{util,core,dynld}.
-installed=false
-[ $# -gt 0 -a "$1" == "-i" ] && installed=true
-if ! $installed; then
+check_executable data_dump
 
-    echo $PATH | grep -F -q build/apps || PATH=../../build/apps:$PATH
-
-    llp=../../build/util:../../build/core:../../build/dynld
-    echo $LD_LIBRARY_PATH | grep -F -q build || \
-        export LD_LIBRARY_PATH=$llp${LD_LIBRARY_PATH:+":$LD_LIBRARY_PATH"}
-
-    echo LD_LIBRARY_PATH=$LD_LIBRARY_PATH
-    echo PATH=$PATH
-
-    if ! which data_dump | grep -F -q build/; then
-        echo "dsm program not found on build directory. PATH=$PATH"
-        exit 1
-    fi
-    if ! ldd `which data_dump` | awk '/libnidas/{if (index($0,"build/") == 0) exit 1}'; then
-        echo "using nidas libraries from somewhere other than a build directory"
-        exit 1
-    fi
-fi
-
-echo "data_dump executable: `which data_dump`"
-echo "nidas libraries:"
-ldd `which data_dump` | grep -F libnidas
-
-compare() #based on compare() in tests/data_dump/runtest.sh
-{
-    reffile="$1"
-    outfile=outputs/`basename "$reffile"`
-    shift
-    test -d outputs || mkdir outputs
-    rm -f "$outfile"
-    (set -x; "$@" > "$outfile" 2> "${outfile}.stderr")
-    if [ $? -ne 0 ]; then
-	echo "*** Non-zero exit status: $*"
-	cat "${outfile}.stderr"
-	exit 1
-    fi
-    echo "Comparing $reffile to $outfile"
-    diff --side-by-side --width=200 --suppress-common-lines "$reffile" "$outfile"
-    if [ $? -ne 0 ]; then
-	echo "*** Output differs: $*"
-	exit 1
-    fi
-    echo "Test successful."
-}
 
 #check that things are working w/o calibration. I have checked the sample file and know the message to processed message works correctly there.
 compare data/sample_nocal.txt data_dump -p -H -i 1,20-21 -x config/nocalibration.xml data/testdata_20161121_00.dat

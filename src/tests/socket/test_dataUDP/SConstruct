@@ -1,7 +1,9 @@
 # -*- python -*-
-## 2009, Copyright University Corporation for Atmospheric Research
+# 2009, Copyright University Corporation for Atmospheric Research
 
-env = Environment(platform = 'posix').Clone(tools=['nidas'])
+import eol_scons
+from SCons.Script import Environment
+
+env = Environment(tools=['default', 'nidas'])
 
 env.Program('client', "client.cc")
-

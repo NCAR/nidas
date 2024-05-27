@@ -1,21 +1,18 @@
 # -*- python -*-
 
-Import('env')
-env = env.Clone(tools = ['nidas', 'valgrind'])
+from SCons.Script import Environment
 
-env.Append(LIBS = env.NidasLibs())
-env.Append(LIBS = ['boost_unit_test_framework', 'boost_regex'])
-env.Prepend(CPPPATH = [ "#/nidas/util", "#/nidas/core", "#/nidas/dynld" ])
+env = Environment(tools=['default', 'nidasapps', 'valgrind', 'boost_test'])
+
 tests = env.Program('twind2d', ["twind2d.cc"])
 
-env.NidasRuntimeENV()
 runtest = env.Command("xtest", tests,
                       env.ChdirActions(["./$SOURCE.file"]))
 env.Precious(runtest)
 env.AlwaysBuild(runtest)
 env.Alias('test', runtest)
 
-env.ValgrindLog('memcheck', 
+env.ValgrindLog('memcheck',
                 env.Command('vg.memcheck.log', tests,
                             "cd ${SOURCE.dir} && "
                             "${VALGRIND_PATH} --leak-check=full"

@@ -3,49 +3,11 @@
 # Test script which runs ck_calfile on some sample cal files and compares
 # results against previous runs
 
-# If the first runstring argument is "installed", then don't fiddle with PATH or
-# LD_LIBRARY_PATH, and run the nidas programs from wherever they are found in PATH.
-# Otherwise if build/apps is not found in PATH, prepend it, and if LD_LIBRARY_PATH 
-# doesn't contain the string build, prepend ../build/{util,core,dynld}.
-
 cwd=`dirname $0`
 # echo "cwd=$cwd"
 
-installed=false
-[ $# -gt 0 -a "$1" == "-i" ] && installed=true
-
-if ! $installed; then
-
-    echo $PATH | grep -F -q build/apps || PATH=../../build/apps:$PATH
-
-    llp=../../build/util:../../build/core:../../build/dynld
-    echo $LD_LIBRARY_PATH | grep -F -q build || \
-        export LD_LIBRARY_PATH=$llp${LD_LIBRARY_PATH:+":$LD_LIBRARY_PATH"}
-
-    echo LD_LIBRARY_PATH=$LD_LIBRARY_PATH
-    echo PATH=$PATH
-
-    if ! which ck_calfile | grep -F -q build/; then
-        echo "ck_calfile program not found on build directory. PATH=$PATH"
-        exit 1
-    fi
-    if ! ldd `which ck_calfile` | awk '/libnidas/{if (index($0,"build/") == 0) exit 1}'; then
-        echo "using nidas libraries from somewhere other than a build directory"
-        exit 1
-    fi
-fi
-
-# echo PATH=$PATH
-# echo LD_LIBRARY_PATH=$LD_LIBRARY_PATH
-
-echo "ck_calfile executable: `which ck_calfile`"
-echo "nidas libaries:"
-ldd `which ck_calfile` | grep -F libnidas
-
-valgrind_errors() {
-    grep -E -q "^==[0-9]*== ERROR SUMMARY:" $1 && \
-        sed -n 's/^==[0-9]*== ERROR SUMMARY: \([0-9]*\).*/\1/p' $1 || echo 1
-}
+source ../nidas_tests.sh
+check_executable ck_calfile
 
 set -o pipefail
 
@@ -60,7 +22,6 @@ for cf in $cwd/caldir1/*.dat; do
         echo "'$cmd' failed: $(cat $tmperr)"
         exit 1
     fi
-
 
     # echo "PIPESTATUS[0]=${PIPESTATUS[0]}"
     # echo "PIPESTATUS[1]=${PIPESTATUS[1]}"
@@ -90,4 +51,3 @@ for cf in $cwd/caldir1/*.dat; do
     fi
 
 done
-
