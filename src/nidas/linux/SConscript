@@ -5,14 +5,9 @@ import os
 from pathlib import Path
 
 import SCons
-from SCons.Script import Environment, Import
+from SCons.Script import Environment
 
-env: Environment
-
-#
-# Import the build environment.
-#
-Import('env')
+env = Environment(tools=['default'], toolpath=["#/tools"])
 
 headers = env.Split("""
     a2d.h
@@ -200,6 +195,7 @@ def nidas_kernel_modules(env: Environment):
     env.AddMethod(InstallModuleConf)
     env.AddMethod(InstallEtcDefaults)
     env.AddMethod(InstallModuleInit)
+
 
 #
 # Invoke SConscripts in subdirs to create linux modules.
