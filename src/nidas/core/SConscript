@@ -240,6 +240,7 @@ else:
 # Build the libnidas library.
 #
 env.Require(depends)
+env.Append(LIBS=['dl'])
 lib = env.SharedLibrary3('$VARIANT_DIR/lib/nidas', [sources, aobj, sampleobj])
 env.Default([lib])
 
@@ -253,8 +254,9 @@ env.Alias('install', nodes)
 
 
 def libnidas(env):
-    env.Append(LIBS=lib)
+    env.Append(LIBS=lib[0])
     env.Require(depends)
+    env.Append(LIBS=['dl'])
 
 
 Export('libnidas')

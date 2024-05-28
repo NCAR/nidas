@@ -114,7 +114,7 @@ env.Alias('install', nodes)
 
 
 def libnidas_util(env):
-    env.Append(LIBS=['nidas_util'])
+    env.Append(LIBS=[lib[0]])
 
 
 Export('libnidas_util')

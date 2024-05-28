@@ -109,10 +109,11 @@ sources = env.Split("""
 
 conf = env.NidasConfigure()
 
-pc.ParseConfig(conf.env, 'pkg-config --libs gsl')
-conf.CheckCXXHeader('gsl/gsl_linalg.h')
-conf.CheckLibWithHeader('gsl', 'gsl/gsl_linalg.h','C',
-                        'gsl_linalg_LU_solve(0,0,0,0);')
+if pc.ParseConfig(conf.env, 'pkg-config --libs gsl'):
+    conf.Define("HAVE_LIBGSL")
+    env.PrintProgress("Checked for libgsl... yes")
+else:
+    env.PrintProgress("Checked for libgsl... no")
 
 conf.CheckCHeader('sys/inotify.h')
 
@@ -154,7 +155,7 @@ env.Alias('install', nodes)
 
 
 def libnidas_dynld(env):
-    env.Append(LIBS=['nidas_dynld'])
+    env.Append(LIBS=[lib[0]])
     env.Require(depends)
 
 
