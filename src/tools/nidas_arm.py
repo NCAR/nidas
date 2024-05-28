@@ -10,7 +10,6 @@ from SCons.Script import Environment
 def generate(env: Environment):
     env.Require(['armcross'])
     env['ARCHLIBDIR'] = 'lib'
-    env.AppendUnique(CPPDEFINES='NIDAS_EMBEDDED')
     # g++ version 3.4.4 often gives false positives when
     # trying to detect uninitialized variables.
     if re.search("^3", env['CXXVERSION']):

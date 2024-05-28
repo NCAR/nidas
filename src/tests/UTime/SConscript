@@ -1,23 +1,15 @@
 # -*- python -*-
 # 2010, Copyright University Corporation for Atmospheric Research
 
-from SCons.Script import Import, Environment
+from SCons.Script import Environment
 
-Import('env')
-env: Environment
-env = env.Clone(tools=['nidas', 'valgrind', 'boost_test'])
-
-env.Append(LIBS=env.NidasUtilLibs())
-env.Prepend(CPPPATH=['#/src'])
-env.NidasRuntimeENV()
+env = Environment(tools=['default', 'nidasapps', 'valgrind', 'boost_test'])
 
 tests = env.Program('ck_utime', "ck_utime.cc")
 utime = env.NidasApp('utime')
 
-# The runtime environment is set by SCons, so run the test script with -i
-# to leave it alone.
 runtest = env.Command("xtest", [tests, utime, "run_test.sh"],
-                      ["cd ${SOURCE.dir} && ./run_test.sh -i"])
+                      ["cd ${SOURCE.dir} && ./run_test.sh"])
 env.Precious(runtest)
 env.AlwaysBuild(runtest)
 env.Alias('ck_utime', runtest)

@@ -130,13 +130,114 @@ def check_target(env):
     return target
 
 
-build = check_target(env)
+def LinuxModulesEnabled(env: Environment):
+    "Return True when builders for linux modules should be enabled."
+    lm = env.get('LINUX_MODULES', 'yes')
+    lmd = env.get('LINUX_MODULES_DEFAULT', 'yes')
+    return lm == 'force' or (lm == 'yes' and lmd == lm)
+
+
+NIDAS_BUILD = check_target(env)
+ARCH = env['ARCH']
+MACH = env['MACH']
+
+
+def nidas_build(env: Environment):
+    """
+    Setup the basic build environment for all NIDAS source, adding
+    ARCH, MACH, NIDAS_BUILD, and VARIANT_DIR settings, and adding global
+    compiler options like 
+    """
+    opts.Update(env)
+    env['ARCH'] = ARCH
+    env['MACH'] = MACH
+    env['NIDAS_BUILD'] = NIDAS_BUILD
+    env.Tool('variant_dir')
+    env.Tool('install_root')
+    # sharedlibrary tool will set and use ARCHLIBDIR if not set, so set it
+    # explicitly here
+    env['ARCHLIBDIR'] = 'lib'
+    env.AddMethod(LinuxModulesEnabled)
+    # need this everywhere sharedlibrary is used, because sharedlibrary uses
+    # REPO_TAG as a fallback for SHLIBMAJORVERSION.
+    env.Tool('gitinfo')
+    # Load nidasconfig tool before any Configure contexts are created in this
+    # tree or external tools, so the settings can be stored in the variant
+    # dirs.
+    env.Tool('nidasconfig')
+    env.Tool('stackprotector')
+    # -rdynamic: Export all dynamic symbols in the executables, so that
+    # libraries loaded with dlopen() can resolve symbols already in the
+    # executable.  See "man dlopen" for more info.
+    env.AppendUnique(LINKFLAGS=['-rdynamic'])
+    if 'PKG_CONFIG_PATH' in env:
+        env.PrependENVPath('PKG_CONFIG_PATH', env['PKG_CONFIG_PATH'])
+
+    # Initialize compiler options.  CFLAGS is for C compiler only. CXXFLAGS is
+    # for C++ compiler.  CCFLAGS is for C and C++ but appears *after* CXXFLAGS
+    # on commmand-line.  So -Wall is added to CFLAGS and CXXFLAGS at the
+    # beginning in case any warnings need to be disabled using CCFLAGS.
+
+    # env['CXX'] = 'clang++'
+    env.AppendUnique(CFLAGS=['-Wall'])
+    env.AppendUnique(CCFLAGS=['-g', '-O2'])
+    env.AppendUnique(CXXFLAGS=['-Wall', '-Wextra'])
+    env.AppendUnique(CCFLAGS=['-Wformat', '-Werror=format-security'])
+
+    # Skip effc++ warnings on platforms with older jsoncpp
+    if env['VARIANT_OS'] not in ['centos7', 'ubuntu18']:
+        env.Append(CXXFLAGS=['-Weffc++'])
+
+    # Take advantage of buffer overflow detection wherever available.
+    # https://www.redhat.com/en/blog/enhance-application-security-fortifysource
+    env.AppendUnique(CCFLAGS=['-D_FORTIFY_SOURCE=2'])
+
+    # The goal is to keep builds free of warnings by reporting warnings as
+    # errors.  However, it is difficult to use separate compiler flags for
+    # configure checks to avoid failing the ones which have warnings.  There
+    # is an attempt in eol_scons to get around this with ConfigureTools(), but
+    # that's not ready for production.
+    #
+    # Instead, there is variable which by default does not treat warnings as
+    # errors.  To use it safely, first setup the configuration with warnings
+    # allowed, then run the cached configuration without allowing warnings:
+    #
+    #     scons --config=cache allow_warnings=off
+    #
+    # The $( and $) syntax below prevents the flag from being used in compile
+    # command signatures.  Otherwise the cached configuration builds would be
+    # invalidated by the addition of -Werror to the compile command line.
+    #
+    if not env.get('allow_warnings', True):
+        env.Append(CCFLAGS=['$(-Werror$)'])
+
+    # all active targets now support c++11
+    env.AppendUnique(CXXFLAGS=['-std=c++11'])
+
+    if env['CXX'] == 'clang++':
+        # Someday it might be nice to refactor the remaining overloaded
+        # virtual functions, but for now they're working and haven't seemed to
+        # bite us yet.
+        env.AppendUnique(CXXFLAGS=['-Wno-overloaded-virtual'])
+        # Ignore inconsistent overrides to add them piecemeal.
+        env.AppendUnique(CXXFLAGS=['-Wno-inconsistent-missing-override'])
+        # env.AppendUnique(CXXFLAGS=['-stdlib=libstdc++'])
+        # env.AppendUnique(LDFLAGS=['-rtlib=libgcc'])
+
+    if env.get('DEBUG'):
+        env.AppendUnique(CPPDEFINES=['DEBUG'])
+
+    if env.get('GDBDEBUG'):
+        env.AppendUnique(CCFLAGS=['-ggdb'])
+
+    # Threads
+    env.MergeFlags('-pthread')
+
 
 # once target is known, apply the variant build dir tool to set the
 # VARIANT_DIR environment variable.  also add the install-related variables,
 # whose defaults might vary based the build target.
-env.Tool('variant_dir')
-env.Tool('install_root')
+env.RequireGlobal(nidas_build)
 
 # The target determines the default for linux modules.
 lmd = 'yes' if env['ARCH'] not in ['armhf'] else 'no'
@@ -150,19 +251,9 @@ opts.Add(EnumVariable('LINUX_MODULES',
                       'no: do not even try', lmd,
                       allowed_values=['yes', 'no', 'force']))
 
-
-def linux_modules_enabled(env: Environment):
-    "Return True when builders for linux modules should be enabled."
-    lm = env.get('LINUX_MODULES', 'yes')
-    lmd = env.get('LINUX_MODULES_DEFAULT', 'yes')
-    return lm == 'force' or (lm == 'yes' and lmd == lm)
-
-
-env.AddMethod(linux_modules_enabled, "LinuxModulesEnabled")
-
 opts.Update(env)
 lmenabled = 'enabled' if env.LinuxModulesEnabled() else 'disabled'
-env.PrintProgress(f"Target {build} defaults to modules {lmd}, "
+env.PrintProgress(f"Target {NIDAS_BUILD} defaults to modules {lmd}, "
                   f"LINUX_MODULES={env['LINUX_MODULES']}, so "
                   f"linux module builds are {lmenabled}.")
 
@@ -173,110 +264,36 @@ env.PrintProgress(f"Target {build} defaults to modules {lmd}, "
 if False:
     SConsignFile("$VARIANT_DIR/.sconsign")
 
-ARCH = env['ARCH']
-MACH = env['MACH']
-
 env.PrintProgress(f"Setting up for {ARCH} build, {MACH} target machine...")
 
-if 'PKG_CONFIG_PATH' in env:
-    env.PrependENVPath('PKG_CONFIG_PATH', env['PKG_CONFIG_PATH'])
-
-# Initialize compiler options.  CFLAGS is for C compiler only. CXXFLAGS is for
-# C++ compiler.  CCFLAGS is for C and C++ but appears *after* CXXFLAGS on
-# commmand-line.  So -Wall is added to CFLAGS and CXXFLAGS at the beginning in
-# case any warnings need to be disabled using CCFLAGS.
-
-# env['CXX'] = 'clang++'
-env['CFLAGS'] = ['-Wall']
-env['CCFLAGS'] = ['-g', '-O2']
-env['CXXFLAGS'] = ['-Wall', '-Wextra']
-env.AppendUnique(CCFLAGS=['-Wformat', '-Werror=format-security'])
-
-# Skip effc++ warnings on platforms with older jsoncpp
-if env['VARIANT_OS'] not in ['centos7', 'ubuntu18']:
-    env.Append(CXXFLAGS=['-Weffc++'])
-
-# Take advantage of buffer overflow detection wherever available.
-# https://www.redhat.com/en/blog/enhance-application-security-fortifysource
-env.AppendUnique(CCFLAGS=['-D_FORTIFY_SOURCE=2'])
-
-# The goal is to keep builds free of warnings by reporting warnings as errors.
-# However, it is difficult to use separate compiler flags for configure checks
-# to avoid failing the ones which have warnings.  There is an attempt in
-# eol_scons to get around this with ConfigureTools(), but that's not ready for
-# production.
-#
-# Instead, there is variable which by default does not treat warnings as
-# errors.  To use it safely, first setup the configuration with warnings
-# allowed, then run the cached configuration without allowing warnings:
-#
-#     scons --config=cache allow_warnings=off
-#
-# The $( and $) syntax below prevents the flag from being used in compile
-# command signatures.  Otherwise the cached configuration builds would be
-# invalidated by the addition of -Werror to the compile command line.
-#
-if not env.get('allow_warnings', True):
-    env.Append(CCFLAGS=['$(-Werror$)'])
-
-# all active targets now support c++11
-env.AppendUnique(CXXFLAGS=['-std=c++11'])
-
-if env['CXX'] == 'clang++':
-    # Someday it might be nice to refactor the remaining overloaded virtual
-    # functions, but for now they're working and haven't seemed to bite us yet.
-    env.AppendUnique(CXXFLAGS=['-Wno-overloaded-virtual'])
-    # Ignore inconsistent overrides to add them piecemeal.
-    env.AppendUnique(CXXFLAGS=['-Wno-inconsistent-missing-override'])
-    # env.AppendUnique(CXXFLAGS=['-stdlib=libstdc++'])
-    # env.AppendUnique(LDFLAGS=['-rtlib=libgcc'])
-
-if env.get('DEBUG'):
-    env.AppendUnique(CPPDEFINES=['DEBUG'])
-
-if env.get('GDBDEBUG'):
-    env.AppendUnique(CCFLAGS=['-ggdb'])
-
-# Load nidasconfig tool before any Configure contexts are created in this tree
-# or external tools, so the settings can be stored in the variant dirs.
-env.Tool('nidasconfig')
 # Create an alias which just runs the Configure compiles.
-env.Alias('configure', "$VARIANT_DIR/.sconf_temp")
-env.Tool(f'nidas_{ARCH}')
-
-# sharedlibrary tool will set and use ARCHLIBDIR if not set, so set it
-# explicitly here
-env['ARCHLIBDIR'] = 'lib'
-env.Require(['symlink', 'sharedlibrary', 'stackprotector'])
-
-# Threads
-env.MergeFlags('-pthread')
+env.Alias('configure', ["$VARIANT_DIR/.sconf_temp"])
+env.RequireGlobal([f'nidas_{ARCH}'])
 
 # Now start loading SConscript files...
 
 #
 #  Install firmware
 #
-SConscript("firmware/anythingIO/SConscript", exports={'env': env})
+SConscript("firmware/anythingIO/SConscript")
 
 #
 #  Install a2d filters
 #
-SConscript("../filters/SConscript", exports={'env': env})
-
+SConscript("filters/SConscript")
 
 SConscript('nidas/SConscript', variant_dir=env['VARIANT_DIR'],
-           duplicate=False, exports={'env': env})
+           duplicate=False)
 
 # need at least one default target, else scons will build everything.  this
 # makes the default everything built into the variant dir.  the alias allows
 # scons to a build the target when specified as a command-line target.
-env.Default(env.Alias(build, env['VARIANT_DIR']))
+env.Default(env.Alias(NIDAS_BUILD, env['VARIANT_DIR']))
 
 if ARCH == 'host' and env.File("tests/SConscript").exists():
     # Testing targets, built and run only on host. When building packages,
     # it is not even in the source tree.
-    SConscript("tests/SConscript", exports={'env': env})
+    SConscript("tests/SConscript")
 
 # Install the schema where it can be referenced globally on the system.
 env.Alias('install', env.Install('$PREFIX/share/xml', '#xml/nidas.xsd'))

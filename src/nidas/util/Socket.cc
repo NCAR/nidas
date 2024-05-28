@@ -193,22 +193,9 @@ void SocketImpl::bind(const SocketAddress& sockaddr)
     // is shown in:
     //      /proc/sys/net/ipv4/ip_local_port_range
     // which on RHEL5 and Fedora 15 is 32768-61000.
-    //
-    // On Arcom Embedded Linux (Vipers and Vulcans) ip_local_port_range is 1024    4999.
-    //
-    // We could read that file, or perhaps it is available via some obscure ioctl?
-    // Instead we'll hard code the warning, using NIDAS_EMBEDDED as an imperfect
-    // way to detect if we're on a viper/vulcan.
-
-#ifdef NIDAS_EMBEDDED
-    if (sockaddr.getPort() >= 1024 && sockaddr.getPort() <= 4999) 
-        WLOG(("%s: bind to a port number in the range 1024-4999 will fail if it has been dynamically allocated by the system for another connection. See /proc/sys/net/ipv4/ip_local_port_range",
-            sockaddr.toAddressString().c_str()));
-#else
     if (sockaddr.getPort() >= 32768 && sockaddr.getPort() <= 61000) 
         WLOG(("%s: bind to a port number in the range 32768-61000 will fail if it has been dynamically allocated by the system for another connection. See /proc/sys/net/ipv4/ip_local_port_range on Linux",
             sockaddr.toAddressString().c_str()));
-#endif
     if (_fd < 0 && (_fd = ::socket(_sockdomain,_socktype, 0)) < 0)
         throw IOException("Socket","open",errno);
     int rval = _reuseaddr ? 1 : 0;        /* flag for setsocketopt */

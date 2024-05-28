@@ -29,6 +29,9 @@ RUN yum -y install gcc-c++ git doxygen graphviz glibc-devel flex kernel-devel li
 
 RUN yum -y install gsl-devel libpcap-devel bzip2-devel bzip2-libs bzip2 bluez-libs-devel jsoncpp-devel libcurl-devel xerces-c-devel
 
+# for testing
+RUN yum -y install boost-devel valgrind
+
 # python3-scons package is too old, use pip instead.  However, even running
 # the right scons executable out of /usr/local/bin, the SCons package is not
 # found when run by rpmbuild, so just force it into the system python path

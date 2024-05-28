@@ -21,18 +21,32 @@ class SampleMatcher
 {
     struct RangeMatcher
     {
-        /**
-         * Construct a RangeMatcher with the given range endpoints: d1 <=
-         * DSM ID <= d2, s1 <= Sample ID <= s2, and if @p inc is false,
-         * then matching sample IDs are excluded rather than included.
-         **/ 
-        RangeMatcher(int d1, int d2, int s1, int s2, int inc);
+        static const int MATCH_FIRST = -9;
+        static const int MATCH_ALL = -1;
 
-        int dsm1;
-        int dsm2;
-        int sid1;
-        int sid2;
-        bool include;
+        void
+        parse_range(const std::string& rngstr, int& rngid1, int& rngid2);
+
+        bool
+        parse_specifier(const std::string& specifier);
+
+        /**
+         * Return true when @p dsmid and @p sid are matched by this range.
+         */
+        bool
+        match(int dsmid, int sid);
+
+        /**
+         * Fill in any MATCH_FIRST references with the given @p dsmid.
+         */
+        void
+        set_first_dsm(int dsmid);
+
+        int dsm1{0};
+        int dsm2{0};
+        int sid1{0};
+        int sid2{0};
+        bool include{false};
     };
 
 public:
@@ -129,6 +143,7 @@ private:
     id_lookup_t _lookup;
     nidas::util::UTime _startTime;
     nidas::util::UTime _endTime;
+    dsm_sample_id_t _first_dsmid;
 };
 
 

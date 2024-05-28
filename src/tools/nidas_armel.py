@@ -10,7 +10,6 @@ def generate(env: Environment):
         env['ARCHLIBDIR'] = 'lib/arm-linux-gnueabi'
     env.AppendUnique(CCFLAGS=['-fpie'])
     env.AppendUnique(LINKFLAGS=['-pie', '-Wl,-z,relro', '-Wl,-z,now'])
-    env.AppendUnique(CPPDEFINES='NIDAS_EMBEDDED')
 
 
 def exists(env):

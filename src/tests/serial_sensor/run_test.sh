@@ -2,11 +2,6 @@
 
 # Test script for a dsm process, sampling serial sensors, via pseudo-terminals
 
-# If the first runstring argument is "installed", then don't fiddle with PATH or
-# LD_LIBRARY_PATH, and run the nidas programs from wherever they are found in PATH.
-# Otherwise if build/apps is not found in PATH, prepend it, and if LD_LIBRARY_PATH 
-# doesn't contain the string build, prepend ../build/{util,core,dynld}.
-
 # -------------- GLOBALS --------------
 
 # scons may not set HOSTNAME
@@ -26,13 +21,11 @@ xmlrpcopt=
 dsm_errs=0
 svr_errs=0
 
-installed=false
 debugging=false
 alltests="test_serial_dsm_server test_serial_dsm"
 testnames=
 while [ $# -gt 0 ]; do
     case "$1" in
-        -i) installed=true ;;
         -d) debugging=true ;;
         *) testnames="$testnames $1" ;;
     esac
@@ -40,29 +33,10 @@ while [ $# -gt 0 ]; do
 done
 echo testnames=$testnames
 
-# ---------------------------------------
+source ../nidas_tests.sh
 
-if ! $installed; then
-
-    # I'm not sure this is actually necessary, since scons should set this
-    # up already...
-    # 
-    if [ -n "$VARIANT_DIR" ]; then
-        source "$VARIANT_DIR/bin/setup_nidas.sh"
-    fi
-    if ! which dsm | grep -F -q build_; then
-        echo "dsm program not found on build directory. PATH=$PATH"
-        exit 1
-    fi
-    if ! ldd `which dsm` | awk '/libnidas/{if (index($0,"build_") == 0) exit 1}'; then
-        echo "using nidas libraries from somewhere other than a build directory"
-        exit 1
-    fi
-fi
-
-echo "dsm executable: `which dsm`"
-echo "nidas libaries:"
-ldd `which dsm` | grep -F libnidas
+check_executable dsm
+check_executable dsm_server
 
 if $debugging; then
     export TEST=/tmp/test_debug
@@ -73,11 +47,6 @@ else
 fi
 echo "TEST=$TEST"
 
-
-valgrind_errors() {
-    grep -E -q "^==[0-9]*== ERROR SUMMARY:" $1 && \
-        sed -n 's/^==[0-9]*== ERROR SUMMARY: \([0-9]*\).*/\1/p' $1 || echo 1
-}
 
 start_dsm() # config
 {

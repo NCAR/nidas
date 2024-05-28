@@ -1,36 +1,8 @@
 #!/bin/bash
 
-# If the first runstring argument is "-i", then don't fiddle with PATH or
-# LD_LIBRARY_PATH, and run the nidas programs from wherever they are found in PATH.
-# Otherwise if build/apps is not found in PATH, prepend it, and if LD_LIBRARY_PATH 
-# doesn't contain the string build, prepend ../build/{util,core,dynld}.
-
-installed=false
-[ $# -gt 0 -a "$1" == "-i" ] && installed=true
-
-if ! $installed; then
-
-    echo $PATH | grep -F -q build/apps || PATH=../../build/apps:$PATH
-
-    llp=../../build/util:../../build/core:../../build/dynld
-    echo $LD_LIBRARY_PATH | grep -F -q build || \
-        export LD_LIBRARY_PATH=$llp${LD_LIBRARY_PATH:+":$LD_LIBRARY_PATH"}
-
-    echo LD_LIBRARY_PATH=$LD_LIBRARY_PATH
-    echo PATH=$PATH
-
-    if ! which dsm | grep -F -q build/; then
-        echo "dsm program not found on build directory. PATH=$PATH"
-        exit 1
-    fi
-    if ! ldd `which dsm` | awk '/libnidas/{if (index($0,"build/") == 0) exit 1}'; then
-        echo "using nidas libraries from somewhere other than a build directory"
-        exit 1
-    fi
-fi
-
-# echo PATH=$PATH
-# echo LD_LIBRARY_PATH=$LD_LIBRARY_PATH
+source ../nidas_tests.sh
+check_executable sync_server
+check_executable sync_dump
 
 # Do a short test of sync_server, sync_dump.
 
@@ -46,14 +18,14 @@ find_tcp_port() {
     done
     echo $port
 }
-        
+
 check_tcp_port() {
     local port=$1
     local -a inuse=(`netstat -tan | awk '/^tcp/{print $4}' | sed -r 's/.*:([0-9]+)$/\1/' | sort -u`)
     echo ${inuse[*]} | grep -F -q $port && echo "true"
     echo "false"
 }
-        
+
 export SYNC_REC_PORT_TCP=`find_tcp_port`
 echo "Using port=$SYNC_REC_PORT_TCP"
 
@@ -103,11 +75,6 @@ if ! diff $tmp1 $tmp2; then
 else
     echo "sync_dump data looks good"
 fi
-
-
-valgrind_errors() {
-    sed -n 's/^==[0-9]*== ERROR SUMMARY: \([0-9]*\).*/\1/p' $1
-}
 
 dump_errs=`valgrind_errors sync_dump.log`
 echo "$dump_errs errors reported by valgrind in sync_dump.log"

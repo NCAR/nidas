@@ -224,7 +224,6 @@ public:
      */
     static std::string makePath(const std::string& dir,const std::string& file);
 
-#if !defined(NIDAS_EMBEDDED)
     /**
      * Check that any date or time descriptors, e.g. "%y", "%m", in
      * the full file path string are in the correct order, so that
@@ -235,7 +234,6 @@ public:
      * @throws IOException
      **/
     void checkPathFormat(const UTime& t1, const UTime& t2);
-#endif
 
     /**
      * @throws IOException

@@ -1,15 +1,9 @@
 # -*- python -*-
-## 2006, Copyright University Corporation for Atmospheric Research
+# 2006, Copyright University Corporation for Atmospheric Research
 
-from SCons.Script import Environment, Import, SConscript
+from SCons.Script import Environment, SConscript
 
-Import('env')
-env: Environment
-
-# -rdynamic: Export all dynamic symbols in the executables, so that libraries
-# loaded with dlopen() can resolve symbols already in the executable.
-# See "man dlopen" for more info.
-env.AppendUnique(LINKFLAGS=['-rdynamic'])
+env = Environment(tools=['default'])
 
 installs = []
 installs += env.Install('$PREFIX/include/nidas', 'include/nidas/Config.h')
@@ -17,16 +11,13 @@ installs += env.Install('$PREFIX/include/nidas', 'include/nidas/Config.h')
 # Build Revision.h from git describe.  This does not depend on the target,
 # only the source repo, so it is not installed in the variant dir but in the
 # source tree, where it can be included easily in source archives.
-env.Tool('gitinfo')
 info = env.GitInfo("#/nidas/Revision.h", "#/nidas")
 installs += env.Install('$PREFIX/include/nidas', info)
-
-env.PrependUnique(CPPPATH=['$VARIANT_DIR/include'])
 
 subdirs = env.Split("""util core dynld apps scripts linux""")
 
 for dir in subdirs:
-    SConscript('%s/SConscript' % (dir), exports=['env'])
+    SConscript('%s/SConscript' % (dir))
 
 env.Alias('lib', subdirs[0:3])
 

@@ -6,7 +6,7 @@ script=$0
 dir=${script%/*}
 
 [ -f /etc/os-release ] && . /etc/os-release
-variant_dir=build_$(uname -m)_${ID}${VERSION_ID}
+variant_dir=build/$(uname -m)_${ID}${VERSION_ID}
 
 export LD_LIBRARY_PATH=$dir/$variant_dir/lib
 echo LD_LIBRARY_PATH=$LD_LIBRARY_PATH

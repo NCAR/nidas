@@ -1,15 +1,15 @@
 # -*- python -*-
-## 2009, Copyright University Corporation for Atmospheric Research
+# 2009, Copyright University Corporation for Atmospheric Research
 
-Import('env')
-env = env.Clone()
-env.Require('nidas')
-env.NidasRuntimeENV()
+from SCons.Script import Environment
+
+env = Environment(tools=['default', 'nidasapps'])
 
 ck_xml = env.NidasApp('ck_xml')
 
-depends = ["run_test.sh",ck_xml]
-runtest = env.Command("xtest1", depends, ["cd $SOURCE.dir && ./run_test.sh -i"])
+depends = ["run_test.sh", ck_xml]
+runtest = env.Command("xtest1", depends,
+                      ["cd $SOURCE.dir && ./run_test.sh"])
 
 env.Precious(runtest)
 env.AlwaysBuild(runtest)
