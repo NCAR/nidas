@@ -1,14 +1,13 @@
 # -*- python -*-
 
-Import('env')
-env = env.Clone()
-env.Require('nidas')
-env.NidasRuntimeENV()
+from SCons.Script import Environment
+
+env = Environment(tools=['default', 'nidasapps'])
 
 data_dump = env.NidasApp('data_dump')
 
 depends = ["runtest.sh", data_dump]
-runtest = env.Command("xtest", depends, ["cd $SOURCE.dir && ./runtest.sh -i"])
+runtest = env.Command("xtest", depends, ["cd $SOURCE.dir && ./runtest.sh"])
 
 env.Precious(runtest)
 env.AlwaysBuild(runtest)

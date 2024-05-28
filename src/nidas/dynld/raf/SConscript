@@ -1,10 +1,11 @@
 # -*- python -*-
-## 2006, Copyright University Corporation for Atmospheric Research
+# 2006, Copyright University Corporation for Atmospheric Research
 
-Import('env')
-arch = env['ARCH']  # empty string for native builds
+from SCons.Script import Environment
 
-sources = Split("""
+env = Environment(tools=['default', 'dynldsources'])
+
+sources = env.Split("""
     A2DBoardTempSensor.cc
     A2D_Serial.cc
     ADC_HW_EB7022597.cc
@@ -57,7 +58,7 @@ sources = Split("""
 """)
 
 
-headers = Split("""
+headers = env.Split("""
     A2DBoardTempSensor.h
     A2D_Serial.h
     ADC_HW_EB7022597.h
@@ -111,18 +112,5 @@ headers = Split("""
     WatlowCLS208.h
 """)
 
-if arch == 'arm':
-    archsources=Split("""
-    """)
-    archheaders=Split("""
-    """)
-else:
-    archsources=Split("""
-    """)
-    archheaders=Split("""
-    """)
-
-
-env.Append (LIBNIDAS_DYNLD_SOURCES = [ env.File(f) for f in sources + archsources ])
-
-env.Install('$PREFIX/include/nidas/dynld/raf', headers + archheaders)
+env.AddDynldSources(sources)
+env.Install('$PREFIX/include/nidas/dynld/raf', headers)

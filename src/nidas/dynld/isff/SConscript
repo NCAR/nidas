@@ -1,12 +1,11 @@
 # -*- python -*-
-## 2006, Copyright University Corporation for Atmospheric Research
+# 2006, Copyright University Corporation for Atmospheric Research
 
-import eol_scons.parseconfig as pc
+from SCons.Script import Environment
 
-Import('env')
-arch = env['ARCH']  # empty string for native builds
+env = Environment(tools=['default', 'dynldsources'])
 
-sources = Split("""
+sources = env.Split("""
     ATIK_Sonic.cc
     CSAT3_Sonic.cc
     CS_Krypton.cc
@@ -30,7 +29,7 @@ sources = Split("""
     WisardMote.cc
 """)
 
-headers = Split("""
+headers = env.Split("""
     ATIK_Sonic.h
     CSAT3_Sonic.h
     CS_Krypton.h
@@ -54,6 +53,5 @@ headers = Split("""
     WisardMote.h
 """)
 
-env.Append (LIBNIDAS_DYNLD_SOURCES = [ env.File(f) for f in sources ])
-
+env.AddDynldSources(sources)
 env.Install('$PREFIX/include/nidas/dynld/isff', headers)

@@ -412,28 +412,6 @@ BOOST_AUTO_TEST_CASE(test_nidas_app_neg_args)
 }
 
 
-template <typename T, typename C = std::vector<T> >
-class strm_vector {
-public:
-  typedef strm_vector<T, C> proxy_type;
-
-  proxy_type& 
-  operator<< (const T& value)
-  {
-    data.push_back(value);
-    return *this;
-  }
-
-  operator C() const
-  {
-    return data;
-  }
-
-private:
-  C data;
-};
-
-
 // Make sure extra args are left in argument list.
 BOOST_AUTO_TEST_CASE(test_nidas_app_xargs)
 {
@@ -515,16 +493,14 @@ BOOST_AUTO_TEST_CASE(test_nidas_app_setargs)
   BOOST_CHECK_EQUAL(app.InputFiles.allowSockets, true);
 
   // Parse a simple command line.
-  std::vector<std::string> args;
-  args = strm_vector<std::string>() << "-x" << "/tmp/header.xml";
+  ArgVector args{"-x", "/tmp/header.xml"};
   args = app.parseArgs(args);
   BOOST_CHECK_EQUAL(args.size(), 0);
   BOOST_CHECK_EQUAL(app.xmlHeaderFile(), "/tmp/header.xml");
 
   // Now try parsing a line with a valid but disabled option, so it should
   // not be consumed when parsed.
-  args = strm_vector<std::string>()
-    << "-l" << "debug" << "-x" << "/tmp/header2.xml";
+  args = ArgVector{"-l", "debug", "-x", "/tmp/header2.xml"};
 
   app.allowUnrecognized(true);
   args = app.parseArgs(args);
@@ -547,14 +523,13 @@ BOOST_AUTO_TEST_CASE(test_nidas_app_longargs)
   BOOST_CHECK(app.ProcessData.accept("--process"));
 
   // Short flags should not be allowed.
-  std::vector<std::string> args = strm_vector<std::string>()
-    << "-x" << "/tmp/header.xml";
+  ArgVector args{"-x", "/tmp/header.xml"};
   args = app.parseArgs(args);
   BOOST_CHECK_EQUAL(args.size(), 2);
   BOOST_CHECK_EQUAL(app.xmlHeaderFile(), "");
 
-  args = strm_vector<std::string>()
-    << "--xml" << "/tmp/header.xml" << "--process" << "--samples" << "1,1";
+  args = ArgVector{"--xml", "/tmp/header.xml", "--process",
+                   "--samples", "1,1"};
   args = app.parseArgs(args);
   std::copy(args.begin(), args.end(),
 	    std::ostream_iterator<std::string>(std::cerr, "\n"));
@@ -596,7 +571,7 @@ BOOST_AUTO_TEST_CASE(test_nidas_app_requireargs)
   BOOST_CHECK_EQUAL(app.Hostname.isRequired(), false);
   BOOST_CHECK_EQUAL(app.ProcessData.isRequired(), false);
 
-  ArgVector args = strm_vector<std::string>() << "-h" << "-p";
+  ArgVector args{"-h", "-p"};
   app.parseArgs(args);
   // An app would check for help before failing on missing arguments.
   BOOST_CHECK_EQUAL(app.helpRequested(), true);
@@ -609,8 +584,7 @@ BOOST_AUTO_TEST_CASE(test_nidas_app_requireargs)
   app2.requireArguments(app2.XmlHeaderFile);
   app2.enableArguments(app2.ProcessData | app2.Help | app2.Hostname);
 
-  ArgVector args2 = strm_vector<std::string>() << "-x" << "/tmp/some.xml"
-					       << "-h" << "-p";
+  ArgVector args2{"-x", "/tmp/some.xml", "-h", "-p"};
   BOOST_CHECK_NO_THROW(app2.parseArgs(args2));
 
   NidasApp app3("test3");
@@ -632,13 +606,12 @@ BOOST_AUTO_TEST_CASE(test_nidas_app_badargs)
   app.allowUnrecognized(true);
   app.enableArguments(app.XmlHeaderFile);
   
-  std::vector<std::string> args = strm_vector<std::string>() << "--xml";
+  ArgVector args{"--xml"};
   BOOST_CHECK_THROW(app.parseArgs(args), NidasAppException);
   BOOST_CHECK_EQUAL(args.size(), 1);
   BOOST_CHECK_EQUAL(app.xmlHeaderFile(), "");
 
-  args = strm_vector<std::string>() << "--unknown" << "first"
-				    << "--xml" << "xmlfile" << "last";
+  args = ArgVector{"--unknown", "first", "--xml", "xmlfile", "last"};
   args = app.parseArgs(args);
   BOOST_CHECK_EQUAL(app.xmlHeaderFile(), "xmlfile");
   BOOST_CHECK_EQUAL(args.size(), 3);
@@ -770,9 +743,7 @@ BOOST_AUTO_TEST_CASE(test_nidas_app_custom_args)
   // Check for default.
   BOOST_CHECK_EQUAL(app.Period.asInt(), 20);
 
-  std::vector<std::string> args = strm_vector<std::string>()
-    << "--repeat" << "--period" << "10";
-
+  ArgVector args{"--repeat", "--period", "10"};
   app.parseArguments(args);
   BOOST_CHECK_EQUAL(app._repeat, true);
   BOOST_CHECK_EQUAL(app._period, 10);
@@ -784,12 +755,11 @@ BOOST_AUTO_TEST_CASE(test_nidas_app_parse_int)
   // Make sure int parsing fails.
   MyApp app;
   
-  std::vector<std::string> args = strm_vector<std::string>()
-    << "--period" << "10f";
+  ArgVector args{"--period", "10f"};
   app.Period.parse(args);
   BOOST_CHECK_THROW(app.Period.asInt(), NidasAppException);
 
-  args = strm_vector<std::string>() << "--period" << "1.0";
+  args = ArgVector{"--period", "1.0"};
   app.Period.parse(args);
   BOOST_CHECK_THROW(app.Period.asInt(), NidasAppException);
 }
@@ -800,13 +770,12 @@ BOOST_AUTO_TEST_CASE(test_nidas_app_parse_float)
   // Test float parsing.
   MyApp app;
   
-  std::vector<std::string> args = strm_vector<std::string>()
-    << "--period" << "1.25";
+  ArgVector args{"--period", "1.25"};
 
   app.Period.parse(args);
   BOOST_CHECK_EQUAL(app.Period.asFloat(), 1.25);
 
-  args = strm_vector<std::string>() << "--period" << "1.2x345";
+  args = ArgVector{"--period", "1.2x345"};
   app.Period.parse(args);
   BOOST_CHECK_THROW(app.Period.asFloat(), NidasAppException);
 }
@@ -832,7 +801,7 @@ BOOST_AUTO_TEST_CASE(test_nidas_app_daemon_debug)
   // config can still change.
   {
     DaemonApp app;
-    ArgVector cmdline = strm_vector<std::string>() << "--log" << "debug";
+    ArgVector cmdline{"--log", "debug"};
     ArgVector args = app.parseArgs(cmdline);
     BOOST_CHECK(args.empty());
     BOOST_CHECK(!app.DebugDaemon.asBool());
@@ -842,7 +811,7 @@ BOOST_AUTO_TEST_CASE(test_nidas_app_daemon_debug)
   // logging from debug.
   {
     DaemonApp app;
-    ArgVector cmdline = strm_vector<std::string>() << "-d" << "--log" << "info";
+    ArgVector cmdline{"-d", "--log", "info"};
     ArgVector args = app.parseArgs(cmdline);
     BOOST_CHECK(args.empty());
     BOOST_CHECK(app.DebugDaemon.asBool());
@@ -851,7 +820,7 @@ BOOST_AUTO_TEST_CASE(test_nidas_app_daemon_debug)
   // Order does not matter, because the daemon debug is a fallback.
   {
     DaemonApp app;
-    ArgVector cmdline = strm_vector<std::string>() << "--log" << "info" << "-d";
+    ArgVector cmdline{"--log", "info", "-d"};
     ArgVector args = app.parseArgs(cmdline);
     BOOST_CHECK(args.empty());
     BOOST_CHECK(app.DebugDaemon.asBool());
@@ -860,8 +829,7 @@ BOOST_AUTO_TEST_CASE(test_nidas_app_daemon_debug)
   // Log fields is set for daemon mode unless set by a user argument.
   {
     DaemonApp app;
-    ArgVector cmdline = strm_vector<std::string>()
-     << "-d" << "--logfields" << LogScheme().getShowFieldsString();
+    ArgVector cmdline{"-d", "--logfields", LogScheme().getShowFieldsString()};
     ArgVector args = app.parseArgs(cmdline);
     app.setupDaemonLogging();
     BOOST_CHECK_EQUAL(app.logLevel(), LOGGER_DEBUG);
@@ -882,7 +850,7 @@ BOOST_AUTO_TEST_CASE(test_nidas_app_daemon_debug)
   // restricted to lower log levels in daemon mode.
   {
     DaemonApp app;
-    ArgVector cmdline = strm_vector<std::string>() << "-l" << "5";
+    ArgVector cmdline{"-l", "5"};
     ArgVector args = app.parseArgs(cmdline);
     BOOST_CHECK_EQUAL(Logger::getScheme().logLevel(), LOGGER_NOTICE);
     BOOST_CHECK_EQUAL(Logger::getScheme().getConfigs().size(), 1);

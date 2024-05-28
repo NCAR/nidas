@@ -1,22 +1,16 @@
 # -*- python -*-
-## 2009, Copyright University Corporation for Atmospheric Research
+# 2009, Copyright University Corporation for Atmospheric Research
 #
-Import('env')
-env = env.Clone(tools = ['nidas'])
 
-env.Append(LIBS = env.NidasLibs())
-env.Append(LIBS = ['boost_unit_test_framework', 'boost_regex'])
-env.Prepend(CPPPATH = [ '#/src' ])
-env.Append(CCFLAGS = ['-Wall'])
+from SCons.Script import Environment
+
+env = Environment(tools=['default', 'nidasapps', 'valgrind', 'boost_test',
+                         'boost_regex'])
 
 tests = env.Program('tiostream', "tiostream.cc")
-# env.Depends(tests, libs)
 
 # Add --log_level=all to see all the log messages
 runtest = env.Command("xtest", tests, ["$SOURCE.abspath"])
 env.Precious(runtest)
-AlwaysBuild(runtest)
-Alias('test', runtest)
-
-
-
+env.AlwaysBuild(runtest)
+env.Alias('test', runtest)

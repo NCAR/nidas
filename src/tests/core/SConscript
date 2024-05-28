@@ -1,46 +1,30 @@
 # -*- python -*-
 
-Import('env')
-env = env.Clone(tools = ['nidas', 'valgrind'])
+from SCons.Script import Environment
 
-env.Append(CXXFLAGS='-Wno-effc++')
-env.Append(LIBS = env.NidasLibs())
-env.Append(LIBS = ['boost_unit_test_framework', 'boost_regex'])
-env.Prepend(CPPPATH = [ "#/nidas/util", "#/nidas/core", "#/nidas/dynld" ])
+env = Environment(tools=['default', 'nidasapps', 'valgrind',
+                         'boost_test', 'boost_regex'])
+
 tests = env.Program('tcore', ["tcore.cc", "tsamples.cc",
-                              "tutil.cc", "tcalfile.cc", "tbadsamplefilter.cc"])
-# env.Depends(tests, libs)
-#
+                              "tutil.cc", "tcalfile.cc",
+                              "tbadsamplefilter.cc"])
 
-env.NidasRuntimeENV()
-runtest = env.Command("xtest", tests,
-                      env.ChdirActions(["./$SOURCE.file"]))
+cmd = "echo $$LD_LIBRARY_PATH && ./$SOURCE.file"
+runtest = env.Command("xtest", tests, env.ChdirActions([cmd]))
 env.Precious(runtest)
-AlwaysBuild(runtest)
-Alias('test', runtest)
+env.AlwaysBuild(runtest)
+env.Alias('test', runtest)
 
-env.ValgrindLog('memcheck', 
+env.ValgrindLog('memcheck',
                 env.Command('vg.memcheck.log', tests,
                             "cd ${SOURCE.dir} && "
                             "${VALGRIND_PATH} --leak-check=full"
                             " --gen-suppressions=all ./${SOURCE.file}"
                             " >& ${TARGET.abspath}"))
 
-env.ValgrindLog('threadcheck', 
+env.ValgrindLog('threadcheck',
                 env.Command('vg.threadcheck.log', tests,
                             "cd ${SOURCE.dir} && "
                             "${VALGRIND_PATH} --tool=helgrind"
                             " --gen-suppressions=all ./${SOURCE.file}"
                             " >& ${TARGET.abspath}"))
-
-def write_env(env, target, source):
-    "Write a sh file with env settings which can be sourced to run tests."
-    out = open(str(target[0]), "w")
-    for s in source:
-        out.write("export LD_LIBRARY_PATH=%s:${LD_LIBRARY_PATH}\n" %
-                  (str(s.dir.get_abspath())))
-    out.close()
-
-env.Command('libs.sh', ["$LIBNIDAS", "$LIBNIDAS_DYNLD", "$LIBNIDAS_UTIL"], write_env)
-
-

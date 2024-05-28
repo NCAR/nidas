@@ -1,20 +1,14 @@
 # -*- python -*-
 # 2009-2024, Copyright University Corporation for Atmospheric Research
 
-from SCons.Script import Import, Environment
+from SCons.Script import Environment
 
-env: Environment
-
-Import('env')
-env = env.Clone()
-env.Require('nidas')
+env = Environment(tools=['default', 'nidasapps'])
 
 dsm = env.NidasApp('dsm')
 dsm_server = env.NidasApp('dsm_server')
 data_stats = env.NidasApp('data_stats')
 sensor_sim = env.NidasApp('sensor_sim')
-nidas_setup = '$VARIANT_DIR/bin/nidas_setup.sh'
-env.NidasRuntimeENV()
 
 # since test_serial_dsm_server does everything test_serial_dsm does, plus the
 # server, it makes sense to just run the one test.  the other test can be run

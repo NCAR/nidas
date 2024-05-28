@@ -1,18 +1,30 @@
 # -*- python -*-
-## 2006, Copyright University Corporation for Atmospheric Research
+# 2006, Copyright University Corporation for Atmospheric Research
+
+from SCons.Script import SConscript, Environment, Export
 
 import eol_scons.parseconfig as pc
 
-##
-##  Import the build environment.
-##
-Import('env')
-env = env.Clone(tools = ['nidas'])
-arch = env['ARCH']  # empty string for native builds
+depends = ['libnidas']
+env = Environment(tools=['default', 'symlink', 'sharedlibrary'])
 
-SConscript(dirs = ["raf", "isff", "iss"], exports={'env':env})
 
-headers = Split("""
+def AddDynldSources(xenv, sources):
+    env.Append(LIBNIDAS_DYNLD_SOURCES=[xenv.File(f) for f in sources])
+
+
+def dynldsources(env):
+    env.AddMethod(AddDynldSources)
+
+
+Export('dynldsources')
+
+
+env.Tool(dynldsources)
+SConscript(dirs=["raf", "isff", "iss"])
+
+
+headers = env.Split("""
     A2DSensor.h
     AsciiOutput.h
     Bzip2FileSet.h
@@ -52,10 +64,10 @@ headers = Split("""
     XMLConfigService.h
 """)
 
-##
-##  source files in libnidas_dynld
-##
-sources = Split("""
+#
+#  source files in libnidas_dynld
+#
+sources = env.Split("""
     A2DSensor.cc
     AsciiOutput.cc
     Bzip2FileSet.cc
@@ -95,24 +107,13 @@ sources = Split("""
     XMLConfigService.cc
 """)
 
-if arch == 'arm':
-    archsources=Split("""
-    """)
-    archheaders=Split("""
-    """)
-else:
-    archsources=Split("""
-    """)
-    archheaders=Split("""
-    """)
-
-env.Tool('nidasconfig')
 conf = env.NidasConfigure()
 
-pc.ParseConfig(conf.env, 'pkg-config --libs gsl')
-conf.CheckCXXHeader('gsl/gsl_linalg.h')
-conf.CheckLibWithHeader('gsl', 'gsl/gsl_linalg.h','C',
-                        'gsl_linalg_LU_solve(0,0,0,0);')
+if pc.ParseConfig(conf.env, 'pkg-config --libs gsl'):
+    conf.Define("HAVE_LIBGSL")
+    env.PrintProgress("Checked for libgsl... yes")
+else:
+    env.PrintProgress("Checked for libgsl... no")
 
 conf.CheckCHeader('sys/inotify.h')
 
@@ -125,49 +126,37 @@ if conf.CheckCHeader('uio48.h'):
 conf.CheckLib('modbus')
 env = conf.Finish()
 
+
 # Provide a tool function which apps SConscript can use to check if UIO48 is
 # enabled.
 def uio48(env):
     env["HAVE_UIO48"] = have_uio48
 
+
 Export('uio48')
 
-##
-##  Build the nidas_dynld library.
-##
-env.Append (LIBNIDAS_DYNLD_SOURCES = 
-            [ env.File(f) for f in sources + archsources ])
-
-# build libnidas_dynld.so
-lib = env.SharedLibrary3('$VARIANT_DIR/lib/nidas_dynld' ,
-                         env['LIBNIDAS_DYNLD_SOURCES'],
-                         LIBS=['nidas'] + env['LIBS'])
+#
+#  Build the nidas_dynld library.
+#
+env.AddDynldSources(sources)
+env.Require(depends)
+lib = env.SharedLibrary3('$VARIANT_DIR/lib/nidas_dynld',
+                         env['LIBNIDAS_DYNLD_SOURCES'])
 env.Default([lib])
-
-# Export the locally built library 
-Export({'LIBNIDAS_DYNLD' + arch: lib[0]})
 
 #
 # Install targets for library and headers.
 #
 nodes = []
 nodes += env.SharedLibrary3Install('$PREFIX', lib)
-nodes += env.Install('$PREFIX/include/nidas/dynld', headers + archheaders)
+nodes += env.Install('$PREFIX/include/nidas/dynld', headers)
 
-Alias('install', nodes)
+env.Alias('install', nodes)
 
-def nidasdynld(xenv):
-    "Tool to apply dynld link settings to an environemnt."
-    # Eventually this would be the place to add the dynld library itself to
-    # the link command, but for the moment only apps/SConscript uses this, and
-    # the dynld library is already added by the NidasProgram() pseudo-builder.
-    #
-    # xenv.AppendUnique(LIBS=['nidas_dynld'])
-    #
-    # These may not be necessary now that nc_server is not a dependency of
-    # dynld, but they remain until proven harmful.
-    xenv.AppendUnique(LIBS=env.get('LIBS', []))
-    xenv.AppendUnique(LIBPATH=env.get('LIBPATH', []))
-    xenv.AppendUnique(CPPPATH=env.get('CPPPATH', []))
 
-Export('nidasdynld')
+def libnidas_dynld(env):
+    env.Append(LIBS=[lib[0]])
+    env.Require(depends)
+
+
+Export('libnidas_dynld')

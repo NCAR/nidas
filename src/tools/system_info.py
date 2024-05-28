@@ -19,6 +19,7 @@ import subprocess as sp
 
 
 _os = None
+_arch = None
 
 
 def _parse_settings(contents: str):
@@ -55,12 +56,15 @@ def get_os():
 
 
 def get_arch():
-    arch = get_debian_multiarch()
-    if arch:
-        arch = arch.split('-')[0]
-    else:
-        arch = platform.machine()
-    return arch
+    global _arch
+    if _arch is None:
+        arch = get_debian_multiarch()
+        if arch:
+            arch = arch.split('-')[0]
+        else:
+            arch = platform.machine()
+        _arch = arch
+    return _arch
 
 
 def dpkg_arch(name):

@@ -105,7 +105,7 @@ if [ $dopkg == nidas -o $dopkg == nidas-doxygen ]; then
     cd -    # back to top
 
     tar czf $topdir/SOURCES/${dopkg}-${version}.tar.gz \
-            rpm filters src/SConstruct src/nidas src/tools src/firmware \
+            rpm src/filters src/SConstruct src/nidas src/tools src/firmware \
             src/systemd src/xml doc/doxygen_conf || exit $?
 
     # set _unpackaged_files_terminate_build to false, which risks the situation

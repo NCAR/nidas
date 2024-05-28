@@ -21,7 +21,7 @@ def get_variant_dir(env):
     # for host builds, use the os release in place of machine type.
     if not mach or mach == 'host':
         mach = si.get_os() or 'host'
-    vdir = "build_%s_%s" % (arch, mach)
+    vdir = "build/%s_%s" % (arch, mach)
     return vdir
 
 
@@ -34,6 +34,13 @@ def generate(env: Environment):
     env.AddMethod(si.get_debian_multiarch, "GetDebianMultiarch")
     # add it to the environment for scripts to use, especially test scripts.
     env['ENV']['VARIANT_DIR'] = env.Dir('$VARIANT_DIR').abspath
+    # any environment which uses the variant dir can also get the runtime
+    # settings to run against that variant
+    env.PrependENVPath('PATH', env.subst('${VARIANT_DIR}/bin'))
+    env.PrependENVPath('LD_LIBRARY_PATH', env.subst('${VARIANT_DIR}/lib'))
+    # Likewise these are required to build against the variant
+    env.AppendUnique(CPPPATH=['$VARIANT_DIR/include'])
+    env.AppendUnique(LIBPATH=['$VARIANT_DIR/lib'])
 
 
 def exists(env):

@@ -1,20 +1,20 @@
 # -*- python -*-
-## 2009, Copyright University Corporation for Atmospheric Research
+# 2009, Copyright University Corporation for Atmospheric Research
 
-Import('env')
-env = env.Clone()
-env.Require('nidas')
-env.NidasRuntimeENV()
+from SCons.Script import Environment
+
+env = Environment(tools=['default', 'nidasapps'])
 
 data_dump = env.NidasApp('data_dump')
 
-# run_test.sh and run_test_2.sh conflict with each other. They use the same 
-# pseudo-terminals, and kill other dsm processes at startup.
-# So they are run in sequence here by the shell. Otherwise, if they are separate
-# targets, "scons -j 2 test" is likely to run them simultaneously.
+# run_test.sh and run_test_2.sh conflict with each other. They use the same
+# pseudo-terminals, and kill other dsm processes at startup.  So they are run
+# in sequence here by the shell. Otherwise, if they are separate targets,
+# "scons -j 2 test" is likely to run them simultaneously.
 #
 depends = ["run_test.sh", data_dump]
-runtest = env.Command("xtest1", depends, ["cd $SOURCE.dir && ./run_test.sh -i"])
+runtest = env.Command("xtest1", depends,
+                      ["cd $SOURCE.dir && ./run_test.sh"])
 
 env.Precious(runtest)
 env.AlwaysBuild(runtest)

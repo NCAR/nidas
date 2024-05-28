@@ -1,9 +1,8 @@
 # -*- python -*-
 
-Import('env')
-env = env.Clone()
-env.Require('nidas')
-env.Require('valgrind')
+from SCons.Script import Environment
+
+env = Environment(tools=['default', 'nidasapps', 'valgrind'])
 
 prep = env.NidasApp('prep')
 
