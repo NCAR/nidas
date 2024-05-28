@@ -481,9 +481,9 @@ bool A2D_Serial::process(const Sample * samp,
                 _calFile->getCurrentFileName().c_str(),e.what());
             _finalConverter->setNAN();
             _calFile = 0;
-        }               
-    }           
-                                               
+        }
+    }
+
     float * dout = outs->getDataPtr();
 
     // initialize dout
@@ -504,7 +504,7 @@ bool A2D_Serial::process(const Sample * samp,
         assert(iv < _nVars);
 
         if (sscanf(cp, "%x", &data) == 1) {
-            if (getOutputMode() == Counts) 
+            if (getOutputMode() == Counts)
                 dout[iv] = data;
             else {
                 float fval = _initialConverter->convert(ichan, data);

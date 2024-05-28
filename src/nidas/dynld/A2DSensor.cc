@@ -123,14 +123,14 @@ bool A2DSensor::process(const Sample* insamp,list<const Sample*>& results) throw
                 _calFile->getCurrentFileName().c_str(),e.what());
             getFinalConverter()->setNAN();
             _calFile = 0;
-        }       
+        }
         catch(const n_u::ParseException& e) {
             n_u::Logger::getInstance()->log(LOG_WARNING,"%s: %s",
                 _calFile->getCurrentFileName().c_str(),e.what());
             getFinalConverter()->setNAN();
-            _calFile = 0; 
-        }               
-    }           
+            _calFile = 0;
+        }
+    }
 
     A2DSampleInfo& sinfo = _sampleInfos[sindex];
     SampleTag* stag = sinfo.stag;
@@ -159,7 +159,7 @@ bool A2DSensor::process(const Sample* insamp,list<const Sample*>& results) throw
                 *fp = floatNAN;
                 continue;
             }
-            
+
             float fval = getInitialConverter()->convert(ichan, sval);
             fval = getFinalConverter()->convert(ichan, fval);
             *fp = fval;
@@ -213,7 +213,7 @@ void A2DSensor::validate()
          channels[3]
             gain=0,bipolar=0,id=0 (gain=0 means not sampled)
          channels[4]
-            gain=X,bipolar=x,id=0 
+            gain=X,bipolar=x,id=0
          channels[5]
             gain=X,bipolar=X,id=0
 
@@ -288,7 +288,7 @@ void A2DSensor::validate()
 	    if (fname == "counts") _outputMode = Counts;
 	    else if (fname == "volts") _outputMode = Volts;
 	    else if (fname == "engineering") _outputMode = Engineering;
-	    else throw n_u::InvalidParameterException(getName(),"outputmode",       
+	    else throw n_u::InvalidParameterException(getName(),"outputmode",
 		    fname + " is not supported");
             }
     }
@@ -314,7 +314,7 @@ void A2DSensor::validate()
 
         // Default time average rate is the sample rate.
         // User can choose a time average rate that is a multiple
-        // of the sample rate, in which case the results of the 
+        // of the sample rate, in which case the results of the
         // time averaging are subsampled by a pickoff of 1 out of
         // every N time averages, where N = timeavgRate / sample rate.
         int timeavgRate = tag->getRate();
@@ -367,7 +367,7 @@ void A2DSensor::validate()
             ostringstream ost;
             if (timeavgRate <= 0) {
                 ost << timeavgRate << " Hz must be > 0";
-                throw n_u::InvalidParameterException(getName(), 
+                throw n_u::InvalidParameterException(getName(),
                     "timeavg rate", ost.str());
             }
             if (fmod((double) timeavgRate, tag->getRate()) != 0.0) {
