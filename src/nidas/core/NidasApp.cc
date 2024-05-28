@@ -5,7 +5,8 @@
 #include "Version.h"
 
 #include <nidas/util/Process.h>
-#include <nidas/util/FileSet.h>
+#include <nidas/core/FileSet.h>
+#include <nidas/core/SampleOutput.h>
 
 #include <unistd.h>
 #include <signal.h>
@@ -33,6 +34,8 @@ using nidas::util::Logger;
 using nidas::util::LogScheme;
 
 using namespace std;
+
+using nidas::util::UTime;
 
 namespace 
 {
@@ -65,6 +68,10 @@ namespace
   }
 
 }
+
+
+namespace nidas {
+namespace core {
 
 
 NidasAppArg::
@@ -335,12 +342,17 @@ getUsageFlags()
   }
   return uflags;
 }
-  
+
 
 std::string
 NidasAppArg::
-usage(const std::string& indent)
+usage(const std::string& indent, bool brief)
 {
+  // brief output truncates the usage string at 50 characters or the first
+  // period, and writes the usage on the very next line if it does not fit
+  // next to the syntax string.
+  const int usage_indent = 25;
+  const int usage_len = 50;
   std::ostringstream oss;
   string flags = getUsageFlags();
   oss << indent << flags;
@@ -352,15 +364,36 @@ usage(const std::string& indent)
   }
   if (!_default.empty())
     oss << " [default: " << _default << "]";
-  oss << "\n";
+
+  if (!brief)
+    oss << "\n";
 
   std::istringstream iss(_usage);
   std::string line;
   while (getline(iss, line))
   {
+    if (brief)
+    {
+      size_t len = oss.str().size();
+      if (len >= usage_indent)
+      {
+        oss << "\n";
+        len = 0;
+      }
+      oss << string(usage_indent - len, ' ');
+      size_t period = line.find('.');
+      if (period != string::npos)
+        line.erase(period+1);
+      if (line.size() > usage_len)
+      {
+        line.erase(usage_len - 3);
+        line.append("...");
+      }
+      oss << line << "\n";
+      break;
+    }
     oss << indent << indent << line << "\n";
   }
-  oss << "\n";
   return oss.str();
 }
 
@@ -438,7 +471,7 @@ NidasApp(const std::string& name) :
   ("--logparam", "<name>=<value>",
    "Set a log scheme parameter with syntax <name>=<value>."),
   Help
-  ("-h,--help", "", "Print usage information."),
+  ("-h,--help", "", "Print usage, --help for full."),
   ProcessData
   ("-p,--process", "", "Enable processed samples."),
   StartTime
@@ -448,23 +481,25 @@ NidasApp(const std::string& name) :
   ("-e,--end", "<end-time>",
    "End samples at end-time, in the form 'YYYY {MMM|mm} dd HH:MM[:SS]'"),
   SampleRanges
-  ("-i,--samples", "[^]{<d1>[-<d2>|*},{<s1>[-<s2>]|*}",
-   "D is a dsm id or range of dsm ids separated by '-', or * (or -1) for all.\n"
-   "S is a sample id or range of sample ids separated by '-', "
-   "or * (or -1) for all.\n"
-   "Sample ids can be specified in 0x hex format with a leading 0x, in which\n"
-   "case they will also be output in hex.\n"
-   "Prefix the range option with ^ to exclude that range of samples.\n"
-   "Multiple range options can be specified.  Samples are either included\n"
-   "or excluded according to the first option which matches their ID.\n"
-   "If only exclusions are specified, then all other samples are implicitly\n"
-   "included.\n"
-   "Use data_stats to see DSM ids and sample ids in a data file.\n"
-   "More than one sample range can be specified.\n"
-   "Examples: \n"
-   " -i ^1,-1     Include all samples except those with DSM ID 1.\n"
-   " -i '^5,*' --samples 1-10,1-2\n"
-   "              Include sample IDs 1-2 for DSMs 1-10 except for DSM 5."),
+  ("-i,--samples", "[^]{<d1>[-<d2>]|*|/}[,{<s1>[-<s2>]|*|/}]",
+   R"(D is a range of dsm ids 'd1-d2', or /, *, or -1 for all, or '.'.
+S is a range of sample IDs 's1-s2', or all IDs if *, /, -1, or omitted.
+Sample ids can be specified in 0x hex format with a leading 0x, in which
+case they will also be output in hex.
+A DSM ID of '.' matches the DSM of the first sample received.
+Prefix the range option with ^ to exclude that range of samples.
+Multiple range options can be specified.  Samples are either included
+or excluded according to the first option which matches their ID.
+If only exclusions are specified, then all other samples are implicitly
+included.
+Use data_stats to see DSM ids and sample ids in a data file.
+More than one sample range can be specified.
+Examples:
+ -i /         All samples.
+ -i .,30-40   Samples 30-40 from only the first DSM ID in the data.
+ -i ^1        All samples except those with DSM ID 1.
+ -i '^5' -i 1-10,1-2
+              Sample IDs 1-2 for DSMs 1-10 except for DSM 5.)"),
   FormatHexId("-X", "", "Format sensor-plus-sample IDs in hex"),
   FormatSampleId
   ("--id-format", "auto|decimal|hex|octal",
@@ -501,6 +536,16 @@ NidasApp(const std::string& name) :
    "Set environment variables specifed for the dataset\n"
    "as found in the xml file specifed by $NIDAS_DATASETS or\n"
    "$ISFS/projects/$PROJECT/ISFS/config/datasets.xml"),
+  Clipping
+  ("--clip", "",
+   "Clip the output samples to the given time range,\n"
+   "and expand the input time boundaries by 5 minutes.\n"
+   "The input times are expanded to catch all raw samples\n"
+   "whose processed sample times might fall within the output times.\n"
+   "This option only applies to netcdf outputs.\n"),
+  SorterLength("-s,--sortlen,--sorterlength", "<seconds>",
+               "Sorter length for processed samples in "
+               "floating point seconds (optional)", "5.0"),
   PidFile
   ("--pid", "<pidfile>",
    "Write the PID to <pidfile>, or exit if <pidfile> already exists.\n"
@@ -515,13 +560,14 @@ NidasApp(const std::string& name) :
   _xmlFileName(),
   _idFormat(),
   _sampleMatcher(),
-  _startTime(LONG_LONG_MIN),
-  _endTime(LONG_LONG_MAX),
+  _startTime(UTime::MIN),
+  _endTime(UTime::MAX),
   _dataFileNames(),
   _sockAddr(),
   _outputFileName(),
   _outputFileLength(0),
   _help(false),
+  _brief(false),
   _username(),
   _hostname(),
   _userid(0),
@@ -906,6 +952,7 @@ parseNext()
   else if (arg == &Help)
   {
     _help = true;
+    _brief = (arg->getFlag() == "-h");
   }
   return arg;
 }
@@ -1168,7 +1215,6 @@ loggingArgs()
 
 
 nidas_app_arglist_t
-nidas::core::
 operator|(nidas_app_arglist_t arglist1, nidas_app_arglist_t arglist2)
 {
   nidas_app_arglist_t::iterator it;
@@ -1187,6 +1233,14 @@ std::string
 NidasApp::
 usage(const std::string& indent)
 {
+  return usage(indent, _brief);
+}
+
+
+std::string
+NidasApp::
+usage(const std::string& indent, bool brief)
+{
   // Iterate through the list this application's arguments, dumping usage
   // info for each.
   std::ostringstream oss;
@@ -1194,7 +1248,7 @@ usage(const std::string& indent)
   for (it = _app_arguments.begin(); it != _app_arguments.end(); ++it)
   {
     NidasAppArg& arg = (**it);
-    oss << arg.usage(indent);
+    oss << arg.usage(indent, brief);
   }
   return oss.str();
 }
@@ -1636,3 +1690,67 @@ checkPidFile()
   }
   return 0;
 }
+
+
+float
+NidasApp::
+getSorterLength(float min, float max)
+{
+  auto length = SorterLength.asFloat();
+  if (length < min || length > max)
+  {
+    throw std::invalid_argument("Invalid sorter length: " +
+                                SorterLength.getValue());
+  }
+  return length;
+}
+
+
+void
+NidasApp::
+setOutputClipping(const UTime& start, const UTime& end,
+                  SampleOutputBase* output)
+{
+  if (Clipping.asBool())
+  {
+    ILOG(("clipping netcdf output [")
+          << _startTime.format(true,"%Y %m %d %H:%M:%S")
+          << ","
+          << _endTime.format(true,"%Y %m %d %H:%M:%S")
+          << ")");
+    output->setTimeClippingWindow(start, end);
+  }
+}
+
+
+void
+NidasApp::
+setFileSetTimes(const UTime& start, const UTime& end, FileSet* fset)
+{
+  if (start.isSet())
+  {
+    UTime xtime = start;
+    if (Clipping.asBool())
+    {
+      xtime = xtime - 300*USECS_PER_SEC;
+      ILOG(("expanding input start time to ")
+            << xtime.format(true, "%Y %m %d %H:%M:%S"));
+    }
+    fset->setStartTime(xtime);
+  }
+  if (end.isSet())
+  {
+    UTime xtime = end;
+    if (Clipping.asBool())
+    {
+      xtime = xtime + 300*USECS_PER_SEC;
+      ILOG(("expanding input end time to ")
+            << xtime.format(true, "%Y %m %d %H:%M:%S"));
+    }
+    fset->setEndTime(xtime);
+  }
+}
+
+
+} // namespace core
+} // namespace nidas

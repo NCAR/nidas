@@ -216,10 +216,17 @@ static void emm_enable_ports(emerald_board* brd)
 {
         outb(0x80,brd->addr+EMERALD_APER);	/* enable ports */
 }
+
+/*
+ * This has been a warning for years, but Alma9 is treating
+ * 'defined but not used' as an error now.  ifdef out until needed.
+ */
+#if 0
 static void emm_disable_ports(emerald_board* brd)
 {
         outb(0x00,brd->addr+EMERALD_APER);	/* disable ports */
 }
+#endif
 
 /*
  * An EMM-8P provides registers 16 and 17 for setting
@@ -1014,7 +1021,12 @@ static int __init emerald_init_module(void)
         }
         memset(emerald_boards, 0, emerald_nr_addrs * sizeof(emerald_board));
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6,0,0)
         emerald_class = class_create(THIS_MODULE, "emerald");
+#else
+        emerald_class = class_create("emerald");
+#endif
+
         if (IS_ERR(emerald_class)) {
                 result = PTR_ERR(emerald_class);
                 goto fail;

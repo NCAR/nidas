@@ -1,12 +1,12 @@
 # -*- python -*-
-## 2006, Copyright University Corporation for Atmospheric Research
+# 2006, Copyright University Corporation for Atmospheric Research
 
+from SCons.Script import Environment
 
-Import('env')
-arch = env['ARCH']  # empty string for native builds
+env = Environment(tools=['default', 'dynldsources'])
 
-sources = Split("""TiltSensor.cc WICORSensor.cc""")
-headers = Split("""TiltSensor.h WICORSensor.h""")
+sources = env.Split("""TiltSensor.cc WICORSensor.cc""")
+headers = env.Split("""TiltSensor.h WICORSensor.h""")
 
 if False:
     env = env.Clone(CPPDEFINES = 'DEBUG', LIBS=[], SHLIBPREFIX = '')
@@ -18,11 +18,10 @@ if False:
                                   "WICORSensor.cc")
 
     instlibs = []
-    instlibs.extend(env.SharedLibrary3Install('$ARCHPREFIX', libtilt))
-    instlibs.extend(env.SharedLibrary3Install('$ARCHPREFIX', libwicor))
+    instlibs.extend(env.SharedLibrary3Install('$PREFIX', libtilt))
+    instlibs.extend(env.SharedLibrary3Install('$PREFIX', libwicor))
 
     env.Clean('install', instlibs)
 
-env.Append (LIBNIDAS_DYNLD_SOURCES = [ env.File(f) for f in sources ])
-
-env.Install('$ARCHPREFIX/include/nidas/dynld/iss', headers)
+env.AddDynldSources(sources)
+env.Install('$PREFIX/include/nidas/dynld/iss', headers)

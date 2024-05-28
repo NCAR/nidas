@@ -1,0 +1,11 @@
+*.ko
+.*.cmd
+*.mod.c
+*.mod
+*.o.d
+*.o.ur-safe
+*.o.cmd
+Module.symvers
+modules.order
+/Revision.h
+.cache.mk

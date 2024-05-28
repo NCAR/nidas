@@ -28,9 +28,6 @@
 
 #include <nidas/dynld/RawSampleInputStream.h>
 
-#include <nidas/dynld/isff/NetcdfRPCOutput.h>
-#include <nidas/dynld/isff/NetcdfRPCChannel.h>
-
 #include <nidas/core/FileSet.h>
 #include <nidas/core/DSMEngine.h>
 #include <nidas/core/NearestResampler.h>
@@ -56,7 +53,9 @@
 #include <map>
 #include <iostream>
 #include <iomanip>
-
+#include <sstream>
+#include <utility>
+#include <memory>
 #include <unistd.h>
 
 using namespace nidas::core;
@@ -64,6 +63,7 @@ using namespace nidas::dynld;
 using namespace std;
 
 namespace n_u = nidas::util;
+using nidas::util::UTime;
 
 class DumpClient: public SampleClient 
 {
@@ -87,13 +87,11 @@ public:
     void setStartTime(const n_u::UTime& val)
     {
         _startTime = val;
-        _checkStart = true;
     }
 
     void setEndTime(const n_u::UTime& val)
     {
         _endTime = val;
-        _checkEnd = true;
     }
 
     void setDOS(bool val)
@@ -120,10 +118,6 @@ private:
     n_u::UTime _startTime;
 
     n_u::UTime _endTime;
-
-    bool _checkStart;
-
-    bool _checkEnd;
 
     bool _dosOut;
 
@@ -192,8 +186,6 @@ private:
 
     bool _doHeader;
 
-    bool _clipping;
-
     static const char* _isffDatasetsXML;
 
     static const char* _isfsDatasetsXML;
@@ -227,14 +219,11 @@ private:
     BadSampleFilterArg _FilterArg;
     NidasAppArg DataVariables;
     NidasAppArg DataRate;
-    NidasAppArg DatasetName;
     NidasAppArg ConfigsName;
     NidasAppArg DSMName;
     NidasAppArg DumpASCII;
     NidasAppArg DumpBINARY;
     NidasAppArg DOSOutput;
-    NidasAppArg Clipping;
-    NidasAppArg SorterLength;
     NidasAppArg Precision;
     NidasAppArg NoHeader;
     NidasAppArg NetcdfOutput;
@@ -245,11 +234,10 @@ const float DataPrep::defaultNCFillValue = 1.e37;
 
 DataPrep::DataPrep(): 
     _app("prep"),_xmlFileName(),_dataFileNames(),
-    _sorterLength(1.00), _format(DumpClient::ASCII),
+    _sorterLength(0), _format(DumpClient::ASCII),
     _reqVarsByRate(),_sites(),
-    _startTime((time_t)0),_endTime((time_t)0),_configName(),
+    _startTime(UTime::MIN),_endTime(UTime::MAX),_configName(),
     _middleTimeTags(true),_dosOut(false),_doHeader(true),
-    _clipping(false),
     _asciiPrecision(5),
     _ncserver(),_ncdir(),_ncfile(),
     _ncinterval(defaultNCInterval),_nclength(defaultNCLength),
@@ -269,9 +257,6 @@ DataPrep::DataPrep():
      "When writing NetCDF files, it can be useful for prep to generate\n"
      "output at several rates:  -r 1 -D v1,v2 -r 20 -D v3,v4\n"
      "If multiple -D options, specify the rate BEFORE the -D var."),
-    DatasetName("-S,--dataset", "<datasetname>",
-                "dataset name from $ISFS/projects/$PROJECT/"
-                "ISFS/config/datasets.xml"),
     ConfigsName("-c,--config", "<configname>",
                 "(optional) name of configuration period to use, "
                 "from configs.xml"),
@@ -284,16 +269,6 @@ DataPrep::DataPrep():
                "Jan 1, 1970, \nfollowed by floats for each var"),
     DOSOutput("-w,--dos", "", "windows/dos output "
               "(records terminated by CRNL instead of just NL)"),
-    Clipping
-    ("--clip", "",
-     "Clip the output samples to the given time range,\n"
-     "and expand the input time boundaries by 5 minutes.\n"
-     "The input times are expanded to catch all raw samples\n"
-     "whose processed sample times might fall within the output times.\n"
-     "This option only applies to netcdf outputs.\n"),
-    SorterLength("-s,--sortlen", "<seconds>",
-                 "sorter length for processed samples in "
-                 "floating point seconds (optional)", "1.0"),
     Precision("-p,--precision", "ndigits",
               "number of digits in ASCII output values", "5"),
     NoHeader("-H,--noheader", "",
@@ -328,8 +303,9 @@ DataPrep::~DataPrep()
 
 
 DumpClient::DumpClient(format_t fmt,ostream &outstr,int precision):
-    _format(fmt),_ostr(outstr),_startTime((time_t)0),_endTime((time_t)0),
-    _checkStart(false),_checkEnd(false),_dosOut(false),
+    _format(fmt),_ostr(outstr),
+    _startTime(UTime::MIN),_endTime(UTime::MAX),
+    _dosOut(false),
     _asciiPrecision(precision),_finished(false)
 {
 }
@@ -359,8 +335,9 @@ void DumpClient::printHeader(vector<const Variable*>vars)
 bool DumpClient::receive(const Sample* samp) throw()
 {
     dsm_time_t tt = samp->getTimeTag();
-    if (_checkStart && tt < _startTime.toUsecs()) return false;
-    if (_checkEnd && tt > _endTime.toUsecs()) {
+    if (tt < _startTime.toUsecs())
+        return false;
+    if (tt > _endTime.toUsecs()) {
         _finished = true;
         return false;
     }
@@ -494,10 +471,10 @@ int DataPrep::parseRunstring(int argc, char** argv)
     _app.enableArguments(_app.InputFiles | DataVariables | DataRate |
                          _app.StartTime | _app.EndTime |
                          _app.InputFiles |
-                         DatasetName | ConfigsName | DSMName |
+                         _app.DatasetName | ConfigsName | DSMName |
                          DumpASCII | DumpBINARY | DOSOutput |
-                         NetcdfOutput | Clipping | _FilterArg |
-                         SorterLength | HeapSize | Precision | NoHeader |
+                         NetcdfOutput | _app.Clipping | _FilterArg |
+                         _app.SorterLength | HeapSize | Precision | NoHeader |
                          _app.loggingArgs() | _app.XmlHeaderFile |
                          _app.Version | _app.Help);
 
@@ -561,36 +538,20 @@ int DataPrep::parseRunstring(int argc, char** argv)
         }
         else if (arg == &NetcdfOutput)
         {
-#ifdef HAVE_LIBNC_SERVER_RPC
             parseNcServerSpec(arg->getValue());
-#else
-            cerr << "-n option is not supported on this version of " << argv[0]
-                 << ", which was built without nc_server-devel package" << endl;
-            return 1;
-#endif
         }
     }
     _app.parseInputs(_app.unparsedArgs());
 
-    // NidasApp uses MIN and MAX as defaults for unset times, but DataPrep
-    // expects zero.
-    if (_app.getStartTime() != LONG_LONG_MIN)
-        _startTime = _app.getStartTime();
-    if (_app.getEndTime() != LONG_LONG_MAX)
-        _endTime = _app.getEndTime();
-    _datasetName = DatasetName.getValue();
+    _startTime = _app.getStartTime();
+    _endTime = _app.getEndTime();
+    _datasetName = _app.DatasetName.getValue();
     _configName = ConfigsName.getValue();
     _dsmName = DSMName.getValue();
     _dosOut = DOSOutput.asBool();
     _doHeader = !NoHeader.asBool();
     _xmlFileName = _app.xmlHeaderFile();
-    _clipping = Clipping.asBool();
-    _sorterLength = SorterLength.asFloat();
-    if (_sorterLength < 0 || _sorterLength > 10000)
-    {
-        cerr << "Invalid sorter length: " << SorterLength.getValue() << endl;
-        return 1;
-    }
+    _sorterLength = _app.getSorterLength(0, 10000);
 
     _asciiPrecision = Precision.asInt();
     if (_asciiPrecision < 1)
@@ -623,12 +584,12 @@ int DataPrep::parseRunstring(int argc, char** argv)
     //  2. a socket to connect to
     //  3. or a time period and a $PROJECT environment variable
     if (_dataFileNames.size() == 0 && !_app.socketAddress() &&
-        _startTime.toUsecs() == 0)
+        !_startTime.isSet())
     {
         cerr << "No inputs and no -B begin time." << endl;
         return 1;
     }
-    if (_startTime.toUsecs() != 0 && _endTime.toUsecs() == 0)
+    if (_startTime.isSet() && !_endTime.isSet())
     {
         _endTime = _startTime + 90 * USECS_PER_DAY;
     }
@@ -755,6 +716,24 @@ DataPrep::matchVariables(const Project& project,
 }
 
 
+template <typename T>
+using xatt = std::pair<std::string, T>;
+
+template <typename T>
+std::ostream&
+operator<<(std::ostream& out, const xatt<T>& x)
+{
+    out << " " << x.first << "=\"" << x.second << "\"";
+    return out;
+}
+
+
+template <typename T>
+xatt<T>
+make_xatt(const std::string& name, const T& value){
+    return xatt<T>(name, value);
+}
+
 
 int DataPrep::run() throw()
 {
@@ -833,8 +812,10 @@ int DataPrep::run() throw()
                         cfg = configs.getConfig(_startTime);
 
                     cfg->initProject(project);
-                    if (_startTime.toUsecs() == 0) _startTime = cfg->getBeginTime();
-                    if (_endTime.toUsecs() == 0) _endTime = cfg->getEndTime();
+                    if (!_startTime.isSet())
+                        _startTime = cfg->getBeginTime();
+                    if (!_endTime.isSet())
+                        _endTime = cfg->getEndTime();
                     _xmlFileName = n_u::Process::expandEnvVars(cfg->getXMLName());
                 }
 
@@ -874,28 +855,7 @@ int DataPrep::run() throw()
                 // must clone, since fsets.front() belongs to project
                 fset = fsets.front()->clone();
 
-                if (_startTime.toUsecs() != 0)
-                {
-                    n_u::UTime xtime = _startTime;
-                    if (_clipping)
-                    {
-                        xtime = xtime - 300*USECS_PER_SEC;
-                        ILOG(("expanding input start time to ")
-                             << xtime.format(true, "%Y %m %d %H:%M:%S"));
-                    }
-                    fset->setStartTime(xtime);
-                }
-                if (_endTime.toUsecs() != 0)
-                {
-                    n_u::UTime xtime = _endTime;
-                    if (_clipping)
-                    {
-                        xtime = xtime + 300*USECS_PER_SEC;
-                        ILOG(("expanding input end time to ")
-                             << xtime.format(true, "%Y %m %d %H:%M:%S"));
-                    }
-                    fset->setEndTime(xtime);
-                }
+                _app.setFileSetTimes(_startTime, _endTime, fset);
             }
             else {
                 fset = nidas::core::FileSet::getFileSet(_dataFileNames);
@@ -910,7 +870,7 @@ int DataPrep::run() throw()
 
         SamplePipeline pipeline;
         pipeline.setRealTime(false);
-        pipeline.setRawSorterLength(1.0);
+        pipeline.setRawSorterLength(_sorterLength);
         pipeline.setProcSorterLength(_sorterLength);
         pipeline.setRawHeapMax(HeapSize.asInt() * 1024);
         pipeline.setProcHeapMax(HeapSize.asInt() * 1024);
@@ -1070,14 +1030,15 @@ int DataPrep::run() throw()
                 (*ri)->addSampleClient(&dumper);
 
             try {
-                if (_startTime.toUsecs() != 0) {
+                if (_startTime.isSet()) {
                     DLOG(("searching for time ") <<
                         _startTime.format(true,"%Y %m %d %H:%M:%S"));
                     sis.search(_startTime);
                     DLOG(("search done."));
                     dumper.setStartTime(_startTime);
                 }
-                if (_endTime.toUsecs() != 0) dumper.setEndTime(_endTime);
+                if (_endTime.isSet())
+                    dumper.setEndTime(_endTime);
 
                 if (_doHeader && variablesByRate.size() == 1)
                     dumper.printHeader(variablesByRate.begin()->second);
@@ -1106,7 +1067,6 @@ int DataPrep::run() throw()
                 (*ri)->removeSampleClient(&dumper);
             }
         }
-#ifdef HAVE_LIBNC_SERVER_RPC
         else {
             map<Resampler*, double> ratesByResampler;
             map<double, vector<const Variable*> >::const_iterator mi =
@@ -1149,16 +1109,55 @@ int DataPrep::run() throw()
                 (*ri)->connect(pipeline.getProcessedSampleSource());
             }
 
-            nidas::dynld::isff::NetcdfRPCChannel* ncchan = new nidas::dynld::isff::NetcdfRPCChannel();
-            ncchan->setServer(_ncserver);
-            ncchan->setDirectory(_ncdir);
-            ncchan->setFileNameFormat(_ncfile);
-            ncchan->setTimeInterval(_ncinterval);
-            ncchan->setFileLength(_nclength);
-            ncchan->setCDLFileName(_nccdl);
-            ncchan->setFillValue(_ncfill);
-            ncchan->setRPCTimeout(_nctimeout);
-            ncchan->setRPCBatchPeriod(_ncbatchperiod);
+            // Create a NetcdfRPCChannel instance from a dynamically loaded
+            // shared object.  The instance is allocated dynamically and must
+            // be deleted unless it is passed to NetcdfRPCOutput, in which
+            // case NetcdfRPCOutput owns it and will delete it.  This throws
+            // an exception if the shared object cannot be loaded.
+            DOMable* domable = DOMObjectFactory::createObject("isff.NetcdfRPCChannel");
+            nidas::core::IOChannel* ncchan = dynamic_cast<nidas::core::IOChannel*>(domable);
+
+            // Create the equivalent XML configuration for the
+            // NetcdfRPCChannel, so it can be configured through the virtual
+            // fromDOMElement() method.
+
+            //   <ncserver
+            //      server="$NC_SERVER"
+            //      dir="$NETCDF_DIR"
+            //      file="$NETCDF_FILE"
+            //      length="86400"
+            //      cdl="$ISFS/projects/$PROJECT/$SYSTEM/config/$NETCDL_FILE"
+            //      floatFill="1.e37"
+            //      timeout="300"
+            //      batchPeriod="300"/>
+            std::ostringstream xml;
+            xml << "<ncserver"
+                << make_xatt("server", _ncserver)
+                << make_xatt("dir", _ncdir)
+                << make_xatt("file", _ncfile)
+                << make_xatt("interval", _ncinterval)
+                << make_xatt("length", _nclength)
+                << make_xatt("cdl", _nccdl)
+                << make_xatt("floatFill", _ncfill)
+                << make_xatt("timeout", _nctimeout)
+                << make_xatt("batchPeriod", _ncbatchperiod)
+                << "/>";
+            DLOG(("") << "created xml config for NetcdfRPCChannel: " << xml.str());
+
+            std::unique_ptr<xercesc::DOMDocument> doc(XMLParser::ParseString(xml.str()));
+            ncchan->fromDOMElement(doc->getDocumentElement());
+            doc.reset();
+
+            // nidas::dynld::isff::NetcdfRPCChannel* ncchan = new nidas::dynld::isff::NetcdfRPCChannel();
+            // ncchan->setServer(_ncserver);
+            // ncchan->setDirectory(_ncdir);
+            // ncchan->setFileNameFormat(_ncfile);
+            // ncchan->setTimeInterval(_ncinterval);
+            // ncchan->setFileLength(_nclength);
+            // ncchan->setCDLFileName(_nccdl);
+            // ncchan->setFillValue(_ncfill);
+            // ncchan->setRPCTimeout(_nctimeout);
+            // ncchan->setRPCBatchPeriod(_ncbatchperiod);
 
             for (ri = _resamplers.begin() ; ri != _resamplers.end(); ++ri) {
                 Resampler* smplr = *ri;
@@ -1185,22 +1184,22 @@ int DataPrep::run() throw()
                 throw e;
             }
 
-            nidas::dynld::isff::NetcdfRPCOutput output(ncchan);
-            if (_clipping)
-            {
-                ILOG(("clipping netcdf output [")
-                     << _startTime.format(true,"%Y %m %d %H:%M:%S")
-                     << ","
-                     << _endTime.format(true,"%Y %m %d %H:%M:%S")
-                     << ")");
-                output.setTimeClippingWindow(_startTime, _endTime);
-            }
+            // Replace the value instance with a unique_ptr to an instance
+            // allocated dynamically from a dynamically loaded shared object.
+
+            // nidas::dynld::isff::NetcdfRPCOutput output(ncchan);
+            DOMable* domchannel = DOMObjectFactory::createObject("isff.NetcdfRPCOutput");
+            std::unique_ptr<SampleOutputBase> output
+                (dynamic_cast<SampleOutputBase*>(domchannel));
+            output->setIOChannel(ncchan);
+
+            _app.setOutputClipping(_startTime, _endTime, output.get());
 
             for (ri = _resamplers.begin() ; ri != _resamplers.end(); ++ri)
-                (*ri)->addSampleClient(&output);
+                (*ri)->addSampleClient(output.get());
 
             try {
-                if (_startTime.toUsecs() != 0) {
+                if (_startTime.isSet()) {
                     DLOG(("searching for time ") <<
                         _startTime.format(true,"%Y %m %d %H:%M:%S"));
                     sis.search(_startTime);
@@ -1216,12 +1215,12 @@ int DataPrep::run() throw()
             }
             catch (n_u::IOException& e) {
                 for (ri = _resamplers.begin() ; ri != _resamplers.end(); ++ri) {
-                    (*ri)->removeSampleClient(&output);
+                    (*ri)->removeSampleClient(output.get());
                     (*ri)->disconnect(pipeline.getProcessedSampleSource());
                 }
                 pipeline.disconnect(&sis);
                 sis.close();
-                output.close();
+                output->close();
                 throw e;
             }
 
@@ -1229,11 +1228,10 @@ int DataPrep::run() throw()
             sis.close();
             pipeline.flush();
             for (ri = _resamplers.begin() ; ri != _resamplers.end(); ++ri) {
-                (*ri)->removeSampleClient(&output);
+                (*ri)->removeSampleClient(output.get());
             }
-            output.close();
+            output->close();
         }
-#endif  // HAVE_LIBNC_SERVER_RPC
         for (ri = _resamplers.begin() ; ri != _resamplers.end(); ++ri) {
             (*ri)->disconnect(pipeline.getProcessedSampleSource());
         }

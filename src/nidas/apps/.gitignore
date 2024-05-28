@@ -15,7 +15,7 @@
 /lidar_vel
 /merge_verify
 /n_hdr_util
-/nidas_udp_relay
+/nidas_udp_relay/nidas_udp_relay
 /nidsmerge
 /proj_configs
 /rserial

@@ -1,21 +1,14 @@
 # -*- python -*-
-## 2006, Copyright University Corporation for Atmospheric Research
+# 2006, Copyright University Corporation for Atmospheric Research
 
+from SCons.Script import Environment, Export
 
-##
-##  Import the build environment.
-##
-Import('env')
-env = env.Clone()
-arch = env['ARCH']  # empty string for native builds
+env = Environment(tools=['default', 'symlink', 'sharedlibrary'])
 
-# env.AppendUnique(CXXFLAGS = Split("""
-# """))
-
-##
-##  List of headers files
-##
-headers = [ Split("""
+#
+#  List of headers files
+#
+headers = env.Split("""
     auto_ptr.h
     BitArray.h
     BluetoothAddress.h
@@ -54,10 +47,8 @@ headers = [ Split("""
     UTime.h
     util.h
     """)
-]
-# print(["headers="] + [str(h) for h in headers])
 
-sources = [ Split("""
+sources = env.Split("""
     BitArray.cc
     BluetoothAddress.cc
     BluetoothRFCommSocket.cc
@@ -83,48 +74,47 @@ sources = [ Split("""
     UTime.cc
     util.cc
     """)
-]
-# print(["sources="] + [str(h) for h in sources])
 
 objects = env.SharedObject(sources)
 
-##
-##  Build the libnidas_util library.
-##
-conf = Configure(env)
-if conf.CheckLib('cap'):
-    conf.env.AppendUnique(LIBS = 'cap')
-if conf.CheckLib('bz2'):
-    conf.env.AppendUnique(LIBS = 'bz2')
-if conf.CheckLib('bluetooth'):
-    conf.env.AppendUnique(LIBS = 'bluetooth')
+#
+#  Build the libnidas_util library.
+#
+conf = env.NidasConfigure()
+conf.CheckLib('cap')
+conf.CheckLib('bz2')
+conf.CheckLib('bluetooth')
+conf.CheckCHeader('sys/capability.h')
+conf.CheckCHeader('bzlib.h')
+conf.CheckCHeader(['sys/socket.h', 'bluetooth/bluetooth.h',
+                   'bluetooth/rfcomm.h'], "<>")
+
+# glibcs on Eurotech systems don't currently have ppoll or epoll_pwait
+conf.CheckFunc("ppoll")
+conf.CheckFunc("epoll_pwait")
 env = conf.Finish()
 
 # build libnidas_util.so
-lib = env.SharedLibrary3('nidas_util' , objects,
-    LIBS= ['pthread'] + env['LIBS'])
+lib = env.SharedLibrary3('$VARIANT_DIR/lib/nidas_util', objects,
+                         LIBS=['pthread'] + env['LIBS'])
 
-# Test SConscripts need the full path to the library to set LD_LIBRARY_PATH
-Export({'LIBNIDAS_UTIL' + arch: lib[0]})
+slib = env.StaticLibrary('$VARIANT_DIR/lib/nidas_util', objects)
 
-slib = env.StaticLibrary('nidas_util' , objects)
+env.Default([lib, slib])
 
-##
-## Install targets for libraries and headers.
-##
+#
+# Install targets for libraries and headers.
+#
 nodes = []
-nodes += env.SharedLibrary3Install('$ARCHPREFIX',lib)
-nodes += env.Install('$ARCHPREFIX/$ARCHLIBDIR',slib)
-nodes += env.Install('$ARCHPREFIX/include/nidas/util',headers)
+nodes += env.SharedLibrary3Install('$PREFIX', lib)
+nodes += env.Install('$PREFIX/lib', slib)
+nodes += env.Install('$PREFIX/include/nidas/util', headers)
 
-# Build nidas.pc from the top level. It is done here since we know
-# ARCHLIBDIR and REPO_TAG
-env.Command('nidas.pc', '#nidas.pc.in',
-            "sed -e 's,@PREFIX@,$ARCHPREFIX,' "
-            "-e 's,@ARCHLIBDIR@,$ARCHLIBDIR,' "
-            "-e 's,@REPO_TAG@,$REPO_TAG,' < $SOURCE > $TARGET")
+env.Alias('install', nodes)
 
-Alias('install', env.Install('$ARCHPREFIX/$ARCHLIBDIR/pkgconfig', 'nidas.pc'))
 
-Alias('install',nodes)
-env.Clean('install', nodes)
+def libnidas_util(env):
+    env.Append(LIBS=[lib[0]])
+
+
+Export('libnidas_util')

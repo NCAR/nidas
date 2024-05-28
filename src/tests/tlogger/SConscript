@@ -1,28 +1,26 @@
 # -*- python -*-
-## 2007, Copyright University Corporation for Atmospheric Research
+# 2007, Copyright University Corporation for Atmospheric Research
 
-Import('env')
-env = env.Clone(tools = ['nidas', 'valgrind'])
+from SCons.Script import Environment
 
-env.Append(LIBS = env.NidasUtilLibs())
-env.Append(LIBS = ['boost_unit_test_framework', 'boost_regex'])
-env.Prepend(CPPPATH = [ "#/nidas/util" ])
+env = Environment(tools=['default', 'nidasapps', 'valgrind', 'boost_test',
+                         'boost_regex'])
+
 tests = env.Program('tlogger', "tlogger.cc")
 
-env.AppendENVPath('LD_LIBRARY_PATH', '/opt/nc_server/lib')
 runtest = env.Command("xtest", tests, ["$SOURCE.abspath"])
 env.Precious(runtest)
-AlwaysBuild(runtest)
-Alias('test', runtest)
+env.AlwaysBuild(runtest)
+env.Alias('test', runtest)
 
-env.ValgrindLog('memcheck', 
+env.ValgrindLog('memcheck',
                 env.Command('vg.memcheck.log', tests,
                             "cd ${SOURCE.dir} && "
                             "${VALGRIND_PATH} --leak-check=full"
                             " --gen-suppressions=all ./${SOURCE.file}"
                             " >& ${TARGET.abspath}"))
 
-env.ValgrindLog('threadcheck', 
+env.ValgrindLog('threadcheck',
                 env.Command('vg.threadcheck.log', tests,
                             "cd ${SOURCE.dir} && "
                             "${VALGRIND_PATH} --tool=helgrind"

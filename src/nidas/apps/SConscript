@@ -15,68 +15,79 @@
 # The top few lines of this file setup the Environment accordingly, while
 # the rest of the file does not need to change.
 
-import os
+from pathlib import Path
 import eol_scons
 import eol_scons.parseconfig as pc
+
+from SCons.Script import Environment, ARGUMENTS, Split, Export
 
 
 def check_pkg_config(env, pkg):
     found = pc.ParseConfig(env, 'pkg-config %s --libs --cflags' % (pkg))
-    print("pkg-config found for %s: %s" % (pkg, ["no", "yes"][int(found)]))
+    env.PrintProgress("pkg-config found for %s: %s" %
+                      (pkg, ["no", "yes"][int(found)]))
     return found
 
 
-cpp11_source = """
-#include <string>  //for converting data to_string
-#include <future> //async function calls
-
-int main(int argc, char** argv) {
-std::string one = std::to_string(1);
-return 0;
-}
-"""
+_nidas_apps = {}
 
 
-def CheckCpp11(context):
-    context.env.Append(CXXFLAGS='-std=c++11')
-    context.Message('Checking for C++11 support...')
-    result = context.TryCompile(cpp11_source, '.cc')
-    context.Result(result)
-    return result
+def NidasAddApp(env, node):
+    name = env.subst("${TARGET.filebase}", target=node)
+    _nidas_apps[name] = node
 
 
-custom_tests = {'CheckCpp11': CheckCpp11}
+def NidasApp(env, name):
+    return _nidas_apps[name]
 
 
-if not ARGUMENTS.get('NIDAS_PATH'):
-    #
-    #  Import the build environment.
-    #
-    Import('env')
-    env = env.Clone(tools=['nidas'])
-    arch = env['ARCH']  # empty string for native builds
-    machs = env['MACHS']
-else:
-    env = Environment(tools=['default', 'nidas'])
-    # We do this here because we don't get the setting from the top-level
-    # SConstruct.
-    pc.PassPkgConfigPath(env)
-    arch = ''
-    machs = []
-    # If this path exists, then probably we're building on a Pi and it
-    # needs to be on the path.
-    xlibs = env.subst("${NIDAS_PATH}/lib/arm-linux-gnueabihf")
-    if os.path.exists(xlibs):
-        env.Append(LIBPATH=xlibs)
+def NidasProgram(env, target, source):
+    "Build a program, install it, and add it to apps."
+    target = '$VARIANT_DIR/bin/' + Path(target).name
+    node = env.Program(target=target, source=source)
+    env.Install('$PREFIX/bin', node)
+    env.NidasAddApp(node)
+    return node
 
-# Add jsoncpp to the environment for all now that a few apps use it.
-jsoncpp_enabled = ('armbe' not in arch) and check_pkg_config(env, 'jsoncpp')
-if jsoncpp_enabled:
-    print("jsoncpp enabled for data_stats and sync_dump.")
-    env.AppendUnique(CPPDEFINES=['NIDAS_JSONCPP_ENABLED=1'])
-else:
-    print("jsoncpp not enabled.")
-    env.AppendUnique(CPPDEFINES=['NIDAS_JSONCPP_ENABLED=0'])
+
+def nidasprogram(env: Environment):
+    """
+    Add NidasProgram and related methods to the Environment.
+    """
+    env.AddMethod(NidasApp)
+    env.AddMethod(NidasProgram)
+    env.AddMethod(NidasAddApp)
+
+
+def nidasapps(env: Environment):
+    """
+    Add nidasprogram and build dependencies for most apps and test programs.
+    """
+    env.Require(['nidasprogram', 'libnidas_dynld'])
+
+
+Export('nidasprogram')
+Export('nidasapps')
+
+
+env = Environment(tools=['default'])
+
+arch = env['ARCH']  # empty string for native builds
+mach = env.get('MACH')
+
+env.Tool(nidasprogram)
+
+
+def jsoncpp(env: Environment):
+    jsoncpp_enabled = (arch != 'armbe') and check_pkg_config(env, 'jsoncpp')
+    if jsoncpp_enabled:
+        env.PrintProgress("jsoncpp enabled for data_stats and sync_dump.")
+        env.AppendUnique(CPPDEFINES=['NIDAS_JSONCPP_ENABLED=1'])
+    else:
+        env.PrintProgress("jsoncpp not enabled.")
+        env.AppendUnique(CPPDEFINES=['NIDAS_JSONCPP_ENABLED=0'])
+    env['JSONCPP_ENABLED'] = jsoncpp_enabled
+
 
 programs = Split("""
 arl-ingest
@@ -95,7 +106,7 @@ raf/extractDMT
 ir104
 lidar_vel
 merge_verify
-nidas_udp_relay
+nidas_udp_relay/nidas_udp_relay
 nidsmerge
 n_hdr_util
 proj_configs
@@ -111,32 +122,24 @@ xml_dump
 isff/datasets
 """)
 
-# For all these targets, wherever PREFIX is used, it should use
-# ARCHPREFIX instead.
-env['PREFIX'] = env.subst('$ARCHPREFIX')
+conf = env.NidasConfigure()
+# tee_tty requires timepps.
+conf.CheckCHeader(['time.h', 'sys/timepps.h'])
+# tee_i2c requires i2c-dev
+# linux/i2c-dev.h exists on RedHat systems, but does not contain
+# macros such as i2c_smbus_read_byte_data
+conf.CheckCHeader('linux/i2c-dev.h')
+env = conf.Finish()
 
-for prog in programs:
-    env.Alias(prog, env.NidasProgram(prog+'.cc'))
-
-didbenv = env.Clone()
-dbconf = didbenv.Configure(custom_tests=custom_tests)
-if not dbconf.CheckCpp11():
-    print("No C++11 support, data_influxdb will not be built.")
-elif bool(not arch and jsoncpp_enabled and
-          check_pkg_config(didbenv, 'libcurl')):
-    print("C++11, jsoncpp, and libcurl found, building data_influxdb.")
-    didbenv.AppendUnique(CXXFLAGS='-std=c++11')
-    didbenv.Append(CXXFLAGS='-Wno-effc++')
-    didb = didbenv.NidasProgram('data_influxdb.cc')
-    didbenv.Alias('data_influxdb', didb)
-dbconf.Finish()
-
-sdconf = env.Configure()
+# utility apps only need util library
+utilenv = env.Clone()
+utilenv.Require(['libnidas_util'])
 
 # check for existence of i2c_smbus_read_byte, typically a macro in
 # linux/i2c-dev.h
+sdconf = env.Configure()
 has_i2c = False
-if sdconf.CheckFunc('i2c_smbus_read_byte', 'linux/i2c-dev.h', 'C'):
+if sdconf.CheckFunc('i2c_smbus_read_byte', '#include <linux/i2c-dev.h>', 'C'):
     has_i2c = True
     # check if i2c API has 3(old) or 4(new) arguments in
     # i2c_smbus_read_i2c_block_data
@@ -145,43 +148,60 @@ if sdconf.CheckFunc('i2c_smbus_read_byte', 'linux/i2c-dev.h', 'C'):
         env.Append(CPPDEFINES="OLD_I2C_API")
 sdconf.Finish()
 
-ncenv = env.Clone()
-try:
-    if pc.CheckConfig(env, 'pkg-config nc_server'):
-        ncenv.MergeFlags('!pkg-config --cflags nc_server')
-except OSError:
-    pass
+env.Tool(jsoncpp)
+didbenv = env.Clone()
+dbconf = didbenv.Configure()
+if bool(arch == 'host' and env.get('JSONCPP_ENABLED') and
+        check_pkg_config(didbenv, 'libcurl')):
+    env.PrintProgress("C++11, jsoncpp, and libcurl found, "
+                      "building data_influxdb.")
+    didbenv.Append(CCFLAGS='-Wno-effc++')
+    didbenv.Require(['libnidas_dynld'])
+    didb = didbenv.NidasProgram('data_influxdb', 'data_influxdb.cc')
+    didbenv.Alias('data_influxdb', didb)
+dbconf.Finish()
 
-ncenv.NidasProgram('isff/prep.cc')
+# everything else gets everything
+env.Require(['libnidas_dynld'])
+
+for prog in programs:
+    prog = env.NidasProgram(prog, prog+'.cc')
+    env.Alias(prog[0].name, prog)
+
+env.NidasProgram('prep', 'isff/prep.cc')
 
 # Programs which only use libnidas_util.so, not libnidas.
-env.NidasUtilProgram('sing.cc')
-env.NidasUtilProgram('tee_tty.cc')
+utilenv.NidasProgram('sing', 'sing.cc')
+utilenv.NidasProgram('tee_tty', 'tee_tty.cc')
+
+# Only build uio48 if it was enabled for the dynld library.
+env.Tool('uio48')
+if env.get('HAVE_UIO48'):
+    env.NidasProgram('uio48', 'uio48.cc')
 
 # tee_i2c has a read-from-text-file test mode which doesn't
 # require the I2C API, so always build it
-env.NidasProgram('tee_i2c.cc')
+env.NidasProgram('tee_i2c', 'tee_i2c.cc')
 
 # ublox requires the I2C API
 if has_i2c:
-    env.Alias('ublox', env.NidasUtilProgram('ublox.cc'))
+    env.Alias('ublox', utilenv.NidasProgram('ublox', 'ublox.cc'))
 
-env.NidasUtilProgram('utime.cc')
+utilenv.NidasProgram('utime', 'utime.cc')
 
-if 'viper' in machs:
+if mach == 'viper':
     # controls DIO pins on a Viper
-    env.NidasProgram('viper_dio.cc')
+    env.NidasProgram('viper_dio', 'viper_dio.cc')
 
-if arch != '':
+if arch != 'host':
     # Programs which just do ioctls to NIDAS driver modules, and don't
     # otherwise use anything in the nidas libraries.
-    env.NidasPlainProgram('set_pcmcom8.c')
-    env.NidasPlainProgram('serial_loopback_test.c')
-    env.NidasPlainProgram('isff/set_emerald.c')
-    env.NidasPlainProgram('isff/emerald_dio.cc')
+    utils = ['set_pcmcom8.c', 'serial_loopback_test.c',
+             'isff/set_emerald.c', 'isff/emerald_dio.cc',
+             'gps_nmea_sysclock.cc', 'garmin.cc']
+    for prog in utils:
+        utilenv.NidasProgram(prog, prog+'.cc')
 
-    # nidas_util
-    env.NidasUtilProgram('gps_nmea_sysclock.cc')
-    env.NidasUtilProgram('garmin.cc')
+env.Alias('install', ['${INSTALL_ROOT}$PREFIX/bin'])
 
-env.Alias('install', ['$PREFIX/bin'])
+env.Default("$VARIANT_DIR/bin/.")

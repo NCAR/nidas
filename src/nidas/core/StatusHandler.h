@@ -66,11 +66,7 @@ public:
             const XMLCh * const qname);
 
     void characters(const XMLCh * const chars,
-#if XERCES_VERSION_MAJOR < 3
-                const unsigned int length);
-#else
-                const XMLSize_t length);
-#endif
+                    const XMLSize_t length);
 
     enum elementType { SOURCE, TIME, STATUS, SAMPLEPOOL, NONE };
 

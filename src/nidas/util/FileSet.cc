@@ -441,7 +441,6 @@ string FileSet::formatName(const UTime& t1)
     return t1.format(true,_fullpath);
 }
 
-#if !defined(NIDAS_EMBEDDED)
 void FileSet::checkPathFormat(const UTime& t1, const UTime& t2)
 {
     if (_fullpath.find("%b") != string::npos) {
@@ -485,7 +484,6 @@ void FileSet::checkPathFormat(const UTime& t1, const UTime& t2)
         string("FileSet: ") + _fullpath,"search",
         "file names do not sort to time order");
 }
-#endif
 
 list<string> FileSet::matchFiles(const UTime& t1, const UTime& t2)
 {
@@ -493,10 +491,8 @@ list<string> FileSet::matchFiles(const UTime& t1, const UTime& t2)
     set<string> matchedFiles;
     long long requestDeltat = t2 - t1;
 
-#if !defined(NIDAS_EMBEDDED)
     // Check that format sorts correctly
     checkPathFormat(t1,t2);
-#endif
 
     DLOG(("fullpath=") << _fullpath);
 

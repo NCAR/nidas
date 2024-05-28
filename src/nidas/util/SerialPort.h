@@ -199,11 +199,19 @@ public:
     /**
      * Static utility that creates a pseudo-terminal, returning the
      * file descriptor of the master side and creating a symbolic
-     * link with the given name to the slave side.
+     * link with the given name to the slave side.  It is a convenient
+     * wrapper for this code:
+     *
+     * @code
+     * int fd = createPty(false);
+     * createLinkToPty(linkname, fd);
+     * @endcode
+     *
      * @param linkname: Name of symbolic link to be created that links to the
-     *	slave side of the pseudo-terminal. If a symbolic link already exists
-     *	with that name it will be removed and re-created. If linkname already
-     *	exists and it isn't a symbolic link, an error will be returned.
+     * slave side of the pseudo-terminal. If a symbolic link already exists
+     * with that name it will be removed and re-created. If linkname already
+     * exists and it isn't a symbolic link, an error will be returned.
+
      * @return The file descriptor of the master side of the pseudo-terminal.
      *
      * Note: the symbolic link should be deleted when the file descriptor to
@@ -214,6 +222,45 @@ public:
      * link would then effect the other process, if the open was permitted.
      */
     static int createPtyLink(const std::string& linkname);
+
+    /**
+     * Create a symbolic link to ptsname(fd).  @p fd must be a pty, such as
+     * returned by createPty().
+     */
+    static void createLinkToPty(const std::string& linkname, int fd);
+
+    /**
+     * @brief Create a pseudo-terminal and return the file descriptor.
+     * 
+     * This is called by createPtyLink(), but it can also be called separately
+     * if the caller wants to pass @p hup as true to set the HUP condition on
+     * the slave side before creating the link.
+     */
+    static int createPty(bool hup);
+
+    /**
+     * Wait up to @p timeout seconds for pts to be opened.
+     * 
+     * Wait up to the @p timeout for the HUP to be cleared.  If the HUP
+     * condition was set when the pty was created, then the cleared HUP means
+     * the ptsname(fd) device has been opened.  Wait forever if @p timeout is
+     * negative.  The poll() does not block on the fd, so it is called at
+     * 1-second intervals using sleep(), until the timeout expires or the poll
+     * returns with the POLLHUP bit cleared.
+     * 
+     * So here is a typical usage:
+     * 
+     * @code
+     * int fd = createPty(true);
+     * createLinkToPty(link, fd);
+     * bool opened = waitForOpen(fd, -1);
+     * @endcode
+     * 
+     * The existence of the link is a synchronization point, indicating the
+     * pty has been created and HUP set, so it's safe to wait for HUP to be
+     * cleared to know that it has been opened.
+     */
+    static bool waitForOpen(int fd, int timeout);
 
 private:
 

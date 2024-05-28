@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 # Test script for a dsm and dsm_server process, sampling serial sensors, via pseudo-terminals
 
@@ -12,16 +12,16 @@ installed=false
 
 if ! $installed; then
 
-    echo $PATH | fgrep -q build_x86/build_apps || PATH=../../../build_x86/build_apps:$PATH
+    echo $PATH | grep -F -q build_x86/build_apps || PATH=../../../build_x86/build_apps:$PATH
 
     llp=../../../build_x86/build_util:../../../build_x86/build_core:../../../build_x86/build_dynld
-    echo $LD_LIBRARY_PATH | fgrep -q build_x86 || \
+    echo $LD_LIBRARY_PATH | grep -F -q build_x86 || \
         export LD_LIBRARY_PATH=$llp${LD_LIBRARY_PATH:+":$LD_LIBRARY_PATH"}
 
     # echo LD_LIBRARY_PATH=$LD_LIBRARY_PATH
     # echo PATH=$PATH
 
-    if ! which dsm | fgrep -q build_x86; then
+    if ! which dsm | grep -F -q build_x86; then
         echo "dsm program not found on build_x86 directory. PATH=$PATH"
         exit 1
     fi
@@ -36,7 +36,7 @@ fi
 
 echo "dsm executable: `which dsm`"
 echo "nidas libaries:"
-ldd `which dsm` | fgrep libnidas
+ldd `which dsm` | grep -F libnidas
 
 valgrind_errors() {
     sed -n 's/^==[0-9]*== ERROR SUMMARY: \([0-9]*\).*/\1/p' $1
@@ -45,7 +45,7 @@ valgrind_errors() {
 kill_dsm() {
     # send a TERM signal to dsm process
     nkill=0
-    dsmpid=`pgrep -f "valgrind dsm -d"`
+    dsmpid=`pgrep -f "valgrind.* dsm -d"`
     if [ -n "$dsmpid" ]; then
         while ps -p $dsmpid > /dev/null; do
             if [ $nkill -gt 5 ]; then
@@ -64,7 +64,7 @@ kill_dsm() {
 kill_dsm_server() {
     # send a TERM signal to dsm_server process
     nkill=0
-    dsmpid=`pgrep -f "valgrind dsm_server"`
+    dsmpid=`pgrep -f "valgrind.* dsm_server"`
     if [ -n "$dsmpid" ]; then
         while ps -p $dsmpid > /dev/null; do
             if [ $nkill -gt 5 ]; then
@@ -126,7 +126,7 @@ sleepmax=40
 while [ $ndone -lt $nsensors -a $sleep -lt $sleepmax ]; do
     for (( n = 0; n < $nsensors; n++ )); do
         if [ ${pids[$n]} -gt 0 ]; then
-            if fgrep -q "opening: tmp/test$n" tmp/dsm.log; then
+            if grep -F -q "opening: tmp/test$n" tmp/dsm.log; then
                 echo "sending CONT to ${pids[$n]}"
                 kill -CONT ${pids[$n]}
                 pids[$n]=-1

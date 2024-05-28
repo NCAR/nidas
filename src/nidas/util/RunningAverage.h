@@ -22,22 +22,7 @@
  ** 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  **
  ********************************************************************
-*/
-/*
- ********************************************************************
-    Copyright by the National Center for Atmospheric Research
-
-    $Revision$
-
-    $LastChangedDate$
-
-    $LastChangedRevision$
-
-    $LastChangedBy$
-
-    $HeadURL$
- ********************************************************************
-*/
+ */
 
 #ifndef _nidis_util_RunningAverage_h_
 #define _nidis_util_RunningAverage_h_

@@ -1,11 +1,18 @@
 #!/bin/sh
 
+# Run a nidas binary from the build tree
+
 script=$0
 dir=${script%/*}
 
-export LD_LIBRARY_PATH=$dir/build/util:$dir/build/core:$dir/build/dynld
+[ -f /etc/os-release ] && . /etc/os-release
+variant_dir=build/$(uname -m)_${ID}${VERSION_ID}
 
-PATH=$dir/build/apps:$dir/build/apps/isff:$dir/build/apps/auto_cal:$PATH
+export LD_LIBRARY_PATH=$dir/$variant_dir/lib
+echo LD_LIBRARY_PATH=$LD_LIBRARY_PATH
+
+PATH=$dir/$variant_dir/bin:$PATH
+echo PATH=$dir/$variant_dir/bin:\$PATH
 
 usage() {
     echo "$0 [-v] [-V] app args
@@ -42,9 +49,7 @@ shift
 
 # Display the shared libraries so user can be certain the ones 
 # in the build directory are being used.
-[ -x $dir/build/apps/$app ] && ldd $dir/build/apps/$app
-[ -x $dir/build/apps/isff/$app ] && ldd $dir/build/apps/isff/$app
-[ -x $dir/build/apps/auto_cal/$app ] && ldd $dir/build/apps/auto_cal/$app
+[ -x $dir/$variant_dir/bin/$app ] && ldd $dir/$variant_dir/bin/$app
 
 if $valg; then
     valgrind $valargs $app "$@"

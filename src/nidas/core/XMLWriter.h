@@ -141,11 +141,7 @@ public:
      */
     void setXMLDeclaration(bool val);
 
-#if XERCES_VERSION_MAJOR < 3
-    void setFilter(xercesc::DOMWriterFilter* filter);
-#else
     void setFilter(xercesc::DOMLSSerializerFilter* filter);
-#endif
 
     /**
      * @throws nidas::core::XMLException,nidas::util::IOException
@@ -156,23 +152,14 @@ public:
      * @throws nidas::core::XMLException
      * @throws nidas::util::IOException
      **/
-#if XERCES_VERSION_MAJOR < 3
-    virtual void writeNode(xercesc::XMLFormatTarget* const dest,
-                           const xercesc::DOMNode& node);
-#else
     virtual void writeNode(xercesc::DOMLSOutput* const dest,
                            const xercesc::DOMNode& node);
-#endif
 
 private:
     
     xercesc::DOMImplementation *_impl;
 
-#if XERCES_VERSION_MAJOR < 3
-    xercesc::DOMWriter *_writer;
-#else
     xercesc::DOMLSSerializer *_writer;
-#endif
 
     XMLErrorHandler _errorHandler;
 

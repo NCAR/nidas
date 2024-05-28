@@ -59,14 +59,19 @@ endif
 override_dh_auto_build:
 	dh_auto_build -- BUILDS=$(BUILDS) REPO_TAG=v$(DEBVER)
 
+	xsltproc --nonet \
+         --param make.year.ranges 1 \
+         --param make.single.year.ranges 1 \
+         --param man.charmap.use.subset 0 \
+         -o debian/ \
+http://docbook.sourceforge.net/release/xsl/current/manpages/docbook.xsl\
+        debian/uio48.1.xml
+
 override_dh_auto_install:
 	dh_auto_install -- BUILDS=$(BUILDS) REPO_TAG=v$(DEBVER) PREFIX=/opt/nidas
 
 override_dh_shlibdeps:
-	dh_shlibdeps -l/opt/nc_server/lib/$(DEB_HOST_MULTIARCH):$(shell pwd)/debian/tmp/opt/nidas/lib/$(DEB_HOST_MULTIARCH)
-	# didn't work: dh_shlibdeps -l/opt/nc_server/lib/$(DEB_HOST_GNU_TYPE)
-	# didn't work: dh_shlibdeps -Lnidas-libs -l/opt/nc_server/lib/$(DEB_HOST_GNU_TYPE)
-	# worked, but "-Lnidas-libs" is unnecessary: dh_shlibdeps -Lnidas-libs -l/opt/nc_server/lib/$(DEB_HOST_GNU_TYPE):$(shell pwd)/debian/tmp/opt/nidas/lib/$(DEB_HOST_GNU_TYPE)
+	dh_shlibdeps -l$(shell pwd)/debian/tmp/opt/nidas/lib
 
 override_dh_installinit:
 	dh_installinit --no-start --name=emerald
@@ -77,5 +82,18 @@ override_dh_installudev:
 	dh_installudev --priority=99
 
 override_dh_auto_clean:
-	dh_auto_clean -- BUILDS=$(BUILDS) PREFIX=/opt/nidas
+	dh_auto_clean -- BUILDS=$(BUILDS)
+	# one should place these paths in debian/clean
+	# but it appears that the old dh_clean in jessie
+	# will not remove a directory, even if the path
+	# ends in a slash, contrary to the documentation
+	# So, nuke them here
+	rm -rf debian/nidas-viper
+	rm -rf debian/nidas-modules-viper
+	rm -rf debian/nidas-titan
+	rm -rf debian/nidas-modules-titan
+	rm -rf debian/nidas-vortex
+	rm -rf debian/nidas-modules-vortex
+	rm -rf debian/nidas-amd64
+	rm -rf debian/nidas-modules-amd64
 

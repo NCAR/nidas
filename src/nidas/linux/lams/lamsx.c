@@ -27,11 +27,6 @@
  ********************************************************************
     Copyright by the National Center for Atmospheric Research
 
-    $LastChangedRevision$
-        $LastChangedDate$
-          $LastChangedBy$
-                $HeadURL$
-
     Laser Air Motion Sensor (LAMS) driver for the ADS3 DSM.
 
             Description of the LAMS data, from Mike Spowart
@@ -834,7 +829,11 @@ static int __init lams_init(void)
         if (!boards) goto err;
         memset(boards,0,numboards * sizeof(struct LAMS_board));
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6,0,0)
         lams_class = class_create(THIS_MODULE, driver_name);
+#else
+        lams_class = class_create(driver_name);
+#endif
         if (IS_ERR(lams_class)) {
                 result = PTR_ERR(lams_class);
                 goto err;

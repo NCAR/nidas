@@ -1,40 +1,22 @@
 # -*- python -*-
 ## 2007, Copyright University Corporation for Atmospheric Research
 
+from SCons.Script import Environment, Import
 
 ##
 ##  Import the build environment.
 ##
-Import(['env', 'first_mach'])
+Import(['env'])
 
-# The Makefile must be listed in the source dependencies
-# so that it is copied/linked to the variant_dir.
-# The Kmake builder runs the make command in variant_dir.
-#
-# Also, the SConscript command that invokes this SConscript
-# file should set duplicate=1, so that all the linux module
-# source files, including the Makefile, are copied to the variant_dir.
-# so that make can find them and do its work outside of the
-# source tree.
+env: Environment
 
-if "LINUX_MODULES_INST_PATH" in env and \
-    'KERNELDIR' in env and env['KERNELDIR'] != '':
+headers = env.Split("pcmcom8.h")
 
-    revinfo = Dir('./../../include/nidas/linux').File('Revision.h')
+env.NidasKernelModule(
+    ['pcmcom8.ko'],
+    ['pcmcom8.c', *env.SymbolModules('revinfo')],
+    headers)
 
-    modules = ['pcmcom8.ko']
-    env.Kmake(modules,['pcmcom8.c','pcmcom8.h','Makefile', revinfo])
-    env.Install('$LINUX_MODULES_INST_PATH',modules)
-    env.Clean('install',[
-        '$LINUX_MODULES_INST_PATH/' + l for l in modules
-        ])
-
-# Some kernel module header files define symbols that are needed
-# by user code. These must also be installed in $ARCHPREFIX/include
-headers = Split("""
-    pcmcom8.h
-""")
-
-if first_mach:
-    env.Install('$ARCHPREFIX/include/nidas/linux/serial',headers)
-
+env.InstallModuleConf('pcmcom8.conf')
+env.InstallEtcDefaults('pcmcom8', 'pcmcom8.defaults')
+env.InstallModuleInit('pcmcom8', 'pcmcom8.init')

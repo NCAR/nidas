@@ -1,10 +1,11 @@
 # -*- python -*-
-## 2006, Copyright University Corporation for Atmospheric Research
+# 2006, Copyright University Corporation for Atmospheric Research
 
-Import('env')
-arch = env['ARCH']  # empty string for native builds
+from SCons.Script import Environment
 
-sources = Split("""
+env = Environment(tools=['default', 'dynldsources'])
+
+sources = env.Split("""
     A2DBoardTempSensor.cc
     A2D_Serial.cc
     ADC_HW_EB7022597.cc
@@ -42,13 +43,16 @@ sources = Split("""
     SyncRecordSource.cc
     SyncServer.cc
     TwoD_House.cc
+    TwoD_Processing.cc
     TwoD_USB.cc
     TwoD64_USB.cc
     TwoD64_USB_v3.cc
     TwoD32_USB.cc
+    TwoDS.cc
     UDPArincSensor.cc
     UDPArincStatus.cc
     UDPSocketSensor.cc
+    UDPiPMSensor.cc
     UHSAS_Serial.cc
     VCSEL_Serial.cc
     VCSEL2_Serial.cc
@@ -56,7 +60,7 @@ sources = Split("""
 """)
 
 
-headers = Split("""
+headers = env.Split("""
     A2DBoardTempSensor.h
     A2D_Serial.h
     ADC_HW_EB7022597.h
@@ -96,31 +100,21 @@ headers = Split("""
     SyncRecordVariable.h
     SyncServer.h
     TwoD_House.h
+    TwoD_Processing.h
     TwoD_USB.h
     TwoD64_USB.h
     TwoD64_USB_v3.h
     TwoD32_USB.h
+    TwoDS.h
     UHSAS_Serial.h
     UDPArincStatus.h
     UDPSocketSensor.h
     UDPArincSensor.h
+    UDPiPMSensor.h
     VCSEL_Serial.h
     VCSEL2_Serial.h
     WatlowCLS208.h
 """)
 
-if arch == 'arm':
-    archsources=Split("""
-    """)
-    archheaders=Split("""
-    """)
-else:
-    archsources=Split("""
-    """)
-    archheaders=Split("""
-    """)
-
-
-env.Append (LIBNIDAS_DYNLD_SOURCES = [ env.File(f) for f in sources + archsources ])
-
-env.Install('$ARCHPREFIX/include/nidas/dynld/raf', headers + archheaders)
+env.AddDynldSources(sources)
+env.Install('$PREFIX/include/nidas/dynld/raf', headers)

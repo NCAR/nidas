@@ -148,7 +148,7 @@ size_t IOStream::skip(size_t len)
  */
 size_t IOStream::readUntil(void* buf, size_t len,char term)
 {
-    register char* outp = (char*) buf;
+    char* outp = (char*) buf;
     const char* eout = outp + len - 1;	// leave room for trailing '\0'
 
     bool done = false;

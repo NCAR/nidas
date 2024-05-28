@@ -56,6 +56,8 @@ class Wind2D: public nidas::core::SerialSensor
 {
 public:
 
+    using WindOrienter = nidas::dynld::isff::WindOrienter;
+
     Wind2D();
 
     ~Wind2D();
@@ -79,6 +81,14 @@ public:
     const std::string& getVName() const { return _vName; }
 
     void setVName(const std::string& val) { _vName = val; }
+
+    /**
+     * @brief Provide access to the orienter, mostly for testing.
+     * 
+     * @return WindOrienter& 
+     */
+    WindOrienter&
+    getOrienter() { return _orienter; }
 
     bool process(const nidas::core::Sample* samp,
         std::list<const nidas::core::Sample*>& results) throw();
@@ -142,8 +152,6 @@ private:
      * U,V are re-computed from the direction and corrected speed.
      */
     nidas::core::VariableConverter* _speedConverter;
-
-    typedef nidas::dynld::isff::WindOrienter WindOrienter;
 
     WindOrienter _orienter;
 

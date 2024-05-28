@@ -23,6 +23,8 @@
 namespace nidas { namespace core {
 
 class Project;
+class FileSet;
+class SampleOutputBase;
 
 /**
  * The NidasApp class throws a NidasAppException when command-line options
@@ -183,7 +185,8 @@ public:
     /**
      * Render the usage string for this particular argument, taking into
      * account which flags are enabled.  The returned string is formatted like
-     * below, and always ends in a newline:
+     * below, each line prefixed with @p indent,  and always ends in a
+     * newline.  If * @p brief is true, the usage lines are omitted.
      *
      * <indent><flag>[,<flag>...] [<syntax>] [default: <default>]
      * <indent><indent>Description line one
@@ -191,7 +194,7 @@ public:
      * ...
      **/
     std::string
-    usage(const std::string& indent = "  ");
+    usage(const std::string& indent = "  ", bool brief = false);
 
     /**
      * Return true if this argument has been filled in from a command-line
@@ -672,6 +675,8 @@ public:
     NidasAppArg DebugDaemon;
     NidasAppArg ConfigsArg;
     NidasAppArg DatasetName;
+    NidasAppArg Clipping;
+    NidasAppArg SorterLength;
 
     /**
      * It is not enough to enable this arg in an app, the app must must
@@ -1081,17 +1086,45 @@ public:
     nidas::core::Dataset
     getDataset(const std::string& datasetname);
 
+    /**
+     * @brief Return the StartTime as a UTime.
+     *
+     * The value is UTime::MIN unless set by the StartTime argument.
+     *
+     * @return nidas::util::UTime 
+     */
     nidas::util::UTime
     getStartTime()
     {
         return _startTime;
     }
- 
+
+    /**
+     * @brief Return the EndTime as a UTime.
+     *
+     * The value is UTime::MAX unless set by the EndTime argument.
+     *
+     * @return nidas::util::UTime 
+     */
     nidas::util::UTime
     getEndTime()
     {
         return _endTime;
     }
+
+    /**
+     * If Clipping has been enabled, call setTimeClippingWindow() on the given
+     * @p output using @p start and @p end.
+     */
+    void
+    setOutputClipping(const nidas::util::UTime& start,
+                      const nidas::util::UTime& end,
+                      nidas::core::SampleOutputBase* output);
+
+    void
+    setFileSetTimes(const nidas::util::UTime& start,
+                    const nidas::util::UTime& end,
+                    nidas::core::FileSet* fset);
 
     /**
      * Return the value of the global interrupted flag.  If @p
@@ -1150,8 +1183,15 @@ public:
     /**
      * Return a usage string describing the arguments accepted by this
      * application, rendering each argument by calling NidasAppArg::usage()
-     * with the given indent string.
+     * with the given @p indent string and @p brief parameter.
      **/
+    std::string
+    usage(const std::string& indent, bool brief);
+
+    /**
+     * Return the usage string, formatted according to the current
+     * brief setting.
+     */
     std::string
     usage(const std::string& indent = "  ");
 
@@ -1190,6 +1230,15 @@ public:
     helpRequested()
     {
         return _help;
+    }
+
+    /**
+     * Return true if brief help requested, such as with -h.
+     */
+    bool
+    briefHelp()
+    {
+        return _brief;
     }
 
     /**
@@ -1382,6 +1431,16 @@ public:
     int
     checkPidFile();
 
+    /**
+     * @brief Return sorter length value, or throw std::invalid_argument.
+     *
+     * This checks the sorter length against the given min and max after
+     * parsing it as a float.  Throws NidasAppException if the value is out of
+     * range, otherwise returns the value.
+     */
+    float
+    getSorterLength(float min, float max);
+
 private:
 
     void
@@ -1413,6 +1472,7 @@ private:
     int _outputFileLength;
 
     bool _help;
+    bool _brief;
 
     std::string _username;
 

@@ -1,0 +1,140 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+"http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
+
+<!--
+
+See http://www.debian.org/doc/manuals/maint-guide/dother.en.html#manpagexml
+    /usr/share/doc/docbook-xsl-doc-html/doc/manpages
+
+The xsltproc binary is found in the xsltproc package. The XSL files are in
+docbook-xsl. A description of the parameters you can use can be found in the
+docbook-xsl-doc-* packages.
+
+Validation can be done using: `xmllint -''-noout -''-valid manpage.xml`
+
+General documentation about man-pages and man-page-formatting:
+man(1), man(7), http://www.tldp.org/HOWTO/Man-Page/
+
+-->
+
+  <!-- Fill in your name for FIRSTNAME and SURNAME. -->
+  <!ENTITY dhfirstname "Gordon">
+  <!ENTITY dhsurname   "Maclean">
+  <!-- dhusername could also be set to "&dhfirstname; &dhsurname;". -->
+  <!ENTITY dhusername  "Gordon Maclean">
+  <!ENTITY dhemail     "maclean@ucar.edu">
+  <!-- SECTION should be 1-8, maybe w/ subsection other parameters are
+       allowed: see man(7), man(1) and
+       http://www.tldp.org/HOWTO/Man-Page/q2.html. -->
+  <!ENTITY dhsection   "1">
+  <!-- TITLE should be something like "User commands" or similar (see
+       http://www.tldp.org/HOWTO/Man-Page/q2.html). -->
+  <!ENTITY dhtitle     "User commands">
+  <!ENTITY dhucpackage "UIO48">
+  <!ENTITY dhpackage   "uio48">
+]>
+
+<refentry>
+  <refentryinfo>
+    <title>&dhtitle;</title>
+    <productname>&dhpackage;</productname>
+    <authorgroup>
+      <author>
+       <firstname>&dhfirstname;</firstname>
+        <surname>&dhsurname;</surname>
+        <contrib></contrib>
+        <address>
+          <email>&dhemail;</email>
+        </address>
+      </author>
+    </authorgroup>
+    <copyright>
+      <year>2022</year>
+      <holder>UCAR</holder>
+    </copyright>
+    <legalnotice>
+      <para>This manual page was written for the Debian system
+        (and may be used by others).</para>
+      <para>Permission is granted to copy, distribute and/or modify this
+        document under the terms of the GNU General Public License,
+        Version 2 or (at your option) any later version published by
+        the Free Software Foundation.</para>
+      <para>On Debian systems, the complete text of the GNU General Public
+        License can be found in
+        <filename>/usr/share/common-licenses/GPL</filename>.</para>
+    </legalnotice>
+  </refentryinfo>
+  <refmeta>
+    <refentrytitle>&dhucpackage;</refentrytitle>
+    <manvolnum>&dhsection;</manvolnum>
+  </refmeta>
+  <refnamediv>
+    <refname>&dhpackage;</refname>
+    <refpurpose>program to set/get the GPIO pins on a UIO48</refpurpose>
+  </refnamediv>
+  <refsynopsisdiv>
+    <cmdsynopsis>
+      <command>&dhpackage;</command>
+      <arg choice="plain"><optional>device</optional></arg>
+      <arg choice="plain"><option>pin</option></arg>
+      <arg choice="plain"><optional>state</optional></arg>
+      <arg choice="plain"><optional>pin</optional></arg>
+      <arg choice="plain"><optional>state</optional></arg>
+      <arg choice="plain">...</arg>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+  <refsect1 id="description">
+    <title>DESCRIPTION</title>
+    <para><command>&dhpackage;</command>
+        is a command to set and get the state of pins on a UIO48 GPIO device.
+    </para>
+  </refsect1>
+  <refsect1 id="options">
+    <title>OPTIONS</title>
+    <variablelist>
+      <!-- Use the variablelist.term.separator and the
+           variablelist.term.break.after parameters to
+           control the term elements. -->
+      <varlistentry>
+        <term><optional>device</optional></term>
+        <listitem>
+            <para>Device name, /dev/uio48a by default.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>pin</option></term>
+        <listitem>
+          <para>GPIO pin number, 0-23</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>state</option></term>
+        <listitem>
+          <para>Optional, to set a pin state rather than get its value.  0=set pin to ground, 1=set pin to high impedance floating state where it can be used as an input.</para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+  <refsect1 id="files">
+    <title>FILES</title>
+    <variablelist>
+      <varlistentry>
+        <term><filename>/dev/uio48a</filename></term>
+        <listitem>
+            <para>The UIO48 device name, created by the uio48 kernel module. If the device does not exist, check that the uio48 package is installed and the uio48 kernel module is loaded.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+          <term><filename>/usr/include/uio48.h</filename></term>
+        <listitem>
+            <para>Header file with ioctl definitions for controlling the UIO48. Part of the uio48-dev package.</para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+  <refsect1 id="result">
+    <title>RESULT</title>
+    <para>If the state option is not passed to set a pin state, then the current state of the pin is returned: 0=low (ground), 1=high.</para>
+  </refsect1>
+</refentry>

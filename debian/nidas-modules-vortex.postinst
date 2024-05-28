@@ -32,7 +32,11 @@ case "$1" in
 esac
 
 if [ "$1" = "configure" -o "$1" = "triggered" ]; then
-    depmod
+    # In case the package install is being tested in a container, in which
+    # case there is no modules directory for the container host.
+    if [ -d "/lib/modules/$(uname -r)" ]; then
+        depmod
+    fi
 fi
 
 # dh_installdeb will replace this with shell code automatically

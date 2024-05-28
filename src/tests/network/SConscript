@@ -1,18 +1,14 @@
 # -*- python -*-
-## 2009, Copyright University Corporation for Atmospheric Research
+# 2009, Copyright University Corporation for Atmospheric Research
 
-Import('env')
-env = env.Clone(tools = ['nidas'])
+from SCons.Script import Environment
 
-env.Append(LIBS = env.NidasUtilLibs())
-env.Prepend(CPPPATH = [ '#/src' ])
-env.Append(CCFLAGS = ['-Wall'])
+env = Environment(tools=['default', 'nidasapps', 'valgrind'])
 
 tests = env.Program('dns_lookup', "dns_lookup.cc")
 
 runtest = env.Command("dns_test", tests, ["$SOURCE.abspath"])
 env.Precious(runtest)
-AlwaysBuild(runtest)
-Alias('networktest', runtest)
-Alias('test', runtest)
-
+env.AlwaysBuild(runtest)
+env.Alias('networktest', runtest)
+env.Alias('test', runtest)

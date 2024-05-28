@@ -183,19 +183,20 @@ bool CDP_Serial::process(const Sample* samp, list<const Sample*>& results)
     // these values must correspond to the sequence of
     // <variable> tags in the <sample> for this sensor.
     *dout++ = convert(ttag,UnpackDMT_UShort(inRec.cabinChan[FLSR_CUR_INDX]) * (76.3 / 1250),ivar++);
-    *dout++ = convert(ttag,UnpackDMT_UShort(inRec.cabinChan[FLSR_PWR_INDX]) * (0.5 / 408),ivar++);
+    *dout++ = convert(ttag,UnpackDMT_UShort(inRec.cabinChan[FLSR_PWR_INDX]) * (5.0 / 4095),ivar++);
 
     value = UnpackDMT_UShort(inRec.cabinChan[FWB_TMP_INDX]);
     *dout++ = convert(ttag,(1.0 / ((1.0 / 3750.0) * log((4096.0 / value) - 1.0) + (1.0 / 298.0))) - 273.0,ivar++);
 
     value = UnpackDMT_UShort(inRec.cabinChan[FLSR_TMP_INDX]);
-    *dout++ = convert(ttag,(1.0 / ((1.0 / 3900.0) * log((4096.0 / value) - 1.0) + (1.0 / 298.0))) - 273.0,ivar++);
+    *dout++ = convert(ttag,(1.0 / ((1.0 / 3750.0) * log((4096.0 / value) - 1.0) + (1.0 / 298.0))) - 273.0,ivar++);
 
-    *dout++ = convert(ttag,UnpackDMT_UShort(inRec.cabinChan[SIZER_BLINE_INDX]) * (0.5 / 408),ivar++);
-    *dout++ = convert(ttag,UnpackDMT_UShort(inRec.cabinChan[QUAL_BLINE_INDX]) * (0.5 / 408),ivar++);
-    *dout++ = convert(ttag,UnpackDMT_UShort(inRec.cabinChan[VDC5_MON_INDX]) * (0.5 / 408),ivar++);
+    *dout++ = convert(ttag,UnpackDMT_UShort(inRec.cabinChan[SIZER_BLINE_INDX]) * (5.0 / 4095),ivar++);
+    *dout++ = convert(ttag,UnpackDMT_UShort(inRec.cabinChan[QUAL_BLINE_INDX]) * (5.0 / 4095),ivar++);
+    *dout++ = convert(ttag,UnpackDMT_UShort(inRec.cabinChan[VDC5_MON_INDX]) * (10.0 / 4095),ivar++);
     value = UnpackDMT_UShort(inRec.cabinChan[FCB_TMP_INDX]);
-    *dout++ = convert(ttag,0.06401 * value - 50.0,ivar++);
+//    *dout++ = convert(ttag, 0.06401 * value - 50.0, ivar++);
+    *dout++ = convert(ttag, -0.04782 * value + 153.97, ivar++);
 
     *dout++ = convert(ttag,UnpackDMT_ULong(inRec.rejDOF),ivar++);
     *dout++ = convert(ttag,UnpackDMT_UShort(inRec.QualBndwdth),ivar++);

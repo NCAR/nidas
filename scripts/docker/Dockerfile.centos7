@@ -1,0 +1,39 @@
+FROM docker.io/centos:7
+LABEL organization="NCAR EOL"
+
+RUN yum -y update
+RUN yum -y install epel-release
+RUN yum -y install gcc-c++ git doxygen graphviz make \
+                   gsl-devel libpcap-devel bzip2-devel bzip2-libs \
+                   bzip2 bluez-libs-devel libcurl-devel xerces-c-devel \
+                   flex gsl-devel libcap-devel jsoncpp-devel
+
+RUN rpm -ihv http://www.eol.ucar.edu/software/rpms/eol-repo-epel-1-5.noarch.rpm
+
+# Needed for pyenv build of python 3.6.  Right now scons only requires 3.6.
+# Trying to install 3.10+ fails because the python build requires OpenSSL
+# 1.1.1, which does not seem to be available easily on centos7.
+RUN yum -y install openssl-devel zlib-devel readline-devel \
+                   libsqlite3x-devel libffi-devel tkinter xz-devel \
+                   libtirpc-devel patch
+
+RUN curl -L https://raw.githubusercontent.com/pyenv/pyenv-installer/master/bin/pyenv-installer | bash
+
+RUN export PYENV_ROOT=/root/.pyenv && $PYENV_ROOT/bin/pyenv init |& tail -7 >> /root/.bashrc
+
+RUN . /root/.bashrc && pyenv install 3.6 && pyenv global 3.6 && pip3 install scons
+RUN rm -f /bin/scons && ln -s /root/.pyenv/shims/scons /bin/scons
+
+RUN yum -y install rpm-build rsync diffutils cmake3
+RUN ln -s /bin/cmake3 /bin/cmake
+
+# Local packages
+RUN mkdir -p ublox
+COPY ./build-ublox.sh ublox
+RUN cd ublox && ./build-ublox.sh
+
+RUN mkdir -p xmlrpc-build
+COPY ./build-xmlrpc.sh xmlrpc-build
+RUN cd xmlrpc-build && ./build-xmlrpc.sh
+
+WORKDIR /root

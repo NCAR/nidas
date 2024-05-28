@@ -33,8 +33,15 @@ struct trec_t trecs[] = {
       "2018 10 04 14:46:34.0000", false }
 };
 
+#if BOOST_VERSION <= 105300
+BOOST_AUTO_TEST_CASE_EXPECTED_FAILURES(test_gps_time_rejects, 1);
+#endif
+
 BOOST_AUTO_TEST_CASE(test_gps_time_rejects)
 {
+#if BOOST_VERSION <= 105300
+    BOOST_CHECK_MESSAGE(false, "boost test version is too old");
+#else
     Logger* logger = Logger::createInstance(&std::cerr);
     logger->setScheme(LogScheme().addConfig(LogConfig()));
 
@@ -43,9 +50,9 @@ BOOST_AUTO_TEST_CASE(test_gps_time_rejects)
     const char* ckmsg = trecs[0].input;
     char cksum;
     bool gotck = gps->findChecksum(cksum, ckmsg, strlen(ckmsg));
-    BOOST_CHECK_EQUAL(gotck, true);
-    BOOST_CHECK_EQUAL(cksum, 0x6e);
-    BOOST_CHECK_EQUAL(gps->checksumOK(ckmsg, strlen(ckmsg)), true);
+    BOOST_TEST(gotck);
+    BOOST_TEST(cksum == 0x6e);
+    BOOST_TEST(gps->checksumOK(ckmsg, strlen(ckmsg)));
 
     vector<double> d(10);
 
@@ -66,7 +73,7 @@ BOOST_AUTO_TEST_CASE(test_gps_time_rejects)
         string sraw = UTime(traw).format(true, "%Y %m %d %H:%M:%S.%4f");
         BOOST_TEST_MESSAGE("expected " << tc.stime << ", parsed time "
                                        << tgot);
-        BOOST_CHECK_EQUAL(tc.ok ? tc.stime : sraw, tgot);
+        BOOST_TEST((tc.ok ? tc.stime : sraw) == tgot);
 
 #ifdef notdef
         // There's no point to this until we can fake
@@ -98,8 +105,8 @@ BOOST_AUTO_TEST_CASE(test_gps_time_rejects)
         "$GPRMC,220009.00,A,4002.29363,N,10514.51724,W,0.750,,121219,,,A";
     cksum = gps->calcChecksum(msg, strlen(msg));
     gps->appendChecksum(msg, strlen(msg), sizeof(msg));
-    BOOST_CHECK_EQUAL(string(msg), string(goodmsg));
-    BOOST_CHECK_EQUAL(gps->checksumOK(msg, strlen(msg)), true);
+    BOOST_TEST(string(msg) == string(goodmsg));
+    BOOST_TEST(gps->checksumOK(msg, strlen(msg)));
 
     // Given an array of RMC messages with various errors, make sure none
     // of them pass even though the checksum is correct.
@@ -142,10 +149,11 @@ BOOST_AUTO_TEST_CASE(test_gps_time_rejects)
         tt = gps->parseRMC(imsg + 7, &(d[0]), d.size(), 1);
         // Returning the raw time means it did not parse.
         if (strcmp(desc, "good message"))
-            BOOST_CHECK_EQUAL(tt, 1);
+            BOOST_TEST(tt == 1);
         else
-            BOOST_CHECK_EQUAL(tt, texp);
+            BOOST_TEST(tt == texp);
         ++i;
     }
     delete gps;
+#endif
 }

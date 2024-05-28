@@ -11,8 +11,7 @@ using nidas::core::NidasAppException;
 using nidas::util::LogContext;
 using nidas::util::LogMessage;
 using std::string;
-using std::mem_fun;
-using std::bind1st;
+using std::mem_fn;
 
 BadSampleFilter::
 BadSampleFilter() :
@@ -104,11 +103,11 @@ setDefaultTimeRange(const UTime& start, const UTime& end)
 {
     // Set the start and end times as filter times only if unset,
     // and do not change whether the filter is enabled.
-    if (_minSampleTime == LONG_LONG_MIN && start != UTime(LONG_LONG_MIN))
+    if (_minSampleTime == LONG_LONG_MIN && start.isSet())
     {
         _minSampleTime = start.toUsecs() - USECS_PER_DAY;
     }
-    if (_maxSampleTime == LONG_LONG_MAX && end != UTime(LONG_LONG_MAX))
+    if (_maxSampleTime == LONG_LONG_MAX && end.isSet())
     {
         _maxSampleTime = end.toUsecs() + USECS_PER_DAY;
     }
@@ -209,13 +208,13 @@ namespace {
     template <typename T, typename F>
     inline bool
     check_rule(const string& name, const string& key,
-               const string& value, const F& f)
+               const string& value, const F& f, BadSampleFilter* bsf)
     {
         if (key == name)
         {
             T setting;
             convert(value, setting);
-            f(setting);
+            f(bsf, setting);
             return true;
         }
         return false;
@@ -224,8 +223,8 @@ namespace {
     inline bool
     check_time_rule(const string& name, const string& key,
                     const string& value,
-                    BadSampleFilter* target,
-                    void (BadSampleFilter::*f)(const UTime&))
+                    void (BadSampleFilter::*f)(const UTime&),
+                    BadSampleFilter* target)
     {
         if (key == name)
         {
@@ -266,29 +265,29 @@ setRule(const std::string& rule)
     else if (!value.empty() &&
         (check_rule<unsigned int>
          ("mindsm", field, value,
-          bind1st(mem_fun(&BadSampleFilter::setMinDsmId), this)) ||
+          mem_fn(&BadSampleFilter::setMinDsmId), this) ||
          check_rule<unsigned int>
          ("maxdsm", field, value,
-          bind1st(mem_fun(&BadSampleFilter::setMaxDsmId), this)) ||
+          mem_fn(&BadSampleFilter::setMaxDsmId), this) ||
          check_rule<unsigned int>
          ("minlen", field, value,
-          bind1st(mem_fun(&BadSampleFilter::setMinSampleLength), this)) ||
+          mem_fn(&BadSampleFilter::setMinSampleLength), this) ||
          check_rule<unsigned int>
          ("maxlen", field, value,
-          bind1st(mem_fun(&BadSampleFilter::setMaxSampleLength), this)) ||
+          mem_fn(&BadSampleFilter::setMaxSampleLength), this) ||
          check_time_rule
-         ("mintime", field, value, this, &BadSampleFilter::setMinSampleTime) ||
+         ("mintime", field, value, &BadSampleFilter::setMinSampleTime, this) ||
          check_time_rule
-         ("maxtime", field, value, this, &BadSampleFilter::setMaxSampleTime) ||
+         ("maxtime", field, value, &BadSampleFilter::setMaxSampleTime, this) ||
          check_rule<bool>
          ("skipnidasheader", field, value,
-          bind1st(mem_fun(&BadSampleFilter::setSkipNidasHeader), this)) ||
+          mem_fn(&BadSampleFilter::setSkipNidasHeader), this) ||
          check_rule<bool>
          ("on", field, value,
-          bind1st(mem_fun(&BadSampleFilter::setFilterBadSamples), this)) ||
+          mem_fn(&BadSampleFilter::setFilterBadSamples), this) ||
          check_rule<bool>
          ("off", field, value,
-          bind1st(mem_fun(&BadSampleFilter::setFilterBadSamples), this))))
+          mem_fn(&BadSampleFilter::setFilterBadSamples), this)))
     {
         // all good.
     }
@@ -358,10 +357,10 @@ operator<<(std::ostream& out, const BadSampleFilter& bsf)
         out << "," << "type=" << (int)bsf.sampleTypeLimit();
     else
         out << "," << "type=valid";
-    if (bsf.minSampleTime().toUsecs() != LONG_LONG_MIN)
+    if (bsf.minSampleTime().isSet())
         out << "," << "mintime="
             << bsf.minSampleTime().format(true, "%Y-%m-%dT%H:%M:%S.%f");
-    if (bsf.maxSampleTime().toUsecs() != LONG_LONG_MAX)
+    if (bsf.maxSampleTime().isSet())
         out << "," << "maxtime="
             << bsf.maxSampleTime().format(true, "%Y-%m-%dT%H:%M:%S.%f");
     return out;
@@ -374,13 +373,13 @@ BadSampleFilterArg::
 BadSampleFilterArg() :
     NidasAppArg
   ("-f,--filter", "<rules>",
-   "-f does not take any arguments.  It enables bad sample filtering\n"
-   "  using the default range filters:\n"
+   "-f alone for default filters, --filter to set rules.\n"
+   "  Here are the default filter rules:\n"
    "    sample type must be valid\n"
    "    sample length must be greater than 0\n"
    "    dsmid must be greater than 0 and <= 1024\n"
    "    timetag must be within the last 20 years of tomorrow\n"
-   "  Some programs use the start and end time to narrow the valid timetag range.\n"
+   "  Some programs use start and end time to narrow the valid timetag range.\n"
    "--filter <rules>\n"
    "  Enable sample filtering and modify the valid ranges according to <rules>.\n"
    "  Rules are a comma-separated list of key=value settings using these keys:\n"

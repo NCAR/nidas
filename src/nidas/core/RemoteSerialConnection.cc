@@ -359,6 +359,12 @@ RemoteSerialConnection::handlePollEvents(uint32_t events) throw()
 {
     bool exhausted = false;
 
+    if (events & N_POLLNVAL) {
+        PLOG(("%s: POLLNVAL",getName().c_str()));
+        _handler->scheduleClose(this);
+        return true;
+    }
+
     if (events & N_POLLRDHUP) {
         PLOG(("%s: POLLRDHUP",getName().c_str()));
         _handler->scheduleClose(this);

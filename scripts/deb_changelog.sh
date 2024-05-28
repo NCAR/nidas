@@ -11,17 +11,10 @@
 awkcom=`mktemp /tmp/${script}_XXXXXX.awk`
 trap "{ rm -f $awkcom; }" EXIT
 
-# In the changelog, copy most recent commit subject lines
-# since this tag (max of 100).
-# sincetag=v1.0
-
-# to get the most recent tag of the form: vN
-sincetag=$(git tag -l --sort=version:refname "[vV][0-9]*" | tail -n 1)
-
-if ! gitdesc=$(git describe --match "v[0-9]*"); then
-    echo "git describe failed, looking for a tag of the form v[0-9]*"
-    exit 1
-fi
+# In the changelog, copy most recent commit subject lines up to a max of
+# 25.  The previous approach only included commits since a tag of the form
+# vN.N, but that fails when releasing the actual vN.N version, because then
+# the changelog is empty and debuild does not like that.
 
 # example output of git describe: v2.0-14-g9abcdef
 
@@ -50,8 +43,9 @@ cat << \EOD > $awkcom
 /^$/ { print $0 }
 EOD
 
-# create Debian changelog from git log messages since the tag $sincetag.
-# Put SHA hash by itself on first line. Above awk script then
-# runs git describe on that hash in order to get a X.Y-Z version.
-git log --max-count=100 --date-order --format="%H%nnidas%n  * (XXXXXXX) %s%n -- %aN <%ae>  %cD" --date=local ${sincetag}.. | awk -f $awkcom
-
+# create Debian changelog from last 25 git log messages.  Put SHA hash by
+# itself on first line. Above awk script then runs git describe on that
+# hash in order to get a X.Y-Z version.  The final sed replaces the
+# remaining (vN.N) with (N.N), since the awk script only fixes
+# (vN.N-N-hash)
+git log --max-count=25 --date-order --format="%H%nnidas%n  * (XXXXXXX) %s%n -- %aN <%ae>  %cD" --date=local | gawk -f $awkcom | sed -e 's/([vV]\([0-9][0-9]*\.[0-9][0-9]*[.0-9]*\))/(\1)/g'

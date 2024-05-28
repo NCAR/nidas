@@ -349,7 +349,7 @@
             <variable longname="CDP Sizer DT Bandwidth" name="CDPSBDW" units="unk"/>
             <variable longname="CDP Sizer Dynamic Threshold" name="CDPSTHRSH" units="unk"/>
             <variable longname="CDP AtoD Converter Overflow/Overrange" name="OVFLW" units="count"/>
-            <variable length="31" longname="CDP Raw Accumulation (per cell)" name="ACDP" units="count"/>
+            <variable length="30" longname="CDP Raw Accumulation (per cell)" name="ACDP" units="count"/>
         </sample>
         <prompt rate="10" string="\x1b\x02\x1d\x00"/>
       </serialSensor>
@@ -359,7 +359,7 @@
         <parameter name="HSKP_SCALE" value="16000 16000 13104 16000 16000 13104 16000 16000 13104 13104 16000 8000" type="int"/>
 
         <sample id="1" rate="10">
-            <variable name="AUHSAS" length="100" units="count" longname="UHSAS Raw Count Histogram"/>
+            <variable name="AUHSAS" length="99" units="count" longname="UHSAS Raw Count Histogram"/>
             <variable name="USCAT" units="V" longname="UHSAS Background Scatter"/>
             <variable name="UCURR" units="V" longname="UHSAS Laser Current"/>
             <variable name="USMPFLW" units="V" longname="UHSAS Sample Flow">

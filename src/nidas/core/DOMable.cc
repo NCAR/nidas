@@ -40,14 +40,7 @@ XMLCh* DOMable::namespaceURI = 0;
 xercesc::DOMElement*
 DOMable::toDOMParent(xercesc::DOMElement* /* parent */,bool /* brief */) const
 {
-
-#if XERCES_VERSION_MAJOR < 3
-    XMLStringConverter msg("toDOMParent not supported in this DOMable");
-    throw xercesc::DOMException(xercesc::DOMException::NOT_SUPPORTED_ERR,msg);
-#else
     throw xercesc::DOMException(xercesc::DOMException::NOT_SUPPORTED_ERR);
-#endif
-
 /*
     DOMElement* elem =
         parent->getOwnerDocument()->createElementNS(
@@ -64,10 +57,5 @@ DOMable::toDOMParent(xercesc::DOMElement* /* parent */,bool /* brief */) const
 xercesc::DOMElement*
 DOMable::toDOMElement(xercesc::DOMElement*, bool) const
 {
-#if XERCES_VERSION_MAJOR < 3
-    XMLStringConverter msg("toDOMParent not supported in this DOMable");
-    throw xercesc::DOMException(xercesc::DOMException::NOT_SUPPORTED_ERR,msg);
-#else
     throw xercesc::DOMException(xercesc::DOMException::NOT_SUPPORTED_ERR);
-#endif
 }

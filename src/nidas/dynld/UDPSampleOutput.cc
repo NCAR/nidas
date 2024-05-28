@@ -372,7 +372,7 @@ void UDPSampleOutput::fromDOMElement(const xercesc::DOMElement* node)
 {
     SampleOutputBase::fromDOMElement(node);
     if (getIOChannel()->getRequestType() < 0)
-    	getIOChannel()->setRequestType(UDP_PROCESSED_SAMPLE_FEED);
+            getIOChannel()->setRequestType(UDP_PROCESSED_SAMPLE_FEED);
     // the unfortunate dynamic_cast ...
     _mochan = dynamic_cast<MultipleUDPSockets*>(getIOChannel());
 
@@ -763,17 +763,13 @@ int UDPSampleOutput::VariableListWorker::run()
         XMLFdFormatTarget formatter(_sock->getRemoteSocketAddress().toAddressString(),
             _sock->getFd());
         XMLWriter writer;
-#if XERCES_VERSION_MAJOR < 3
-        writer.writeNode(&formatter,*doc);
-#else
-	XMLStringConverter convname(_sock->getRemoteSocketAddress().toAddressString());
-	xercesc::DOMLSOutput *output;
-	output = XMLImplementation::getImplementation()->createLSOutput();
-	output->setByteStream(&formatter);
-	output->setSystemId((const XMLCh*)convname);
-	writer.writeNode(output,*doc);
-	output->release();
-#endif
+        XMLStringConverter convname(_sock->getRemoteSocketAddress().toAddressString());
+        xercesc::DOMLSOutput *output;
+        output = XMLImplementation::getImplementation()->createLSOutput();
+        output->setByteStream(&formatter);
+        output->setSystemId((const XMLCh*)convname);
+        writer.writeNode(output,*doc);
+        output->release();
     }
     catch (const n_u::IOException& e) {
         _output->releaseProjectDOM();

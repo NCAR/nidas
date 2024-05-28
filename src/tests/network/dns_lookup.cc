@@ -36,7 +36,7 @@ using namespace std;
 namespace n_u = nidas::util;
 using namespace nidas::core;
 
-int main(int argc, char**argv)
+int main(int /*argc*/, char** /*argv*/)
 {
     
     string host;

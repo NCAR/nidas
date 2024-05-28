@@ -2661,7 +2661,11 @@ static int __init pc104sg_init(void)
                 board.lastStatus &= ~(CLOCK_SYNC_NOT_OK | CLOCK_STATUS_NOSYNC);
         board.status.statusOR = board.lastStatus;
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6,0,0)
         board.class = class_create(THIS_MODULE, "irig");
+#else
+        board.class = class_create("irig");
+#endif
         if (IS_ERR(board.class)) {
                 errval = PTR_ERR(board.class);
                 goto err0;

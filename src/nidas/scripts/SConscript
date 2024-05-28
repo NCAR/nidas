@@ -1,0 +1,17 @@
+
+from SCons.Script import Environment
+
+env = Environment(tools=['default'])
+
+scripts = env.Split("cktty irqs setup_nidas.sh start_podman dsm.init")
+
+# Install start_podman everywhere even though it's not likely to be useful
+# except on redhat systems, time and necessity to do otherwise are lacking.
+# Likewise for other utility scripts like irout and vout.  It's just not worth
+# it at the moment to specialize them.
+
+env.Alias('install', env.Install("$PREFIX/bin", scripts))
+
+# Also install scripts into the variant bin, especially so that setup_nidas.sh
+# is available to put the variant build on the path.
+env.Install("$VARIANT_DIR/bin", scripts)

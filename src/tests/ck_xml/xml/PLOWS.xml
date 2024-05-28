@@ -421,7 +421,7 @@
                 <linear slope="0.1" intercept="0.0" units=""/>
             </variable>
             <variable name="OVFLW" units="" longname="SPP-100 AtoD Converter Overflow/Overrange"/>
-            <variable name="AS100" length="31" units="count" longname="SPP-100 Raw Accumulation (per cell) - DMT"/>
+            <variable name="AS100" length="30" units="count" longname="SPP-100 Raw Accumulation (per cell) - DMT"/>
             <variable name="DELTAT" units="msec" longname="SPP-100 Time between last sample and this sample"/>
         </sample>
         <prompt string="\x1b\x02\x1d\x00" rate="10"/>
@@ -450,7 +450,7 @@
                 <poly coefs="-729.57 0.87564 -3.5197e-4 4.750368e-8" units="std cm3/s"/>
             </variable>
             <variable name="PTMP" units="deg_C" longname="SPP-200 Detector Temperature"/>
-            <variable name="AS200" length="31" units="count" longname="SPP-200 (PCASP) Raw Accumulation (per cell) - DMT"/>
+            <variable name="AS200" length="30" units="count" longname="SPP-200 (PCASP) Raw Accumulation (per cell) - DMT"/>
             <variable name="DELTAT" units="msec" longname="SPP-200 Time between last sample and this sample"/>
         </sample>
         <prompt string="\x1b\x02\x1d\x00" rate="10"/>
@@ -471,7 +471,7 @@
         <sample id="1">
             <variable name="FREF3" units="V" longname="SPP-300 Laser Reference Voltage"/>
             <variable name="FTMP3" units="deg_C" longname="SPP-300 Housekeeping Data"/>
-            <variable name="AS300" length="31" units="count" longname="SPP-300 (FSSP-300) Raw Accumulation (per cell) - DMT"/>
+            <variable name="AS300" length="30" units="count" longname="SPP-300 (FSSP-300) Raw Accumulation (per cell) - DMT"/>
             <variable name="DELTAT" units="msec" longname="SPP-300 Time between last sample and this sample"/>
         </sample>
         <prompt string="\x1b\x02\x1d\x00" rate="10"/>
@@ -504,7 +504,7 @@
             <variable longname="CDP Sizer Dynamic Threshold" name="CDPSTHRSH" units="unk"/>
             <variable longname="CDP AtoD Converter Overflow/Overrange" name="OVFLW" units="count"/>
 
-            <variable name="ACDP" length="31" units="count" longname="CDP Raw Accumulation (per cell)"/>
+            <variable name="ACDP" length="30" units="count" longname="CDP Raw Accumulation (per cell)"/>
             <variable name="DELTAT" units="msec" longname="CDP Time between last sample and this sample"/>
         </sample>
         <prompt string="\x1b\x02\x1d\x00" rate="10"/>
@@ -515,7 +515,7 @@
         <parameter name="HSKP_SCALE" value="16000 16000 13104 16000 16000 13104 16000 16000 13104 13104 16000 8000" type="int"/>
 
         <sample id="1" rate="10">
-            <variable name="AUHSAS" length="100" units="count" longname="UHSAS Raw Count Histogram"/>
+            <variable name="AUHSAS" length="99" units="count" longname="UHSAS Raw Count Histogram"/>
             <variable name="USCAT" units="V" longname="UHSAS Background Scatter"/>
             <variable name="UCURR" units="V" longname="UHSAS Laser Current"/>
             <variable name="USMPFLW" units="V" longname="UHSAS Sample Flow">
@@ -548,7 +548,7 @@
         <parameter name="HSKP_SCALE" value="64000 12800 6400 6400 12800 6400 6400 12800 6400  6400 12800 6400" type="int"/>
 
         <sample id="1" rate="2">
-            <variable name="AUHSAS" length="100" units="count" longname="UHSAS Raw Count Histogram"/>
+            <variable name="AUHSAS" length="99" units="count" longname="UHSAS Raw Count Histogram"/>
             <variable name="UHSAS_CNTS" units="#/sec" longname="Total Counts"/>
             <variable name="USCAT" units="V" longname="UHSAS Background Scatter"/>
             <variable name="UCURR" units="V" longname="UHSAS Laser Current"/>

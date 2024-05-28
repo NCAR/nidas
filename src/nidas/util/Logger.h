@@ -142,7 +142,6 @@ namespace nidas { namespace util {
 
     <logscheme name='tilt-sensor-debug'>
     <logconfig filematch='dynld/iss'/>
-    <logconfig filematch='dynld/psql'/>
     <logconfig filematch='nidas/core'/>
     </logscheme>
 

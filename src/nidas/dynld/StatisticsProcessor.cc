@@ -36,6 +36,10 @@ using namespace nidas::dynld;
 using namespace std;
 
 namespace n_u = nidas::util;
+using nidas::util::LogContext;
+using nidas::util::LogMessage;
+
+bool stats_log_variable(const Variable* variable);
 
 NIDAS_CREATOR_FUNCTION(StatisticsProcessor);
 
@@ -209,25 +213,40 @@ void StatisticsProcessor::addRequestedSampleTag(SampleTag* tag)
                 ost.str());
         }
     } 
-    else _statsPeriod = sPeriod;
-
-    vector<string> vnames;
-    for (int i = 0; i < vparm->getLength(); i++) {
-	Variable* var = new Variable();
-	string vname = Project::getInstance()->expandString(vparm->getStringValue(i));
-        if (winddirCheck && vname.length() > 1 && vname[0] == 'u') {
-            ILOG(("wind direction statistics group for %s skipped since horizontal rotations are not enabled",vname.c_str()));
-            return;
-        }
-	var->setName(vname);
-	tag->addVariable(var);
-    }
+    else
+        _statsPeriod = sPeriod;
 
     // initial sample id of the requested tag.
     tag->setSampleId(getRequestedSampleTags().size() + 1);
 
+    vector<string> vnames;
+    for (int i = 0; i < vparm->getLength(); i++)
+    {
+        Variable* var = new Variable();
+        string vname = Project::getInstance()->expandString(vparm->getStringValue(i));
+        if (winddirCheck && vname.length() > 1 && vname[0] == 'u') {
+            ILOG(("wind direction statistics group for %s skipped since horizontal rotations are not enabled",vname.c_str()));
+            return;
+        }
+        var->setName(vname);
+        tag->addVariable(var);
+
+        static LogContext lp(LOG_VERBOSE);
+        if (lp.active() && stats_log_variable(var))
+        {
+            LogMessage msg(&lp);
+            dsm_sample_id_t id = tag->getId();
+            msg << "variable " << var->getName() << " added as input to tag "
+                << GET_DSM_ID(id) << ',' << GET_SPS_ID(id)
+                << ", stats type: "
+                << StatisticsCruncher::getStatisticsString(outputInfo.type);
+        }
+    }
+
     // save stuff that doesn't fit in the sample tag.
-    // cerr << "tag id=" << tag->getDSMId() << ',' << tag->getSpSId() << " statstype=" << outputInfo.type << endl;
+    VLOG(("") << "tag id=" << tag->getDSMId() << ','
+              << tag->getSpSId() << " statstype="
+              << StatisticsCruncher::getStatisticsString(outputInfo.type));
     _infoBySampleId[tag->getId()] = outputInfo;
 
     SampleIOProcessor::addRequestedSampleTag(tag);
@@ -275,11 +294,8 @@ void StatisticsProcessor::selectRequestedSampleTags(const vector<unsigned int>& 
 
 void StatisticsProcessor::connectSource(SampleSource* source)
 {
-// #define DEBUG
-#ifdef DEBUG
-    cerr << "StatisticsProcessor connect, #of tags=" <<
-    	source->getSampleTags().size() << endl;
-#endif
+    VLOG(("") << "StatisticsProcessor connect, #of tags="
+              << source->getSampleTags().size());
 
     source = source->getProcessedSampleSource();
     assert(source);
@@ -294,15 +310,17 @@ void StatisticsProcessor::connectSource(SampleSource* source)
     list<const SampleTag*> reqtags = getRequestedSampleTags();
     list<const SampleTag*>::const_iterator reqti = reqtags.begin();
     for ( ; reqti != reqtags.end(); ++reqti ) {
-	const SampleTag* reqtag = *reqti;
+        const SampleTag* reqtag = *reqti;
 
         // make sure we have at least one variable
-	if (reqtag->getVariables().size() == 0) continue;
+        if (reqtag->getVariables().size() == 0) continue;
 
         // first requested variable in the sample
-	const Variable* reqvar = reqtag->getVariables().front();
+        const Variable* reqvar = reqtag->getVariables().front();
 
-	// find all matches against first requested variable
+        VLOG(("") << "starting search to match requested variable "
+                  << reqvar->getName());
+        // find all matches against first requested variable
         // of each requested statistics sample
         list<const SampleTag*> ptags = source->getSampleTags();
         list<const SampleTag*>::const_iterator inti =  ptags.begin();
@@ -313,41 +331,40 @@ void StatisticsProcessor::connectSource(SampleSource* source)
         // break out when we find one match.
         int nmatch = 0;
 
-	for ( ; inti != ptags.end(); ++inti) {
-	    const SampleTag* intag = *inti;
-	    for (VariableIterator invi = intag->getVariableIterator();
-	    	invi.hasNext(); ) {
-		const Variable* invar = invi.next();
+        for ( ; inti != ptags.end(); ++inti) {
+            const SampleTag* intag = *inti;
+            for (VariableIterator invi = intag->getVariableIterator();
+                invi.hasNext(); ) {
+                const Variable* invar = invi.next();
 
-#ifdef DEBUG
-                cerr << "invar=" << invar->getName() << '(' <<
+                VLOGT("stats_search", ("") << "invar=" << invar->getName() << '(' <<
                     (invar->getSampleTag() ? invar->getSampleTag()->getDSMId() : 0) <<
                     ',' <<
                     (invar->getSampleTag() ? invar->getSampleTag()->getSpSId() : 0) <<
-                    ") site=" << (invar->getSite() ? invar->getSite()->getSuffix() : "unk") << 
-                    ") station=" << invar->getStation() << 
+                    " site=" << (invar->getSite() ? invar->getSite()->getSuffix() : "unk") << 
+                    " station=" << invar->getStation() << 
                     ", reqvar=" << reqvar->getName() << '(' <<
                     (reqvar->getSampleTag() ? reqvar->getSampleTag()->getDSMId() : 0) <<
                     ',' <<
                     (reqvar->getSampleTag() ? reqvar->getSampleTag()->getSpSId() : 0) <<
-                    ") site=" << (reqvar->getSite() ? reqvar->getSite()->getSuffix() : "unk") << 
-                    ") station=" << reqvar->getStation() << 
+                    " site=" << (reqvar->getSite() ? reqvar->getSite()->getSuffix() : "unk") << 
+                    " station=" << reqvar->getStation() << 
                     ", match=" << (*invar == *reqvar) <<
-                    ", closeMatch=" << invar->closeMatch(*reqvar) << endl;
-#endif
-		
-		// variable match with first requested variable
-                if (invar->closeMatch(*reqvar)) {
+                    ", closeMatch=" << invar->closeMatch(*reqvar));
 
+                // variable match with first requested variable
+                if (invar->closeMatch(*reqvar))
+                {
                     assert(invar->getSite());
-
-#ifdef DEBUG
-                    if (reqvar->getName().substr(0,4) == "u.2m") {
-                        cerr << "StatisticsProcessor::connect: match, reqvar=" << reqvar->getName() <<
-                        " invar=" << invar->getName() << ", site=" << invar->getSite()->getName() << '(' << invar->getStation() << ')' << endl;
+                    static LogContext lp(LOG_VERBOSE);
+                    if (lp.active() && stats_log_variable(reqvar)) {
+                        lp.log() << "StatisticsProcessor::connect: match, reqvar="
+                                << reqvar->getName()
+                                << " invar=" << invar->getName()
+                                << ", site=" << invar->getSite()->getName()
+                                << '(' << invar->getStation() << ')';
                     }
-#endif
-		    struct OutputInfo info = _infoBySampleId[reqtag->getId()];
+                    struct OutputInfo info = _infoBySampleId[reqtag->getId()];
                     // cerr << "reqtag id=" << reqtag->getDSMId() << ',' << reqtag->getSpSId() << " statstype=" << info.type << endl;
                     /* reqtag is a SampleTag, containing variables which possibly
                      * just have short names, without a site suffix.
@@ -367,20 +384,20 @@ void StatisticsProcessor::connectSource(SampleSource* source)
                     // make this tag unique within this processor
                     newtag.setDSMId(intag->getDSMId());
 
-#ifdef DEBUG
-                    if (reqvar->getName().substr(0,5) == "Vbatt") {
-                        cerr << "StatisticsProcessor::connect: vars=";
-                        for (unsigned int i = 0; i < newtag.getVariables().size(); i++)
-                            cerr << newtag.getVariable(i).getName() << ':' <<
-                                newtag.getVariable(i).getSite()->getName() << '(' <<
-                                newtag.getVariable(i).getStation() << "), ";
-                        cerr << endl;
+                    {
+                        static LogContext lp(LOG_VERBOSE);
+                        if (lp.active() && stats_log_variable(reqvar))
+                        {
+                            LogMessage msg(&lp, "StatisticsProcessor::connect: vars=");
+                            for (unsigned int i = 0; i < newtag.getVariables().size(); i++)
+                                msg << newtag.getVariable(i).getName() << ':'
+                                    << newtag.getVariable(i).getSite()->getName() << '('
+                                    << newtag.getVariable(i).getStation() << "), ";
+                        }
                     }
-#endif
-
                     // Create a StatisticsCruncher if it doesn't yet exist
                     // for this requested sample.
-		    StatisticsCruncher* cruncher = crunchersByOutputId[newtag.getId()];
+                    StatisticsCruncher* cruncher = crunchersByOutputId[newtag.getId()];
                     if (!cruncher) {
                         cruncher = new StatisticsCruncher(this,
                                 &newtag,info.type, info.countsName,
@@ -399,28 +416,22 @@ void StatisticsProcessor::connectSource(SampleSource* source)
                         list<const SampleTag*>::const_iterator ti = tags.begin();
                         for ( ; ti != tags.end(); ++ti) {
                             const SampleTag* tag = *ti;
-#ifdef DEBUG
-                            cerr << "adding sample tag, id=" << tag->getDSMId() << ',' << tag->getSpSId() << ", nvars=" << tag->getVariables().size() << " var[0]=" <<
-                                tag->getVariables()[0]->getName() << endl;
-#endif
+                            VLOG(("") << "adding sample tag, id="
+                                      << tag->getDSMId() << ',' << tag->getSpSId()
+                                      << ", nvars=" << tag->getVariables().size()
+                                      << " var[0]="
+                                      << tag->getVariables()[0]->getName());
                             addSampleTag(tag);
                         }
                     }
                     nmatch++;
                     break;
-		}
-#ifdef DEBUG
-                else
-                    cerr << "no match, invar=" << invar->getName() <<
-                        " reqvar=" << reqvar->getName() << endl;
-                        
-#endif
-	    }
-	}
-	if (nmatch == 0)
-	    n_u::Logger::getInstance()->log(LOG_WARNING,
-		"%s: no match for variable %s",
-		getName().c_str(),reqvar->getName().c_str());
+                }
+            }
+        }
+        if (nmatch == 0)
+            PLOG(("") << getName() << ": no match for variable "
+                      << reqvar->getName());
     }
 
     _cruncherListMutex.lock();

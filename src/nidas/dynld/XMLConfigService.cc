@@ -90,15 +90,18 @@ IOChannelRequester* XMLConfigService::connected(IOChannel* iochan) throw()
     n_u::Inet4Address remoteAddr = iochan->getConnectionInfo().getRemoteSocketAddress().getInet4Address();
     DLOG(("findDSM, addr=") << remoteAddr.getHostAddress());
 
-    const DSMConfig* dsm = Project::getInstance()->findDSM(remoteAddr);
+    string hostname = remoteAddr.getHostName();
+    const DSMConfig* dsm = Project::getInstance()->findDSM(hostname);
 
     if (!dsm) {
-        n_u::Logger::getInstance()->log(LOG_WARNING,
-            "can't find DSM for address %s" ,
-            remoteAddr.getHostAddress().c_str());
+        WLOG(("No match by name in config for DSM ") << hostname << " (" << remoteAddr.getHostAddress() << ")");
+        dsm = Project::getInstance()->findDSM(remoteAddr);
+        if (!dsm)
+            PLOG(("No match by address in config for DSM ") << hostname << " (" << remoteAddr.getHostAddress() << ")");
+        else
+            NLOG(("Match by address to DSM ") << dsm->getName() << " in config for " << hostname << " (" << remoteAddr.getHostAddress() << ")");
     }
-    if (dsm)
-        DLOG(("findDSM, dsm=") << dsm->getName());
+    else NLOG(("Match by name in config for DSM ") << hostname << " (" << remoteAddr.getHostAddress() << ")");
 
     // The iochan should be a new iochan, created from the configured
     // iochans, since it should be a newly connected Socket.
@@ -137,6 +140,17 @@ void XMLConfigService::Worker::interrupt()
 int XMLConfigService::Worker::run() 
 {
     XMLCachingParser* parser = XMLCachingParser::getInstance();
+    // This server has parsed the XML, but perhaps someone has changed it since then,
+    // so we'll validate it.
+    // Expand any XML includes, so the DSM gets the full XML.
+    // Not sure whether all the other options are needed...
+    parser->setDOMValidation(true);
+    parser->setDOMValidateIfSchema(true);
+    parser->setDOMNamespaces(true);
+    parser->setXercesSchema(true);
+    parser->setXercesSchemaFullChecking(true);
+    parser->setXercesHandleMultipleImports(true);
+    parser->setXercesDoXInclude(true);
 
     xercesc::DOMDocument* doc = parser->parse(
         n_u::Process::expandEnvVars(_svc->getDSMServer()->getXMLConfigFileName()));
@@ -165,17 +179,16 @@ int XMLConfigService::Worker::run()
     else
         writer.reset( new XMLConfigWriter() );
 
-#if XERCES_VERSION_MAJOR < 3
-    writer->writeNode(&formatter,*doc);
-#else
     XMLStringConverter convname(_iochan->getName());
     xercesc::DOMLSOutput *output;
     output = XMLImplementation::getImplementation()->createLSOutput();
     output->setByteStream(&formatter);
     output->setSystemId((const XMLCh*)convname);
     writer->writeNode(output,*doc);
+    if (writer->getNumDSM() != 1)
+        PLOG(("Wrote ") << writer->getNumDSM() << " <dsm> nodes to XMLConfigService output");
+
     output->release();
-#endif
 
     _iochan->close();
     return RUN_OK;

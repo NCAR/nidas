@@ -38,7 +38,7 @@ class Sample;
 class TimetagAdjuster;
 
 /**
- * Implementation of support for a sensor which generates 
+ * Implementation of support for a sensor which generates
  * character output. Typically this character output is
  * somewhat free-form and is then parsed in the process()
  * method.
@@ -206,7 +206,7 @@ public:
 
     /**
      * Set the initialization string(s) for this sensor.
-     * The init string may contain backslash escape sequences 
+     * The init string may contain backslash escape sequences
      * like the prompt string.
      */
     void setInitString(const std::string& val) { _initString = val; }
@@ -218,7 +218,7 @@ public:
      **/
     virtual void sendInitString();
 
-    bool getNullTerminated() const 
+    bool getNullTerminated() const
     {
         if (!getSampleScanner()) return false;
         return getSampleScanner()->getNullTerminate();
@@ -312,7 +312,7 @@ protected:
 
     const std::string& getPromptString() const { return (_promptString);}
 
-    virtual int scanSample(AsciiSscanf* sscanf, const char* inputstr, 
+    virtual int scanSample(AsciiSscanf* sscanf, const char* inputstr,
 			   float* data_ptr);
 
     /**
@@ -357,7 +357,7 @@ private:
     double _promptRate;
 
     double _promptOffset;
-   
+
     std::list<AsciiSscanf*> _sscanfers;
 
     std::list<AsciiSscanf*>::const_iterator _nextSscanfer;

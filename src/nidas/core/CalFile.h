@@ -47,6 +47,8 @@ class DSMSensor;
  *
  * CalFile supports reading files like the following:
  *
+ * Records are assumed to be time-ordered.
+ *
  * <pre>
  *  # example cal file
  *  # dateFormat = "%Y %b %d %H:%M:%S"
@@ -355,10 +357,9 @@ public:
 
     /**
      * Return the time and fields of the current record, the one last read
-     * with readCF().  If there is no current record, then the return
-     * vector will be empty and the time will be LONG_LONG_MIN.  If an
-     * include file is being read, then this returns the current fields of
-     * the included file.
+     * with readCF().  If there is no current record, then the return vector
+     * will be empty and the time will be UTime::MIN.  If an include file is
+     * being read, then this returns the current fields of the included file.
      **/
     const std::vector<std::string>&
     getCurrentFields(nidas::util::UTime* time = 0);

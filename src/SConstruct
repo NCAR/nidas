@@ -1,16 +1,38 @@
 # -*- python -*-
-##  Copyright 2005,2006 UCAR, NCAR, All Rights Reserved
+#  Copyright 2005,2006 UCAR, NCAR, All Rights Reserved
 
-import os, re
-from SCons.Script import Environment, SConscript, BoolVariable
-from SCons.Script import Configure
+import textwrap
+import SCons
+from SCons.Script import SConsignFile, Variables
+from SCons.Script import Environment, SConscript, BoolVariable, EnumVariable
+from SCons.Script import COMMAND_LINE_TARGETS, ARGUMENTS, AddOption
 import eol_scons
 
-# eol_scons.debug.SetDebug("true")
-#
-# Don't load tools that perform compiler or pkg-config checks
-# until the cross tool is loaded, and PKG_CONFIG_PATH is set.
-env = Environment(tools=['default', 'gitinfo'])
+eol_scons.RunScripts()
+
+# Here are the supported build targets, expressed in the form arch-machine,
+# which loosely follows the GNU GCC machine configuration name of
+# arch-company-system, where system is implied to be linux.  Only one of these
+# targets can be built in a single scons build.  This dictionary of arch-mach
+# names maps to a tuple of (arch, mach).
+
+targets = {
+    'arm-viper': ('arm', 'viper'),
+    'arm-titan': ('arm', 'titan'),
+    'armbe-vulcan': ('armbe', 'vulcan'),
+    'armel-titan': ('armel', 'titan'),
+    'armel-viper': ('armel', 'viper'),
+    'armhf-rpi2': ('armhf', 'rpi2'),
+    'armhf-rpi3': ('armhf', 'rpi3'),  # not actually different, but accept it
+    'host-host': ('host', 'host')
+}
+
+eol_scons.EnableInstallAlias(False)
+
+# Don't load tools that perform compiler or pkg-config checks until the cross
+# tool is loaded, PKG_CONFIG_PATH is set, and the custom config filename
+# nidas.conf can be set.
+env = Environment(tools=['default'], toolpath=['#/tools'])
 
 # This passes all settings from the calling environment.  This was a quick fix
 # for supercomputer builds (casper) which use modules to setup the environment,
@@ -23,446 +45,320 @@ if False:
 # Create the eol_scons global variables and the NIDAS variables from the
 # same config file.
 opts = eol_scons.GlobalVariables('nidas.conf')
-opts.AddVariables(('PREFIX',
-                   'installation path',
+opts: Variables
+opts.AddVariables(('PREFIX', 'installation path',
                    '/opt/nidas', None, eol_scons.PathToAbsolute))
 
-opts.AddVariables(('OTHER_PREFIX',
-                   'Optional prefix for other dependencies.',
-                   None, None, eol_scons.PathToAbsolute))
-
-# May want to change this so that only single vales in BUILDS are allowed.
-# Specifiying multiple BUILDS becomes problematic with the
-# MACHS and ARCHLIBDIR parameters. Seems like overkill to
-# make them arrays or dictionaries for each BUILD type.
-# Specifying multiple BUILDS can result in this error:
-#   "Multiple ways to build the same target were specified for ..."
-# related to the MakeSymLink method in SharedLibrary3Install,
-# even when just doing a clean.  Not sure how to fix it...
-# So if you get that error, resort to single BUILDS.
-opts.Add('BUILDS', '\n'
-         '  Space-separated list of architectures to build and install:\n'
-         '  host, arm, armbe, armel or armhf.',
-         'host')
-
-opts.Add('NOVARIANT', '\n'
-         '  Name of a build to build in the source tree rather than as a\n'
-         '  variant build.  For example, if NOVARIANT is "host", then the\n'
-         '  host build output will be written alongside the source rather\n'
-         '  than in the "build" directory.  The value must match one of the\n'
-         '  elements in the BUILDS list, otherwise all the builds will be\n'
-         '  variant builds.',
-         None)
-
-opts.Add('MACHS', '\n'
-         '  Space-separated list of machine names for the architecture\n'
-         '  (viper, vulcan, titan, rpi2 or all), for building and installing\n'
-         '  machine-specific code, such as kernel modules.',
-         'all')
+# Only one target architecture can be built in a single scons run, and each
+# target uses a different variant build dir.
+opts.Add('BUILD', """
+ Target architecture and machine to build and install.  The default, 'host',
+ is a native build, everything else requires a cross-compiler.  BUILD can be a
+ fully qualified target name, or it can be just the machine name or
+ architecture.  If there is more than one match, the first found is used.  If
+ BUILD is not set, then it can be implied by using the target name as a
+ command-line target, as in 'scons armhf'.  For backwards compatibility,
+ BUILDS and MACHS are checked for a matching target if BUILD is not set and no
+ command-line targets match.  Here are the supported targets, in the form
+ architecture-machine:%s
+""" % ("\n" + ",".join(targets.keys())))
 
 opts.Add(BoolVariable('DEBUG', 'Define DEBUG symbol.', 'off'))
-opts.Add(BoolVariable('XMLDEBUG', 'Enable the XML_DEBUG definition.',
-                      'off'))
 opts.Add(BoolVariable('GDBDEBUG', 'Enable -ggdb flag.', 'off'))
 opts.Add(BoolVariable('ENABLE_VALGRIND',
                       'Enable valgrind run-time hints.',
                       'off'))
-opts.Add(BoolVariable('PSQL_ENABLE', 'Build PSQL modules when detected.', 
-                      'off'))
-opts.Add(BoolVariable('LINUX_MODULES', 
-                      'Build linux modules when possible.', 'on'))
-opts.Add('REPO_TAG', '\n'
-         '  git tag of the source, in the form "vX.Y", when building\n'
-         '  outside of a git repository')
-opts.Add('PKG_CONFIG_PATH', '\n'
-         '  Path to pkg-config files, if you need other than the system default')
+opts.Add('REPO_TAG', """
+ git tag of the source, in the form "vX.Y", when building outside of a git
+ repository
+""")
 
-# Generally can let this default to the values set below.
-# For x86_64 builds it defaults to 'lib64'. When building
-# a Debian package for x86_64 (amd64), the Makefile that calls
-# scons pre-sets it to lib/x86_64-linux-gnu to be similar with
-# the arm libs and be more Debian-multiarch-like.
-opts.Add('ARCHLIBDIR', '\n'
-         '  Where to install NIDAS libraries relative to $PREFIX')
-
-opts.Add(BoolVariable('BUILD_RAF', 
-                      'Build nidas/apps/auto_cal and nidas/apps/config.', 'on'))
-opts.Update(env)
-
-# Threads
-env.MergeFlags('-pthread')
-
-if 'PKG_CONFIG_PATH' in env:
-    env.PrependENVPath('PKG_CONFIG_PATH', env['PKG_CONFIG_PATH'])
-
-BUILDS = env.Split(env['BUILDS'])
-MACHS = env.Split(env['MACHS'])
-
-if 'host' in BUILDS or 'x86' in BUILDS:
-    opts.Add('KERNELDIR', '\n'
-        '  path to linux kernel headers for building modules.\n'
-        '  Use $KERNELDIR_FOUND to use the path found by the kmake tool.',
-	'$KERNELDIR_FOUND')
-
-if 'arm' in BUILDS:
-    opts.Add('KERNELDIR_viper_arm', 'path to linux kernel headers for Viper:',
-             '/opt/arcom/src/linux-source-2.6.35.9-ael1-viper')
-    opts.Add('KERNELDIR_titan_arm', 'path to linux kernel headers for Titan:',
-             '/opt/arcom/src/linux-source-2.6.35.9-ael1-titan')
-
-if 'armbe' in BUILDS:
-    opts.Add('KERNELDIR_vulcan_armbe', 'path to linux kernel headers for Vulcan:',
-             '/opt/arcom/src/linux-source-2.6.21.7-ael2-vulcan')
-
-if 'armel' in BUILDS:
-    opts.Add('KERNELDIR_viper_armel', 'kernel headers for Viper/armel. See Debian package linux-headers-3.16.0-viper2:armel',
-             '/usr/src/linux-headers-3.16.0-viper2')
-    opts.Add('KERNELDIR_titan_armel', 'kernel headers for Titan/armel. See Debian package linux-headers-3.16.0-titan2:armel',
-             '/usr/src/linux-headers-3.16.0-titan2')
-
-# This isn't quite ready for cross building modules for armhf, RPi2.
-# linux-headers contains an executable scripts/genksyms/genksyms that is used
-# in building modules. The package we have on our Debian chroots has a genksyms
-# that is an armhf binary, meant for building on a RPi. Until that is sorted out,
-# don't set KERNELDIR_rpi2_armhf.
-
-if 'armhf' in BUILDS:
-    opts.Add('KERNELDIR_rpi2_armhf', 'kernel headers for Raspberry Pi2. See raspberrypi-kernel-headers package ','/usr/src/linux-headers-4.4.11-v7n')
+opts.Add(BoolVariable('allow_warnings', 'If off, warnings are errors.', 'on'))
 
 opts.Update(env)
 
-# NIDAS uses PREFIX as the root install prefix, but since it's a
-# Variable that SCons sets, that means it should only have one value
-# for the entire build rather than be modified for each variant build.
-# So the arch-specific prefix is stored in the ARCHPREFIX variable,
-# and it defaults to just PREFIX.  This way there can be an
-# arch-specific install location which gets built up from the main
-# PREFIX.
-#
-# Targets which should be installed in arch-specific locations should
-# use ARCHPREFIX, while targets which are not arch-specific can go
-# under PREFIX.  For native host builds, they will be the same.
-env['ARCHPREFIX'] = '$PREFIX'
 
-##
-##  Define compiler flags and paths for all builds.
-##
-# scons man page:
-# CFLAGS
-#   General  options  that  are  passed  to the C compiler
-#   (C only; not C++).
-# CCFLAGS
-#   General options that are passed to the C and C++  compilers.
-# CXXFLAGS
-#   General  options that are passed to the C++ compiler.  By
-#   default, this includes the value  of  $CCFLAGS,  so  that
-#   setting  $CCFLAGS affects both C and C++ compilation.  If
-#   you want to add C++-specific flags, you must set or over-
-#   ride the value of $CXXFLAGS.
-#
-# Warning: CXXFLAGS is before CCFLAGS in the compiler arguments:
-# print('CXXCOM=' + str(env['CXXCOM']))
-# CXXCOM=$CXX -o $TARGET -c $CXXFLAGS $CCFLAGS $_CCCOMCOM $SOURCES
-#
-# compiler string for building shareable code:
-# print('SHCXXCOM=' + str(env['SHCXXCOM']))
-# SHCXXCOM=$SHCXX -o $TARGET -c $SHCXXFLAGS $SHCCFLAGS $_CCCOMCOM $SOURCES
-#
-# Because of the ordering, it isn't possible to add a CXX-only option
-# at the end of the flags. Hence, don't put options in CCFLAGS that
-# you may want to override for CXX.  For example:
-# CCFLAGS='-Wall',  CXXFLAGS='-Wno-uninitialized', will result in
-# -Wno-uninitialized -Wall, not the other way around.
+def lookup_target(target):
+    """
+    Look for target name among supported targets, where the name has to match
+    either arch or mach or the whole target name.  Return the full target
+    name, the key into the dictionary of supported targets.
+    """
+    for k, v in targets.items():
+        if k == target or v[0] == target or v[1] == target:
+            return k
+    return None
 
-# print('CFLAGS=' + str(env['CFLAGS']))
-# print('CCFLAGS=' + str(env['CCFLAGS']))
-# print('SHCCFLAGS=' + str(env['SHCCFLAGS']))
-# print('CXXFLAGS=' + str(env['CXXFLAGS']))
-# print('SHCXXFLAGS=' + str(env['SHCXXFLAGS']))
 
-# env['CXX'] = 'clang++'
-env['CFLAGS'] = ['-Wall','-O2']
-env['CXXFLAGS'] = ['-Wall', '-O2']
-if env['CXX'] == 'clang++':
-    # Someday it might be nice to refactor the remaining overloaded virtual
-    # functions, but for now they're working and haven't seemed to bite us yet.
-    env.AppendUnique(CXXFLAGS=['-Wno-overloaded-virtual'])
-    # Ignore inconsistent overrides to add them piecemeal.
-    env.AppendUnique(CXXFLAGS=['-Wno-inconsistent-missing-override'])
-    # env.AppendUnique(CXXFLAGS=['-stdlib=libstdc++'])
-    # env.AppendUnique(LDFLAGS=['-rtlib=libgcc'])
-
-env['CCFLAGS'] = [ ]
-
-if 'XMLDEBUG' in env and env['XMLDEBUG']:
-    env.AppendUnique(CPPDEFINES = ['XML_DEBUG'])
-
-if 'DEBUG' in env and env['DEBUG']:
-    env.AppendUnique(CPPDEFINES = ['DEBUG'])
-
-if 'GDBDEBUG' in env and env['GDBDEBUG']:
-    env.AppendUnique(CCFLAGS = ['-ggdb'])
-
-##
-##  Install firmware
-##
-SConscript("firmware/anythingIO/SConscript",exports={'env':env})
-
-##
-##  Install a2d filters
-##
-SConscript("../filters/SConscript",exports={'env':env})
-
-# Check for supported -fstack-protector options in compiler
-def CheckStackProtectorOptions(env):
-    def add_stack_option(env, opt):
-        test_env = env.Clone()
-        test_env.AppendUnique(CCFLAGS = [opt])
-        conf = Configure(test_env)
-        print('Checking gcc option ' + opt + '...')
-        ok = conf.CheckCC()
-        conf.Finish()
-        if ok:
-            env.AppendUnique(CCFLAGS = [opt])
-        return ok
-    for opt in ['-fstack-protector-strong', '-fstack-protector']:
-        if add_stack_option(env, opt):
+def check_target(env):
+    """
+    Check that the BUILD setting or a command-line target matches a supported
+    target, handling backwards compatibility with BUILDS and MACHS, and then
+    derive the MACH and ARCH settings from that.
+    """
+    # command-line targets take precedence, so look for that first.
+    build = None
+    for target in COMMAND_LINE_TARGETS:
+        build = lookup_target(target)
+        if build:
             break
-    add_stack_option(env, '-fstack-check')
+    # if no command-line targets matched, look for a variable setting
+    if not build:
+        for v in ['BUILD', 'BUILDS', 'MACHS']:
+            target = ARGUMENTS.get(v)
+            build = lookup_target(target)
+            if build:
+                break
+            if target:
+                msg = f"{v}={target} does not match a supported target"
+                raise SCons.Errors.StopError(msg)
+    # no command-line target and no variable setting, so default to host
+    if not build:
+        build = 'host-host'
+        target = build
 
-def SConscriptVariant(arch, archenv):
-    if arch != env.get('NOVARIANT'):
-        vdir = "build_" + arch
-        if arch == 'host' or arch == 'x86':
-            vdir = 'build'
-        SConscript('nidas/SConscript',
-                   variant_dir=vdir,
-                   duplicate=0, exports={'env':archenv})
-        env.Alias(arch, vdir)
-        env.Clean(vdir, vdir)
-        if arch == 'x86':
-            env.Alias('host', vdir)
-        elif arch == 'host':
-            env.Alias('x86', vdir)
-    else:
-        SConscript('nidas/SConscript', exports={'env':archenv})
-        env.Alias(arch, 'nidas')
-        if arch == 'host':
-            env.Alias('host', 'nidas')
+    # build is now the name of one of the supported targets, target is the
+    # name by which it was matched from the command-line or in a variable.
+    # target will become an alias.  anything else on the command-line which
+    # was an extra target or did not match will cause an error from scons
+    # about unknown target, as expected.
+
+    (arch, mach) = targets.get(build)
+    env['ARCH'] = arch
+    env['MACH'] = mach
+    env['NIDAS_BUILD'] = build
+    return target
 
 
-def getMachineTypes(arch, mspecs):
+def LinuxModulesEnabled(env: Environment):
+    "Return True when builders for linux modules should be enabled."
+    lm = env.get('LINUX_MODULES', 'yes')
+    lmd = env.get('LINUX_MODULES_DEFAULT', 'yes')
+    return lm == 'force' or (lm == 'yes' and lmd == lm)
+
+
+NIDAS_BUILD = check_target(env)
+ARCH = env['ARCH']
+MACH = env['MACH']
+
+
+def nidas_build(env: Environment):
     """
-    Return a list of machine types included by the given architecture
-    and machine specifiers.  For example, given architecture 'armel'
-    and machines ['all'], return ['titan', 'viper'].
+    Setup the basic build environment for all NIDAS source, adding
+    ARCH, MACH, NIDAS_BUILD, and VARIANT_DIR settings, and adding global
+    compiler options like 
     """
-    machine_types = {
-        'arm': {'all': ['viper','titan'], 'viper':['viper'], 'titan': ['titan']},
-        'armbe': {'all': ['vulcan'], 'vulcan':['vulcan']},
-        'armel' : {'all': ['titan', 'viper'], 'viper':['viper'], 'titan': ['titan']},
-        'armhf' : {'all': ['rpi2'], 'rpi2': ['rpi2']}
-    }
-    amachs = machine_types.get(arch, {})
-    machs = []
-    for m in mspecs:
-        if m in amachs:
-            machs.extend(amachs[m])
-    machs = list(set(machs))    # unique-ify
-    return machs
+    opts.Update(env)
+    env['ARCH'] = ARCH
+    env['MACH'] = MACH
+    env['NIDAS_BUILD'] = NIDAS_BUILD
+    env.Tool('variant_dir')
+    env.Tool('install_root')
+    # sharedlibrary tool will set and use ARCHLIBDIR if not set, so set it
+    # explicitly here
+    env['ARCHLIBDIR'] = 'lib'
+    env.AddMethod(LinuxModulesEnabled)
+    # need this everywhere sharedlibrary is used, because sharedlibrary uses
+    # REPO_TAG as a fallback for SHLIBMAJORVERSION.
+    env.Tool('gitinfo')
+    # Load nidasconfig tool before any Configure contexts are created in this
+    # tree or external tools, so the settings can be stored in the variant
+    # dirs.
+    env.Tool('nidasconfig')
+    env.Tool('stackprotector')
+    # -rdynamic: Export all dynamic symbols in the executables, so that
+    # libraries loaded with dlopen() can resolve symbols already in the
+    # executable.  See "man dlopen" for more info.
+    env.AppendUnique(LINKFLAGS=['-rdynamic'])
+    if 'PKG_CONFIG_PATH' in env:
+        env.PrependENVPath('PKG_CONFIG_PATH', env['PKG_CONFIG_PATH'])
 
-##
-##  Create the env for building to the host processor...
-##
-if 'host' in BUILDS or 'x86' in BUILDS:
-    hostarch = 'host'
-    if hostarch not in BUILDS:
-        hostarch = 'x86'
-    print("Setting up for host builds...")
-    host_env = env.Clone(tools = ['symlink','sharedlibrary', 'xmlrpc'],
-        ARCH = '', MACHS=[''])
+    # Initialize compiler options.  CFLAGS is for C compiler only. CXXFLAGS is
+    # for C++ compiler.  CCFLAGS is for C and C++ but appears *after* CXXFLAGS
+    # on commmand-line.  So -Wall is added to CFLAGS and CXXFLAGS at the
+    # beginning in case any warnings need to be disabled using CCFLAGS.
 
-    host_env.AppendUnique(CCFLAGS = ['-g', '-fpic',
-            '-Wformat', '-Werror=format-security',
-            '-D_FORTIFY_SOURCE=2'])
-    host_env.AppendUnique(CXXFLAGS = ['-Wextra','-Weffc++', '-I/usr/include/libftdi1', '-I/usr/include/libusb-1.0'])
-    host_env.AppendUnique(CXXFLAGS=['-std=c++11'])
-    CheckStackProtectorOptions(host_env)
+    # env['CXX'] = 'clang++'
+    env.AppendUnique(CFLAGS=['-Wall'])
+    env.AppendUnique(CCFLAGS=['-g', '-O2'])
+    env.AppendUnique(CXXFLAGS=['-Wall', '-Wextra'])
+    env.AppendUnique(CCFLAGS=['-Wformat', '-Werror=format-security'])
 
-# hardening option "-pie" in LINKFLAGS results in this error:
-# /usr/bin/ld: /opt/local/lib/libraf++.a(PMSspex.o): relocation R_X86_64_32
-# against `.rodata.str1.1' can not be used when making a shared object; recompile with -fPIC
+    # Skip effc++ warnings on platforms with older jsoncpp
+    if env['VARIANT_OS'] not in ['centos7', 'ubuntu18']:
+        env.Append(CXXFLAGS=['-Weffc++'])
 
-    host_env.AppendUnique(LINKFLAGS = ['-Wl,-z,relro', '-Wl,-z,now'])
+    # Take advantage of buffer overflow detection wherever available.
+    # https://www.redhat.com/en/blog/enhance-application-security-fortifysource
+    env.AppendUnique(CCFLAGS=['-D_FORTIFY_SOURCE=2'])
 
-    SConscriptVariant(hostarch, host_env)
+    # The goal is to keep builds free of warnings by reporting warnings as
+    # errors.  However, it is difficult to use separate compiler flags for
+    # configure checks to avoid failing the ones which have warnings.  There
+    # is an attempt in eol_scons to get around this with ConfigureTools(), but
+    # that's not ready for production.
+    #
+    # Instead, there is variable which by default does not treat warnings as
+    # errors.  To use it safely, first setup the configuration with warnings
+    # allowed, then run the cached configuration without allowing warnings:
+    #
+    #     scons --config=cache allow_warnings=off
+    #
+    # The $( and $) syntax below prevents the flag from being used in compile
+    # command signatures.  Otherwise the cached configuration builds would be
+    # invalidated by the addition of -Werror to the compile command line.
+    #
+    if not env.get('allow_warnings', True):
+        env.Append(CCFLAGS=['$(-Werror$)'])
+
+    # all active targets now support c++11
+    env.AppendUnique(CXXFLAGS=['-std=c++11'])
+
+    if env['CXX'] == 'clang++':
+        # Someday it might be nice to refactor the remaining overloaded
+        # virtual functions, but for now they're working and haven't seemed to
+        # bite us yet.
+        env.AppendUnique(CXXFLAGS=['-Wno-overloaded-virtual'])
+        # Ignore inconsistent overrides to add them piecemeal.
+        env.AppendUnique(CXXFLAGS=['-Wno-inconsistent-missing-override'])
+        # env.AppendUnique(CXXFLAGS=['-stdlib=libstdc++'])
+        # env.AppendUnique(LDFLAGS=['-rtlib=libgcc'])
+
+    if env.get('DEBUG'):
+        env.AppendUnique(CPPDEFINES=['DEBUG'])
+
+    if env.get('GDBDEBUG'):
+        env.AppendUnique(CCFLAGS=['-ggdb'])
+
+    # Threads
+    env.MergeFlags('-pthread')
+
+
+# once target is known, apply the variant build dir tool to set the
+# VARIANT_DIR environment variable.  also add the install-related variables,
+# whose defaults might vary based the build target.
+env.RequireGlobal(nidas_build)
+
+# The target determines the default for linux modules.
+lmd = 'yes' if env['ARCH'] not in ['armhf'] else 'no'
+env['LINUX_MODULES_DEFAULT'] = lmd
+
+opts.Add(EnumVariable('LINUX_MODULES',
+                      'Build linux modules: yes, no, force.  '
+                      'yes: when that is the default '
+                      'for the current target, '
+                      'force: always for any target, '
+                      'no: do not even try', lmd,
+                      allowed_values=['yes', 'no', 'force']))
+
+opts.Update(env)
+lmenabled = 'enabled' if env.LinuxModulesEnabled() else 'disabled'
+env.PrintProgress(f"Target {NIDAS_BUILD} defaults to modules {lmd}, "
+                  f"LINUX_MODULES={env['LINUX_MODULES']}, so "
+                  f"linux module builds are {lmenabled}.")
+
+# it might be ok to use the same database for different variant builds, since
+# all the paths are different, and presumably that way the source signatures
+# can be shared.  however, if that ever seems to cause problems, this puts the
+# .sconsign database in the variant dir also.
+if False:
+    SConsignFile("$VARIANT_DIR/.sconsign")
+
+env.PrintProgress(f"Setting up for {ARCH} build, {MACH} target machine...")
+
+# Create an alias which just runs the Configure compiles.
+env.Alias('configure', ["$VARIANT_DIR/.sconf_temp"])
+env.RequireGlobal([f'nidas_{ARCH}'])
+
+# Now start loading SConscript files...
+
+#
+#  Install firmware
+#
+SConscript("firmware/anythingIO/SConscript")
+
+#
+#  Install a2d filters
+#
+SConscript("filters/SConscript")
+
+SConscript('nidas/SConscript', variant_dir=env['VARIANT_DIR'],
+           duplicate=False)
+
+# need at least one default target, else scons will build everything.  this
+# makes the default everything built into the variant dir.  the alias allows
+# scons to a build the target when specified as a command-line target.
+env.Default(env.Alias(NIDAS_BUILD, env['VARIANT_DIR']))
+
+if ARCH == 'host' and env.File("tests/SConscript").exists():
     # Testing targets, built and run only on host. When building packages,
     # it is not even in the source tree.
-    if env.File("tests/SConscript").exists():
-        SConscript("tests/SConscript", exports={'env':host_env})
-
-##
-##  Create the env for cross-building to the xScale ARM processor
-##  (little-endian) on the arcom Viper and Titan.
-##
-if 'arm' in BUILDS:
-    print("Setting up for arm build ...")
-    machs = getMachineTypes('arm', MACHS)
-    arm_env = env.Clone(tools = ['armcross','symlink','sharedlibrary', 'xmlrpc'],
-        ARCH = 'arm', ARCHLIBDIR='lib', MACHS=machs,
-        ARCHPREFIX='$PREFIX/arm')
-
-    arm_env.AppendUnique(CPPDEFINES = 'NIDAS_EMBEDDED')
-    CheckStackProtectorOptions(arm_env)
-    # g++ version 3.4.4 often gives false positives when
-    # trying to detect uninitialized variables.
-    if re.search("^3",arm_env['CXXVERSION']):
-        arm_env.AppendUnique(CXXFLAGS = ['-Wnon-virtual-dtor','-Wno-uninitialized'])
-    if 'DEBUG' not in arm_env or not arm_env['DEBUG']:
-        arm_env.AppendUnique(CPPDEFINES = ['NDEBUG'])
-
-    SConscriptVariant('arm', arm_env)
-
-##
-## libftdi cross build on the containers which do the builds below
-##
-libftdi_cross_base = '/home/builder/libftdi/libftdi1-1.4'
-libftdi_cross_include_flag = '-I' + libftdi_cross_base + '/src'
-
-##
-##  Create the env for cross-building to the xScale ARM processor
-##  (big-endian) on the arcom Vulcan.
-##
-if 'armbe' in BUILDS:
-    print("Setting up for armbe build ...")
-    machs = getMachineTypes('armbe', MACHS)
-    armbe_env = env.Clone(tools = ['armbecross','symlink','sharedlibrary', 'xmlrpc'],
-        ARCH = 'armbe', ARCHLIBDIR='lib', MACHS=machs,
-        ARCHPREFIX='$PREFIX/armbe')
-
-    #############################################################################
-    # These comments apply to the arm-linux-ld and armbe-linux-ld that we are using,
-    # version 2.16.1.  Versions of ld for x86 in EL5 and Fedora are able to find
-    # libnidas with a -Ldir when linking against libnidas_dynld.so, and do not
-    # need the -rpath-link option.
-    #
-    # When ld is resolving these internal dependencies between
-    # shared libraries it does not search the -Ldir (LIBPATH) directories.
-    # Instead it searches these paths: -rpath-link, -rpath, $LD_RUN_PATH,
-    # $LD_LIBRARY_PATH, $DT_RUN_PATH,$DT_RPATH,/lib,/usr/lib and ld.so.conf.
-    # See man ld, under -rpath-link.
-    #
-    # Hence these -rpath-link options to search the build directories
-    # at link time.  Note that the run-time linker does not use
-    # -rpath-link, it uses -rpath
-    #
-    # Here's an example of the error that occurs when linking an executable
-    # program from nidas/apps:
-    # /opt/arcom/lib/gcc/arm-linux/3.4.4/../../../../arm-linux/bin/ld:
-    # warning: libnidas.so, needed by build_arm/build_dynld/libnidas_dynld.so,
-    # not found (try using -rpath or -rpath-link)
-    #############################################################################
-
-    armbe_env.Append(LINKFLAGS=
-       ['-Xlinker','-rpath-link=' + env.Dir('util').path + ':' + env.Dir('core').path])
-
-    armbe_env.AppendUnique(CPPDEFINES = 'NIDAS_EMBEDDED')
-    # clock_gettime is in librt on vulcans
-    armbe_env.AppendUnique(LIBS = 'rt')
-    CheckStackProtectorOptions(armbe_env)
-
-    if re.search("^3",armbe_env['CXXVERSION']):
-        armbe_env.AppendUnique(CXXFLAGS = ['-Wnon-virtual-dtor','-Wno-uninitialized'])
-    if 'DEBUG' not in armbe_env or not armbe_env['DEBUG']:
-        armbe_env.AppendUnique(CPPDEFINES = ['NDEBUG'])
-
-    SConscriptVariant('armbe', armbe_env)
-
-if 'armel' in BUILDS:
-    print("Setting up for armel build ...")
-    machs = getMachineTypes('armel', MACHS)
-    armel_env = env.Clone(tools = ['armelcross','symlink','sharedlibrary', 'xmlrpc'],
-        ARCH = 'armel', MACHS=machs)
-
-    if 'ARCHLIBDIR' not in armel_env:
-        armel_env['ARCHLIBDIR'] = 'lib/arm-linux-gnueabi'
-
-    CheckStackProtectorOptions(armel_env)
-    armel_env.AppendUnique(CCFLAGS = ['-g', '-fpie',
-            '-Wformat', '-Werror=format-security',
-            '-D_FORTIFY_SOURCE=2'])
-    armel_env.AppendUnique(CXXFLAGS = ['-Wextra','-Weffc++', libftdi_cross_include_flag])
-    armel_env.AppendUnique(LINKFLAGS = ['-pie', '-Wl,-z,relro', '-Wl,-z,now'])
-
-    if 'DEBUG' not in armel_env or not armel_env['DEBUG']:
-        armel_env.AppendUnique(CPPDEFINES = ['NDEBUG'])
-
-    armel_env.AppendUnique(CPPDEFINES = 'NIDAS_EMBEDDED')
-    SConscriptVariant('armel', armel_env)
-
-if 'armhf' in BUILDS:
-    print("Setting up for armhf build ...")
-    machs = getMachineTypes('armhf', MACHS)
-    armhf_env = env.Clone(tools = ['armhfcross','symlink','sharedlibrary', 'xmlrpc'],
-        ARCH = 'armhf', MACHS=machs)
-
-    if 'ARCHLIBDIR' not in armhf_env:
-        armhf_env['ARCHLIBDIR'] = 'lib/arm-linux-gnueabihf'
-    CheckStackProtectorOptions(armhf_env)
-    armhf_env.AppendUnique(CCFLAGS = ['-g', '-fpie',
-            '-Wformat', '-Werror=format-security',
-            '-D_FORTIFY_SOURCE=2'])
-    armhf_env.AppendUnique(CXXFLAGS = ['-Wextra','-Weffc++', libftdi_cross_include_flag])
-    armhf_env.AppendUnique(LINKFLAGS = ['-pie', '-Wl,-z,relro', '-Wl,-z,now'])
-
-    if 'DEBUG' not in armhf_env or not armhf_env['DEBUG']:
-        armhf_env.AppendUnique(CPPDEFINES = ['NDEBUG'])
-
-# armhf_env.AppendUnique(CPPDEFINES = 'NIDAS_EMBEDDED')
-
-    SConscriptVariant('armhf', armhf_env)
-
-
-env.Default([BUILDS])
+    SConscript("tests/SConscript")
 
 # Install the schema where it can be referenced globally on the system.
-env.Alias('install',
-          env.Alias('xml_install',
-                  env.Install('$PREFIX/share/xml','#xml/nidas.xsd')))
+env.Alias('install', env.Install('$PREFIX/share/xml', '#xml/nidas.xsd'))
 
 dox = env.Command('#/../doc/doxygen',
-              '#/../doc/doxygen_conf/nidas.doxy',
-              'cd .. && rm -rf doc/doxygen && ( cat $SOURCE; echo PROJECT_NUMBER=$REPO_TAG ) | doxygen -')
+                  '#/../doc/doxygen_conf/nidas.doxy',
+                  'cd .. && rm -rf doc/doxygen && '
+                  '( cat $SOURCE; echo PROJECT_NUMBER=$REPO_TAG ) | '
+                  'doxygen -')
 env.Alias('dox', dox)
 env.AlwaysBuild(dox)
 
-# Use InstallAs to $PREFIX/doxygen. Otherwise $PREFIX becomes
-# a target, and the other install targets this rule to create $PREFIX
-env.Alias('doxinstall', env.InstallAs('$PREFIX/doxygen','#/../doc/doxygen'))
+# Install the systemd unit files.  For now they are installed under prefix,
+# but it's feasible they could be installed onto the default search path for
+# systemd user unit files, like /usr/lib/systemd/user.  See the README.
+for sysdfile in ['README.md', 'dsm.service', 'dsm_server.service']:
+    env.Alias('install',
+              env.Install('$PREFIX/systemd/user', 'systemd/user/' + sysdfile))
+
+# Use InstallAs to $PREFIX/doxygen.  Do not install docs unless explicitly
+# requested, so that --install-sandbox does not automatically install the docs
+# with the other install targets.
+if 'doxinstall' in COMMAND_LINE_TARGETS:
+    env.Alias('doxinstall',
+              env.InstallAs('$PREFIX/doxygen', '#/../doc/doxygen'))
+
+
+# Override the SCons variable help formatter before calling SetHelp(), since
+# that actually generates all the text.
+def BriefVariableHelpText(env, key, help, dflt, actual, aliases=None) -> str:
+    briefs = ['PREFIX', 'BUILD', 'LINUX_MODULES',
+              'PKG_CONFIG_PATH', 'BUILD_ARINC']
+    if key not in briefs:
+        return ''
+    brief = help or ''
+    (first, dot, _) = brief.partition('. ')
+    brief = (first + '.') if dot else first
+    brief = textwrap.shorten(brief, width=60, placeholder='...')
+    brief = f'  {brief}\n' if brief else brief
+    text = "%s [%s]\n%s" % (key, actual, brief)
+    return text
+
+
+AddOption("--help-all", dest="helpall", action="store_true")
+if not env.GetOption("helpall"):
+    opts.FormatVariableHelpText = BriefVariableHelpText
 
 # Use the eol_scons SetHelp() method to generate all the help text,
 # including the directory of aliases, but then append a custom summary of
 # nidas targets.
 env.SetHelp()
-nidas_help = """
-Main Targets (use -c to clean targets):
+target_names = ",".join(targets.keys())
+nidas_help = f"""
+Main targets:
 
- (none)     -- build libraries, executables and kernel modules for ARM, ARMBE, 
-               and native systems.
- host       -- build libraries, executable programs and modules for host system.
- arm        -- build libraries, executables and kernel modules for Eurotech Viper 
-               and Titan, running (obsolete) Arcom Embedded Linux
- armbe      -- build libraries, executables and kernel modules for Eurotech Vulcan, 
-               running Arcom Embedded Linux
- armel      -- build libraries, executables and kernel modules for Eurotech Viper 
-               and Titan, Debian 8
- armhf      -- build libraries, executables and kernel modules for ARMv6/7 systems, 
-               such as R Pi2, running Raspian
- install    -- build and install all modules, libraries, headers and executables.
- -c install -- clean targets from $PREFIX
+<target> or BUILD=<target>
+  Build binaries and kernel modules for target system.  See BUILD.
+  {target_names}
+install
+  Build and install all modules, libraries, headers and executables.
+-c install
+  Clean targets from $PREFIX.
+-c .
+  Clean builds in source tree for the selected target.
 
-Some targets will not exist if the corresponding architecture has not been
-specified in the BUILDS variable.
+Use scons -h --help-all to see all variables with full help info.
 """
 env.AddHelp(nidas_help)
-

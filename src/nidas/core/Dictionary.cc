@@ -26,6 +26,7 @@
 
 
 #include "Dictionary.h"
+#include <nidas/util/Logger.h>
 
 using namespace std;
 using namespace nidas::core;
@@ -36,6 +37,7 @@ string Dictionary::expandString(const string& input) const
 
     string result;
     string tmp = input;
+    bool expanded = false;
 
     for (;;) {
         string::size_type lastpos = 0;
@@ -43,6 +45,7 @@ string Dictionary::expandString(const string& input) const
 
         while ((dollar = tmp.find('$',lastpos)) != string::npos) {
 
+            expanded = true;
             result.append(tmp.substr(lastpos,dollar-lastpos));
             lastpos = dollar;
 
@@ -80,10 +83,9 @@ string Dictionary::expandString(const string& input) const
         tmp = result;
         result.clear();
     }
-#ifdef DEBUG
-    cerr << "input: \"" << input << "\" expanded to \"" <<
-    	result << "\"" << endl;
-#endif
+    if (expanded)
+    {
+        VLOG(("") << "expanded: \"" << input << "\" to \"" << result << "\"");
+    }
     return result;
 }
-

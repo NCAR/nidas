@@ -153,7 +153,7 @@ ncsdir=$PWD/../nc-server
 [ -d $ncsdir ] && ncsvol="--volume $ncsdir:$destmnt/${ncsdir##*/}:rw$zopt"
 
 # check for EOL Debian repo
-repo=/net/ftp/pub/archive/software/debian
+repo=/net/www/docs/software/debian
 [ -d $repo ] && repovol="--volume $repo:$repo:rw$zopt"
 
 #####################################################################
@@ -201,10 +201,12 @@ contsock=.gnupg/S.gpg-agent
 # Request a bind mount of the host socket to the container socket
 gpgsock=
 if $gpgsockbind; then
-    [ "$hostsock" != "$HOME/$contsock" ] && \
+    if [ "$hostsock" != "$HOME/$contsock" ]; then
         gpgsock="--volume $hostsock:$destmnt/$contsock:rw$zopt"
+        rm -f $HOME/$contsock
+    fi
 else
-    # Remove $HOME/.gnupg/S.gpg-agent so as not to confuse
+    # Remove unused $HOME/.gnupg/S.gpg-agent, may be
     # old versions of gpg2 v2.0
     [ "$hostsock" != "$HOME/$contsock" ] && rm -f $HOME/$contsock
 fi

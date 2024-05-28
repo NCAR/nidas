@@ -58,6 +58,10 @@ void StatusThread::sendStatus(n_u::DatagramSocket* dsock,
     n_u::SocketAddress* saddr,
     const string& statstr)
 {
+    VLOG(("") << "sending from "
+              << dsock->getLocalSocketAddress().toAddressString()
+              << " to " << saddr->toAddressString()
+              << ": " << statstr);
     dsock->sendto(statstr.c_str(), statstr.length()+1, 0, *saddr);
 }
 

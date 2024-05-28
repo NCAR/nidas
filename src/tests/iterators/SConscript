@@ -1,20 +1,15 @@
 # -*- python -*-
-## 2010, Copyright University Corporation for Atmospheric Research
+# 2010, Copyright University Corporation for Atmospheric Research
 
-Import('env')
-env = env.Clone(tools = ['nidas'])
+from SCons.Script import Environment
 
-env.Prepend(LIBS = env.NidasLibs())
-env.Prepend(CPPPATH = [ '#/src' ])
-env.Append(CCFLAGS = ['-Wall'])
-env.NidasRuntimeENV()
+env = Environment(tools=['default', 'nidasapps'])
 
 tests = env.Program('ck_iterators', "ck_iterators.cc")
 
-# runtest = env.Command("ck_itrs",tests,["valgrind $SOURCE.abspath ${SOURCE.dir}/iterator_test.xml"])
-runtest = env.Command("ck_itrs",[tests,"run_test.sh"],["cd ${SOURCE.dir} && ./run_test.sh -i"])
+runtest = env.Command("ck_itrs", [tests, "run_test.sh"],
+                      ["cd ${SOURCE.dir} && ./run_test.sh"])
 env.Precious(runtest)
-AlwaysBuild(runtest)
-Alias('ck_itrs', runtest)
-Alias('test', runtest)
-
+env.AlwaysBuild(runtest)
+env.Alias('ck_itrs', runtest)
+env.Alias('test', runtest)

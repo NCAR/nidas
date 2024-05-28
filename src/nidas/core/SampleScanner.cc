@@ -154,6 +154,10 @@ size_t SampleScanner::readBuffer(DSMSensor* sensor, bool& exhausted,
 
         if (fds.revents & POLLERR)
             throw n_u::IOException(sensor->getName(),"readBuffer",errno);
+
+        if (fds.revents & POLLNVAL)
+            throw n_u::IOException(sensor->getName(),"readBuffer","sensor closed");
+
 #ifdef POLLRDHUP
         if (fds.revents & (POLLHUP | POLLRDHUP))
 #else
@@ -668,7 +672,7 @@ Sample* MessageStreamScanner::nextSampleSepBOM(DSMSensor* sensor)
     // At this point we are currently scanning
     // for the message separator at the beginning of the next message.
     for (;_buftail < _bufhead;) {
-        register char c = _buffer[_buftail];
+        char c = _buffer[_buftail];
 
         if (_outSampRead + space > _outSampLengthAlloc &&
             (result = requestBiggerSample(space))) return result;

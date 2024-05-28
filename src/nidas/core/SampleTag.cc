@@ -64,7 +64,7 @@ SampleTag::SampleTag(const DSMSensor* sensor):
      _ttAdjustVal(-1.0)
 {
     setSensorId(_sensor->getId());
-    setDSMId(_dsm->getId());
+    if (_dsm) setDSMId(_dsm->getId());
 }
 
 /* copy constructor */
@@ -375,7 +375,8 @@ void SampleTag::fromDOMElement(const xercesc::DOMElement* node)
                 }
                 setTimetagAdjust(val);
 	    }
-            else {
+            else if (aname != "xmlns") {
+                // XMLConfigWriter seems to add xmlns attributes
                 ostringstream ost;
                 ost << "sample id=" << getDSMId() << ',' << getSpSId();
                 throw n_u::InvalidParameterException(ost.str(),

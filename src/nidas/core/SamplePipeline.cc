@@ -45,13 +45,8 @@ SamplePipeline::SamplePipeline() :
         _realTime(false),
         _rawSorterLength(0.0),
         _procSorterLength(0.0),
-#ifdef NIDAS_EMBEDDED
-        _rawHeapMax (5000000),
-        _procHeapMax(5000000),
-#else
         _rawHeapMax (100000000),
         _procHeapMax(100000000),
-#endif
         _heapBlock(false),
         _keepStats(false),
         _rawLateSampleCacheSize(0),

@@ -67,7 +67,7 @@ SamplePools::~SamplePools()
 
     std::list<SamplePoolInterface*>::iterator pi = tmplist.begin();
     for ( ; pi != tmplist.end(); ++pi) {
-        delete *pi;     // will remove itself from the _pools list.
+        (*pi)->deletePoolInstance();  // removes itself from the _pools list.
     }
 }
 

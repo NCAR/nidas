@@ -34,9 +34,6 @@
 
 namespace nidas { namespace dynld { namespace isff {
 
-class HandleRawT;
-class HandleRawRH;
-
 /**
  * Sensor class for the NCAR hygrothermometer, built at EOL.
  * This hygrothermometer has an electrical aspiration fan, and reports

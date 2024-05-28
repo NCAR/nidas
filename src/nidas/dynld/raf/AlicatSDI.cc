@@ -28,6 +28,7 @@
 
 #include <nidas/core/PhysConstants.h>
 #include <nidas/util/Logger.h>
+#include <stdlib.h>
 
 using namespace std;
 using namespace nidas::dynld::raf;
@@ -41,7 +42,8 @@ const float AlicatSDI::Tstd = 298.15;
 
 AlicatSDI::AlicatSDI() :
     _nTASav(5), _tas(0.0), _tasIdx(0), _tasWeight(0), _at(20.0), _ps(1000.0),
-    _Qmin(100), _Qmax(500), _Qfac(0.0)
+    _P_SDI(0.0), _T_SDI(0.0),
+    _Qmin(100), _Qmax(500), _Qfac(0.0), _Q_VOL_OFFSET(0.0)
 {
 
 }
@@ -81,6 +83,7 @@ void AlicatSDI::validate()
     float tipDiam = param->getNumericValue(0);
 
 
+
     _tas.clear();
     float w[_nTASav], wSum = 0.0;
     for (int i = 0; i < _nTASav; ++i) {
@@ -93,10 +96,16 @@ void AlicatSDI::validate()
         _tasWeight[i] = w[i] / wSum;
 
     _Qfac = 100.0 * M_PI * pow(tipDiam / 2.0, 2.0) * 60.0 / 1000.0;
+
+    param = getParameter("Q_VOL_OFFSET");
+    if (!param) throw n_u::InvalidParameterException(getName(),
+          "Q_VOL_OFFSET","not found");
+    _Q_VOL_OFFSET = param->getNumericValue(0);
 }
 
 void AlicatSDI::open(int flags)
 {
+    n_u::Logger::getInstance()->log(LOG_WARNING, "ALICAT open ");
     SerialSensor::open(flags);
 
     if (DerivedDataReader::getInstance())
@@ -109,22 +118,42 @@ void AlicatSDI::open(int flags)
 
 // Initialize instrument here
     struct timespec nsleep;
+    
+    // Test if the instrument responds (i.e. is on).
+    write("A\r", 2);   // Query for address, check if alive
+    bool rc = readBuffer(MSECS_PER_SEC / 2);
+    for (Sample* samp = nextSample(); samp; samp = nextSample())  distributeRaw(samp);
 
-    write("AHC\r", 4);   // Hold valve closed
-    nsleep.tv_sec = 1;
-    nsleep.tv_nsec = 0;
-    ::nanosleep(&nsleep, 0);    // sleep for 1 second.
-    write("AV\r", 3);    // Tare the Alicat
+    if (rc)
+    {
+        n_u::Logger::getInstance()->log(LOG_WARNING, "ALICAT AHC");
+        write("AHC\r", 4);   // Hold valve closed
+        nsleep.tv_sec = 1;
+        nsleep.tv_nsec = NSECS_PER_SEC/2;
+        ::nanosleep(&nsleep, 0);    // sleep for 1.5 second.
+        rc = readBuffer(MSECS_PER_SEC ); // read for 1 second
+        for (Sample* samp = nextSample(); samp; samp = nextSample())  distributeRaw(samp);
 
-    nsleep.tv_sec = 0;
-    nsleep.tv_nsec = NSECS_PER_SEC / 10;                // 1/10th sec
-    ::nanosleep(&nsleep, 0);
+        n_u::Logger::getInstance()->log(LOG_WARNING, "ALICAT AV rc=%d", rc);
+        write("AV\r", 3);    // Tare the Alicat
+        nsleep.tv_sec = 1;
+        nsleep.tv_nsec = 0;
+        ::nanosleep(&nsleep, 0);
+        rc = readBuffer(MSECS_PER_SEC);
+        for (Sample* samp = nextSample(); samp; samp = nextSample())  distributeRaw(samp);
 
-    write("AC\r", 3);   // Cancel hold
+        n_u::Logger::getInstance()->log(LOG_WARNING, "ALICAT AC rc=%d", rc);
+        write("AC\r", 3);   // Cancel hold
+        rc = readBuffer(MSECS_PER_SEC );
+        for (Sample* samp = nextSample(); samp; samp = nextSample())  distributeRaw(samp);
 
-    char msg[32];
-    sprintf(msg, "AS%d\r", _Qmin);
-    write(msg, strlen(msg));
+        n_u::Logger::getInstance()->log(LOG_WARNING, "ALICAT AS rc=%d", rc);
+        char msg[32];
+        sprintf(msg, "AS%d\r", _Qmin);
+        write(msg, strlen(msg));
+        rc = readBuffer(MSECS_PER_SEC);
+        for (Sample* samp = nextSample(); samp; samp = nextSample())  distributeRaw(samp);
+    }
 }
 
 
@@ -170,6 +199,9 @@ float AlicatSDI::computeFlow()
 
     float Qiso = _Qfac * (_ps / STANDARD_ATMOSPHERE) * Tstd / (_at + KELVIN_AT_0C) * tasSum;
 
+    float Q_std_offset = _Q_VOL_OFFSET * ( _P_SDI /  STANDARD_ATMOSPHERE ) * ( Tstd / ( _T_SDI + KELVIN_AT_0C ) );
+    Qiso = Qiso -  Q_std_offset;
+
     if (Qiso < _Qmin || isnan(Qiso)) Qiso = _Qmin;
     else
     if (Qiso > _Qmax) Qiso = _Qmax;
@@ -181,6 +213,18 @@ float AlicatSDI::computeFlow()
 void AlicatSDI::sendFlow(float flow)
 {
     char tmp[128];
-    sprintf(tmp, "<AS>%.1f\r", flow);
+    sprintf(tmp, "AS%.1f\r", flow);
     write(tmp, strlen(tmp));
+    //DLOG(("ALICAT sendFlow %s", tmp));
+}
+
+Sample * AlicatSDI::nextSample()
+{
+    Sample *samp = DSMSensor::nextSample();
+    if (samp) {
+      const char *input = (const char *)samp->getConstVoidDataPtr();
+      sscanf(input, "A %f %f", &_P_SDI, &_T_SDI);
+    }
+    return(samp);
+
 }

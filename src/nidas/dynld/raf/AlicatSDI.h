@@ -70,6 +70,8 @@ protected:
      */
     float computeFlow();
     void sendFlow(float flow);
+    virtual Sample * nextSample(); //returns sample
+    //virtual Sample * readSample(); //returns sample
 
     /**
      * maintain a running average of tas.  nTASav comes from XML.
@@ -86,9 +88,13 @@ protected:
     // Ambient Temp and Statuc Press from DerivedDataReader
     float _at, _ps;
 
+    // Ambient Temp and Statuc Press from SDI 
+    float _P_SDI;
+    float _T_SDI;
+
     int _Qmin, _Qmax;
 
-    float _Qfac;
+    float _Qfac, _Q_VOL_OFFSET;
 
     static const float Tstd;
 

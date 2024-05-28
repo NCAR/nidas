@@ -41,6 +41,20 @@ using namespace std;
 namespace n_u = nidas::util;
 using nidas::util::LogContext;
 using nidas::util::LogMessage;
+using nidas::util::Logger;
+
+bool stats_log_variable(const Variable* variable)
+{
+    // use a static to setup the name to match once, since it's unlikely to
+    // change after the first call.
+    static std::string log_variable_name =
+        Logger::getScheme().getParameterT("stats_log_variable_name",
+                                          std::string("Vbatt"));
+    static bool default_match = (log_variable_name == ".");
+    return default_match ||
+        variable->getName().find(log_variable_name) != string::npos;
+}
+
 
 StatisticsCruncher::StatisticsCruncher(StatisticsProcessor* proc,
                                        const SampleTag* stag,
@@ -103,17 +117,18 @@ StatisticsCruncher::StatisticsCruncher(StatisticsProcessor* proc,
     // a match for the first variable in a statistics group with a SampleSource.
     // StatisticsProcessor then sets that site on all the requested variables.
     _site = _reqVariables[0]->getSite();
-
-#ifdef DEBUG
-    if (_reqVariables.front()->getName().substr(0,5) == "Vbatt") {
-        cerr << "StatisticsCruncher ctor: dsmid=" << _reqTag.getDSMId() << ", reqVars= ";
-        for (unsigned int i = 0; i < _reqVariables.size(); i++)
-            cerr << _reqVariables[i]->getName() << ':' <<
-                _reqVariables[i]->getSite()->getName() << '(' << _reqVariables[i]->getStation() << "), ";
-        cerr << endl;
+    {
+        static LogContext lp(LOG_VERBOSE);
+        if (lp.active() && stats_log_variable(_reqVariables.front())) {
+            LogMessage msg(&lp, "StatisticsCruncher ctor: ");
+            msg << "dsmid=" << _reqTag.getDSMId() << ", reqVars= ";
+            for (unsigned int i = 0; i < _reqVariables.size(); i++) {
+                msg << _reqVariables[i]->getName() << ':'
+                    << _reqVariables[i]->getSite()->getName()
+                    << '(' << _reqVariables[i]->getStation() << "), ";
+            }
+        }
     }
-#endif
-
     _periodUsecs = (dsm_time_t)rint(MSECS_PER_SEC / stag->getRate()) *
     	USECS_PER_MSEC;
 
@@ -158,29 +173,55 @@ void StatisticsCruncher::setStartTime(const nidas::util::UTime& val)
         _tout =  _startTime.toUsecs() + _periodUsecs - _startTime.toUsecs() % _periodUsecs;
 }
 
+
+
+std::map<std::string, StatisticsCruncher::statisticsType> StatsStrings
+{
+    { "minimum", StatisticsCruncher::STATS_MINIMUM },
+    { "min", StatisticsCruncher::STATS_MINIMUM },
+    { "maximum", StatisticsCruncher::STATS_MAXIMUM },
+    { "max", StatisticsCruncher::STATS_MAXIMUM },
+    { "mean", StatisticsCruncher::STATS_MEAN },
+    { "sum", StatisticsCruncher::STATS_SUM },
+    { "variance", StatisticsCruncher::STATS_VAR },
+    { "var", StatisticsCruncher::STATS_VAR },
+    { "covariance", StatisticsCruncher::STATS_COV },
+    { "flux", StatisticsCruncher::STATS_FLUX },
+    { "reducedflux", StatisticsCruncher::STATS_RFLUX },
+    { "scalarflux", StatisticsCruncher::STATS_SFLUX },
+    { "trivar", StatisticsCruncher::STATS_TRIVAR },
+    { "prunedtrivar", StatisticsCruncher::STATS_PRUNEDTRIVAR },
+    { "winddir", StatisticsCruncher::STATS_WINDDIR }
+};
+
+
 /* static */
 StatisticsCruncher::statisticsType
 StatisticsCruncher::getStatisticsType(const string& type)
 {
-    statisticsType stype;
-
-    if (type == "minimum" || type == "min")		stype = STATS_MINIMUM;
-    else if (type == "maximum" || type == "max") 	stype = STATS_MAXIMUM;
-    else if (type == "mean")				stype = STATS_MEAN;
-    else if (type == "sum")				stype = STATS_SUM;
-    else if (type == "variance" || type == "var") 	stype = STATS_VAR;
-    else if (type == "covariance")			stype = STATS_COV;
-    else if (type == "flux")				stype = STATS_FLUX;
-    else if (type == "reducedflux")			stype = STATS_RFLUX;
-    else if (type == "scalarflux")			stype = STATS_SFLUX;
-    else if (type == "trivar")				stype = STATS_TRIVAR;
-    else if (type == "prunedtrivar")			stype = STATS_PRUNEDTRIVAR;
-    else if (type == "winddir")  			stype = STATS_WINDDIR;
-    else throw n_u::InvalidParameterException(
-    	"StatisticsCruncher","unrecognized type type",type);
-
-    return stype;
+    auto it = StatsStrings.find(type);
+    if (it != StatsStrings.end())
+    {
+        return it->second;
+    }
+    throw n_u::InvalidParameterException(
+        "StatisticsCruncher", "unrecognized type type", type);
 }
+
+
+/* static */
+const std::string&
+StatisticsCruncher::getStatisticsString(statisticsType stype)
+{
+    static std::string none{"none"};
+    for (auto& it: StatsStrings)
+    {
+        if (it.second == stype)
+            return it.first;
+    }
+    return none;
+}
+
 
 void StatisticsCruncher::connect(SampleSource* source)
 {
@@ -203,17 +244,17 @@ void StatisticsCruncher::connect(SampleSource* source)
             for ( ; vi.hasNext(); ) {
                 const Variable* var = vi.next();
                 if (*var == *_reqVariables[i]) {
-#ifdef DEBUG
-                    if (_reqVariables[0]->getName().substr(0,5) == "Vbatt") {
-                        cerr << "StatisticsCruncher::connect, var=" << var->getName() <<
+                    static LogContext lp(LOG_VERBOSE);
+                    if (lp.active() && stats_log_variable(_reqVariables[0]))
+                    {
+                        lp.log() << "StatisticsCruncher::connect, var=" << var->getName() <<
                             "(" << var->getSite()->getName() << ")" <<
                             "(" << var->getStation() << ")" <<
                             ", reqVar=" << _reqVariables[i]->getName() <<
                             "(" << _reqVariables[i]->getSite()->getName() << ")" <<
                             "(" << _reqVariables[i]->getStation() << ")" <<
-                            ", match=" << (*var == *_reqVariables[i]) << endl;
+                            ", match=" << (*var == *_reqVariables[i]);
                     }
-#endif
                     _reqTag.getVariable(i) = *var;
                     match = true;
                     matchingTags.insert(intag->getId());
@@ -231,12 +272,10 @@ void StatisticsCruncher::connect(SampleSource* source)
             WLOG(("StatisticsCruncher: no match for variable: ") << ost.str());
         }
     }
-#ifdef DEBUG
-    cerr << _reqVariables[0]->getName() << " " <<
-        "(" << _reqVariables[0]->getSite()->getName() << ")" <<
-        "(" << _reqVariables[0]->getStation() << 
-        ", matchingTags.size()=" << matchingTags.size() << endl;
-#endif
+    VLOG(("") << _reqVariables[0]->getName() << " " <<
+         "(" << _reqVariables[0]->getSite()->getName() << ")" <<
+         "(" << _reqVariables[0]->getStation() << 
+         ", matchingTags.size()=" << matchingTags.size());
     if (matchingTags.empty()) return;
 
     // If there are cross terms in requested statistics, and
@@ -245,21 +284,19 @@ void StatisticsCruncher::connect(SampleSource* source)
         needResampler = true;
 
     if (needResampler && !_resampler) {
-#ifdef DEBUG
-        if (_reqVariables[0]->getName().substr(0,4) == "u.2m") {
-            cerr << "StatisticsCruncher::connect: reqVars= ";
+        static LogContext lp(LOG_VERBOSE);
+        if (lp.active() && stats_log_variable(_reqVariables[0])) {
+            lp.log() << "StatisticsCruncher::connect: reqVars= ";
             for (unsigned int i = 0; i < _reqVariables.size(); i++)
                 cerr << _reqVariables[i]->getName() << "(" <<
                     _reqVariables[i]->getStation() << "), ";
-            cerr << endl;
         }
-#endif
         _resampler = new NearestResampler(_reqVariables);
     }
 
     if (_resampler) {
         _resampler->connect(source);
-	attach(_resampler);
+        attach(_resampler);
     }
     else attach(source);
 
@@ -346,11 +383,9 @@ void StatisticsCruncher::attach(SampleSource* source)
 		    sptr->weightsIndex = vindex;
 		    continue;
 		}
-#ifdef DEBUG
-		cerr << "invar=" << invar->getName() <<
-			" rvar=" << reqvar.getName() << endl;
-#endif
-			
+		VLOG(("") << "invar=" << invar->getName() <<
+              " reqvar=" << reqvar.getName());
+
 		// variable match
 		if (*invar == reqvar) {
                     if (!varMatches[rv]) {
@@ -366,8 +401,7 @@ void StatisticsCruncher::attach(SampleSource* source)
                     }
 		    // Variable matched by name and site, copy other stuff
 		    // reqvar = *invar;
-#ifdef DEBUG
-                    cerr << "StatisticsCruncher::attach, id=" <<
+                    VLOG(("") << "StatisticsCruncher::attach, id=" <<
                         _outSample.getDSMId() << ',' << _outSample.getSpSId() <<
                         ", match, invar=" << invar->getName() <<
                         " (" << invar->getSampleTag()->getDSMId() << ',' <<
@@ -377,10 +411,8 @@ void StatisticsCruncher::attach(SampleSource* source)
                         " (" << reqvar.getSampleTag()->getDSMId() << ',' <<
                         reqvar.getSampleTag()->getSpSId() << "), " <<
                         " stn=" << reqvar.getStation() <<
-                        ", vsite number=" << ( vsite ? vsite->getNumber() : 0) <<
                         ", sourceStation=" << sourceStation <<
-                        ", _station=" << _station << endl;
-#endif
+                        ", _station=" << _station);
 
 		    unsigned int j;
 		    // paranoid check that this variable hasn't been added
@@ -401,30 +433,40 @@ void StatisticsCruncher::attach(SampleSource* source)
 			varIndices.push_back(idxs);
 		    }
 
-#ifdef DEBUG
-		    cerr << "StatisticsCruncher::attach, reqVariables[" <<
-		    	rv << "]=" << reqvar.getName() << 
-		    	" (" << reqvar.getUnits() <<
-		    	"), " << reqvar.getLongName() << 
-			" station=" << reqvar.getStation() <<
-			endl;
-#endif
+		    VLOG(("") << "StatisticsCruncher::attach, reqVariables[" <<
+                  rv << "]=" << reqvar.getName() << 
+                  " (" << reqvar.getUnits() <<
+                  "), " << reqvar.getLongName() << 
+                  " station=" << reqvar.getStation());
 		}
 	    }
 	}
-	if (varIndices.size() > 0) {
-#ifdef DEBUG
-            cerr << "id=" << GET_DSM_ID(id) << ',' << hex << GET_SPS_ID(id) <<  dec << " varIndices.size()=" << varIndices.size() << endl;
-#endif
+	if (varIndices.size() > 0)
+	{
+	    static LogContext lp(LOG_VERBOSE);
+	    if (lp.active())
+	    {
+	        LogMessage msg(&lp);
+		msg << "id=" << GET_DSM_ID(id) << ',' << hex << GET_SPS_ID(id)
+	            <<  dec << " varIndices.size()=" << varIndices.size()
+		    << " _reqVariables.size()=" << _reqVariables.size();
+	        msg.log();
+		msg << " varIndices:";
+		for (unsigned int i = 0; i < varIndices.size(); ++i)
+		    msg << " " << *varIndices[i];
+		msg.log();
+		msg << " reqVariables:";
+		for (unsigned int i = 0; i < _reqVariables.size(); ++i)
+		    msg << " " << _reqVariables[i]->getName();
+		msg.log();
+	    }
             _sampleMap[id] = sinfo;
 	    // Should have one input sample if cross terms
 	    if (_crossTerms) {
 	        assert(_sampleMap.size() == 1);
 	        assert(varIndices.size() == _reqVariables.size());
 	    }
-#ifdef DEBUG
-            cerr << "addSampleClientForTag, intag=" << intag->getDSMId() << ',' << intag->getSpSId() << '(' << hex << intag->getSpSId() << dec << ')' << endl;
-#endif
+            VLOG(("") << "addSampleClientForTag, intag=" << intag->getDSMId() << ',' << intag->getSpSId() << '(' << hex << intag->getSpSId() << dec << ')');
             source->addSampleClientForTag(this,intag);
 	}
     }
@@ -444,15 +486,17 @@ void StatisticsCruncher::attach(SampleSource* source)
     }
         
     if (_station >= 0) _outSample.setStation(_station);
-    
-#ifdef DEBUG
-    ostringstream ost;
-    for (unsigned int i = 0; i < _reqVariables.size(); i++) {
-        if (i > 0) ost << ", ";
-        ost << _reqVariables[i]->getName() + "(" << _reqVariables[i]->getStation() << ")";
+    {
+        static LogContext lp(LOG_VERBOSE);
+        if (lp.active()) {
+            LogMessage ost(&lp, "StatisticsCruncher: ");
+            for (unsigned int i = 0; i < _reqVariables.size(); i++) {
+                if (i > 0) ost << ", ";
+                ost << _reqVariables[i]->getName() + "(" << _reqVariables[i]->getStation() << ")";
+            }
+            ost << ", _station=" << _station;
+        }
     }
-    ILOG(("StatisticsCruncher: ") << ost.str() << ", _station=" << _station);
-#endif
 }
 
 void StatisticsCruncher::splitNames()
@@ -1083,7 +1127,10 @@ void StatisticsCruncher::setupReducedScalarFluxes()
 
 void StatisticsCruncher::setupMinMax(const string& suffix)
 {
-    _nsum = 0;
+    // not technically doing sums, but we need _nSamples to be allocated to
+    // count each variable.  likewise not technically computing moments, but
+    // that way the variables get counted in _ntot.
+    _nsum = _ninvars;
     _n1mom = _ninvars;
 
     for (unsigned int i = 0; i < _ninvars; i++) {
@@ -1309,8 +1356,8 @@ void StatisticsCruncher::zeroStats()
     for (i = 0; i < _ntri; i++) _xyzSum[i] = 0.;
     for (i = 0; i < _n3mom; i++) _xyzSum[i] = 0.;
     for (i = 0; i < _n4mom; i++) _x4Sum[i] = 0.;
-    if (_xMin) for (i = 0; i < _ninvars; i++) _xMin[i] = 1.e37;
-    if (_xMax) for (i = 0; i < _ninvars; i++) _xMax[i] = -1.e37;
+    if (_xMin) for (i = 0; i < _ninvars; i++) _xMin[i] = floatNAN;
+    if (_xMax) for (i = 0; i < _ninvars; i++) _xMax[i] = floatNAN;
     for (i = 0; i < _nsum; i++) _nSamples[i] = 0;
 }
 
@@ -1383,8 +1430,8 @@ bool StatisticsCruncher::receive(const Sample* samp) throw()
 	    vi = vindices[i][0];
 	    if (vi < nvsamp && !std::isnan(x = samp->getDataValue(vi))) {
 		vo = vindices[i][1];
-		if (x < _xMin[vo]) _xMin[vo] = x;
-		_nSamples[vo]++;
+		if (++_nSamples[vo] == 1 || x < _xMin[vo])
+		    _xMin[vo] = x;
 	    }
 	}
 	return true;
@@ -1393,8 +1440,8 @@ bool StatisticsCruncher::receive(const Sample* samp) throw()
 	    vi = vindices[i][0];
 	    if (vi < nvsamp && !std::isnan(x = samp->getDataValue(vi))) {
 		vo = vindices[i][1];
-		if (x > _xMax[vo]) _xMax[vo] = x;
-		_nSamples[vo]++;
+		if (++_nSamples[vo] == 1 || x > _xMax[vo])
+		    _xMax[vo] = x;
 	    }
 	}
 	return true;
@@ -1622,14 +1669,14 @@ void StatisticsCruncher::computeStats()
     switch (_statsType) {
     case STATS_MINIMUM:
 	for (i=0; i < _ninvars; i++) {
-	    if (_nSamples[i] > 0) outData[l++] = _xMin[i];
-	    else outData[l++] = floatNAN;
+	    // if there were no samples, then xmin is still NAN
+	    outData[l++] = _xMin[i];
 	}
 	break;
     case STATS_MAXIMUM:
 	for (i=0; i < _ninvars; i++) {
-	    if (_nSamples[i] > 0) outData[l++] = _xMax[i];
-	    else outData[l++] = floatNAN;
+	    // if there were no samples, then xmax is still NAN
+	    outData[l++] = _xMax[i];
 	}
 	break;
     case STATS_MEAN:
@@ -1649,6 +1696,34 @@ void StatisticsCruncher::computeStats()
                 outData[l++] = _xSum[i];
 	    else
                 outData[l++] = floatNAN;
+	}
+	break;
+    case STATS_VAR:
+	// Variances were previously computed in the default case below, as
+	// the first and second moments.  However, that case assumes that all
+	// the terms share the same number of samples, whereas that is not
+	// true for variances, where each variable can have a different number
+	// of samples because of missing values.  So just use similar code
+	// here, but simplified.
+
+	// compute mean
+	for (i = 0; i < _ninvars; i++) {
+	    if (_nSamples[i] == 0)
+	    	_xSum[i] = floatNAN;
+	    else
+	        _xSum[i] /= _nSamples[i];
+	    if (i < _n1mom) outData[l++] = (float)_xSum[i];
+	}
+
+	// compute variance
+	for (i = 0; i < _ninvars; i++, l++) {
+	    if (_nSamples[i] == 0)
+	        outData[l] = floatNAN;
+	    else {
+		xr = _xySum[i][i] / _nSamples[i] - _xSum[i] * _xSum[i];
+		if ((xr < 0.0) || _nSamples[i] < 2) xr = 0.0;
+		outData[l] = xr;
+	    }
 	}
 	break;
     case STATS_WINDDIR:
@@ -1679,8 +1754,8 @@ void StatisticsCruncher::computeStats()
 	if (_statsType == STATS_SFLUX && _ninvars > 3) nr = 1;
 
 	for (i = 0; i < nr; i++) {
-	    // no cross terms in STATS_VAR or in STATS_FLUX for scalar:scalar terms
-	    nx = (_statsType == STATS_VAR || (_statsType == STATS_FLUX && i > 2) ? i+1 : _ninvars);
+	    // no cross terms in STATS_FLUX for scalar:scalar terms
+	    nx = (_statsType == STATS_FLUX && i > 2) ? i+1 : _ninvars;
 	    for (j=i; j < nx; j++,l++) {
 		xr = _xySum[i][j] / nSamp - _xSum[i] * _xSum[j];
 		if ((i == j && xr < 0.0) || nSamp < 2) xr = 0.0;

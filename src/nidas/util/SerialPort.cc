@@ -28,6 +28,7 @@
 #include "Logger.h"
 #include <sys/ioctl.h>
 #include <sys/param.h>	// MAXPATHLEN
+#include <poll.h>
 #include <cerrno>
 #include <cstring>
 #include <cstdlib>
@@ -347,23 +348,49 @@ SerialPort::readchar()
     return *_savep++;
 }
 
+namespace {
+    const char* PTMX = "/dev/ptmx";
+
+    /**
+     * Return ptsname(fd), but raise IOException if the name is null.
+     */
+    const char*
+    get_ptsname(int fd)
+    {
+        char* slave = ptsname(fd);
+        if (!slave)
+            throw IOException(PTMX, "ptsname", errno);
+        return slave;
+    }
+}
+
 /* static */
-int SerialPort::createPtyLink(const std::string& link)
+int SerialPort::createPty(bool hup)
 {
     int fd;
-    const char* ptmx = "/dev/ptmx";
 
     // could also use getpt() here.
-    if ((fd = ::open(ptmx,O_RDWR|O_NOCTTY)) < 0) 
-        throw IOException(ptmx,"open",errno);
+    if ((fd = ::open(PTMX, O_RDWR|O_NOCTTY)) < 0) 
+        throw IOException(PTMX, "open", errno);
 
-    char* slave = ptsname(fd);
-    if (!slave) throw IOException(ptmx,"ptsname",errno);
+    if (grantpt(fd) < 0) throw IOException(PTMX, "grantpt", errno);
+    if (unlockpt(fd) < 0) throw IOException(PTMX, "unlockpt", errno);
 
-    // cerr << "slave pty=" << slave << endl;
+    if (hup)
+    {
+        // maybe it's safe to do this always?
+        const char* pts = get_ptsname(fd);
+        DLOG(("opening and closing pty to set HUP: ") << pts);
+        ::close(::open(pts, O_RDWR | O_NOCTTY));
+    }
+    return fd;
+}
 
-    if (grantpt(fd) < 0) throw IOException(ptmx,"grantpt",errno);
-    if (unlockpt(fd) < 0) throw IOException(ptmx,"unlockpt",errno);
+
+/* static */
+void SerialPort::createLinkToPty(const std::string& link, int fd)
+{
+    const char* slave = get_ptsname(fd);
 
     bool dolink = true;
     struct stat linkstat;
@@ -395,6 +422,28 @@ int SerialPort::createPtyLink(const std::string& link)
         if (symlink(slave,link.c_str()) < 0)
             throw IOException(link,"symlink",errno);
     }
+}
+
+
+/* static */
+int SerialPort::createPtyLink(const std::string& link)
+{
+    int fd = createPty(false);
+    createLinkToPty(link, fd);
     return fd;
 }
 
+
+/* static */
+bool SerialPort::waitForOpen(int fd, int timeout)
+{
+    do {
+        struct pollfd pfd = { .fd = fd, .events = 0, .revents = 0 };
+        poll(&pfd, 1, 10);
+        if (!(pfd.revents & POLLHUP))
+            return true;
+        sleep(1);
+    }
+    while (timeout < 0 || --timeout > 0);
+    return false;
+}

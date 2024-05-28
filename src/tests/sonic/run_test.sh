@@ -1,51 +1,11 @@
-#!/bin/sh
+#!/bin/bash
 
 # Script for testing the processing of sonic anemometer data.
 
 echo "Starting sonic tests..."
 
-# If the first runstring argument is "installed", then don't fiddle
-# with PATH or LD_LIBRARY_PATH, and run the nidas programs from
-# wherever they are found in PATH.
-# Otherwise if build/apps is not found in PATH, prepend it, and if
-# LD_LIBRARY_PATH doesn't contain the string build, prepend
-# ../build/{util,core,dynld}.
-
-installed=false
-[ $# -gt 0 -a "$1" == "-i" ] && installed=true
-
-if ! $installed; then
-
-    echo $PATH | fgrep -q build/apps || PATH=../../build/apps:$PATH
-
-    llp=../../build/util:../../build/core:../../build/dynld
-    echo $LD_LIBRARY_PATH | fgrep -q build || \
-        export LD_LIBRARY_PATH=$llp${LD_LIBRARY_PATH:+":$LD_LIBRARY_PATH"}
-
-    echo LD_LIBRARY_PATH=$LD_LIBRARY_PATH
-    echo PATH=$PATH
-
-    if ! which data_dump | fgrep -q build/; then
-        echo "dsm program not found on build directory. PATH=$PATH"
-        exit 1
-    fi
-    if ! ldd `which data_dump` | awk '/libnidas/{if (index($0,"build/") == 0) exit 1}'; then
-        echo "using nidas libraries from somewhere other than a build directory"
-        exit 1
-    fi
-fi
-
-# echo PATH=$PATH
-# echo LD_LIBRARY_PATH=$LD_LIBRARY_PATH
-
-echo "data_dump executable: `which data_dump`"
-echo "nidas libaries:"
-ldd `which data_dump` | fgrep libnidas
-
-valgrind_errors() {
-    egrep -q "^==[0-9]*== ERROR SUMMARY:" $1 && \
-        sed -n 's/^==[0-9]*== ERROR SUMMARY: \([0-9]*\).*/\1/p' $1 || echo 1
-}
+source ../nidas_tests.sh
+check_executable data_dump
 
 tmperr=$(mktemp /tmp/sonic_test_XXXXXX)
 tmpout=$(mktemp /tmp/sonic_test_XXXXXX)
@@ -66,7 +26,7 @@ cat << \EOD > $awkcom
     }
     printf("\n")
 }
-EOD
+\EOD
 
 error_exit() {
     cat $tmperr 1>&2
@@ -86,6 +46,7 @@ diff_warn() {
         echo "Second diff failed also"
         exit 1
     fi
+    echo "Second diff succeeded"
 
     # Uncomment to create a "truth" file.
     # [ -f $3 ] || cat $4 | gzip -c > $3

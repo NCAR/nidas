@@ -2206,7 +2206,11 @@ static int __init gpio_mm_init(void)
         if (!board) goto err;
         memset(board,0,numboards * sizeof(struct GPIO_MM));
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6,0,0)
         gpio_mm_class = class_create(THIS_MODULE, "gpio_mm");
+#else
+        gpio_mm_class = class_create("gpio_mm");
+#endif
         if (IS_ERR(gpio_mm_class)) {
                 result = PTR_ERR(gpio_mm_class);
                 goto err;

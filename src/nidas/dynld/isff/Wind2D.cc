@@ -30,9 +30,11 @@
 #include <nidas/core/Variable.h>
 #include <nidas/core/AsciiSscanf.h>
 #include <nidas/util/Logger.h>
+#include <nidas/util/util.h>
 
 #include <sstream>
 #include <cmath>
+#include <map>
 
 using namespace nidas::dynld::isff;
 using namespace nidas::dynld;
@@ -41,8 +43,13 @@ using namespace nidas::core;
 using std::vector;
 using std::ostringstream;
 using std::string;
+using std::map;
+using std::list;
 
-namespace n_u = nidas::util;
+using nidas::util::derive_spd_dir_from_uv;
+using nidas::util::derive_uv_from_spd_dir;
+using nidas::util::InvalidParameterException;
+using nidas::util::LogContext;
 
 NIDAS_CREATOR_FUNCTION_NS(isff,Wind2D)
 
@@ -58,6 +65,16 @@ Wind2D::Wind2D():
 Wind2D::~Wind2D()
 {
 }
+
+namespace
+{
+    bool
+    match_prefix(const std::string& vname, const std::string& prefix)
+    {
+        return vname.find(prefix) == 0;
+    }
+}
+
 
 void Wind2D::validate()
 {
@@ -83,34 +100,38 @@ void Wind2D::validate()
             _wind_sample_id = stag->getId();
         }
 
-        // check the variable names to determine which
-        // is wind speed, direction, u or v.
-        // Rather than impose a policy on variable names,
-        // then names can be specified by the user.
+        // Check the variable names to determine which is wind speed,
+        // direction, u or v.  Rather than impose a policy on variable names,
+        // the variable names are matched against prefixes.  The prefixes
+        // default to U, V, Dir, and Spd, but can be changed with parameters.
         const vector<Variable*>& vars = stag->getVariables();
         vector<Variable*>::const_iterator vi = vars.begin();
         for (int i = 0; vi != vars.end(); i++,++vi) {
             Variable* var = *vi;
             const string& vname = var->getName();
-            if (vname.length() >= getUName().length() &&
-                    vname.substr(0,getUName().length()) == getUName())
+            if (match_prefix(vname, getUName()))
+            {
                 _uIndex = i;
-            else if (vname.length() >= getVName().length() &&
-                    vname.substr(0,getVName().length()) == getVName())
+            }
+            else if (match_prefix(vname, getVName()))
+            {
                 _vIndex = i;
-            else if (vname.length() >= getSpeedName().length() &&
-                    vname.substr(0,getSpeedName().length()) == getSpeedName()) {
+            }
+            else if (match_prefix(vname, getSpeedName()))
+            {
                 _speedIndex = i;
                 _speedConverter = var->getConverter();
+                DLOG(("spd converter is ") << (_speedConverter ? _speedConverter->toString() : "null"));
             }
-            else if (vname.length() >= getDirName().length() &&
-                    vname.substr(0,getDirName().length()) == getDirName()) {
+            else if (match_prefix(vname, getDirName()))
+            {
                 _dirIndex = i;
                 _dirConverter = var->getConverter();
+                DLOG(("dir converter is ") << (_dirConverter ? _dirConverter->toString() : "null"));
             }
         }
         if (_speedIndex < 0 || _dirIndex < 0)
-            throw n_u::InvalidParameterException(getName() +
+            throw InvalidParameterException(getName() +
               " Wind2D cannot find speed or direction variables");
 
         _outlen = stag->getVariables().size();
@@ -147,29 +168,27 @@ void Wind2D::validateSscanfs()
             ostringstream ost;
             ost << "number of scanf fields (" << nscanned <<
                 ") is not the number expected (" << nexpected << ')';
-            throw n_u::InvalidParameterException(getName(),"scanfFormat",ost.str());
+            throw InvalidParameterException(getName(),"scanfFormat",ost.str());
         }
     }
 }
 
 bool Wind2D::process(const Sample* samp,
-	std::list<const Sample*>& results) throw()
+    std::list<const Sample*>& results) throw()
 {
-    // The idea here was to duplicate SerialSensor::process(samp,results),
+    // The idea here is to duplicate SerialSensor::process(samp,results),
     // except don't call applyConversions(), since we might first need to
-    // orient the sonic before applying any adjustments to wind direction.
-    // However, delaying the call to applyConversions() until after the
-    // (u,v)<->(spd,dir) directions causes occasional spikes in the data, perhaps due to some memory error somewhere caused by
-    // a broken assumption about sample data makeup.
+    // orient the sonic before adjusting wind direction with a variable
+    // conversion.
     //
-    // If orientations of 2D sonics is ever implemented here, then this
-    // will need to be sorted out.  Probably the derivations need to be
-    // broken up, so that conversions are applied to the sampled pair
-    // before deriving the derived pair.  Or, perhaps applyConversions()
-    // needs to be careful not to convert variables which are actually
-    // derived.  Or maybe it would still be ok to insert the orientation
-    // call before applyConversions(), so long as applyConversions() comes
-    // before derivations.
+    // Since orientation happens in u,v space, u,v are resolved first, either
+    // as parsed from the message or by deriving them from the parsed spd and
+    // direction.  Conversions (such as correcting direction by applying an
+    // offset) can be applied to any of the sample variables, but u, v are
+    // always derived from spd, dir after conversions, on the assumption that
+    // only direction offsets will ever be applied.  In other words, it is
+    // impossible to "calibrate" u and v, even if they are parsed directly
+    // from the raw message and used to derive speed and direction.
 
     // \/ \/ \/ \/ \/ \/ Copied from CharacterSensor::process()
     SampleTag* stag = 0;
@@ -182,9 +201,7 @@ bool Wind2D::process(const Sample* samp,
     // Apply any time tag adjustments.
     adjustTimeTag(stag, outs);
 
-    // Apply any variable conversions.  Note this has to happen after the
-    // time is adjusted, since the calibrations are keyed by time.
-    applyConversions(stag, outs);
+    // conversions skipped here and deferred until after orientation
 
     results.push_back(outs);
     // /\ /\ /\ /\ /\ /\ Copied from CharacterSensor::process()
@@ -194,15 +211,16 @@ bool Wind2D::process(const Sample* samp,
     if (results.size() != 1 || _speedIndex < 0 ||
         _dirIndex < 0 || _uIndex < 0 || _vIndex < 0)
     {
-    	return true;
+        return true;
     }
 
-    // result from base class parsing of ASCII, and correction of any cal file
+    // result from base class parsing of ASCII, without any corrections from
+    // any cal files or converters
     const Sample* csamp = results.front();
     unsigned int slen = csamp->getDataLength();
     bool iswindsample = (csamp->getId() == _wind_sample_id);
 
-    static n_u::LogContext lp(LOG_DEBUG);
+    static LogContext lp(LOG_DEBUG);
     if (lp.active())
     {
         lp.log()
@@ -217,133 +235,115 @@ bool Wind2D::process(const Sample* samp,
         return true;
     }
 
-    if (_speedIndex < _uIndex) {   
-        // speed and dir parsed from sample, u and v derived
+    // Get the measurement into U and V first, either as parsed directly from
+    // the message or by deriving from the parsed speed and direction.
+    float u = floatNAN;
+    float v = floatNAN;
+    float spd = floatNAN;
+    float dir = floatNAN;
 
-        // if speed and dir not in this sample, nothing left to do.
+    if (_speedIndex < _uIndex)
+    {
+        // speed and dir parsed from sample, so nothing to do if not there.
         if ((signed) slen <= _speedIndex) return true;
         if ((signed) slen <= _dirIndex) return true;
 
-        // If U or V have been parsed, don't derive them.
-        if ((signed) slen > _vIndex &&
-            (!std::isnan(csamp->getDataValue(_uIndex)) ||
-                !std::isnan(csamp->getDataValue(_vIndex)))) return true;
-
-        float spd = csamp->getDataValue(_speedIndex);
-        // dir has had cal file applied
-        float dir = fmod(csamp->getDataValue(_dirIndex),360.0);
-        if (dir < 0.0) dir += 360.0;
-
-        // derive U,V from Spd,Dir
-        float u = -spd * ::sin(dir * M_PI / 180.0);
-        float v = -spd * ::cos(dir * M_PI / 180.0);
-
-        SampleT<float>* news = getSample<float>(_outlen);
-        news->setTimeTag(csamp->getTimeTag());
-        news->setId(csamp->getId());
-
-        float* nfptr = news->getDataPtr();
-
-        unsigned int i;
-        for (i = 0; i < slen && i < _outlen; i++) nfptr[i] = csamp->getDataValue(i);
-        for ( ; i < _outlen; i++) nfptr[i] = floatNAN;
-
-        nfptr[_dirIndex] = dir;  // overwrite direction, corrected by mod 360
-        nfptr[_uIndex] = u;
-        nfptr[_vIndex] = v;
-
-        csamp->freeReference();
-
-        results.front() = news;
+        // At one point this code took U and V as they were, if parsed, but
+        // there's really no point in keeping track of that.  One of the pairs
+        // has to be derived from the other eventually.  In this case, derive
+        // u and v from spd and dir.
+        spd = csamp->getDataValue(_speedIndex);
+        dir = csamp->getDataValue(_dirIndex);
+        derive_uv_from_spd_dir(u, v, spd, dir);
     }
-    else {
-        // u and v parsed from sample, speed and dir derived
-
-        // if u or v not parsed, nothing left to do
+    else
+    {
+        // u and v parsed from sample, nothing to do if not there
         if ((signed) slen <= _uIndex) return true;
         if ((signed) slen <= _vIndex) return true;
 
-        // If dir or speed have been parsed, don't derive them.
-        if (((signed)slen > _dirIndex && (signed)slen > _speedIndex) &&
-            (!std::isnan(csamp->getDataValue(_speedIndex)) ||
-                !std::isnan(csamp->getDataValue(_dirIndex)))) return true;
-
-        float u = csamp->getDataValue(_uIndex);
-        float v = csamp->getDataValue(_vIndex);
-        float dir = n_u::dirFromUV(u, v);
-        float spd = ::sqrt(u*u + v*v);
-        bool redoUV = false;
-        if (_dirConverter) {
-            // correction is in degrees
-            dir = _dirConverter->convert(csamp->getTimeTag(),dir);
-            redoUV = true;
-        }
-        if (_speedConverter) {
-            spd = _speedConverter->convert(csamp->getTimeTag(),spd);
-            redoUV = true;
-        }
-        if (redoUV) {
-            // recompute U,V from Spd,Dir
-            u = -spd * ::sin(dir * M_PI / 180.0);
-            v = -spd * ::cos(dir * M_PI / 180.0);
-        }
-        if (dir < 0.0) dir += 360.0;
-
-        SampleT<float>* news = getSample<float>(_outlen);
-        news->setTimeTag(csamp->getTimeTag());
-        news->setId(csamp->getId());
-
-        float* nfptr = news->getDataPtr();
-
-        unsigned int i;
-        for (i = 0; i < slen && i < _outlen; i++) nfptr[i] = csamp->getDataValue(i);
-        for ( ; i < _outlen; i++) nfptr[i] = floatNAN;
-
-        nfptr[_dirIndex] = dir;
-        nfptr[_speedIndex] = spd;
-        nfptr[_uIndex] = u;
-        nfptr[_vIndex] = v;
-
-        csamp->freeReference();
-
-        results.front() = news;
+        // take u, v as parsed.  no point computing spd, dir until
+        // after orientation applied.
+        u = csamp->getDataValue(_uIndex);
+        v = csamp->getDataValue(_vIndex);
     }
+
+    // Now apply any orientation settings, and re-derive speed and direction,
+    // in case they were not derived above or else u, v were adjusted.
+    _orienter.applyOrientation2D(&u, &v);
+    derive_spd_dir_from_uv(spd, dir, u, v);
+
+    // We now have u, v, dir, spd in "instrument-oriented-space", so put the
+    // values in a new sample and apply conversions.
+    SampleT<float>* news = getSample<float>(_outlen);
+    news->setTimeTag(csamp->getTimeTag());
+    news->setId(csamp->getId());
+
+    float* nfptr = news->getDataPtr();
+
+    unsigned int i;
+    for (i = 0; i < slen && i < _outlen; i++)
+        nfptr[i] = csamp->getDataValue(i);
+    for ( ; i < _outlen; i++)
+        nfptr[i] = floatNAN;
+
+    nfptr[_dirIndex] = dir;
+    nfptr[_speedIndex] = spd;
+    nfptr[_uIndex] = u;
+    nfptr[_vIndex] = v;
+
+    csamp->freeReference();
+    results.front() = news;
+
+    // this is where direction might be corrected by a calibration file
+    applyConversions(stag, news);
+
+    // ...so update u and v to make sure they're consistent.
+    dir = nfptr[_dirIndex];
+    spd = nfptr[_speedIndex];
+    derive_uv_from_spd_dir(u, v, spd, dir);
+
+    // and update the values in the sample one last time
+    nfptr[_dirIndex] = dir;
+    nfptr[_speedIndex] = spd;
+    nfptr[_uIndex] = u;
+    nfptr[_vIndex] = v;
 
     return true;
 }
 
 void Wind2D::fromDOMElement(const xercesc::DOMElement* node)
 {
+    DLOG(("Wind2D::fromDOMElement()"));
     SerialSensor::fromDOMElement(node);
 
-    static struct ParamSet {
-        const char* name;	// parameter name
-        void (Wind2D::* setFunc)(const string&);
-        			// ptr to setXXX member function
-				// for setting parameter.
-    } paramSet[] = {
-	{ "speed",		&Wind2D::setSpeedName },
-	{ "dir",		&Wind2D::setDirName },
-	{ "u",			&Wind2D::setUName },
-	{ "v",			&Wind2D::setVName },
+    typedef void (Wind2D::*set_param_t)(const string&);
+    map<string, set_param_t> paramset =
+    {
+        { "speed", &Wind2D::setSpeedName },
+        { "dir", &Wind2D::setDirName },
+        { "u", &Wind2D::setUName },
+        { "v", &Wind2D::setVName },
     };
 
-    for (unsigned int i = 0; i < sizeof(paramSet) / sizeof(paramSet[0]); i++) {
-	const Parameter* param = getParameter(paramSet[i].name);
-	if (!param) continue;
-	if (param->getLength() != 1) 
-	    throw n_u::InvalidParameterException(getName(),
-		"parameter", string("bad length for ") + paramSet[i].name);
-	// invoke setXXX member function
-        if (_orienter.handleParameter(param, getName()))
+    // Handle our specific parameters.
+    const list<const Parameter*>& params = getParameters();
+
+    for (auto pi = params.begin(); pi != params.end(); ++pi)
+    {
+        const Parameter* param = *pi;
+        const std::string& pname = param->getName();
+
+        if (!_orienter.handleParameter(param, getName()) &&
+            paramset.find(pname) != paramset.end())
         {
-	    throw n_u::InvalidParameterException(getName(),
-		"parameter", string("Wind2D sensors do not yet support"
-                                    " orientation changes: ") + paramSet[i].name);
-        }
-        else
-        {
-            (this->*paramSet[i].setFunc)(param->getStringValue(0));
+            if (param->getLength() != 1)
+            {
+                throw InvalidParameterException(getName(),
+                    "parameter", string("bad length for ") + pname);
+            }
+            // invoke setXXX member function
+            (this->*paramset[pname])(param->getStringValue(0));
         }
     }
 }

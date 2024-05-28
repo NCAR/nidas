@@ -53,7 +53,7 @@
 #include <netinet/tcp.h>
 
 #include <linux/sockios.h>
-                                                                                
+
 #include <iostream>
 
 using namespace nidas::util;
@@ -193,22 +193,9 @@ void SocketImpl::bind(const SocketAddress& sockaddr)
     // is shown in:
     //      /proc/sys/net/ipv4/ip_local_port_range
     // which on RHEL5 and Fedora 15 is 32768-61000.
-    //
-    // On Arcom Embedded Linux (Vipers and Vulcans) ip_local_port_range is 1024    4999.
-    //
-    // We could read that file, or perhaps it is available via some obscure ioctl?
-    // Instead we'll hard code the warning, using NIDAS_EMBEDDED as an imperfect
-    // way to detect if we're on a viper/vulcan.
-
-#ifdef NIDAS_EMBEDDED
-    if (sockaddr.getPort() >= 1024 && sockaddr.getPort() <= 4999) 
-        WLOG(("%s: bind to a port number in the range 1024-4999 will fail if it has been dynamically allocated by the system for another connection. See /proc/sys/net/ipv4/ip_local_port_range",
-            sockaddr.toAddressString().c_str()));
-#else
     if (sockaddr.getPort() >= 32768 && sockaddr.getPort() <= 61000) 
         WLOG(("%s: bind to a port number in the range 32768-61000 will fail if it has been dynamically allocated by the system for another connection. See /proc/sys/net/ipv4/ip_local_port_range on Linux",
             sockaddr.toAddressString().c_str()));
-#endif
     if (_fd < 0 && (_fd = ::socket(_sockdomain,_socktype, 0)) < 0)
         throw IOException("Socket","open",errno);
     int rval = _reuseaddr ? 1 : 0;        /* flag for setsocketopt */
@@ -294,11 +281,15 @@ Socket* SocketImpl::accept()
             for (;;) {
 
 #ifdef HAVE_PPOLL
-                if (::ppoll(&fds,1,NULL,&sigmask) < 0) {
+                if (::ppoll(&fds,1,NULL,&sigmask) < 0)
                     throw IOException("ServerSocket: " + _localaddr->toAddressString(),"ppoll",errno);
-                }
+
                 if (fds.revents & POLLERR)
                     throw IOException("ServerSocket: " + _localaddr->toAddressString(),"accept POLLERR",errno);
+
+                if (fds.revents & POLLNVAL) 	// fd not open
+                    throw IOException("ServerSocket: " + _localaddr->toAddressString(),"ppoll","socket closed");
+
 #ifdef POLLRDHUP
                 if (fds.revents & (POLLHUP | POLLRDHUP))
 #else
@@ -339,13 +330,16 @@ Socket* SocketImpl::accept()
             }
             if (fds.revents & POLLERR)
                 throw IOException("ServerSocket: " + _localaddr->toAddressString(),"accept POLLERR",errno);
+
+            if (fds.revents & POLLNVAL) 	// fd not open
+		throw IOException("ServerSocket: " + _localaddr->toAddressString(),"ppoll","socket closed");
+
 #ifdef POLLRDHUP
             if (fds.revents & (POLLHUP | POLLRDHUP))
 #else
             if (fds.revents & (POLLHUP)) 
 #endif
                 NLOG(("ServerSocket %s: POLLHUP",_localaddr->toAddressString().c_str()));
-
 #else
 
             assert(_fd >= 0 && _fd < FD_SETSIZE);     // FD_SETSIZE=1024
@@ -502,6 +496,9 @@ void SocketImpl::receive(DatagramPacketBase& packet)
         if (fds.revents & POLLERR)
             throw IOException(_localaddr->toAddressString(),"receive",errno);
 
+        if (fds.revents & POLLNVAL)
+            throw IOException(_localaddr->toAddressString(),"receive","socket closed");
+
 #ifdef POLLRDHUP
         if (fds.revents & (POLLHUP | POLLRDHUP))
 #else
@@ -574,6 +571,9 @@ void SocketImpl::receive(DatagramPacketBase& packet, Inet4PacketInfo& info,
 
         if (fds.revents & POLLERR)
             throw IOException(_localaddr->toAddressString(),"receive",errno);
+
+        if (fds.revents & POLLNVAL)
+            throw IOException(_localaddr->toAddressString(),"receive","socket closed");
 
 #ifdef POLLRDHUP
         if (fds.revents & (POLLHUP | POLLRDHUP))
@@ -712,6 +712,9 @@ size_t SocketImpl::recv(void* buf, size_t len, int flags)
         if (fds.revents & POLLERR)
             throw IOException(_localaddr->toAddressString(),"recv",errno);
 
+        if (fds.revents & POLLNVAL)
+            throw IOException(_localaddr->toAddressString(),"recv","socket closed");
+
 #ifdef POLLRDHUP
         if (fds.revents & (POLLHUP | POLLRDHUP))
 #else
@@ -777,6 +780,9 @@ size_t SocketImpl::recvfrom(void* buf, size_t len, int flags,
 
         if (fds.revents & POLLERR)
             throw IOException(_localaddr->toAddressString(),"recvfrom",errno);
+
+        if (fds.revents & POLLNVAL)
+            throw IOException(_localaddr->toAddressString(),"recvfrom","socket closed");
 
 #ifdef POLLRDHUP
         if (fds.revents & (POLLHUP | POLLRDHUP))

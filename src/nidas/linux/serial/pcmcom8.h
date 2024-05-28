@@ -37,7 +37,7 @@
 #include <linux/device.h>
 
 #ifndef PCMCOM8_MAJOR
-/* look in Documentation/devices.txt 
+/* look in Documentation/devices.txt
  * 60-63,120-127,240-254 LOCAL/EXPERIMENTAL USE
  * 231-239 unassigned
  * 208,209: user space serial ports - what are these?
@@ -50,7 +50,7 @@
 
 /* registers on the pcmcom8 starting at the ioport address */
 #define PCMCOM8_IDX 0x0	        /* index register, R/W */
-#define PCMCOM8_ADR 0x1 	/* address and enable reg, R/W */
+#define PCMCOM8_ADR 0x1		/* address and enable reg, R/W */
 #define PCMCOM8_IAR 0x2		/* IRQ assigmment register, R/W */
 #define PCMCOM8_IIR 0x3		/* IRQ id reg, RO */
 #define PCMCOM8_ECR 0x4	        /* EEPROM cmd, R/W  */
@@ -58,7 +58,7 @@
 #define PCMCOM8_ELR 0x6		/* EEPROM low data register, R/W */
 #define PCMCOM8_CMD 0x7		/* command register W */
 #define PCMCOM8_STA 0x7		/* status register RO */
-                                                                                
+
 #  endif /* __KERNEL__ */
 
 struct pcmcom8_serial_port {

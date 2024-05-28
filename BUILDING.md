@@ -24,7 +24,7 @@ There are 2 scripts that can build the documentation.  One is a bit older and st
 Simply connect to EOL's build server to fetch the build products:
 
 ```sh
-    curl -O ftp://ftp.eol.ucar.edu/pub/archive/software/debian/eol-repo.deb 
+    curl -O https://archive.eol.ucar.edu/software/debian/eol-repo.deb 
     sudo dpkg -i eol-repo.deb 
     sudo apt update
     sudo apt install nidas

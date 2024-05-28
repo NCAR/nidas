@@ -247,8 +247,10 @@ SensorHandler::PolledDSMSensor::handlePollEvents(uint32_t events) throw()
             return true;
         }
     }
-    if (events & (N_POLLERR | N_POLLRDHUP | N_POLLHUP))
+    if (events & (N_POLLERR | N_POLLRDHUP | N_POLLHUP | N_POLLNVAL))
     {
+        if (events & N_POLLNVAL)
+            WLOG(("%s: POLLNVAL event", getName().c_str()));
         if (events & N_POLLERR)
             WLOG(("%s: POLLERR event", getName().c_str()));
         if (events & N_POLLRDHUP)
@@ -396,7 +398,7 @@ SensorHandler::NotifyPipe::handlePollEvents(uint32_t events)
         exhausted = (size_t)l < sizeof(buf);
     }
 
-    if (events & (N_POLLERR | N_POLLHUP | N_POLLRDHUP))
+    if (events & (N_POLLERR | N_POLLHUP | N_POLLRDHUP | N_POLLNVAL))
         PLOG(("%s", "SensorHandler::NotifyPipe epoll exception"));
 
     return exhausted;

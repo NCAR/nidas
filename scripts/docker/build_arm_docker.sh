@@ -1,5 +1,7 @@
 #!/bin/sh
 
+set -e
+
 dockerns=ncar   # namespace on docker.io
 
 usage() {
@@ -9,6 +11,9 @@ usage() {
     "
     exit 1
 }
+
+dir=${0%/*}
+pushd $dir > /dev/null
 
 cacheFlag=""
 dopush=false
@@ -35,8 +40,6 @@ done
 # Build a docker image of Debian Jessie for doing C/C++ debian builds for
 # various targets, such as armel and armhf (RPi).
 # The image is built from the Dockerfile.cross_arm in this directory.
-
-set -e
 
 for arch in ${arches[*]}; do
 

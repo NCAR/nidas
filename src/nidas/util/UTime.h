@@ -48,16 +48,6 @@
 #include "time_constants.h"
 #include "IOException.h"
 
-/**
- * If UTIME_BASIC_STREAM_IO is defined, then the UTime class
- * supports output to the std::basic_ostream<charT> template class.
- * If it is not defined, then UTime only supports output to
- * std::ostream, which is std::basic_ostream<char>.
- * The general support for basic_ostream<charT> would only be useful
- * if we want to support wide character output, which is not likely,
- * but hey, we'll leave the code in for now.
- */
-#define UTIME_BASIC_STREAM_IO
 
 namespace nidas { namespace util {
 
@@ -72,6 +62,35 @@ namespace nidas { namespace util {
  * convention. Time values around the time that a system's NTP clock are
  * being adjusted for a leap second will be indeterminate by up to a second,
  * depending on how the Unix clock on that system was adjusted.
+ *
+ * UTime supports output to the std::basic_ostream<charT> template class,
+ * which includes output to std::ostream, which is std::basic_ostream<char>.
+ * The general support for basic_ostream<charT> is only useful to support wide
+ * character output, which is not likely, but it works.
+ * 
+ * There is no explicit support for an "unset" or "null" UTime value.  The
+ * default constructor initializes from the current system time; there is no
+ * way to construct an invalid or null time.  Instead, historical practice has
+ * been to use LONG_LONG_MIN or sometimes just (time_t)0 to indicate an unset
+ * UTime.  Therefore the static constants MIN, MAX, and ZERO exist to
+ * formalize this practice.  Use Utime(UTime::ZERO) to construct a single time
+ * for which isZero() returns true.  Use MIN when the intention is to use the
+ * earliest possible UTime value, and similarly for MAX.  The meaning of
+ * (time_t)0 should be made explicit by replacing it with MIN, MAX, or ZERO.
+ * Instead of comparing a UTime to LONG_LONG_MIN or LONG_LONG_MAX, call
+ * isMin() or isMax() or isSet().  Typically, MIN is used as the default to
+ * indicate an unset start time while MAX is used for a default end time, so
+ * calling isSet() works for either start or end times, returning true if the
+ * UTime is neither MIN nor MAX.
+ * 
+ * The stored microseconds since the Posix epoch is a signed long long, so 0
+ * represents the epoch but not the earliest possible UTime.  The minimum
+ * possible UTime is represented by the negative value LONG_LONG_MIN.  ZERO
+ * and isZero() are available in case an application really does want the
+ * default to be the epoch or otherwise needs a convenient UTime constant for
+ * the Posix epoch, but generally it should be avoided since the intention is
+ * less clear, either zero as epoch or zero as unset.  In particular,
+ * ZERO.isSet() returns true.
  */
 class UTime {
 public:
@@ -87,6 +106,30 @@ public:
      * @param t Non-leap microseconds since Jan 1, 1970 00:00 UTC
      */
     UTime(long long t): _utime(t),_fmt(),_utc(true) {}
+
+    static const UTime MIN;
+    static const UTime MAX;
+    static const UTime ZERO;
+
+    /**
+     * Return true if this UTime is equivalent to UTime::ZERO.
+     */
+    bool isZero() const;
+
+    /**
+     * Return true if this UTime is equivalent to UTime::MIN.
+     */
+    bool isMin() const;
+
+    /**
+     * Return true if this UTime is equivalent to UTime::MAX.
+     */
+    bool isMax() const;
+
+    /**
+     * Return true if UTime is neither MIN nor MAX.
+     */
+    bool isSet() const;
 
     /**
      * Constructor.
@@ -301,24 +344,21 @@ public:
 
     static int month(std::string monstr);
 
-    // conversion operator
-    // operator long long() const { return _utime; }
-
     long long toUsecs() const
     {
-	return _utime;
+        return _utime;
     } 
 
     double toDoubleSecs() const
     {
-	// should work for positive and negative.
-	return (time_t)(_utime/USECS_PER_SEC) +
-		(double)(_utime % USECS_PER_SEC) / USECS_PER_SEC;
+        // should work for positive and negative.
+        return (time_t)(_utime/USECS_PER_SEC) +
+                (double)(_utime % USECS_PER_SEC) / USECS_PER_SEC;
     } 
 
     time_t toSecs() const
     {
-	return (_utime + USECS_PER_SEC / 2) / USECS_PER_SEC;
+        return (_utime + USECS_PER_SEC / 2) / USECS_PER_SEC;
     } 
 
     /**
@@ -328,7 +368,7 @@ public:
     UTime& setFormat(const std::string& val)
     {
         _fmt = val;
-	return *this;
+        return *this;
     }
 
     /**
@@ -360,14 +400,10 @@ public:
 
     struct tm tm(bool utc) const;
 
-#ifdef UTIME_BASIC_STREAM_IO
     template<typename charT> friend
     std::basic_ostream<charT, std::char_traits<charT> >& operator << 
         (std::basic_ostream<charT, std::char_traits<charT>  >& os,
             const UTime& x);
-#else
-    friend std::ostream& operator<<(std::ostream& os, const UTime &x);
-#endif
 
     /**
      * Positive modulus:  if x > 0, returns x % y
@@ -395,20 +431,20 @@ protected:
      */
     static long long fromSecs(double x)
     {
-	double xf = floor(x);
+        double xf = floor(x);
         return (long long)xf * USECS_PER_SEC +
-		(int)rint((x-xf) * USECS_PER_SEC) ;
+                (int)rint((x-xf) * USECS_PER_SEC) ;
     } 
 
     static double toDoubleSecs(long long x)
     {
-	// should work for positive and negative.
-	return (time_t)(x/USECS_PER_SEC) + (double)(x % USECS_PER_SEC) / USECS_PER_SEC;
+        // should work for positive and negative.
+        return (time_t)(x/USECS_PER_SEC) + (double)(x % USECS_PER_SEC) / USECS_PER_SEC;
     } 
 
     static time_t toSecs(long long x)
     {
-	return x / USECS_PER_SEC;
+        return x / USECS_PER_SEC;
     } 
 
 private:
@@ -453,21 +489,15 @@ private:
  *  or (if we use the template class):
  *	cout << setTZ<char>("PST8PDT") << setDefaultFormat<char>("%H%M%S") << ut << endl;
  */
-#ifdef UTIME_BASIC_STREAM_IO
 template<typename charT>
-#endif
 class UTime_stream_manip {
 
     std::string _fmt;
-#ifdef UTIME_BASIC_STREAM_IO
     /** 
      * Pointer to function that does a manipulation on a ostream
      * with a string argument.
      */
     std::basic_ostream<charT,std::char_traits<charT> >& (*_f)(std::basic_ostream<charT,std::char_traits<charT> >&, const std::string&);
-#else
-    std::ostream& (*_f)(std::ostream&, const std::string&);
-#endif
 
 public:
     /**
@@ -475,33 +505,19 @@ public:
      * @param f A function that returns a reference to an ostream,
      *          with arguments of the ostream reference and a string.
      */
-#ifdef UTIME_BASIC_STREAM_IO
     UTime_stream_manip(std::basic_ostream<charT,std::char_traits<charT> >&  (*f)(
         std::basic_ostream<charT,std::char_traits<charT> >&, const std::string&), const std::string& fmt): _fmt(fmt),_f(f)
     {
     }
-#else
-    UTime_stream_manip(std::ostream&  (*f)(
-        std::ostream&, const std::string&), const std::string& fmt): _fmt(fmt),_f(f)
-    {
-    }
-#endif
 
     /**
      * << operator of this manipulator on an ostream.
      * Invokes the function that was passed to the constructor.
      */
-#ifdef UTIME_BASIC_STREAM_IO
     template<typename charTx>
     friend std::basic_ostream<charTx, std::char_traits<charTx> >& operator << 
         (std::basic_ostream<charTx, std::char_traits<charTx> >& os,const UTime_stream_manip<charTx>& m);
-#else
-    friend std::ostream& operator<<(std::ostream& os,
-        const UTime_stream_manip& m);
-#endif
 };
-
-#ifdef UTIME_BASIC_STREAM_IO
 
 // format a UTime on an output stream.
 template<typename charT>
@@ -563,46 +579,6 @@ UTime_stream_manip<charT> setTZ(const std::string& val)
 {
     return UTime_stream_manip<charT>(&setOstreamTZ,val);
 }
-
-#else
-
-std::ostream& operator<<(std::ostream& os, const UTime &x)
-{
-    return os << x.format(false);
-}
-
-std::ostream& operator<<(std::ostream& os,
-    const UTime_stream_manip& m)
-{
-    return m._f(os,m._fmt);
-}
-
-// anonymous namespace for private, internal functions
-namespace {
-std::ostream& setOstreamDefaultFormat(std::ostream& os, const std::string& val)
-{
-    UTime::setDefaultFormat(val);
-    return os;
-}
-
-std::ostream& setOstreamTZ(std::ostream& os, const std::string& val)
-{
-    UTime::setTZ(val);
-    return os;
-}
-}   // end of anonymous namespace
-
-UTime_stream_manip setDefaultFormat(const std::string& val)
-{
-    return UTime_stream_manip(&setOstreamDefaultFormat,val);
-}
-
-UTime_stream_manip setTZ(const std::string& val)
-{
-    return UTime_stream_manip(&setOstreamTZ,val);
-}
-
-#endif
 
 /**
  * Return the current unix system time, in microseconds 

@@ -34,6 +34,7 @@
 #include "HeaderSource.h"
 #include "ConnectionRequester.h"
 
+#include <nidas/util/UTime.h>
 // #include <nidas/util/McSocket.h>
 
 namespace nidas { namespace core {
@@ -323,6 +324,24 @@ public:
 
     float getLatency() const { return _latency; }
 
+    /**
+     * The sample output can have a time window which clips the samples
+     * outside the window.  Only samples at or after @p startTime and
+     * before @p endTime will be passed along.  One or both of start and
+     * end time can be zero, in which case only the non-zero times are used
+     * to clip samples.
+     **/
+    void
+    setTimeClippingWindow(const nidas::util::UTime& startTime,
+                          const nidas::util::UTime& endTime);
+
+    /**
+     * Return true if SampleOutputBase considers the sample handled, such as
+     * if it is outside the clipping window.  Otherwise return false to
+     * indicate the subclass should handle the sample.
+     */
+    bool receive(const Sample *s);
+
 protected:
     /**
      * Protected copy constructor, with a new, connected IOChannel.
@@ -394,6 +413,13 @@ private:
     float _latency;
 
     int _reconnectDelaySecs;
+
+    /**
+     * Clipping time window.  Samples outside the given time window will
+     * not pass.
+     **/
+    dsm_time_t _startTime;
+    dsm_time_t _endTime;
 
     /**
      * No copy.

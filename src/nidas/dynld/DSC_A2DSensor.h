@@ -128,6 +128,11 @@ private:
      */
     int _voltage;
 
+    /** No copying */
+    DSC_A2DSensor(const DSC_A2DSensor&);
+
+    /** No assignment */
+    DSC_A2DSensor& operator=(const DSC_A2DSensor&);
 };
 
 }}	// namespace nidas namespace dynld

@@ -50,8 +50,8 @@ const int GPS_Novatel_Serial::BESTVEL_SAMPLE_ID;
 NIDAS_CREATOR_FUNCTION(GPS_Novatel_Serial)
 
 GPS_Novatel_Serial::GPS_Novatel_Serial() : GPS_NMEA_Serial(),
-    _bestPosNvars(0),_bestPosId(0),
-    _bestVelNvars(0),_bestVelId(0),_badNovatelChecksums(0)
+    _bestPosNvars(0),_bestPosId(0), _bestVelNvars(0),_bestVelId(0),
+    _leapSeconds(0), _badNovatelChecksums(0)
 {
     _allowedSampleIds[BESTPOS_SAMPLE_ID] = "BESTPOS";
     _allowedSampleIds[BESTVEL_SAMPLE_ID] = "BESTVEL";
@@ -70,9 +70,9 @@ void GPS_Novatel_Serial::validate()
         switch(stag->getSampleId()) {
         case BESTPOS_SAMPLE_ID:
             _bestPosNvars = stag->getVariables().size();
-            if (_bestPosNvars != 10) {
+            if (_bestPosNvars != 13) {
                 throw n_u::InvalidParameterException(getName(),
-                        "number of variables in BESTPOS sample","must be 10");
+                        "number of variables in BESTPOS sample","must be 13");
             }
             _bestPosId = stag->getId();
             break;
@@ -90,8 +90,7 @@ void GPS_Novatel_Serial::validate()
     }
 }
 
-dsm_time_t GPS_Novatel_Serial::parseBESTPOS(const char* input,double *dout,int nvars,
-  dsm_time_t tt) throw()
+dsm_time_t GPS_Novatel_Serial::parseBESTPOS(const char* input,double *dout,int nvars)
 {
     char sep = ',';
     double lat=doubleNAN, lon=doubleNAN, alt=doubleNAN;
@@ -174,7 +173,22 @@ dsm_time_t GPS_Novatel_Serial::parseBESTPOS(const char* input,double *dout,int n
             else dout[iout++] = doubleNAN;
             break;
 
-        case 22:        //number of satellites used in solution
+        case 21:        // Number of satellites tracked - GGNSATTRK
+            if (sscanf(input,"%f",&sol_age) == 1) dout[iout++] = double(sol_age);
+            else dout[iout++] = doubleNAN;
+            break;
+
+        case 22:        //number of satellites used in solution - GGNSAT
+            if (sscanf(input,"%d",&nsat) == 1) dout[iout++] = double(nsat);
+            else dout[iout++] = doubleNAN;
+            break;
+    
+        case 23:        //number of satellites with L1/E1/B1 signals used in solution - GGNSATL1
+            if (sscanf(input,"%d",&nsat) == 1) dout[iout++] = double(nsat);
+            else dout[iout++] = doubleNAN;
+            break;
+
+        case 24:        //number of satellites with multi-frequency signals used in solution - GGNSATMULTI
             if (sscanf(input,"%d",&nsat) == 1) dout[iout++] = double(nsat);
             else dout[iout++] = doubleNAN;
             break;
@@ -187,16 +201,10 @@ dsm_time_t GPS_Novatel_Serial::parseBESTPOS(const char* input,double *dout,int n
     for ( ; iout < nvars; iout++) dout[iout] = doubleNAN;
     assert(iout == nvars);
 
-    // not contain a timestamp; use the latest one
-    // gathered by either parseGGA or parseRMC.
-    if (_ttgps == 0)
-        return tt;
-    else
-        return _ttgps;
+    return 0;   // no latency for this packet.
 }
 
-dsm_time_t GPS_Novatel_Serial::parseBESTVEL(const char* input,double *dout,int nvars,
-  dsm_time_t tt) throw()
+dsm_time_t GPS_Novatel_Serial::parseBESTVEL(const char* input,double *dout,int nvars)
 {
     char sep = ',';
     double trk=doubleNAN, spd=doubleNAN, vspd=doubleNAN, latency=0.0;
@@ -242,12 +250,7 @@ dsm_time_t GPS_Novatel_Serial::parseBESTVEL(const char* input,double *dout,int n
     for ( ; iout < nvars; iout++) dout[iout] = doubleNAN;
     assert(iout == nvars);
 
-    // not contain a timestamp; use the latest one
-    // gathered by either parseGGA or parseRMC.
-    if (_ttgps == 0)
-        return tt;
-    else
-        return _ttgps - (int)(latency * USECS_PER_SEC);
+    return (int)(latency * USECS_PER_SEC);
 }
 
 namespace {
@@ -310,13 +313,48 @@ bool GPS_Novatel_Serial::novatelChecksumOK(const char* rec,int len)
     return cksum == calcsum;
 }
 
-bool GPS_Novatel_Serial::process(const Sample* samp,list<const Sample*>& results)
-  throw()
+dsm_time_t GPS_Novatel_Serial::gps_to_utc(const char* input)
+{
+    // scan GPS string for gps_weeks, gps_secconds_in_week
+    // Novatel Packet headers have these at positions 4 and 5  
+    int gps_weeks = 0;
+    double sec_in_week = 0.0;
+
+    const char * word = strchr(input, ',')+1;
+    for (int i = 1; i < 4; ++i) {
+        word = strchr(word, ',')+1;
+    }
+
+    // returning zero will default to datasystem timestamp.
+    if ( strncmp(word, "FINE", 4) )
+      return 0;
+
+    word = strchr(word, ',')+1;
+    sscanf(word, "%d,%lf", &gps_weeks, &sec_in_week);
+
+    dsm_time_t gps_offset = 315964800.0; //10 years between unix and gps epochs, in seconds
+    dsm_time_t gps_usec = (gps_offset + (gps_weeks * 604800.0) + sec_in_week) * USECS_PER_SEC;
+
+    // GPS time has leapseconds, UTC does not
+    if (_leapSeconds == 0 && _ttgps != 0) {
+        _leapSeconds = gps_usec - _ttgps;
+        // Should be between 15 (our first data was 2013) and 25 seconds,
+        // arbitrary future
+        if (_leapSeconds < 15 * USECS_PER_SEC || _leapSeconds > 25 * USECS_PER_SEC) {
+            ELOG(("%s: computed leap seconds out of bounds ", getName().c_str()) << _leapSeconds);
+            _leapSeconds = 0;
+        }
+    }
+
+    return gps_usec - _leapSeconds;
+}
+
+bool GPS_Novatel_Serial::process(const Sample* samp,list<const Sample*>& results) throw()
 {
     assert(samp->getType() == CHAR_ST);
     int slen = samp->getDataLength();
 
-    const char* input = (const char*) samp->getConstVoidDataPtr();
+    const char *input = (const char*) samp->getConstVoidDataPtr();
 
     // if the message starts with a '$' then assume its a NMEA message and
     // use the base class process method
@@ -332,27 +370,30 @@ bool GPS_Novatel_Serial::process(const Sample* samp,list<const Sample*>& results
     // cerr << "input=" << string(input,input+20) << " slen=" << slen << endl;
     if (slen < 10) return false;
 
-    dsm_time_t ttfixed;
-    if (_bestPosId != 0 && !strncmp(input, "#BESTPOSA,", 10)) {  // Novatel BESTPOS
-        input += 10;
-        SampleT<double>* outs = getSample<double>(_bestPosNvars);
-        outs->setTimeTag(samp->getTimeTag());
-        outs->setId(_bestPosId);
-        ttfixed = parseBESTPOS(input,outs->getDataPtr(),_bestPosNvars,samp->getTimeTag());
-        outs->setTimeTag(ttfixed);
-        results.push_back(outs);
-        return true;
-    }
-    else if (_bestVelId != 0 && !strncmp(input, "#BESTVELA,", 10)) {  // Novatel BESTVEL
-        input += 10;
-        SampleT<double>* outs = getSample<double>(_bestVelNvars);
-        outs->setTimeTag(samp->getTimeTag());
-        outs->setId(_bestVelId);
-        ttfixed = parseBESTVEL(input,outs->getDataPtr(),_bestVelNvars,samp->getTimeTag());
-        outs->setTimeTag(ttfixed);
-        results.push_back(outs);
-        return true;
+    if (strncmp(input, "#BEST", 5) == 0)
+    {
+        dsm_time_t ttfixed = gps_to_utc(input);
+
+        if (_bestPosId != 0 && !strncmp(input, "#BESTPOSA,", 10)) {  // Novatel BESTPOS
+            input += 10;
+            SampleT<double>* outs = getSample<double>(_bestPosNvars);
+            outs->setTimeTag(samp->getTimeTag());
+            outs->setId(_bestPosId);
+            (void)parseBESTPOS(input, outs->getDataPtr(), _bestPosNvars);
+            if (ttfixed > 0) outs->setTimeTag(ttfixed);
+            results.push_back(outs);
+            return true;
+        }
+        else if (_bestVelId != 0 && !strncmp(input, "#BESTVELA,", 10)) {  // Novatel BESTVEL
+            input += 10;
+            SampleT<double>* outs = getSample<double>(_bestVelNvars);
+            outs->setTimeTag(samp->getTimeTag());
+            outs->setId(_bestVelId);
+            dsm_time_t latency = parseBESTVEL(input, outs->getDataPtr(), _bestVelNvars);
+            if (ttfixed > 0) outs->setTimeTag(ttfixed-latency);
+            results.push_back(outs);
+            return true;
+        }
     }
     return false;
 }
-

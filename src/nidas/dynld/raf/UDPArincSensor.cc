@@ -49,7 +49,8 @@ const int UDPArincSensor::MAX_CHANNELS = 8;
 
 
 UDPArincSensor::UDPArincSensor() :
-    _prevAPMPseqNum(0), _badAPMPseqCnt(0), _badStatusCnt(0), _statusPort(0), _ctrl_pid(0), _arincSensors()
+    _prevAPMPseqNum(0), _badAPMPseqCnt(0), _badStatusCnt(0), _ipAddr(),
+    _statusPort(0), configStatus(), _ctrl_pid(0), _arincSensors()
 {
     for (int i = 0; i < MAX_CHANNELS; ++i)
         _prevRXPseqNum[i] = _badRXPseqCnt[i] = 0;
@@ -95,8 +96,39 @@ void UDPArincSensor::validate()
 
 void UDPArincSensor::open(int flags)
 {
-    UDPSocketSensor::open(flags);
+    char *args[20], port[32];
+    int argc = 0;
 
+    args[argc++] = (char *)"arinc_ctrl";
+    if (_ipAddr.length() > 0) {
+            args[argc++] = (char *)"-i";
+            args[argc++] = (char *)_ipAddr.c_str();
+    }
+
+    std::string dev = getDeviceName();
+    size_t pos = dev.find("::");
+    if (pos != std::string::npos) {
+            args[argc++] = (char *)"-p";
+            args[argc++] = &((char *)dev.c_str())[pos+2];
+    }
+
+    std::map<int, DSMArincSensor*>::iterator it;
+    for (it = _arincSensors.begin(); it != _arincSensors.end(); ++it) {
+            std::stringstream sp;
+            args[argc++] = (char *)"-s";
+            sp << it->first << "," << (it->second)->Speed();
+            args[argc] = new char[sp.str().size()+1];
+            strcpy(args[argc++], sp.str().c_str());
+    }
+
+    if (_statusPort > 0) {
+            sprintf(port, "%u", _statusPort);
+            args[argc++] = (char *)"-u";
+            args[argc++] = (char *)port;
+    }
+    args[argc] = (char *)0;
+
+    ILOG(("forking command %s", args[0]));
     _ctrl_pid = fork();
 
     if (_ctrl_pid == -1)
@@ -106,50 +138,35 @@ void UDPArincSensor::open(int flags)
     else
     if (_ctrl_pid == 0)
     {
-        char *args[20], port[32];
-        int argc = 0;
-
-        args[argc++] = (char *)"arinc_ctrl";
-        if (_ipAddr.length() > 0) {
-            args[argc++] = (char *)"-i";
-            args[argc++] = (char *)_ipAddr.c_str();
+        if (execvp(args[0], args) == -1)
+        {
+            ELOG(("UDPArincSensor: error executing command: ") << args[0] <<
+            ": error " << errno << ": " << n_u::Exception::errnoToString(errno));
+            exit(1);
         }
-
-        std::string dev = getDeviceName();
-        size_t pos = dev.find("::");
-        if (pos != std::string::npos) {
-            args[argc++] = (char *)"-p";
-            args[argc++] = &((char *)dev.c_str())[pos+2];
-        }
-
-        std::map<int, DSMArincSensor*>::iterator it;
-        for (it = _arincSensors.begin(); it != _arincSensors.end(); ++it) {
-            std::stringstream sp;
-            args[argc++] = (char *)"-s";
-            sp << it->first << "," << (it->second)->Speed();
-            args[argc] = new char[sp.str().size()+1];
-            strcpy(args[argc++], sp.str().c_str());
-        }
-
-        if (_statusPort > 0) {
-            sprintf(port, "%u", _statusPort);
-            args[argc++] = (char *)"-u";
-            args[argc++] = (char *)port;
-        }
-
-        args[argc] = (char *)0;
-        execvp(args[0], args);
     }
+    else
+        UDPSocketSensor::open(flags);
 }
 
 void UDPArincSensor::close()
 {
-    UDPSocketSensor::close();
 
     if (_ctrl_pid > 0)
     {
-        int rc = kill(_ctrl_pid, SIGTERM);
-        wait(&rc);
+        UDPSocketSensor::close();
+
+        if (kill(_ctrl_pid, SIGTERM) == -1)
+        {
+            ELOG(("UDPArincSensor: kill() error: ") << ": error " << errno
+			<< " : " << n_u::Exception::errnoToString(errno));
+        }
+
+        if (waitpid(_ctrl_pid, 0, 0) == -1)
+        {
+            ELOG(("UDPArincSensor: waitpid() error: ") << ": error " << errno
+			<< " : " << n_u::Exception::errnoToString(errno));
+        }
     }
     _ctrl_pid = 0;
 }

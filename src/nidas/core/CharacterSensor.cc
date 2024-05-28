@@ -76,7 +76,7 @@ CharacterSensor::~CharacterSensor() {
 
     for (map<const SampleTag*, TimetagAdjuster*>::const_iterator tti =
             _ttadjusters.begin();
-    	tti != _ttadjusters.end(); ++tti) {
+	tti != _ttadjusters.end(); ++tti) {
         TimetagAdjuster* tta = tti->second;
         if (tta) {
             tta->log(nidas::util::LOGGER_INFO, this);
@@ -158,7 +158,7 @@ bool CharacterSensor::doesAsciiSscanfs()
     }
     return false;
 }
- 
+
 void CharacterSensor::init()
 {
     DSMSensor::init();
@@ -194,7 +194,7 @@ void CharacterSensor::init()
             _ttadjusters[tag] = new TimetagAdjuster(tag->getId(), tag->getRate());
         }
     }
-	
+
     if (!_sscanfers.empty()) _nextSscanfer = _sscanfers.begin();
     validateSscanfs();
 }
@@ -391,7 +391,7 @@ searchSampleScanners(const Sample* samp, SampleTag** stag_out) throw()
     SampleT<float>* outs = getSample<float>(_maxScanfFields);
     // Output sample always defaults to time of raw sample.
     outs->setTimeTag(samp->getTimeTag());
-                 
+
     SampleTag* stag = 0;
     int nparsed = 0;
     unsigned int ntry = 0;
@@ -401,7 +401,7 @@ searchSampleScanners(const Sample* samp, SampleTag** stag_out) throw()
     {
         sscanf = *_nextSscanfer;
         nparsed = scanSample(sscanf, inputstr, outs->getDataPtr());
-        if (++_nextSscanfer == _sscanfers.end()) 
+        if (++_nextSscanfer == _sscanfers.end())
             _nextSscanfer = _sscanfers.begin();
         if (nparsed > 0) {
             stag = sscanf->getSampleTag();
@@ -426,7 +426,7 @@ searchSampleScanners(const Sample* samp, SampleTag** stag_out) throw()
             << "; scanfFailures=" << _scanfFailures
             << "; scanfPartials=" << _scanfPartials;
         lp.log(msg);
-    }   
+    }
 
     if (!nparsed)
     {
@@ -469,7 +469,7 @@ process(const Sample* samp, list<const Sample*>& results)
 void
 CharacterSensor::
 adjustTimeTag(SampleTag* stag, SampleT<float>* outs)
-{                                 
+{
     // Correct for a known sampling or sensor response lag.
     // Then, if requested, reduce latency jitter in the time tags.
     outs->setTimeTag(outs->getTimeTag() - getLagUsecs());

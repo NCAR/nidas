@@ -192,6 +192,13 @@ void SampleIOProcessor::fromDOMElement(const xercesc::DOMElement* node)
                 domable = DOMObjectFactory::createObject(classattr);
             }
             catch (const n_u::Exception& e) {
+                // If this is NetcdfRPCOutput, then likely it was not compiled
+                // in and is not needed, so just warn and move on.
+                if (classattr.find("NetcdfRPCOutput") != string::npos)
+                {
+                    WLOG(("Output class not found, skipping: ") << classattr);
+                    continue;
+                }
                 throw n_u::InvalidParameterException("service",
                     classattr,e.what());
             }
@@ -222,9 +229,11 @@ void SampleIOProcessor::fromDOMElement(const xercesc::DOMElement* node)
                 elname, "unsupported element");
     }
     if (_origOutputs.empty())
-        throw n_u::InvalidParameterException(
-                className + " SampleIOProcessor::fromDOMElement",
-                "output", "no output specified");
-
+    {
+        // Warn about missing outputs, but do not make it fatal since the
+        // outputs may not be required for this particular invocation.
+        WLOG(("") << className << " SampleIOProcessor::fromDOMElement :"
+                  << "no output specified");
+    }
 }
 

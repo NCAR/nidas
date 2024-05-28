@@ -24,8 +24,6 @@
  ********************************************************************
 */
 
-#include <nidas/Config.h>
-
 #include "ModbusRTU.h"
 #include <nidas/core/Variable.h>
 #include <nidas/util/UTime.h>
@@ -61,8 +59,8 @@ static const n_u::EndianConverter *toHost = n_u::EndianConverter::getConverter(
 
 ModbusRTU::ModbusRTU():SerialSensor(),
 #ifdef HAVE_LIBMODBUS
-    _modbusrtu(0), _slaveID(1), _regaddr(0),
-    _thread(0), _pipefds{-1,-1},
+    _modbusrtu(0), _slaveID(1), _regaddr(0), _pipefds{-1,-1},
+    _thread(0), _iodevice(0),
 #endif
     _nvars(0), _stag(0)
 {
@@ -94,21 +92,20 @@ void ModbusRTU::init()
 }
 
 #ifdef HAVE_LIBMODBUS
-class MyIODevice: public UnixIODevice {
-public:
-    MyIODevice(int fd): UnixIODevice() { _fd = fd; }
-    // pipe is already open
-    void open(int) {}
-};
 
 IODevice* ModbusRTU::buildIODevice()
 {
-    return new MyIODevice(_pipefds[0]);
+    if (!_iodevice)
+        _iodevice = new ModbusIODevice();   // deleted in DSMSensor dtor
+
+    return _iodevice;
 }
 
 SampleScanner* ModbusRTU::buildSampleScanner()
 {
-    MessageStreamScanner* scanner = new MessageStreamScanner();
+    ModbusMessageStreamScanner* scanr = new ModbusMessageStreamScanner();
+    scanr->setNullTerminate(false);
+    scanr->setUsecsPerByte(getUsecsPerByte());
 
     // Format of data written by writer thread is a simple buffer,
     // consisting of all little-endian, words of uint16_t.
@@ -119,8 +116,19 @@ SampleScanner* ModbusRTU::buildSampleScanner()
     // The message length (which doesn't include the separator) is then 2 * nvars.
     uint16_t nvars_le = toLittle->uint16Value(_nvars);
     string sepstr((const char*) &nvars_le, 2);
-    scanner->setMessageParameters(_nvars * sizeof(uint16_t), sepstr, false);
-    return scanner;
+    scanr->setMessageParameters(_nvars * sizeof(uint16_t), sepstr, false);
+
+    return scanr;
+}
+
+Sample* ModbusRTU::ModbusMessageStreamScanner::nextSampleSepBOM(DSMSensor* sensor)
+{
+    Sample* samp = MessageStreamScanner::nextSampleSepBOM(sensor);
+    if (samp)
+        // Adjust time tag earlier by number of bytes that were discarded
+        // between the libmodbus read and the data sent over the pipe.
+        samp->setTimeTag(samp->getTimeTag() - _nbytesDiscarded * getUsecsPerByte());
+    return samp;
 }
 #endif
 
@@ -138,19 +146,33 @@ void ModbusRTU::open(int)
     if (::pipe(_pipefds) < 0)
         throw n_u::IOException(getDeviceName(), "pipe", errno);
 
+    buildIODevice();
+    _iodevice->setFd(_pipefds[0]);   // nidas reads from the IODevice
+
+    SerialSensor::open(flags);
+
     const n_u::Termios& termios = getTermios();
 
     int baud = termios.getBaudRate();
+    int data = termios.getDataBits();
+    int stop = termios.getStopBits();
+    int bits = data + stop + 1;
+
     char parity = 'N';
 
     switch (termios.getParity()) {
-        case termios.NONE: parity = 'N'; break;
-        case termios.ODD: parity = 'O'; break;
-        case termios.EVEN: parity = 'E'; break;
+        case termios.NONE:
+            parity = 'N'; break;
+        case termios.ODD:
+            parity = 'O'; bits++; break;
+        case termios.EVEN:
+            parity = 'E'; bits++; break;
         default: break;
     }
-    int data = termios.getDataBits();
-    int stop = termios.getStopBits();
+
+    int usecs = (bits * USECS_PER_SEC + termios.getBaudRate() / 2) /
+        termios.getBaudRate();
+    getSampleScanner()->setUsecsPerByte(usecs);
 
     _modbusrtu = modbus_new_rtu(getDeviceName().c_str(), baud, parity,
             data, stop);
@@ -178,19 +200,33 @@ void ModbusRTU::open(int)
 
     int dtusec = USECS_PER_SEC / rate;
 
+/* Evaluates to True if the version is greater than @major, @minor and @micro
+   (Actually does a >= on micro, if major and minor are the same) */
+#if LIBMODBUS_VERSION_CHECK(3,1,0)
+    uint32_t to_sec, to_usec;
+    modbus_get_response_timeout(_modbusrtu, &to_sec, &to_usec);
+    DLOG(("old timeout, sec=") << to_sec << ", usec=" << to_usec);
+#ifdef SET_MODBUS_TIMEOUT
+    to_sec = dtusec / USECS_PER_SEC;
+    to_usec = dtusec % USECS_PER_SEC;
+    modbus_set_response_timeout(_modbusrtu, &to_sec, &to_sec);
+    DLOG(("new timeout, sec=") << to_sec << ", usec=" << to_usec);
+#endif
+
+#else
     struct timeval tvold;
     modbus_get_response_timeout(_modbusrtu, &tvold);
-
-    cerr << "old timeout, sec=" << tvold.tv_sec << ", usec=" << tvold.tv_usec << endl;
-    cerr << "dtusec=" << dtusec << endl;
-
+    DLOG(("old timeout, sec=") << tvold.tv_sec << ", usec=" << tvold.tv_usec);
 #ifdef SET_MODBUS_TIMEOUT
     struct timeval tvnew;
     tvnew.tv_sec = dtusec / USECS_PER_SEC;
     tvnew.tv_usec = dtusec % USECS_PER_SEC;
     modbus_set_response_timeout(_modbusrtu, &tvnew);
-    cerr << "new timeout, sec=" << tvnew.tv_sec << ", usec=" << tvnew.tv_usec << endl;
+    DLOG(("new timeout, sec=") << tvnew.tv_sec << ", usec=" << tvnew.tv_usec);
 #endif
+#endif
+
+    DLOG(("dtusec=") << dtusec);
 
     setTimeoutMsecs((dtusec * 5) / USECS_PER_MSEC);
 
@@ -212,14 +248,18 @@ void ModbusRTU::open(int)
 
     _thread->setRealTimeFIFOPriority(40);
 
+#ifdef IGNORE_THREAD_ERROR
     try {
         _thread->unblockSignal(SIGUSR1);
         _thread->start();
     }
     catch(n_u::Exception& e) {
     }
+#else
+    _thread->unblockSignal(SIGUSR1);
+    _thread->start();
+#endif
 
-    SerialSensor::open(flags);
 #endif
 }
 
@@ -232,28 +272,55 @@ void ModbusRTU::close()
     if (_pipefds[1] >= 0) ::close(_pipefds[1]);
     _pipefds[0] = _pipefds[1] = -1;
 
+    // _iodevice->close() will do nothing if its fd is < 0
+    _iodevice->setFd(-1);       
+
     // _thread->cancel();
     _thread->kill(SIGUSR1);
     _thread->join();
 
     modbus_close(_modbusrtu);
     modbus_free(_modbusrtu);
+
+    SerialSensor::close();
 }
 
 int ModbusRTU::ModbusThread::run() throw()
 {
     uint16_t data[_nvars + 1];
+
+    // These toLittle conversions are here just in case this code
+    // is run on a big-endian system (not likely now without armbe
+    // machines). They do don't swap anything on a little-endian system.
     data[0] = toLittle->uint16Value(_nvars);
 
+    int nCRCError = 0;
+    int sampleMsec = MSECS_PER_SEC / _rate;
+
     for (; !isInterrupted(); ) {
+        errno = 0;
         int nreg = modbus_read_registers(_mb, _regaddr, _nvars, data + 1);
         if (nreg < 0) {
-            n_u::IOException e(_devname, "modbus_read_registers", errno);
-            PLOG(("Error: ") << e.what());
-            return RUN_EXCEPTION;
-         }
+            if (errno == 0) {
+                if (nCRCError++ > 5) {
+                    // When this thread exits the Nidas sensor handler
+                    // will get a timeout reading from the pipe, which will
+                    // then re-open the sensor.
+                    return RUN_EXCEPTION;
+                }
+                n_u::IOException e(_devname, "modbus_read_registers", "checksum error");
+                WLOG(("") << e.what());
+                continue;
+            }
+            else {
+                n_u::IOException e(_devname, "modbus_read_registers", errno);
+                PLOG(("") << e.what());
+                // Another thread exit, resulting in sensor timeout
+                return RUN_EXCEPTION;
+            }
+        }
+        nCRCError = 0;
 
-        // convert to little-endian
         for (int i = 0; i < _nvars; i++)
             data[i+1] = toLittle->uint16Value(data[i+1]);
 
@@ -261,7 +328,8 @@ int ModbusRTU::ModbusThread::run() throw()
             n_u::IOException e(_devname + " pipe", "write", errno);
             PLOG(("Error: ") << e.what());
         }
-        ::sleep(1);
+
+        n_u::sleepUntil(sampleMsec);
     }
     return RUN_OK;
 }
@@ -301,7 +369,7 @@ bool ModbusRTU::process(const Sample* samp,list<const Sample*>& results)
         // var->convert screens for missing values, converts, then
         // screens for min and max values
         Variable* var = vars[i];
-        var->convert(outsamp->getTimeTag(), &val, 1, &val);
+        var->convert(outsamp->getTimeTag(), &val);
         outsamp->getDataPtr()[i] = val;
     }
     results.push_back(outsamp);

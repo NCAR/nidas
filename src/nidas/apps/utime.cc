@@ -122,11 +122,7 @@ int main(int argc, char **argv)
     ut.setUTC(outUTC);
 
     if (outformat && *outformat) {
-#ifdef UTIME_BASIC_STREAM_IO
         cout << n_u::setDefaultFormat<char>(outformat);
-#else
-        cout << n_u::setDefaultFormat(outformat);
-#endif
         cout << ut << endl;
     }
     else cout <<  ut.toUsecs() / USECS_PER_SEC << endl;

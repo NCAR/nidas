@@ -4,17 +4,14 @@ script=`basename $0`
 dir=`dirname $0`
 
 dopkg=nidas
-buildraf=false
-buildarinc=true
+buildarinc=false
 buildmodules=true
+destdir=
 
 while [ $# -gt 0 ]; do
     case $1 in
-        -nr)
-            buildraf=false
-            ;;
-        -noarinc)
-            buildarinc=false
+        -arinc)
+            buildarinc=true
             ;;
         --no-modules)
             buildmodules=false
@@ -22,8 +19,12 @@ while [ $# -gt 0 ]; do
         --modules)
             buildmodules=true
             ;;
+        -d)
+            destdir="$2"
+            shift
+            ;;
         -*)
-            echo "Usage: $0 [-nr] [-noarinc] [--[no-]modules] [spec-file]"
+            echo "Usage: $0 [-nr] [-arinc] [--[no-]modules] [spec-file]"
             exit 1
             ;;
         *)
@@ -40,7 +41,14 @@ cd ..    # to top of nidas tree
 # So that we don't compile from scratch everytime, do not --clean the BUILD
 # tree with rpmbuild.  nidas.spec %setup also has a -D option that
 # does not clear the BUILD tree before un-taring the source
-topdir=${TOPDIR:-$(rpmbuild --eval %_topdir)_$(hostname)}
+
+# If hostname is not available, then likely this is a container and it's not
+# useful.
+host=""
+if command -v hostname >/dev/null ; then
+    host="_$(hostname)"
+fi
+topdir=${TOPDIR:-$(rpmbuild --eval %_topdir)$host}
 
 # echo "topdir=$topdir"
 [ -d $topdir/SOURCES ] || mkdir -p $topdir/SOURCES
@@ -49,21 +57,11 @@ topdir=${TOPDIR:-$(rpmbuild --eval %_topdir)_$(hostname)}
 [ -d $topdir/RPMS ] || mkdir -p $topdir/RPMS
 
 log=`mktemp /tmp/${script}_XXXXXX.log`
-tmpspec=`mktemp /tmp/${script}_XXXXXX.spec`
-awkcom=`mktemp /tmp/${script}_XXXXXX.awk`
-trap "{ rm -f $log $tmpspec $awkcom; }" EXIT
+trap "{ rm -f $log; }" EXIT
 
 set -o pipefail
 
 if [ $dopkg == nidas -o $dopkg == nidas-doxygen ]; then
-
-    if $buildraf; then
-        args=
-        withraf="--with raf"
-    else
-        withraf=
-        args='BUILD_RAF=no'
-    fi
 
     if $buildarinc; then
         args="$args BUILD_ARINC=yes"
@@ -81,13 +79,6 @@ if [ $dopkg == nidas -o $dopkg == nidas-doxygen ]; then
         withmodules=
     fi
 
-    # In the RPM changelog, copy most recent commit subject lines
-    # since this tag (max of 100).
-    sincetag=v1.2
-
-    # to get the most recent tag of the form: vN
-    # sincetag=$(git tag -l --sort=version:refname "[vV][0-9]*" | tail -n 1)
-
     if ! gitdesc=$(git describe --match "v[0-9]*"); then
         echo "git describe failed, looking for a tag of the form v[0-9]*"
         exit 1
@@ -100,62 +91,22 @@ if [ $dopkg == nidas -o $dopkg == nidas-doxygen ]; then
     release=${release%-*}       # 14
     [ $gitdesc == "$release" ] && release=0 # no dash
 
-    # run git describe on each hash to create a version
-    cat << \EOD > $awkcom
-/^[0-9a-f]{7}/ {
-    cmd = "git describe --match '[vV][0-9]*' " $0 " 2>/dev/null"
-    res = (cmd | getline version)
-    close(cmd)
-    if (res == 0) {
-        version = ""
-    }
-}
-/^\*/ { print $0,version }
-/^-/ { print $0 }
-/^$/ { print $0 }
-EOD
-
-    # create change log from git log messages since the tag $sincetag.
-    # Put SHA hash by itself on first line. Above awk script then
-    # converts it to the output of git describe, and appends it to "*" line.
-    # Truncate subject line at 60 characters 
-    # git convention is that the subject line is supposed to be 50 or shorter
-    # Delete the date lines for a few commits with bad timestamps, else rpmbuild
-    # aborts because the change log is not chronological.
-    git log --max-count=100 --date-order --format="%H%n* %cd %aN%n- %s%n" --date=local $excludes ${sincetag}.. | \
-    sed -r 's/[0-9]+:[0-9]+:[0-9]+ //' | sed -r 's/(^- .{,60}).*/\1/' | \
-    awk --re-interval -f $awkcom | \
-    sed -e '/g8ea1e5f/d' -e '/ga1e79ab/d' -e '/g45a0f80/d' -e '/g51f0946/d' | \
-    cat rpm/${dopkg}.spec - > $tmpspec
-
     if [ $dopkg == nidas ]; then
-        # If $JLOCAL/include/raf or /opt/local/include/raf exists then
-        # build configedit package
-        $buildraf && [ -d ${JLOCAL:-/opt/local}/include/raf ] && withce="--with configedit"
-
-        # If moc-qt4 is in PATH, build autocal
-        $buildraf && type -p moc-qt4 > /dev/null && withac="--with autocal"
-
-    # Don't build nidas source package.  We cannot release the source
-    # if it contains the Condor code, and no one uses it anyway.
+        # Don't build nidas source package.  We cannot release the source
+        # if it contains the Condor code, and no one uses it anyway.
         buildopt=-bb
     else
-    # Don't build source for nidas-doxygen.
+        # Don't build source for nidas-doxygen.
         buildopt=-bb
     fi
 
     cd src   # to src
-    scons BUILDS=host $args build/include/nidas/Revision.h build/include/nidas/linux/Revision.h
+    scons BUILDS=host $args versionfiles
     cd -    # back to top
 
     tar czf $topdir/SOURCES/${dopkg}-${version}.tar.gz \
-            rpm pkg_files filters src/SConstruct src/nidas src/firmware src/nidas.pc.in src/build/include \
-            src/xml doc/doxygen_conf || exit $?
-
-    # edit_cal has an rpath of /usr/{lib,lib64}
-    # Setting QA_RPATHS here prevents rpmbuild from dying until
-    # that is fixed.
-    # export QA_RPATHS=$[ 0x0001|0x0010 ]
+            rpm src/filters src/SConstruct src/nidas src/tools src/firmware \
+            src/systemd src/xml doc/doxygen_conf || exit $?
 
     # set _unpackaged_files_terminate_build to false, which risks the situation
     # of not knowing that an important file is missing from the RPM.
@@ -172,12 +123,12 @@ EOD
     # being extracted from binaries. I tried to find them in the build messages for
     # configedit, but no luck.
 
-    rpmbuild $buildopt $withmodules $witharinc $withraf $withce $withac \
+    rpmbuild $buildopt $withmodules $witharinc \
         --define "gitversion $version" --define "releasenum $release" \
         --define "_topdir $topdir" \
         --define "_unpackaged_files_terminate_build 0" \
         --define "debug_package %{nil}" \
-        $tmpspec 2>&1 | tee -a $log  || exit $?
+        rpm/${dopkg}.spec 2>&1 | tee -a $log  || exit $?
 
 fi
 
@@ -187,8 +138,8 @@ if [ $dopkg == $pkg ]; then
 fi
 
 echo "RPMS:"
-egrep "^Wrote:" $log
-rpms=`egrep '^Wrote:' $log | egrep RPMS/ | awk '{print $2}'`
+grep -E "^Wrote:" $log
+rpms=`grep -E '^Wrote:' $log | grep -E RPMS/ | awk '{print $2}'`
 echo "rpms=$rpms"
 
 # print out warnings: and the following file list
@@ -200,3 +151,8 @@ n
 /^ /b next
 }
 ' $log
+
+if [ -n "$destdir" ]; then
+    echo "moving packages to $destdir..."
+    (set -x; mv -f $rpms $destdir)
+fi

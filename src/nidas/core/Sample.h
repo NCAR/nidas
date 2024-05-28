@@ -41,6 +41,7 @@
 #include <climits>
 #include <iostream>
 #include <cstring>
+#include <initializer_list>
 
 #include <cmath>
 
@@ -417,6 +418,34 @@ public:
         _data(0),_allocLen(0)
     {}
 
+    void
+    setValues(std::initializer_list<DataT> values)
+    {
+        unsigned int len = values.size();
+        allocateData(len);
+        setDataLength(len);
+        unsigned int i = 0;
+        for (auto v : values)
+        {
+            setDataValue(i++, (DataT)v);
+        }
+    }
+
+    /**
+     * Construct a SampleT from an initializer list.  @see setValues().
+     *
+     * For example, this constructs a float sample with 4 values:
+     * @code
+     * SampleT<float> sample { 1, 2, 3, 4 };
+     * @endcode
+     */
+    SampleT(std::initializer_list<DataT> values) :
+        Sample(sample_type_traits<DataT>::sample_type_enum),
+        _data(0),_allocLen(0)
+    {
+        setValues(values);
+    }
+
     ~SampleT() { delete [] _data; }
 
     sampleType getType() const { return getSampleType(_data); }
@@ -595,6 +624,27 @@ protected:
     SampleT& operator=(const SampleT&);
 };
 
+
+class SampleChar : public SampleT<char>
+{
+public:
+    /**
+     * Construct a SampleT<char> initialized to the bytes in buffer.
+     *
+     * The buffer must be null-terminated, and the null will be included in
+     * the Sample data.
+     *
+     * @param buffer null-terminated array of chars
+     */
+    SampleChar(const char* buffer)
+    {
+        unsigned int len = strlen(buffer) + 1;
+        allocateData(len);
+        setDataLength(len);
+        strcpy(getDataPtr(), buffer);
+    }
+};
+
 /**
  * A convienence method for getting a sample of an
  * enumerated type from a pool.
@@ -623,6 +673,15 @@ SampleT<T>* getSample(unsigned int len)
 	SamplePool<SampleT<T> >::getInstance()->getSample(len);
     return samp;
 }
+
+/**
+ * Get a char sample from the pool filled with the given null-terminated
+ * string data.
+ *
+ * @param data null-terminated string
+ * @return SampleT<char>* 
+ */
+SampleT<char>* getSample(const char* data);
 
 /**
  * Free a reference to a sample. Return it to its pool if

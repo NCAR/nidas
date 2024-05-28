@@ -46,12 +46,8 @@ class XDOMElement {
 public:
     XDOMElement(const xercesc::DOMElement*e) :
     	_elemConst(e),_elemNonConst(0), _attrs(),
-	_nodename(XMLStringConverter(e->getNodeName())),
-#if XERCES_VERSION_MAJOR < 3
-        _nodetype( e->getTypeInfo() ? (std::string)XMLStringConverter(e->getTypeInfo()->getName()) : "")
-#else
+        _nodename(XMLStringConverter(e->getNodeName())),
         _nodetype( e->getSchemaTypeInfo() ? (std::string)XMLStringConverter(e->getSchemaTypeInfo()->getTypeName()) : "")
-#endif
     {
     }
 

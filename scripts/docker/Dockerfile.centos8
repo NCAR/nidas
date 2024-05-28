@@ -1,0 +1,57 @@
+# Now that CentOS8 has been deprecated, the "official" docker images report an
+# error when trying to update them:
+#
+# Error: Failed to download metadata for repo 'appstream': Cannot prepare internal mirrorlist: No URLs in mirrorlist
+#
+# Apparently the fix is to force the package search to go to the vault, changing these lines:
+#
+# mirrorlist=http://mirrorlist.centos.org/?release=$releasever&arch=$basearch&repo=AppStream&infra=$infra
+# #baseurl=http://mirror.centos.org/$contentdir/$releasever/AppStream/$basearch/os/
+#
+# to these lines:
+#
+# #mirrorlist=http://mirrorlist.centos.org/?release=$releasever&arch=$basearch&repo=AppStream&infra=$infra
+# baseurl=https://vault.centos.org/$contentdir/$releasever/AppStream/$basearch/os/
+#
+# Rather than make that change explicitly, use the roboxes images which have already done that.
+
+FROM docker.io/roboxes/centos8
+LABEL organization="NCAR EOL"
+
+# Need to enable PowerTools repo in centos8 to get python3-scons
+
+RUN yum -y update
+# To get yum-config-manager to enable PowerTools repo permanently
+RUN yum -y install yum-utils
+RUN yum-config-manager --enable powertools
+RUN yum -y install epel-release
+RUN yum -y install gcc-c++ git doxygen graphviz glibc-devel flex kernel-devel libpcap-devel libcap-devel elfutils-libelf-devel
+
+RUN yum -y install gsl-devel libpcap-devel bzip2-devel bzip2-libs bzip2 bluez-libs-devel jsoncpp-devel libcurl-devel xerces-c-devel
+
+# for testing
+RUN yum -y install boost-devel valgrind
+
+# python3-scons package is too old, use pip instead.  However, even running
+# the right scons executable out of /usr/local/bin, the SCons package is not
+# found when run by rpmbuild, so just force it into the system python path
+# too.
+RUN yum -y install python3
+RUN pip3 install scons
+RUN ln --force -s scons /usr/local/bin/scons-3
+RUN ln --force -s /usr/local/lib64/python3.6/site-packages/SCons /usr/lib64/python3.6/site-packages/SCons
+
+# Not actually using this at this point, so leave it out.
+# RUN rpm -ihv http://www.eol.ucar.edu/software/rpms/eol-repo-epel-1-5.noarch.rpm
+
+# For some reason /usr/include/linux/errno.h is missing at this point, and an
+# install of kernel-headers says it already installed, so this reinstall fixes
+# that.  Otherwise the xmlrpc++ build fails because of the missing
+# <linux/errno.h> header.
+RUN yum -y reinstall kernel-headers
+RUN yum -y install rpm-build rsync diffutils cmake3
+RUN mkdir -p xmlrpc-build
+COPY ./build-xmlrpc.sh xmlrpc-build
+RUN cd xmlrpc-build && ./build-xmlrpc.sh
+
+WORKDIR /root

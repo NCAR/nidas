@@ -39,6 +39,7 @@ using namespace nidas::core;
 using namespace std;
 
 namespace n_u = nidas::util;
+using nidas::util::UTime;
 
 /* static */
 vector<string> CalFile::_allPaths;
@@ -111,11 +112,12 @@ CalFile::CalFile():
     _curlineLength(INITIAL_CURLINE_LENGTH),
     _curline(new char[_curlineLength]),
     _curpos(0),_eofState(false),_nline(0),
-    _nextTime(LONG_LONG_MIN),
-    _currentTime(LONG_LONG_MIN),
+    _nextTime(UTime::MIN),
+    _currentTime(UTime::MIN),
     _currentFields(),
-    _includeTime(LONG_LONG_MIN),
-    _timeAfterInclude(LONG_LONG_MIN),_timeFromInclude(LONG_LONG_MIN),
+    _includeTime(UTime::MIN),
+    _timeAfterInclude(UTime::MIN),
+    _timeFromInclude(UTime::MIN),
     _include(0),_sensor(0),_mutex()
 {
     _curline[0] = '\0';
@@ -131,11 +133,12 @@ CalFile::CalFile(const CalFile& x): DOMable(),
     _curlineLength(INITIAL_CURLINE_LENGTH),
     _curline(new char[_curlineLength]),
     _curpos(0),_eofState(false),_nline(0),
-    _nextTime(LONG_LONG_MIN),
-    _currentTime(LONG_LONG_MIN),
+    _nextTime(UTime::MIN),
+    _currentTime(UTime::MIN),
     _currentFields(),
-    _includeTime(LONG_LONG_MIN),
-    _timeAfterInclude(LONG_LONG_MIN),_timeFromInclude(LONG_LONG_MIN),
+    _includeTime(UTime::MIN),
+    _timeAfterInclude(UTime::MIN),
+    _timeFromInclude(UTime::MIN),
     _include(0),
     _sensor(x._sensor),_mutex()
 {
@@ -294,7 +297,7 @@ void CalFile::open()
     _eofState = false;
     _curline[0] = '\0';
     _curpos = 0;
-    _nextTime = LONG_LONG_MIN;
+    _nextTime = UTime::MIN;
 }
 
 void CalFile::close() throw()
@@ -534,7 +537,7 @@ int CalFile::readCFNoLock(n_u::UTime& time, float* data, int ndata,
     // Make sure the "current record" looks invalid in case this throws an
     // exception.
     _currentFields.clear();
-    _currentTime = LONG_LONG_MIN;
+    _currentTime = UTime::MIN;
 
     if (_include)
     {
@@ -549,7 +552,7 @@ int CalFile::readCFNoLock(n_u::UTime& time, float* data, int ndata,
     }
 
     /* first call to readCF() for this file */
-    if (_nextTime == LONG_LONG_MIN)
+    if (_nextTime.isMin())
     {
         readTime();
     }
@@ -803,7 +806,9 @@ void CalFile::fromDOMElement(const xercesc::DOMElement* node)
             if (aname == "path") setPath(aval);
             else if (aname == "file") setFile(aval);
             else if (aname == "name") setName(aval);
-            else throw n_u::InvalidParameterException(xnode.getNodeName(),
+            else if (aname != "xmlns")
+                // XMLConfigWriter seems to add xmlns attributes
+                throw n_u::InvalidParameterException(xnode.getNodeName(),
                                                       "unrecognized attribute",
                                                       aname);
         }

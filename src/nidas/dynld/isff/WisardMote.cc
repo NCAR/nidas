@@ -659,26 +659,6 @@ namespace {
 
     const int _missValueInt32 = 0x80000000;
 
-    const char *readUint8(const char *cp, const char *eos,
-            unsigned int nfields,float scale, float *fp)
-    {
-        /* convert unsigned chars to float */
-        unsigned int i;
-        for (i = 0; i < nfields; i++) {
-            if (cp + sizeof(uint8_t) > eos) break;
-            unsigned char val = *cp++;
-            cp += sizeof(uint8_t);
-            if (fp) {
-                if (val != _missValueUint8)
-                    *fp++ = val * scale;
-                else
-                    *fp++ = floatNAN;
-            }
-        }
-        if (fp) for ( ; i < nfields; i++) *fp++ = floatNAN;
-        return cp;
-    }
-
     const char *readUint16(const char *cp, const char *eos,
             unsigned int nfields,float scale, float *fp)
     {

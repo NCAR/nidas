@@ -1,0 +1,10 @@
+prefix=@PREFIX@
+libdir=${prefix}/lib
+includedir=${prefix}/include
+
+Name: nidas
+Description: NCAR In-Situ Data Acquisition Software
+Version: @REPO_TAG@
+Libs: -L${libdir} -lnidas_util -lnidas -lnidas_dynld
+Cflags: -I${includedir}
+Requires: xerces-c,xmlrpcpp

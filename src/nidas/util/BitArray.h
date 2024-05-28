@@ -80,9 +80,9 @@ public:
      */
     void setBit(int num, bool value)
     {
-	if (num >= getLengthInBytes() * 8) return;
-	if (value) bits[num/8] |= 0x1 << (num%8);
-	else bits[num/8] &= ~(0x1 << (num%8));
+	if (num < 0 || num >= getLength()) return;
+	if (value) bits[num/8] |= (0x1 << (num%8));
+	else bits[num/8] &= (~(0x1 << (num%8)));
     }
 
     /**

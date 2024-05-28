@@ -24,11 +24,11 @@
  ********************************************************************
 */
 
-#include <nidas/Config.h>
-
 
 #ifndef NIDIS_DYNLD_MODBUSRTU_H
 #define NIDIS_DYNLD_MODBUSRTU_H
+
+#include <nidas/Config.h>
 
 #ifdef HAVE_LIBMODBUS
 #include <modbus/modbus.h>
@@ -72,6 +72,7 @@ namespace nidas { namespace dynld {
  *              <linear units="degC" slope="0.1" intercept="0.0"/>
  *          </variable>
  *      </sample>
+ *      <message separator="0" length="0" eom="false"/>
  *  </serialSensor>
  *
  *  The file descriptor is hidden in an opaque structure in libmodbus.
@@ -96,11 +97,13 @@ public:
     void open(int flags);
 
 #ifdef HAVE_LIBMODBUS
+
     void close();
 
     IODevice* buildIODevice();
 
     SampleScanner* buildSampleScanner();
+
 #endif
 
     /**
@@ -113,7 +116,53 @@ public:
     bool process(const Sample* samp,std::list<const Sample*>& results)
         throw();
 
+
+protected:
+    /**
+     * A subclass of MessageStreamScanner, with a modified
+     * nextSampleSepBOM() method that adjusts the sample
+     * time tag by the tranmission time of the number of bytes
+     * that were discarded between the libmodbus read and the data
+     * sent over the pipe.
+     *
+     * From an email from Josh Carnes:
+     * A ModbusRTU response includes
+     *  1-byte address
+     *  1- byte function
+     *  1-byte Byte Count (X)
+     *  X-byte data
+     *  2-byte CRC
+     * So, the response transmission length is 5-bytes longer than the data.
+     * In this application, that's 7 Bytes total.
+     *
+     * The samples on the pipe after the modbus read consist of a 2-byte
+     * length and then the 2 byte sample word.  So we need to adjust
+     * the sample time earlier by the transmission time of 3 bytes.
+     */
+
+    class ModbusMessageStreamScanner: public MessageStreamScanner
+    {
+    public:
+        ModbusMessageStreamScanner(): MessageStreamScanner(),
+             _nbytesDiscarded(3)
+        {
+        }
+        Sample* nextSampleSepBOM(DSMSensor* sensor);
+
+    private:
+        int _nbytesDiscarded;
+    };
+        
 #ifdef HAVE_LIBMODBUS
+
+    modbus_t* _modbusrtu;
+
+    int _slaveID;
+
+    int _regaddr;
+
+    int _pipefds[2];
+
     class ModbusThread: public nidas::util::Thread
     {
     public:
@@ -136,20 +185,20 @@ public:
         // no assignment
         ModbusThread& operator=(const ModbusThread&);
     };
-#endif
-
-protected:
-
-#ifdef HAVE_LIBMODBUS
-    modbus_t* _modbusrtu;
-
-    int _slaveID;
-
-    int _regaddr;
 
     ModbusThread *_thread;
 
-    int _pipefds[2];
+    class ModbusIODevice: public UnixIODevice {
+    public:
+        ModbusIODevice(): UnixIODevice() {}
+        // pipe is opened by sensor open method.
+        void open(int) {}
+
+        void setFd(int val) { _fd = val; }
+    };
+
+    ModbusIODevice *_iodevice;
+
 #endif
 
     uint16_t _nvars;

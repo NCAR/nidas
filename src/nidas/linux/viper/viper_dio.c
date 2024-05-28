@@ -321,7 +321,11 @@ static int __init viper_dio_init(void)
         // for informational messages only at this point
         sprintf(viper_dio.deviceName,"/dev/viper_dio%d",0);
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6,0,0)
         viper_dio.vclass = class_create(THIS_MODULE, "viper_dio");
+#else
+        viper_dio.vclass = class_create("viper_dio");
+#endif
         if (IS_ERR(viper_dio.vclass)) {
                 result = PTR_ERR(viper_dio.vclass);
                 goto err;

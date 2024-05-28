@@ -1,50 +1,13 @@
-#!/bin/sh
+#!/bin/bash
 
 # Test script which runs ck_xml on a bunch of project configurations.
-
-# If the first runstring argument is "installed", then don't fiddle with PATH or
-# LD_LIBRARY_PATH, and run the nidas programs from wherever they are found in PATH.
-# Otherwise if build/apps is not found in PATH, prepend it, and if LD_LIBRARY_PATH 
-# doesn't contain the string build, prepend ../build/{util,core,dynld}.
 
 cwd=`dirname $0`
 echo "cwd=$cwd"
 
-installed=false
-[ $# -gt 0 -a "$1" == "-i" ] && installed=true
+source ../nidas_tests.sh
 
-if ! $installed; then
-
-    echo $PATH | fgrep -q build/apps || PATH=../../build/apps:$PATH
-
-    llp=../../build/util:../../build/core:../../build/dynld
-    echo $LD_LIBRARY_PATH | fgrep -q build || \
-        export LD_LIBRARY_PATH=$llp${LD_LIBRARY_PATH:+":$LD_LIBRARY_PATH"}
-
-    echo LD_LIBRARY_PATH=$LD_LIBRARY_PATH
-    echo PATH=$PATH
-
-    if ! which ck_xml | fgrep -q build/; then
-        echo "ck_xml program not found on build directory. PATH=$PATH"
-        exit 1
-    fi
-    if ! ldd `which ck_xml` | awk '/libnidas/{if (index($0,"build/") == 0) exit 1}'; then
-        echo "using nidas libraries from somewhere other than a build directory"
-        exit 1
-    fi
-fi
-
-# echo PATH=$PATH
-# echo LD_LIBRARY_PATH=$LD_LIBRARY_PATH
-
-echo "ck_xml executable: `which ck_xml`"
-echo "nidas libaries:"
-ldd `which ck_xml` | fgrep libnidas
-
-valgrind_errors() {
-    egrep -q "^==[0-9]*== ERROR SUMMARY:" $1 && \
-        sed -n 's/^==[0-9]*== ERROR SUMMARY: \([0-9]*\).*/\1/p' $1 || echo 1
-}
+check_executable ck_xml
 
 [ -d $cwd/tmp ] && rm -rf $cwd/tmp
 [ -d $cwd/tmp ] || mkdir $cwd/tmp

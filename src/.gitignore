@@ -6,3 +6,5 @@
 build*
 config*.log
 *.o
+vgcore.*
+/rpms.txt

@@ -50,6 +50,7 @@ using namespace nidas::dynld;
 using namespace std;
 
 namespace n_u = nidas::util;
+using nidas::util::UTime;
 
 class MergeVerifier
 {
@@ -188,7 +189,7 @@ int MergeVerifier::main(int argc, char** argv) throw()
 MergeVerifier::MergeVerifier():
     inputFileNames(),mergeFileNames(),
     readAheadUsecs(30*USECS_PER_SEC),
-    startTime(LONG_LONG_MIN),endTime(LONG_LONG_MIN),
+    startTime(UTime::MIN),endTime(UTime::MIN),
     nmissing(0)
 {
 }
