@@ -545,26 +545,23 @@ bool
 SampleCounter::
 receive(const Sample* samp)
 {
+    NidasApp& app{ *NidasApp::getApplicationInstance() };
     dsm_sample_id_t sampid = samp->getId();
     VLOG(("counting sample ") << nsamps << " for id "
-         << NidasApp::getApplicationInstance()->formatId(sampid));
+         << app.formatId(sampid));
     if (sampid != id && nsamps == 0)
     {
         ILOG(("assigning received sample ID ")
-             << NidasApp::getApplicationInstance()->formatId(sampid)
-             << " in place of "
-             << NidasApp::getApplicationInstance()->formatId(id));
+             << app.formatId(sampid) << " in place of " << app.formatId(id));
         id = sampid;
     }
     else if (sampid != id)
     {
         // Worst case this would cause a message for every sample, but it
         // is rare enough to not be worth improving.
-        ELOG(("sample ID ")
-             << NidasApp::getApplicationInstance()->formatId(sampid)
+        ELOG(("sample ID ") << app.formatId(sampid)
              << "is being included in statistics for "
-             << "samples with different ID: "
-             << NidasApp::getApplicationInstance()->formatId(id));
+             << "samples with different ID: " << app.formatId(id));
     }
     accumulateSample(samp);
     return true;
@@ -1030,6 +1027,7 @@ private:
     NidasAppArg Fullnames;
     BadSampleFilterArg FilterArg;
     NidasAppArg JsonOutput;
+    NidasAppArg ShowProblems;
 
 #if NIDAS_JSONCPP_ENABLED
 #if !NIDAS_JSONCPP_STREAMWRITER
@@ -1147,9 +1145,13 @@ with fields for each variable set to an array of values.  The
 streamid.  Use with -p to compute stats for individual variables.
 The path argument can include strptime() time specifiers, which
 will be interpolated with each stats period start time.)"
-               )
+               ),
+    ShowProblems("-e,--errors", "",
+R"(Print errors (aka problems) detected in processed data, such as
+missing values and mismatched sample rates.  JSON reports always
+include problems.)"),
 #if NIDAS_JSONCPP_ENABLED
-    ,streamWriter(),
+    streamWriter(),
     headerWriter()
 #endif
 {
@@ -1161,7 +1163,8 @@ will be interpolated with each stats period start time.)"
                         app.FormatSampleId | app.ProcessData |
                         app.Version | app.InputFiles | FilterArg |
                         app.Help | Period | Update | Count |
-                        AllSamples | ShowData | SingleMote | Fullnames);
+                        AllSamples | ShowData | SingleMote | Fullnames |
+                        ShowProblems);
 #if NIDAS_JSONCPP_ENABLED
     app.enableArguments(JsonOutput);
 #endif
@@ -1666,9 +1669,12 @@ void DataStats::printReport(std::ostream& outs)
         }
     }
 #if NIDAS_JSONCPP_ENABLED
-    for (auto& p: problems)
+    if (ShowProblems.asBool())
     {
-        outs << "problem: " << p.printout() << std::endl;
+        for (auto& p: problems)
+        {
+            outs << "problem: " << p.printout() << std::endl;
+        }
     }
 #endif
 }

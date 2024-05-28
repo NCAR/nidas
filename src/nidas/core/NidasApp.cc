@@ -348,6 +348,11 @@ std::string
 NidasAppArg::
 usage(const std::string& indent, bool brief)
 {
+  // brief output truncates the usage string at 50 characters or the first
+  // period, and writes the usage on the very next line if it does not fit
+  // next to the syntax string.
+  const int usage_indent = 25;
+  const int usage_len = 50;
   std::ostringstream oss;
   string flags = getUsageFlags();
   oss << indent << flags;
@@ -370,13 +375,21 @@ usage(const std::string& indent, bool brief)
     if (brief)
     {
       size_t len = oss.str().size();
-      oss << string((len < 29) ? 30 - len : 1, ' ');
-      if (line.size() > 40)
+      if (len >= usage_indent)
       {
-        line.erase(37);
+        oss << "\n";
+        len = 0;
+      }
+      oss << string(usage_indent - len, ' ');
+      size_t period = line.find('.');
+      if (period != string::npos)
+        line.erase(period+1);
+      if (line.size() > usage_len)
+      {
+        line.erase(usage_len - 3);
         line.append("...");
       }
-      oss << ' ' << line << "\n";
+      oss << line << "\n";
       break;
     }
     oss << indent << indent << line << "\n";

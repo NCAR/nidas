@@ -373,13 +373,13 @@ BadSampleFilterArg::
 BadSampleFilterArg() :
     NidasAppArg
   ("-f,--filter", "<rules>",
-   "-f does not take any arguments.  It enables bad sample filtering\n"
-   "  using the default range filters:\n"
+   "-f alone for default filters, --filter to set rules.\n"
+   "  Here are the default filter rules:\n"
    "    sample type must be valid\n"
    "    sample length must be greater than 0\n"
    "    dsmid must be greater than 0 and <= 1024\n"
    "    timetag must be within the last 20 years of tomorrow\n"
-   "  Some programs use the start and end time to narrow the valid timetag range.\n"
+   "  Some programs use start and end time to narrow the valid timetag range.\n"
    "--filter <rules>\n"
    "  Enable sample filtering and modify the valid ranges according to <rules>.\n"
    "  Rules are a comma-separated list of key=value settings using these keys:\n"
