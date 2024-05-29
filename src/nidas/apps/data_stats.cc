@@ -116,6 +116,7 @@ public:
 
     static const std::string SAMPLE_RATE_MISMATCH;
     static const std::string MISSING_VALUES;
+    static const std::string NO_SAMPLES;
 
     Problem(const std::string& kind, const std::string& streamid):
         kind(kind),
@@ -169,6 +170,7 @@ public:
 
 const std::string Problem::SAMPLE_RATE_MISMATCH{ "sample-rate-mismatch" };
 const std::string Problem::MISSING_VALUES{ "missing-values" };
+const std::string Problem::NO_SAMPLES{ "no-samples" };
 
 
 /**
@@ -824,21 +826,29 @@ jsonStats(std::vector<Problem>& problems)
         stats["totalbytes"] = Json::Value::UInt(totalBytes);
     }
 
+    if (nsamps == 0 )
+    {
+        Problem nosamples{Problem::NO_SAMPLES, streamid};
+        problems.push_back(std::move(nosamples));
+    }
+
     // Store computed rate no matter what, so it will be null if not enough
     // samples.
     double rate = computeRate();
     stats["averagerate"] = number_or_null(rate);
 
-    if (header.isMember("rate"))
+    // in theory a nan rate could be reported as a problem, but for now, rely
+    // on reporting it as a no-samples problem.
+    if (!std::isnan(rate) && header.isMember("rate"))
     {
         double xrate = header["rate"].asDouble();
         // probably this threshold should be a parameter eventually
         if (xrate != 0 && (abs(xrate - rate) > 0.5))
         {
-            Problem problem(Problem::SAMPLE_RATE_MISMATCH, streamid);
+            Problem problem{Problem::SAMPLE_RATE_MISMATCH, streamid};
             problem.values["averagerate"] = Json::Value(rate);
             problem.values["expectedrate"] = Json::Value(xrate);
-            problems.push_back(problem);
+            problems.push_back(std::move(problem));
         }
     }
 
@@ -870,7 +880,7 @@ jsonStats(std::vector<Problem>& problems)
             Problem nans{Problem::MISSING_VALUES, streamid};
             nans.values["variable"] = varnames[i];
             nans.values["nnans"] = nnans[i];
-            problems.push_back(nans);
+            problems.push_back(std::move(nans));
         }
     }
     if (varnames.size() > 0)
