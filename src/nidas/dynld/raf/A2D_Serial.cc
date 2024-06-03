@@ -46,6 +46,8 @@ NIDAS_CREATOR_FUNCTION_NS(raf, A2D_Serial)
 
 A2D_Serial::A2D_Serial() :
     SerialSensor(),
+    _initialConverter(new LinearA2DConverter(getMaxNumChannels())),
+    _finalConverter(new PolyA2DConverter(getMaxNumChannels(), 4)),
     _nVars(0), _sampleRate(0), _deltaT(0), _staticLag(0), _boardID(0),
     _haveCkSum(true), _calFile(0), _outputMode(Engineering), _havePPS(false),
     _calset(0), _voltage(-99), configStatus(),
@@ -55,10 +57,10 @@ A2D_Serial::A2D_Serial() :
     for (int i = 0; i < getMaxNumChannels(); ++i)
     {
         _ivarByChan[i] = -1;
-        _gains[i] = 1;          // 1 or 2 is all we support at this time.
-        _ifsr[i] = 0;           // plus/minus 10
-        _bipolar[i] = 1;        // Fixed 1 for this device
+        _ifsr[i] = 0;           // Full scale range, 0=+-10, 1=+-5.
         _ipol[i] = 0;
+        // _gains[i] = 1;          // 1 or 2 is all we support at this time.
+        // _bipolar[i] = 1;        // Fixed 1 for this device
     }
 
     configStatus["PPS"] = 0;
@@ -69,6 +71,8 @@ A2D_Serial::A2D_Serial() :
 
 A2D_Serial::~A2D_Serial()
 {
+    delete _initialConverter;
+    delete _finalConverter;
     cerr << "A2D_Serial: " << getName() << " #header lines=" << headerLines << ", #shortPkts=" << _shortPacketCnt << ", #badCkSums=" << _badCkSumCnt << endl;
 }
 
@@ -130,17 +134,30 @@ void A2D_Serial::dumpConfig() const
     if (_calFile)
         cout << "CalFileName = " << _calFile->getCurrentFileName() << endl;
 
+    // A/D calibration coefficients
+    float _polyCals[4];
+    int nc = sizeof(_polyCals) / sizeof(_polyCals[0]);
+
     for (int i = 0; i < getMaxNumChannels(); ++i)
     {
         if (_ivarByChan[i] >= 0) {
             cout << "chan=" << i << ", var#=" << _ivarByChan[i] << ", ifsr=" << _ifsr[i] << ", ipol=" << _ipol[i] << ", cals=";
-            for (size_t j = 0; j < _polyCals[i].size(); ++j)
-                cout << _polyCals[i].at(j) << ", ";
+            _finalConverter->get(i, _polyCals, sizeof(_polyCals) / sizeof(_polyCals[0]));
+            for (int j = 0; j < nc; j++)
+                cout << _polyCals[j] << ", ";
             cout << endl;
         }
     }
 }
 
+void A2D_Serial::getDefaultConversion(int,
+    float& intercept, float& slope) const
+{
+    // for now 0,1, so the initial conversion returns counts, unchanged.
+    // Plans are to eventually do an initial approximate conversion to volts
+    intercept = 0;
+    slope = 1.0;
+}
 
 void A2D_Serial::validate()
 {
@@ -152,6 +169,24 @@ void A2D_Serial::validate()
           "boardID","not found");
     _boardID = (int)param->getNumericValue(0);
 
+    param = getParameter("outputmode");
+    if (param) {
+        const string& pname = param->getName();
+        if (pname == "outputmode") {
+            if (param->getType() != Parameter::STRING_PARAM ||
+                param->getLength() != 1)
+                throw n_u::InvalidParameterException(getName(),"sample",
+                    "output mode parameter is not a string");
+            string fname = param->getStringValue(0);
+            for (unsigned int i = 0; i < fname.length(); ++i)
+                fname[i] = tolower(fname[i]);
+            if (fname == "counts") _outputMode = Counts;
+            else if (fname == "volts") _outputMode = Volts;
+            else if (fname == "engineering") _outputMode = Engineering;
+            else throw n_u::InvalidParameterException(getName(),"sample",
+                    fname + " output mode is not supported");
+        }
+    }
 
     const std::list<SampleTag*>& tags = getSampleTags();
     std::list<SampleTag*>::const_iterator ti = tags.begin();
@@ -171,16 +206,8 @@ void A2D_Serial::validate()
             const Parameter* param = *pi;
             const string& pname = param->getName();
             if (pname == "outputmode") {
-                    if (param->getType() != Parameter::STRING_PARAM ||
-                        param->getLength() != 1)
-                        throw n_u::InvalidParameterException(getName(),"sample",
-                            "output mode parameter is not a string");
-                    string fname = param->getStringValue(0);
-                    if (fname == "counts") _outputMode = Counts;
-                    else if (fname == "volts") _outputMode = Volts;
-                    else if (fname == "engineering") _outputMode = Engineering;
-                    else throw n_u::InvalidParameterException(getName(),"sample",
-                            fname + " output mode is not supported");
+                n_u::Logger::getInstance()->log(LOG_WARNING,"%s: %s",
+                    getName().c_str(),"outputmode should be a parameter of <sensor>, not of <sample>");
             }
         }
 
@@ -201,6 +228,7 @@ void A2D_Serial::validate()
             for (pi = vparams.begin(); pi != vparams.end(); ++pi) {
                 const Parameter* param = *pi;
                 const string& pname = param->getName();
+                // Full scale range, 0=+-10, 1=+-5.
                 if (pname == "ifsr") {
                     if (param->getLength() != 1)
                         throw n_u::InvalidParameterException(getName(),
@@ -228,7 +256,6 @@ void A2D_Serial::validate()
                         "channel",ost.str());
             }
 
-
             // cerr << "A2D_Serial: ichan=" << ichan << " ifsr=" << ifsr << " bipolar=" << ipol << endl;
             var->setA2dChannel(ichan);
 
@@ -237,9 +264,21 @@ void A2D_Serial::validate()
             _ivarByChan[ichan] = iv;
             _ipol[ichan] = ipol;
             _ifsr[ichan] = ifsr;
-            _gains[ichan] = ifsr + 1;  // this works for now, will not if more gains are added
+            // gain is ifsr + 1. This works for now, will not if more
+            // gains are added
+            _initialConverter->setGain(ichan, ifsr + 1);
+            _finalConverter->setGain(ichan, ifsr + 1);
+            _initialConverter->setBipolar(ichan, 1);
+            _finalConverter->setBipolar(ichan, 1);
             prevChan = ichan;
         }
+    }
+
+    // setup initial A2D conversion
+    float cfact[2];
+    for (int ichan = 0; ichan < getMaxNumChannels(); ichan++) {
+        getDefaultConversion(ichan, cfact[0], cfact[1]);
+        _initialConverter->set(ichan, cfact, sizeof(cfact) / sizeof(cfact[0]));
     }
 }
 
@@ -263,7 +302,6 @@ void A2D_Serial::init()
     // Note this calibration is separate from that applied to each variable.
     if (!cfs.empty()) _calFile = cfs.begin()->second;
 }
-
 
 void A2D_Serial::printStatus(std::ostream& ostr) throw()
 {
@@ -367,7 +405,6 @@ bool A2D_Serial::process(const Sample * samp,
         return rc;
     }
 
-
     /*
      * Process data-lines.  We should have otherwise returned.
      */
@@ -386,7 +423,10 @@ bool A2D_Serial::process(const Sample * samp,
 
     SampleT<float>* outs = getSample<float>(_nVars);
     dsm_time_t ttag = samp->getTimeTag() - getLagUsecs() - _staticLag;
-    outs->setId(getId() + 2);
+    list<SampleTag*> tags = getSampleTags();
+    tags.pop_front();
+    SampleTag* stag = tags.front();
+    outs->setId(stag->getId());
 
     int hz_counter;
     sscanf(input, "#%x,", &hz_counter);
@@ -422,11 +462,32 @@ bool A2D_Serial::process(const Sample * samp,
         outs->setTimeTag(ttag);
     }
 
-    readCalFile(ttag);    // A2D Cals
+    if (getOutputMode() != Counts && _calFile) {
+        try {
+            // read A2D cals
+            _finalConverter->readCalFile(_calFile, ttag);
+        }
+
+        catch(const n_u::EOFException& e) {
+        }
+        catch(const n_u::IOException& e) {
+            n_u::Logger::getInstance()->log(LOG_WARNING,"%s: %s",
+                _calFile->getCurrentFileName().c_str(),e.what());
+            _finalConverter->setNAN();
+            _calFile = 0;
+        }
+        catch(const n_u::ParseException& e) {
+            n_u::Logger::getInstance()->log(LOG_WARNING,"%s: %s",
+                _calFile->getCurrentFileName().c_str(),e.what());
+            _finalConverter->setNAN();
+            _calFile = 0;
+        }
+    }
+
     float * dout = outs->getDataPtr();
 
     // initialize dout
-    for (int iv = 0; iv < _nVars; iv++) dout[iv] = float(NAN);
+    for (int iv = 0; iv < _nVars; iv++) dout[iv] = floatNAN;
 
     int data, ichan;
     const char *p = ::strchr(input, ',');
@@ -442,14 +503,18 @@ bool A2D_Serial::process(const Sample * samp,
             continue;
         assert(iv < _nVars);
 
-        if (sscanf(cp, "%x", &data) == 1)
-            dout[iv] = applyCalibration(float(data), _polyCals[ichan]);
+        if (sscanf(cp, "%x", &data) == 1) {
+            if (getOutputMode() == Counts)
+                dout[iv] = data;
+            else {
+                float fval = _initialConverter->convert(ichan, data);
+                dout[iv] = _finalConverter->convert(ichan, fval);
+            }
+        }
     }
 
-    if (_outputMode == Engineering) {
-        list<SampleTag*> tags = getSampleTags(); tags.pop_front();
-        applyConversions(tags.front(), outs);
-    }
+    if (getOutputMode() == Engineering)
+        applyConversions(stag, outs);
     results.push_back(outs);
 
     return true;
@@ -535,84 +600,16 @@ void A2D_Serial::extractStatus(const char *msg, int len)
         configStatus["PPS"] = atoi(p);
 }
 
-
-void A2D_Serial::readCalFile(dsm_time_t tt) throw()
-{
-    if (!_calFile) return;
-
-    if (getOutputMode() == Counts)
-        return;
-
-    // Read CalFile  containing the following fields after the time
-    // gain polarity(ignored for this card) intcp0 slope0 intcp1 slope1 ... intcp7 slope7
-
-    while (tt >= _calFile->nextTime().toUsecs()) {
-        int nd = 2 + getMaxNumChannels() * 4;
-        float d[nd];
-        try {
-            n_u::UTime calTime;
-            int n = _calFile->readCF(calTime, d,nd);
-            if (n < 2) continue;
-            int cgain = (int)d[0];
-            for (int i = 0;
-                i < std::min((n-2)/4,getMaxNumChannels()); i++) {
-                    int gain = getGain(i);
-                    if (cgain < 0 || gain == cgain)
-                        setConversionCorrection(i, &d[2+i*4], 4);
-            }
-        }
-        catch(const n_u::EOFException& e)
-        {
-        }
-        catch(const n_u::IOException& e)
-        {
-            n_u::Logger::getInstance()->log(LOG_WARNING,"%s: %s",
-                _calFile->getCurrentFileName().c_str(),e.what());
-            _calFile = 0;
-            break;
-        }
-        catch(const n_u::ParseException& e)
-        {
-            n_u::Logger::getInstance()->log(LOG_WARNING,"%s: %s",
-                _calFile->getCurrentFileName().c_str(),e.what());
-            _calFile = 0;
-            break;
-        }
-    }
-}
-
-void A2D_Serial::setConversionCorrection(int ichan, const float d[],
-    int n)
-{
-    _polyCals[ichan].clear();
-    if (getOutputMode() == Counts) {
-// I think we can just apply nothing if size() is zero...
-//        _polyCals[ichan].push_back(0.0);
-//        _polyCals[ichan].push_back(1.0);
-        return;
-    }
-
-    // Strip off trailing zeroes.
-    for (int i = n-1; i > 0; --i)
-        if (d[i] == 0.0) --n;
-
-    if (n == 2 && d[0] == 0.0 && d[1] == 1.0)
-        return;
-
-    for (int i = 0; i < n; ++i)
-        _polyCals[ichan].push_back(d[i]);
-}
-
 int A2D_Serial::getGain(int ichan) const
 {
     if (ichan < 0 || ichan >= getMaxNumChannels()) return 0;
-    return _gains[ichan];
+    return _finalConverter->getGain(ichan);
 }
 
 int A2D_Serial::getBipolar(int ichan) const
 {
     if (ichan < 0 || ichan >= getMaxNumChannels()) return -1;
-    return _bipolar[ichan];
+    return _finalConverter->getBipolar(ichan);
 }
 
 bool A2D_Serial::samplingChannel(int channel) const
@@ -661,8 +658,8 @@ void A2D_Serial::getA2DSetup(XmlRpc::XmlRpcValue&, XmlRpc::XmlRpcValue& result)
     result["card"] = "gpDAQ";
     result["nChannels"] = getMaxNumChannels();
     for (int i = 0; i < getMaxNumChannels(); i++) {
-        result["gain"][i]   = _gains[i];
-        result["offset"][i] = _bipolar[i] ? 0 : 1;
+        result["gain"][i]   = getGain(i);
+        result["offset"][i] = getBipolar(i) ? 0 : 1;
         result["calset"][i] = (_calset & (1 << i)) ? 1 : 0;
     }
     result["vcal"]      = _voltage;

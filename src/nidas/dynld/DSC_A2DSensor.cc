@@ -45,17 +45,23 @@ namespace n_u = nidas::util;
 NIDAS_CREATOR_FUNCTION(DSC_A2DSensor)
 
 DSC_A2DSensor::DSC_A2DSensor() :
-    A2DSensor(), d2a(0), _gain(-1), _bipolar(false), _calset(0), _voltage(-99)
+    A2DSensor(MAX_DMMAT_A2D_CHANNELS),
+    _initialConverter(new LinearA2DConverter(getMaxNumChannels())),
+    _finalConverter(new PolyA2DConverter(getMaxNumChannels(),4)),
+    _gain(-1), _bipolar(false),
+    _d2a(0), _calset(0), _voltage(-99)
 {
     setLatency(0.1);
 }
 
 DSC_A2DSensor::~DSC_A2DSensor()
 {
-    if (d2a) {
-        d2a->clearVoltages();
-        d2a->close();
-        delete d2a;
+    delete _initialConverter;
+    delete _finalConverter;
+    if (_d2a) {
+        _d2a->clearVoltages();
+        _d2a->close();
+        delete _d2a;
     }
 }
 
@@ -72,6 +78,15 @@ SampleScanner* DSC_A2DSensor::buildSampleScanner()
 void DSC_A2DSensor::validate()
 {
     A2DSensor::validate();
+
+    float cfact[2];
+    for (int ichan = 0; ichan < getMaxNumChannels(); ichan++) {
+        _initialConverter->setGain(ichan, getGain(ichan));
+        _initialConverter->setBipolar(ichan, getBipolar(ichan));
+        getDefaultConversion(ichan, cfact[0], cfact[1]);
+        _initialConverter->set(ichan, cfact, sizeof(cfact) / sizeof(cfact[0]));
+    }
+
     // clock on Diamond cards is 10 MHz. It is divided
     // down to the scan rate.
     if (fmod(10000000.0, getScanRate()) != 0.0) {
@@ -152,7 +167,7 @@ void DSC_A2DSensor::printStatus(std::ostream& ostr) throw()
     }
 }
 
-void DSC_A2DSensor::setA2DParameters(int ichan, int gain, int bipolar)
+void DSC_A2DSensor::setGainBipolar(int ichan, int gain, int bipolar)
 {
     if (ichan < 0 || ichan >= getMaxNumChannels()) {
         ostringstream ost;
@@ -164,7 +179,7 @@ void DSC_A2DSensor::setA2DParameters(int ichan, int gain, int bipolar)
     switch(gain) {
     case 1:
         if (!bipolar) throw n_u::InvalidParameterException(getName(),
-            "gain,bipolar","gain of 1 and bipolar=F is not supported");
+            "gain,bipolar","gain of 1 and bipolar=0 is not supported");
         break;
     case 2:
     case 4:
@@ -192,11 +207,10 @@ void DSC_A2DSensor::setA2DParameters(int ichan, int gain, int bipolar)
         throw n_u::InvalidParameterException(getName(),
             "gain","board does not support multiple polarities");
 
-    A2DSensor::setA2DParameters(ichan,gain,bipolar);
-
+    A2DSensor::setGainBipolar(ichan, gain, bipolar);
 }
 
-void DSC_A2DSensor::getBasicConversion(int ichan,
+void DSC_A2DSensor::getDefaultConversion(int ichan,
     float& intercept, float& slope) const
 {
     /*
@@ -214,17 +228,21 @@ void DSC_A2DSensor::getBasicConversion(int ichan,
      * V = cnts / 65535 * 20 / gain + offset
      *	where offset = for 0 bipolar, and 10/gain for unipolar.
      */
-    slope = 20.0 / 65535.0 / getGain(ichan);
-    if (getBipolar(ichan)) intercept = 0.0;
-    else intercept = 10.0 / getGain(ichan);
+    if (getGain(ichan) == 0) {
+        slope = floatNAN;
+        intercept = floatNAN;
+    }
+    else {
+        slope = 20.0 / 65535.0 / getGain(ichan);
+        if (getBipolar(ichan)) intercept = 0.0;
+        else intercept = 10.0 / getGain(ichan);
+    }
 }
-
-
 
 void DSC_A2DSensor::executeXmlRpc(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue& result)
         throw()
 {
-    if (d2a == 0) {
+    if (_d2a == 0) {
         string dev = getDeviceName();
         size_t start = dev.find("a2d");
         if (start == string::npos)  // not found
@@ -234,9 +252,9 @@ void DSC_A2DSensor::executeXmlRpc(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcVal
         }
         dev.replace(start, 3, "d2a");
 
-        d2a = new DSC_AnalogOut();
-        d2a->setDeviceName(dev);
-        d2a->open();
+        _d2a = new DSC_AnalogOut();
+        _d2a->setDeviceName(dev);
+        _d2a->open();
     }
 
 
@@ -309,20 +327,20 @@ void DSC_A2DSensor::testVoltage(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue
     try {
         if (state) {
            if (_calset & 0x00ff) {
-                d2a->setVoltage(0, _voltage);
-                d2a->setVoltage(1, 0);
+                _d2a->setVoltage(0, _voltage);
+                _d2a->setVoltage(1, 0);
            }
            if (_calset & 0xff00) {
-                d2a->setVoltage(0, 0);
-                d2a->setVoltage(1, _voltage);
+                _d2a->setVoltage(0, 0);
+                _d2a->setVoltage(1, _voltage);
            }
         }
         else {
             _calset = 0;
             _voltage = -99;
-            d2a->clearVoltages();
-            delete d2a;
-            d2a = 0;
+            _d2a->clearVoltages();
+            delete _d2a;
+            _d2a = 0;
         }
     }
     catch(const n_u::IOException& e) {

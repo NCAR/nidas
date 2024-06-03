@@ -27,6 +27,7 @@
 #include "A2DSensor.h"
 #include <nidas/core/Variable.h>
 #include <nidas/core/UnixIODevice.h>
+#include <nidas/core/CalFile.h>
 #include <nidas/linux/diamond/dmd_mmat.h>
 
 #include <nidas/util/Logger.h>
@@ -41,22 +42,18 @@ using namespace std;
 
 namespace n_u = nidas::util;
 
-A2DSensor::A2DSensor() :
-    DSMSensor(),_sampleCfgs(),_sampleInfos(),
-    _badRawSamples(0),_maxNChannels(0),
-    _convSlopes(0),_convIntercepts(0),
-    _scanRate(0), _prevChan(-1),
-    _gains(0),_bipolars(0)
+A2DSensor::A2DSensor(int nchan) :
+    DSMSensor(), _maxNumChannels(nchan),
+    _calFile(0), _outputMode(Engineering),
+    _sampleCfgs(),_sampleInfos(),
+    _badRawSamples(0),
+    _scanRate(0), _prevChan(-1)
 {
     setLatency(0.1);
 }
 
 A2DSensor::~A2DSensor()
 {
-    delete [] _gains;
-    delete [] _bipolars;
-    delete [] _convSlopes;
-    delete [] _convIntercepts;
     for (unsigned int i = 0; i < _sampleCfgs.size(); i++)
         delete _sampleCfgs[i];
 }
@@ -64,7 +61,6 @@ A2DSensor::~A2DSensor()
 void A2DSensor::open(int flags)
 {
     DSMSensor::open(flags);
-    initParameters();
 }
 
 void A2DSensor::close()
@@ -75,121 +71,17 @@ void A2DSensor::close()
 void A2DSensor::init()
 {
     DSMSensor::init();
-    initParameters();
+    const map<string,CalFile*>& cfs = getCalFiles();
+    // Just use the first file.
+    if (!cfs.empty()) _calFile = cfs.begin()->second;
 }
 
-int A2DSensor::getGain(int ichan) const
+void A2DSensor::setGainBipolar(int ichan, int gain, int bipolar)
 {
-    if (ichan < 0 || ichan >= _maxNChannels) return 0;
-    return _gains[ichan];
+    if (ichan < 0 || ichan >=  getMaxNumChannels()) return;
+    getFinalConverter()->setGain(ichan, gain);
+    getFinalConverter()->setBipolar(ichan, bipolar);
 }
-
-int A2DSensor::getBipolar(int ichan) const
-{
-    if (ichan < 0 || ichan >= _maxNChannels) return -1;
-    return _bipolars[ichan];
-}
-
-void A2DSensor::setA2DParameters(int ichan, int gain, int bipolar)
-{
-    initParameters();
-    if (ichan < 0 || ichan >= _maxNChannels) {
-        ostringstream ost;
-        ost << "value=" << ichan << " is out of range of A2D";
-        throw n_u::InvalidParameterException(getName(),
-            "channel",ost.str());
-    }
-    _gains[ichan] = gain;
-    _bipolars[ichan] = bipolar;
-    getBasicConversion(ichan,_convIntercepts[ichan],_convSlopes[ichan]);
-}
-
-void A2DSensor::getA2DParameters(int ichan, int& gain, int& bipolar) const
-{
-    if (ichan < 0 || ichan >= _maxNChannels) {
-        gain = 0;
-        bipolar = -1;
-        return;
-    }
-    gain = _gains[ichan];
-    bipolar = _bipolars[ichan];
-}
-
-void A2DSensor::setConversionCorrection(int ichan, float corIntercept,
-                                        float corSlope)
-{
-    initParameters();
-    if (ichan < 0 || ichan >= _maxNChannels) {
-        ostringstream ost;
-        ost << "value=" << ichan << " is out of range of A2D";
-        throw n_u::InvalidParameterException(getName(),
-            "channel",ost.str());
-    }
-
-    float basIntercept,basSlope;
-    getBasicConversion(ichan,basIntercept,basSlope);
-     /*
-     * corSlope and corIntercept are the slope and intercept
-     * of an A2D calibration, where
-     *    Vcorr = Vuncorr * corSlope + corIntercept
-     *
-     * Note that Vcorr is the Y (independent) variable. This is
-     * because the A2D calibration is done in a similar
-     * way to normal sensor calibration, where Y are the
-     * set points from an input standard, and X is the measured
-     * voltage value.
-     *
-     *    Vcorr = Vuncorr * corSlope + corIntercept
-     *	    = (cnts * 20 / 65535 / gain + offset) * corSlope +
-     *			corIntercept
-     *	    = cnts * 20 / 65535 / gain * corSlope +
-     *		offset * corSlope + corIntercept
-     */
-    _convSlopes[ichan] = basSlope * corSlope;
-    _convIntercepts[ichan] = basIntercept * corSlope + corIntercept;
-}
-
-void A2DSensor::getConversion(int ichan,float& intercept, float& slope) const
-{
-    intercept = getIntercept(ichan);
-    slope = getSlope(ichan);
-}
-
-
-void A2DSensor::initParameters()
-{
-    int n = getMaxNumChannels();
-    if (n != _maxNChannels) {
-        int* g = new int[n];
-        int* b = new int[n];
-        float* ci = new float[n];
-        float* cs = new float[n];
-
-        int i;
-        for (i = 0; i < std::min(_maxNChannels,n); i++) {
-            g[i] = _gains[i];
-            b[i] = _bipolars[i];
-            ci[i] = _convIntercepts[i];
-            cs[i] = _convSlopes[i];
-        }
-        for ( ; i < n; i++) {
-            g[i] = 0;
-            b[i] = -1;
-            ci[i] = 0.0;
-            cs[i] = 1.0;
-        }
-        delete [] _gains;
-        delete [] _bipolars;
-        delete [] _convIntercepts;
-        delete [] _convSlopes;
-        _gains = g;
-        _bipolars = b;
-        _convIntercepts = ci;
-        _convSlopes = cs;
-        _maxNChannels = n;
-    }
-}
-
 
 bool A2DSensor::process(const Sample* insamp,list<const Sample*>& results) throw()
 {
@@ -220,6 +112,26 @@ bool A2DSensor::process(const Sample* insamp,list<const Sample*>& results) throw
         }
     }
 
+    if (getOutputMode() != Counts && _calFile) {
+        try {
+            getFinalConverter()->readCalFile(_calFile, insamp->getTimeTag());
+        }
+        catch(const n_u::EOFException& e) {
+        }
+        catch(const n_u::IOException& e) {
+            n_u::Logger::getInstance()->log(LOG_WARNING,"%s: %s",
+                _calFile->getCurrentFileName().c_str(),e.what());
+            getFinalConverter()->setNAN();
+            _calFile = 0;
+        }
+        catch(const n_u::ParseException& e) {
+            n_u::Logger::getInstance()->log(LOG_WARNING,"%s: %s",
+                _calFile->getCurrentFileName().c_str(),e.what());
+            getFinalConverter()->setNAN();
+            _calFile = 0;
+        }
+    }
+
     A2DSampleInfo& sinfo = _sampleInfos[sindex];
     SampleTag* stag = sinfo.stag;
     const vector<Variable*>& vars = stag->getVariables();
@@ -238,16 +150,24 @@ bool A2DSensor::process(const Sample* insamp,list<const Sample*>& results) throw
              ival++, fp++)
         {
             short sval = *sp++;
+            if (getOutputMode() == Counts) {
+                *fp = sval;
+                continue;
+            }
+
             if (sval == -32768 || sval == 32767) {
                 *fp = floatNAN;
                 continue;
             }
-            *fp = _convIntercepts[ichan] + _convSlopes[ichan] * sval;
+
+            float fval = getInitialConverter()->convert(ichan, sval);
+            fval = getFinalConverter()->convert(ichan, fval);
+            *fp = fval;
         }
     }
 
     for ( ; fp < fpend; ) *fp++ = floatNAN;
-    applyConversions(stag, osamp);
+    if (getOutputMode() == Engineering) applyConversions(stag, osamp);
     results.push_back(osamp);
 
     return true;
@@ -293,7 +213,7 @@ void A2DSensor::validate()
          channels[3]
             gain=0,bipolar=0,id=0 (gain=0 means not sampled)
          channels[4]
-            gain=X,bipolar=x,id=0 
+            gain=X,bipolar=x,id=0
          channels[5]
             gain=X,bipolar=X,id=0
 
@@ -317,6 +237,29 @@ void A2DSensor::validate()
      */
     DSMSensor::validate();
 
+    // ncar: linear, then tweaked by cal file
+    //      initial:
+    //          gain==4, default factors
+    //          else default factors
+    //      final:
+    //          gain==4: 0,1 then set from cal file
+    //              adjust for temp compensation  between initial and final
+    //          else: 0,1 update from cal file
+    //          XML cor values: set final
+    //
+    // DSC: linear from default conversion, then poly from cal file
+    //      initial: default conversion
+    //      final: poly from cal file
+    //          XML cor values: set final. Get overwritten from cal file
+    //
+    // serial: linear from default conversion, then poly from cal file
+    //      initial: for now, 0,1, otherwise default conversion
+    //      final: poly from cal file
+    //          XML cor values: set final. Get overwritten from cal file
+
+    assert(getInitialConverter());
+    assert(getFinalConverter());
+
     const std::list<const Parameter*>& params = getParameters();
     list<const Parameter*>::const_iterator pi;
     for (pi = params.begin(); pi != params.end(); ++pi) {
@@ -328,12 +271,26 @@ void A2DSensor::validate()
                         "bad rate parameter");
                 setScanRate((int)param->getNumericValue(0));
         }
-        if (pname == "latency") {
+        else if (pname == "latency") {
                 if (param->getLength() != 1)
 			throw n_u::InvalidParameterException(getName(),"parameter",
                         "bad latency  parameter");
                 setLatency((int)param->getNumericValue(0));
         }
+	else if (pname == "outputmode") {
+	    if (param->getType() != Parameter::STRING_PARAM ||
+		param->getLength() != 1)
+		throw n_u::InvalidParameterException(getName(),"outputmode",
+		    "parameter is not a string");
+	    string fname = param->getStringValue(0);
+            for (unsigned int i = 0; i < fname.length(); ++i)
+                fname[i] = tolower(fname[i]);
+	    if (fname == "counts") _outputMode = Counts;
+	    else if (fname == "volts") _outputMode = Volts;
+	    else if (fname == "engineering") _outputMode = Engineering;
+	    else throw n_u::InvalidParameterException(getName(),"outputmode",
+		    fname + " is not supported");
+            }
     }
 
     const std::list<SampleTag*>& tags = getSampleTags();
@@ -357,7 +314,7 @@ void A2DSensor::validate()
 
         // Default time average rate is the sample rate.
         // User can choose a time average rate that is a multiple
-        // of the sample rate, in which case the results of the 
+        // of the sample rate, in which case the results of the
         // time averaging are subsampled by a pickoff of 1 out of
         // every N time averages, where N = timeavgRate / sample rate.
         int timeavgRate = tag->getRate();
@@ -410,7 +367,7 @@ void A2DSensor::validate()
             ostringstream ost;
             if (timeavgRate <= 0) {
                 ost << timeavgRate << " Hz must be > 0";
-                throw n_u::InvalidParameterException(getName(), 
+                throw n_u::InvalidParameterException(getName(),
                     "timeavg rate", ost.str());
             }
             if (fmod((double) timeavgRate, tag->getRate()) != 0.0) {
@@ -543,9 +500,15 @@ void A2DSensor::validate()
                         "bipolar",ost.str());
             }
 
-            // cerr << "ichan=" << ichan << " gain=" << gain << " bipolar=" << bipolar << endl;
-            setA2DParameters(ichan,gain,bipolar);
-            setConversionCorrection(ichan,corIntercept,corSlope);
+            // derived classes can throw InvalidParameterException
+            // if they don't support a certain gain or polarity.
+            setGainBipolar(ichan, gain, bipolar);
+
+            // tweak final Converter with corIntercept, corSlope
+            float cfact[2];
+            cfact[0] = corIntercept;
+            cfact[1] = corSlope;
+            getFinalConverter()->set(ichan, cfact, sizeof(cfact) / sizeof(cfact[0]));
 
             var->setA2dChannel(ichan);
             sinfo.channels[iv] = ichan;

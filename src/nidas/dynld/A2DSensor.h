@@ -27,6 +27,7 @@
 #define NIDAS_DYNLD_A2DSENSOR_H
 
 #include <nidas/core/DSMSensor.h>
+#include <nidas/core/A2DConverter.h>
 
 #include <nidas/linux/a2d.h>
 
@@ -40,14 +41,20 @@ namespace nidas { namespace dynld {
 using namespace nidas::core;
 
 /**
- * One or more sensors connected to an A2D
+ * Virtual base class for supporting sensors attached to an A2D.
  */
 class A2DSensor : public DSMSensor {
 
 public:
 
-    A2DSensor();
-    ~A2DSensor();
+    enum OutputMode {Counts, Volts, Engineering};
+
+    /**
+     * Sub-class constructors know how many channels are on the A2D.
+     */
+    A2DSensor(int nchan);
+
+    virtual ~A2DSensor();
 
     /**
      * Open the device connected to the sensor.
@@ -78,86 +85,90 @@ public:
 
     int getScanRate() const { return _scanRate; }
 
+    /**
+     * Create processed A2D samples.  As of now the only
+     * subclass that uses this base class process() method
+     * is the Diamond DSC_A2DSensor.  The NCAR DSMAnalogSensor
+     * does specialized temperature compensation.
+     */
     bool process(const Sample* insamp,std::list<const Sample*>& results) throw();
 
     /**
-     * Return the maximum possible number of A2D channels
-     * on this device.  Derived classes must implement
-     * this method.
+     * Return the number of A2D channels on this device,
+     * set in the constructor.
      */
-    virtual int getMaxNumChannels() const = 0;
+    int getMaxNumChannels() const { return _maxNumChannels; }
 
     /**
-     * Set the sampling gain and polarity for a channel.
-     * Derived classes are just responsible for throwing
-     * nidas::util::InvalidParameterException in case of bad
-     * values. If the values are OK, they should call base class
-     * A2DSensor::setA2DParameters().
-     * @param bipolar: 0=unipolar, 1=bipolar
-     *
-     * @throws nidas::util::InvalidParameterException
-     **/
-    virtual void setA2DParameters(int ichan, int gain, int bipolar);
-
-    /**
-     * Get the current gain and bipolar parameters for a channel.
+     * Set the gain and bipolar parameters for a channel.
+     * Sub-classes can throw InvalidParameterException if
+     * the combination is not supported.
      */
-    virtual void getA2DParameters(int ichan,int& gain,int& bipolar) const;
+    virtual void setGainBipolar(int ichan,int gain,int bipolar);
 
     /**
-     * Get the current gain for a channel.
+     * Get the gain for a channel.
      */
-    int getGain(int ichan) const;
+    int getGain(int ichan) const
+    {
+        if (ichan < 0 || ichan >=  getMaxNumChannels()) return 0;
+        return getFinalConverter()->getGain(ichan);
+    }
 
     /**
-     * Get the current bipolar parameter for a channel.
+     * Get the polarity parameter for a channel.
      * @return 1: bipolar, 0: unipolar, -1: unknown
      */
-    int getBipolar(int ichan) const;
-
-    /**
-     * Return the current linear conversion for a channel. The
-     * A2D parameters of gain and bipolar should have already
-     * been set. If they have not been set, derived classes should
-     * return FloatNAN for those values.
-     */
-    virtual void getBasicConversion(int ichan,float& intercept, float& slope) const = 0;
-
-    /**
-     * Set the values for a linear correction to the basic conversion.
-     * An intercept of 0. and a slope of 1. would result in no
-     * additional correction.
-     *
-     * @throws nidas::util::InvalidParameterException
-     **/
-    virtual void setConversionCorrection(int ichan, float intercept, float slope);
-
-    /**
-     * Get the values for a linear correction to the basic conversion.
-     */
-    void getConversion(int ichan,float& intercept, float& slope) const;
-
-    /**
-     * Get the current conversion slope, which includes any 
-     * correction as set by setConversionCorrection().
-     */
-    float getSlope(int ichan) const
+    int getBipolar(int ichan) const
     {
-        if (ichan < 0 || ichan >= _maxNChannels) return floatNAN;
-        return _convSlopes[ichan];
+        if (ichan < 0 || ichan >=  getMaxNumChannels()) return -1;
+        return getFinalConverter()->getBipolar(ichan);
     }
 
     /**
-     * Get the current conversion intercept, which includes any 
-     * correction as set by setConversionCorrection().
+     * Initial A2DConverter, which typically contains a
+     * default linear conversion from counts to volts based on 
+     * the gain and bipolar settings of each channel.
      */
-    float getIntercept(int ichan) const
-    {
-        if (ichan < 0 || ichan >= _maxNChannels) return floatNAN;
-        return _convIntercepts[ichan];
-    }
+    virtual A2DConverter* getInitialConverter() const = 0;
+
+    /**
+     * Final A2DConverter, updated from the CalFile, and
+     * applied after the initial conversion.
+     * The number of coefficients in the A2DConverter must match
+     * the number of coefficients for each channel in each record
+     * of the CalFile.
+     */
+    virtual A2DConverter* getFinalConverter() const = 0;
+
+    /**
+     * Get the default linear conversion for a channel.
+     */
+    virtual void getDefaultConversion(int chan, float& intercept, float& slope) const = 0;
+
+    /**
+     * Whether to output samples as counts, volts or engineering units.
+     * Decides which calibrations to apply.
+     * @see enum OutputMode
+     */
+    void setOutputMode(OutputMode mode) { _outputMode = mode; }
+
+    OutputMode getOutputMode() const { return _outputMode; }
 
 protected:
+
+    int _maxNumChannels;
+
+    /**
+     * CalFile for the final A2DConverter.  This is for the A2D cals, not
+     * engineering cals of volts to final scientific units.
+     */
+    CalFile* _calFile;
+
+    /**
+     * @see enum OutputMode
+     */
+    OutputMode _outputMode;
 
     /**
      * A2D configuration information that is sent to the A2D device module.
@@ -262,28 +273,6 @@ protected:
      */
     size_t _badRawSamples;
 
-protected:
-    void initParameters();
-
-    int _maxNChannels;
-
-    /**
-     * Conversion factor for each channel when converting from A2D
-     * counts to voltage.
-     * The gain is accounted for in this conversion, so that
-     * the resultant voltage value is an estimate of the actual
-     * input voltage, before any A2D gain was applied.
-     */
-    float* _convSlopes;
-
-    /**
-     * Conversion offset for each A2D channel when converting from A2D
-     * counts to voltage.
-     * The polarity is accounted for in this conversion, so that
-     * the resultant voltage value should be the actual input voltage.
-     */
-    float* _convIntercepts;
-
 private:
     /**
      * Requested A2D sample rate before decimation.
@@ -291,10 +280,6 @@ private:
     int _scanRate;
 
     int _prevChan;
-
-    int* _gains;
-
-    int* _bipolars;
 
     /** No copying */
     A2DSensor(const A2DSensor&);

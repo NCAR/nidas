@@ -7,6 +7,7 @@ depends = ['xercesc', 'xmlrpc', 'libnidas_util']
 env = Environment(tools=['default', 'symlink', 'sharedlibrary'])
 
 headers = env.Split("""
+    A2DConverter.h
     AdaptiveDespiker.h
     AsciiSscanf.h
     BadSampleFilter.h
@@ -124,6 +125,7 @@ headers = env.Split("""
 """)
 
 sources = env.Split("""
+    A2DConverter.cc
     AdaptiveDespiker.cc
     BadSampleFilter.cc
     BluetoothRFCommSocketIODevice.cc

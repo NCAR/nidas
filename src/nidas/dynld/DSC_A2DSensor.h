@@ -27,6 +27,7 @@
 #define NIDAS_DYNLD_DSC_A2DSENSOR_H
 
 #include "A2DSensor.h"
+#include <nidas/core/A2DConverter.h>
 
 #include <nidas/linux/diamond/dmd_mmat.h>
 
@@ -41,7 +42,7 @@ using namespace nidas::core;
 class DSC_AnalogOut;
 
 /**
- * One or more sensors connected to a Diamond Systems Corp A2D.
+ * Support for a Diamond Systems Corp A2D.
  */
 class DSC_A2DSensor : public A2DSensor {
 
@@ -82,15 +83,12 @@ public:
 
     void printStatus(std::ostream& ostr) throw();
 
-    int getMaxNumChannels() const { return MAX_DMMAT_A2D_CHANNELS; }
-
     /**
      * @throws nidas::util::InvalidParameterException
      **/
-    void setA2DParameters(int ichan, int gain, int bipolar);
+    void setGainBipolar(int ichan, int gain, int bipolar);
 
-    void getBasicConversion(int ichan,float& intercept, float& slope) const;
-
+    void getDefaultConversion(int ichan, float& intercept, float& slope) const;
 
     void executeXmlRpc(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue& result)
         throw();
@@ -101,12 +99,31 @@ public:
     void testVoltage(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue& result)
         throw();
 
-private:
+    /**
+     * Initial A2DConverter, containing the default conversion from
+     * counts to volts based on the gain and bipolar settings of each channel.
+     */
+    A2DConverter* getInitialConverter() const
+    {
+        return _initialConverter;
+    }
 
     /**
-     * Used for auto_cal, diagnostic voltages output.
+     * Final A2DConverter, updated from the CalFile, and
+     * applied after the initial conversion. A PolyA2DConverter 
+     * of order 3, so the number of coefficients for each channel
+     * in each record of the CalFile must be 4.
      */
-    DSC_AnalogOut *d2a;
+    A2DConverter* getFinalConverter() const
+    {
+        return _finalConverter;
+    }
+
+private:
+
+    A2DConverter* _initialConverter;
+
+    A2DConverter* _finalConverter;
 
     /**
      * Each card can only support one gain value.
@@ -117,6 +134,11 @@ private:
      * Each card can only support one polarity.
      */
     bool _bipolar;
+
+    /**
+     * Used for auto_cal, diagnostic voltages output.
+     */
+    DSC_AnalogOut *_d2a;
 
     /**
      * Channels to engage by auto_cal
