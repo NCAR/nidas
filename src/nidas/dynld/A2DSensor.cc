@@ -137,7 +137,7 @@ bool A2DSensor::process(const Sample* insamp,list<const Sample*>& results) throw
     const vector<Variable*>& vars = stag->getVariables();
 
     SampleT<float>* osamp = getSample<float>(sinfo.nvalues);
-    osamp->setTimeTag(insamp->getTimeTag());
+    osamp->setTimeTag(insamp->getTimeTag() - getLagUsecs());
     osamp->setId(stag->getId());
     float *fp = osamp->getDataPtr();
     const float* fpend = fp + sinfo.nvalues;
