@@ -40,7 +40,9 @@ class Dictionary;
  * A fairly generic parameter.
  *
  * A Parameter has a name and a list of values of the same type, either
- * strings, floats, integers, or booleans.
+ * strings, floats, integers, or booleans.  Once the type is set, the value
+ * can be changed with setValue(), whereas the assignment operator replaces
+ * the current Parameter type and values.
  */
 class Parameter
 {
@@ -50,19 +52,77 @@ public:
 
     typedef enum parType parType;
 
-    virtual void assign(const Parameter&) = 0;
+    /**
+     * Create a Parameter with a name and a type.  Defaults to an empty name
+     * and string type.
+     */
+    Parameter(const std::string& name="", parType ptype=STRING_PARAM);
+
+    /**
+     * Create a Parameter with a name and value, with a type according to the
+     * type of the value.
+     */
+    explicit Parameter(const std::string& name, const std::string& value);
+    explicit Parameter(const std::string& name, float value);
+    explicit Parameter(const std::string& name, int value);
+    explicit Parameter(const std::string& name, bool value);
+
+    void assign(const Parameter&);
 
     virtual ~Parameter() {}
 
     virtual Parameter* clone() const = 0;
 
-    const std::string& getName() const { return _name; }
+    /**
+     * Use default assignment and copy, so any Parameter can be replaced, and
+     * things like vectors of Parameter work as expected.  If only the value
+     * should change and not the name or type, then use the setValue()
+     * methods.
+     */
+    Parameter(const Parameter&) = default;
+    Parameter& operator=(const Parameter&) = default;
 
-    void setName(const std::string& val) { _name = val; }
+    const std::string& getName() const
+    {
+        return _name;
+    }
+
+    void setName(const std::string& val)
+    {
+        _name = val;
+    }
+
+#ifdef notdef
+    void setValues(const std::vector<std::string>& vals);
+    void setValues(const std::vector<float>& vals);
+    void setValues(const std::vector<int>& vals);
+    void setValues(const std::vector<bool>& vals);
+#endif
+
+    /**
+     * Set ith value.
+     */
+    void setValue(unsigned int i, const std::string& val);
+    void setValue(unsigned int i, const float& val);
+    void setValue(unsigned int i, const int& val);
+    void setValue(unsigned int i, const bool& val);
+
+    /**
+     * For parameters of length one, set its value.
+     */
+    void setValue(const std::string& val);
+    void setValue(const float& val);
+    void setValue(const int& val);
+    void setValue(const bool& val);
+
+    std::string getString(int i) const;
+    float getFloat(int i) const;
+    int getInt(int i) const;
+    bool getBool(int i) const;
 
     parType getType() const { return _type; }
 
-    virtual int getLength() const = 0;
+    virtual int getLength() const;
 
     virtual double getNumericValue(int i) const;
 
@@ -90,39 +150,28 @@ public:
 
 protected:
 
-    Parameter(parType t): _name(),_type(t) {}
-
     std::string _name;
 
+    std::vector<std::string> _strings{};
+    std::vector<float> _floats{};
+    std::vector<int> _ints{};
+    std::vector<bool> _bools{};
+
     parType _type;
+
+    template <typename T>
+    std::vector<T>& get_vector();
+
+    template <typename T>
+    void set_value(int i, const T& val);
+
 };
 
 /**
- * Overloaded function to return a enumerated value
- * corresponding to the type pointed to by the argument.
- */
-inline Parameter::parType getParamType(std::string)
-{
-    return Parameter::STRING_PARAM;
-}
-
-inline Parameter::parType getParamType(float)
-{
-    return Parameter::FLOAT_PARAM;
-}
-
-inline Parameter::parType getParamType(int)
-{
-    return Parameter::INT_PARAM;
-}
-
-inline Parameter::parType getParamType(bool)
-{
-    return Parameter::BOOL_PARAM;
-}
-
-/**
- * A typed Parameter, with data of type T.
+ * A typed Parameter, with data of type T.  This is a typed interface to
+ * Parameter, where all the setValue() and setValues() methods are shadowed
+ * except for the specific storage type of this subclass.  Likewise there is a
+ * getValue() method which returns the storage type.
  */
 template <class T>
 class ParameterT : public Parameter {
@@ -132,16 +181,11 @@ public:
 
     ParameterT* clone() const;
 
-    /**
-     * A virtual assignment operator.
-     */
-    void assign(const Parameter& x);
-
-    int getLength() const;
-
+#ifdef notdef
     const std::vector<T> getValues() const;
 
     void setValues(const std::vector<T>& vals);
+#endif
 
     /**
      * Set ith value.
@@ -164,14 +208,6 @@ public:
      * @throws nidas::util::InvalidParameterException;
      **/
     void fromDOMElement(const xercesc::DOMElement*, const Dictionary* dict);
-
-protected:
-
-    /**
-     * Vector of values.
-     */
-    std::vector<T> _values;
-
 };
 
 /**
