@@ -38,40 +38,129 @@ namespace n_u = nidas::util;
 namespace nidas {
 namespace core {
 
+
+template <typename T>
+struct get_param_type {
+};
+
+template <>
+struct get_param_type<std::string> {
+    static const Parameter::parType par_type{Parameter::STRING_PARAM};
+};
+
+template <>
+struct get_param_type<float> {
+    static const Parameter::parType par_type{Parameter::FLOAT_PARAM};
+};
+
+template <>
+struct get_param_type<int> {
+    static const Parameter::parType par_type{Parameter::INT_PARAM};
+};
+
+template <>
+struct get_param_type<bool> {
+    static const Parameter::parType par_type{Parameter::BOOL_PARAM};
+};
+
+
+
+
+Parameter::Parameter(const std::string& name, parType ptype):
+    _name(name),
+    _type(ptype)
+{
+}
+
+Parameter::Parameter(const std::string& name, const std::string& value):
+    _name(name),
+    _type(STRING_PARAM)
+{
+    setValue(value);
+}
+
+Parameter::Parameter(const std::string& name, float value):
+    _name(name),
+    _type(FLOAT_PARAM)
+{
+    setValue(value);
+}
+Parameter::Parameter(const std::string& name, int value):
+    _name(name),
+    _type(INT_PARAM)
+{
+    setValue(value);
+}
+
+Parameter::Parameter(const std::string& name, bool value):
+    _name(name),
+    _type(BOOL_PARAM)
+{
+    setValue(value);
+}
+
+
+
+
+int
+Parameter::getLength() const
+{
+    int result{0};
+    switch (_type)
+    {
+        case FLOAT_PARAM:
+            result = _floats.size();
+            break;
+        case INT_PARAM:
+            result = _ints.size();
+            break;
+        case STRING_PARAM:
+            result = _strings.size();
+            break;
+        case BOOL_PARAM:
+            result = _bools.size();
+            break;
+    }
+    return result;
+}
+
+
+
 double Parameter::getNumericValue(int i) const
 {
+    double result = floatNAN;
     switch (_type) {
-    case FLOAT_PARAM:
-        return static_cast<const ParameterT<float>*>(this)->getValue(i);
-        break;
-    case INT_PARAM:
-        return static_cast<const ParameterT<int>*>(this)->getValue(i);
-        break;
-    case STRING_PARAM:
-        break;
-    case BOOL_PARAM:
-        return static_cast<const ParameterT<bool>*>(this)->getValue(i);
-        break;
+        case FLOAT_PARAM:
+            result = getFloat(i);
+            break;
+        case INT_PARAM:
+            result = getInt(i);
+            break;
+        case STRING_PARAM:
+            break;
+        case BOOL_PARAM:
+            result = getBool(i);
+            break;
     }
-    return floatNAN;
+    return result;
 }
 
 std::string Parameter::getStringValue(int i) const
 {
     ostringstream ost;
     switch (_type) {
-    case FLOAT_PARAM:
-        ost << static_cast<const ParameterT<float>*>(this)->getValue(i);
-        break;
-    case INT_PARAM:
-        ost << static_cast<const ParameterT<int>*>(this)->getValue(i);
-        break;
-    case STRING_PARAM:
-        ost << static_cast<const ParameterT<string>*>(this)->getValue(i);
-        break;
-    case BOOL_PARAM:
-        ost << static_cast<const ParameterT<bool>*>(this)->getValue(i);
-        break;
+        case FLOAT_PARAM:
+            ost << getFloat(i);
+            break;
+        case INT_PARAM:
+            ost << getInt(i);
+            break;
+        case STRING_PARAM:
+            ost << getString(i);
+            break;
+        case BOOL_PARAM:
+            ost << getBool(i);
+            break;
     }
     return ost.str();
 }
@@ -90,6 +179,202 @@ bool Parameter::getBoolValue(const std::string& name) const
     }
     return (bool) getNumericValue(0);
 }
+
+template <>
+std::vector<std::string>& Parameter::get_vector<std::string>()
+{
+    return _strings;
+}
+
+template <>
+std::vector<float>& Parameter::get_vector<float>()
+{
+    return _floats;
+}
+
+template <>
+std::vector<int>& Parameter::get_vector<int>()
+{
+    return _ints;
+}
+
+template <>
+std::vector<bool>& Parameter::get_vector<bool>()
+{
+    return _bools;
+}
+
+
+#ifdef notdef
+void Parameter::setValues(const std::vector<std::string>& vals)
+{
+    _type = STRING_PARAM;
+    get_vector<std::string>() = vals;
+}
+
+void Parameter::setValues(const std::vector<float>& vals)
+{
+    _type = STRING_PARAM;
+    get_vector<float>() = vals;
+}
+
+void Parameter::setValues(const std::vector<int>& vals)
+{
+    _type = STRING_PARAM;
+    get_vector<int>() = vals;
+}
+
+void Parameter::setValues(const std::vector<bool>& vals)
+{
+    _type = STRING_PARAM;
+    get_vector<bool>() = vals;
+}
+#endif
+
+
+template <typename V, typename T>
+void
+set_vector_value(V& values, int i, const T& val)
+{
+    if (i < 0)
+    {
+        values.resize(1);
+        i = 0;
+    }
+    if (i+1 > (int)values.size())
+        values.resize(i+1);
+    values[i] = val;
+}
+
+
+// Use specialization to do nothing on assignments between incompatible types.
+template <>
+void
+set_vector_value(std::vector<std::string>&, int, const int&)
+{}
+
+template <>
+void
+set_vector_value(std::vector<std::string>&, int, const float&)
+{}
+
+template <>
+void
+set_vector_value(std::vector<std::string>&, int, const bool&)
+{}
+
+template <>
+void
+set_vector_value(std::vector<float>&, int, const std::string&)
+{}
+
+template <>
+void
+set_vector_value(std::vector<int>&, int, const std::string&)
+{}
+
+template <>
+void
+set_vector_value(std::vector<bool>&, int, const std::string&)
+{}
+
+template <typename T>
+void
+Parameter::set_value(int i, const T& val)
+{
+    switch (_type)
+    {
+        case FLOAT_PARAM:
+            set_vector_value(_floats, i, val);
+            break;
+        case INT_PARAM:
+            set_vector_value(_ints, i, val);
+            break;
+        case BOOL_PARAM:
+            set_vector_value(_bools, i, val);
+            break;
+        case STRING_PARAM:
+            set_vector_value(_strings, i, val);
+            break;
+    }
+}
+
+void Parameter::setValue(unsigned int i, const std::string& val)
+{
+    set_value(i, val);
+}
+
+void Parameter::setValue(unsigned int i, const float& val)
+{
+    set_value(i, val);
+}
+
+void Parameter::setValue(unsigned int i, const int& val)
+{
+    set_value(i, val);
+}
+
+void Parameter::setValue(unsigned int i, const bool& val)
+{
+    set_value(i, val);
+}
+
+void Parameter::setValue(const std::string& val)
+{
+    set_value(-1, val);
+}
+
+void Parameter::setValue(const float& val)
+{
+    set_value(-1, val);
+}
+
+void Parameter::setValue(const int& val)
+{
+    set_value(-1, val);
+}
+
+void Parameter::setValue(const bool& val)
+{
+    set_value(-1, val);
+}
+
+std::string Parameter::getString(int i) const
+{
+    return const_cast<Parameter*>(this)->get_vector<std::string>()[i];
+}
+
+float Parameter::getFloat(int i) const
+{
+    return const_cast<Parameter*>(this)->get_vector<float>()[i];
+}
+
+int Parameter::getInt(int i) const
+{
+    return const_cast<Parameter*>(this)->get_vector<int>()[i];
+}
+
+bool Parameter::getBool(int i) const
+{
+    return const_cast<Parameter*>(this)->get_vector<bool>()[i];
+}
+
+
+void Parameter::assign(const Parameter& x)
+{
+    // this can be implemented as normal assignment, as long as the parameter
+    // types are the same.
+    if (_type == x._type) {
+        Parameter::operator=(x);
+    }
+}
+
+#ifdef notdef
+Parameter* Parameter::clone() const
+{
+    return new Parameter(*this);
+}
+#endif
 
 
 Parameter* Parameter::createParameter(const xercesc::DOMElement* node,
@@ -137,16 +422,6 @@ ParameterT<T>* ParameterT<T>::clone() const
     return new ParameterT<T>(*this);
 }
 
-template<class T>
-void ParameterT<T>::assign(const Parameter& x)
-{
-    if (_type == x.getType()) {
-        _name = x.getName();
-        const ParameterT<T> * xT =
-            dynamic_cast<const ParameterT<T>*>(&x);
-        if (xT) _values = xT->_values;
-    }
-}
 
 template<class T>
 void ParameterT<T>::fromDOMElement(const xercesc::DOMElement* node)
@@ -227,46 +502,39 @@ void ParameterT<T>::fromDOMElement(const xercesc::DOMElement* node,
 
 template <class T>
 ParameterT<T>::ParameterT():
-    Parameter(getParamType(T())),
-    _values()
+    Parameter("", get_param_type<T>::par_type)
 {
 }
 
-template <class T>
-int ParameterT<T>::
-getLength() const {
-    return _values.size();
-}
 
+#ifdef notdef
 template <class T>
 const std::vector<T> ParameterT<T>::getValues() const
 {
-    return _values;
+    return const_cast<ParameterT<T>*>(this)->get_vector<T>();
 }
 
 template <class T>
 void ParameterT<T>::setValues(const std::vector<T>& vals) {
-    _values = vals;
+    get_vector<T>() = vals;
 }
+#endif
 
 template <class T>
 void ParameterT<T>::setValue(unsigned int i, const T& val)
 {
-    if (i+1 > _values.size())
-        _values.resize(i+1);
-    _values[i] = val;
+    set_value(i, val);
 }
 
 template <class T>
 void ParameterT<T>::setValue(const T& val) {
-    _values.resize(1);
-    _values[0] = val;
+    set_value(-1, val);
 }
 
 template <class T>
 T ParameterT<T>::getValue(int i) const
 {
-    return _values[i];
+    return const_cast<ParameterT<T>*>(this)->get_vector<T>()[i];
 }
 
 
