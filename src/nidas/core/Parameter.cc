@@ -156,8 +156,7 @@ std::string Parameter::getStringValue(int i) const
             ost << getInt(i);
             break;
         case STRING_PARAM:
-            ost << getString(i);
-            break;
+            return getString(i);
         case BOOL_PARAM:
             ost << getBool(i);
             break;
@@ -299,6 +298,56 @@ Parameter::set_value(int i, const T& val)
     }
 }
 
+
+template <typename V, typename T>
+void
+safe_get(T& val, V& v, int i)
+{
+    if (i < (int)v.size())
+        val = v[i];
+}
+
+
+template <typename T>
+T
+Parameter::get_value(int i) const
+{
+    T val{};
+    switch (_type)
+    {
+        case FLOAT_PARAM:
+            safe_get(val, _floats, i);
+            break;
+        case INT_PARAM:
+            safe_get(val, _ints, i);
+            break;
+        case BOOL_PARAM:
+            safe_get(val, _bools, i);
+            break;
+        case STRING_PARAM:
+            break;
+    }
+    return val;
+}
+
+
+template <>
+std::string
+Parameter::get_value(int i) const
+{
+    std::string v;
+    switch (_type)
+    {
+        case STRING_PARAM:
+            safe_get(v, _strings, i);
+            break;
+        default:
+            break;
+    }
+    return v;
+}
+
+
 void Parameter::setValue(unsigned int i, const std::string& val)
 {
     set_value(i, val);
@@ -341,31 +390,34 @@ void Parameter::setValue(const bool& val)
 
 std::string Parameter::getString(int i) const
 {
-    return const_cast<Parameter*>(this)->get_vector<std::string>()[i];
+    return get_value<std::string>(i);
 }
 
 float Parameter::getFloat(int i) const
 {
-    return const_cast<Parameter*>(this)->get_vector<float>()[i];
+    return get_value<float>(i);
 }
 
 int Parameter::getInt(int i) const
 {
-    return const_cast<Parameter*>(this)->get_vector<int>()[i];
+    return get_value<int>(i);
 }
 
 bool Parameter::getBool(int i) const
 {
-    return const_cast<Parameter*>(this)->get_vector<bool>()[i];
+    return get_value<bool>(i);
 }
 
 
-void Parameter::assign(const Parameter& x)
+void Parameter::setValue(const Parameter& x)
 {
-    // this can be implemented as normal assignment, as long as the parameter
-    // types are the same.
+    // like normal assignment, as long as the parameter types are the same,
+    // but without changing the name.
     if (_type == x._type) {
-        Parameter::operator=(x);
+        _floats = x._floats;
+        _ints = x._ints;
+        _bools = x._bools;
+        _strings = x._strings;
     }
 }
 

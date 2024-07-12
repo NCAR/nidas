@@ -132,13 +132,14 @@ Variable& Variable::operator=(const Variable& rhs)
         // has done a getParameters() on this variable.
         const list<const Parameter*>& xparams = rhs.getParameters();
         list<const Parameter*>::const_iterator xpi;
-        for (xpi = xparams.begin(); xpi != xparams.end(); ++xpi) {
-            const Parameter* xparm = *xpi;
+        for (auto& xparm: xparams) {
             ParameterNameTypeComparator comp(xparm);
             list<Parameter*>::iterator pi =
-                    std::find_if(_parameters.begin(),_parameters.end(),comp);
-            if (pi != _parameters.end()) (*pi)->assign(*xparm);
-            else addParameter(xparm->clone());
+                std::find_if(_parameters.begin(), _parameters.end(), comp);
+            if (pi != _parameters.end())
+                (*pi)->setValue(*xparm);
+            else
+                addParameter(xparm->clone());
         }
     }
     return *this;
