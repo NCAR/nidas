@@ -67,8 +67,6 @@ public:
     explicit Parameter(const std::string& name, int value);
     explicit Parameter(const std::string& name, bool value);
 
-    void assign(const Parameter&);
-
     virtual ~Parameter() {}
 
     virtual Parameter* clone() const = 0;
@@ -98,6 +96,12 @@ public:
     void setValues(const std::vector<int>& vals);
     void setValues(const std::vector<bool>& vals);
 #endif
+
+    /**
+     * Replace this value with the value of the Parameter @p param only if the
+     * types are the same.  The name does not change.
+     */
+    void setValue(const Parameter& param);
 
     /**
      * Set ith value.
@@ -165,6 +169,8 @@ protected:
     template <typename T>
     void set_value(int i, const T& val);
 
+    template <typename T>
+    T get_value(int i) const;
 };
 
 /**
@@ -197,6 +203,11 @@ public:
      */
     void setValue(const T& val);
 
+    void setValue(const Parameter& param)
+    {
+        Parameter::setValue(param);
+    }
+
     T getValue(int i) const;
 
     /**
@@ -207,7 +218,7 @@ public:
     /**
      * @throws nidas::util::InvalidParameterException;
      **/
-    void fromDOMElement(const xercesc::DOMElement*, const Dictionary* dict);
+    void fromDOMElement(const xercesc::DOMElement*, const Dictionary* dict) override;
 };
 
 /**
@@ -224,6 +235,30 @@ public:
 private:
     const Parameter* p;
 };
+
+
+#ifdef notdef
+/**
+ * ParameterC is a concrete Parameter instance which can be passed by value
+ * but still preserve it's type and value.  It cannot be cast to the
+ * templatized ParameterT subclasses to get the type-specific methods, so the
+ * overloaded setValue() methods must be used instead.
+ */
+class ParameterC: public Parameter
+{
+public:
+    ParameterC(const Parameter& p);
+
+    ParameterC* clone() const;
+
+    /**
+     * @throws nidas::util::InvalidParameterException
+     **/
+    virtual void
+    fromDOMElement(const xercesc::DOMElement*, const Dictionary* dict) override;
+
+};
+#endif
 
 }} // namespace nidas namespace core
 

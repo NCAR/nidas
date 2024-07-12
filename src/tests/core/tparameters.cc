@@ -44,10 +44,15 @@ BOOST_AUTO_TEST_CASE(test_parameters)
     // in the normal case, we can create a parameter using the template
     // subclasses.
 
-    unique_ptr<ParameterT<float> > pint{ new ParameterT<float>() };
-    pint->setValue(99);
-    BOOST_TEST(pint->getName() == "");
-    BOOST_TEST(pint->getValue(0) == 99);
+    unique_ptr<ParameterT<float> > pfloat{ new ParameterT<float>() };
+    pfloat->setValue(99);
+    BOOST_TEST(pfloat->getName() == "");
+    pfloat->setName("number");
+    BOOST_TEST(pfloat->getName() == "number");
+    BOOST_TEST(pfloat->getValue(0) == 99);
+    BOOST_TEST(pfloat->getFloat(0) == 99);
+    BOOST_TEST(pfloat->getInt(0) == 99);
+    BOOST_TEST(pfloat->getBool(0) == true);
 
     unique_ptr<xercesc::DOMDocument>
         doc{XMLParser::ParseString(xml_bool)};
@@ -109,14 +114,14 @@ BOOST_AUTO_TEST_CASE(test_virtual_parameters)
     unique_ptr<ParameterT<int> > ip{new ParameterT<int>()};
 
     // assignment from different type should silently fail.
-    ip->assign(*fp.get());
+    ip->setValue(*fp.get());
     BOOST_TEST(ip->getLength() == 0);
     BOOST_TEST(ip->getType() == Parameter::INT_PARAM);
     BOOST_TEST(fp->getType() == Parameter::FLOAT_PARAM);
 
     ParameterT<int> i2;
     i2.setValue(10);
-    ip->assign(i2);
+    ip->setValue(i2);
     BOOST_TEST(ip->getValue(0) == 10);
     // BOOST_TEST(ip->getValues() == vector<int>({10}));
 }
