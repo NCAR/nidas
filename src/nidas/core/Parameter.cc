@@ -32,8 +32,8 @@
 #include <iostream>
 
 using namespace std;
+using nidas::util::InvalidParameterException;
 
-namespace n_u = nidas::util;
 
 namespace nidas {
 namespace core {
@@ -100,6 +100,11 @@ Parameter::Parameter(const std::string& name, bool value):
 }
 
 
+Parameter*
+Parameter::clone() const
+{
+    return new Parameter(*this);
+}
 
 
 int
@@ -172,7 +177,7 @@ bool Parameter::getBoolValue(const std::string& name) const
         getLength() != 1)
     {
         if (!name.empty())
-            throw n_u::InvalidParameterException(name, getName(),
+            throw InvalidParameterException(name, getName(),
                 "should be a boolean or integer (FALSE=0,TRUE=1) of length 1");
         return false;
     }
@@ -429,6 +434,26 @@ Parameter* Parameter::clone() const
 #endif
 
 
+bool
+Parameter::string_to_type(const std::string& name, parType& ptype)
+{
+    static const std::map<std::string, parType> type_names {
+        {"float", FLOAT_PARAM},
+        {"bool", BOOL_PARAM},
+        {"string", STRING_PARAM},
+        {"strings", STRING_PARAM},
+        {"int", INT_PARAM},
+        {"hex", INT_PARAM}
+    };
+    bool found{ false };
+
+    auto it = type_names.find(name);
+    if (it != type_names.end() && (found = true))
+        ptype = it->second;
+    return found;
+}
+
+
 Parameter* Parameter::createParameter(const xercesc::DOMElement* node,
                                       const Dictionary* dict)
 {
@@ -455,7 +480,7 @@ Parameter* Parameter::createParameter(const xercesc::DOMElement* node,
                         parameter = new ParameterT<int>();
                 else if (aval == "hex")
                         parameter = new ParameterT<int>();
-                else throw n_u::InvalidParameterException("parameter",
+                else throw InvalidParameterException("parameter",
                         aname,aval);
 
                 parameter->fromDOMElement(node,dict);
@@ -464,7 +489,7 @@ Parameter* Parameter::createParameter(const xercesc::DOMElement* node,
             }
         }
     }
-    throw n_u::InvalidParameterException("parameter",
+    throw InvalidParameterException("parameter",
             "element","no type attribute found");
 }
 
@@ -475,79 +500,96 @@ ParameterT<T>* ParameterT<T>::clone() const
 }
 
 
-template<class T>
-void ParameterT<T>::fromDOMElement(const xercesc::DOMElement* node)
+void Parameter::set_type(parType etype)
 {
-    fromDOMElement(node,0);
+    _type = etype;
+    _floats.clear();
+    _ints.clear();
+    _bools.clear();
+    _strings.clear();
 }
 
-template<class T>
-void ParameterT<T>::fromDOMElement(const xercesc::DOMElement* node,
-                                   const Dictionary* dict)
+
+template <typename T>
+void
+Parameter::set_from_string(const std::string& ptype, const std::string& aval)
 {
-
-    XDOMElement xnode(node);
-    if(node->hasAttributes()) {
-        // get all the attributes of the node
-
-        const string& ptype = xnode.getAttributeValue("type");
-        bool oneString = ptype == "string";
-
-        xercesc::DOMNamedNodeMap *pAttributes = node->getAttributes();
-        int nSize = pAttributes->getLength();
-        for(int i=0;i<nSize;++i) {
-            XDOMAttr attr((xercesc::DOMAttr*) pAttributes->item(i));
-            const std::string& aname = attr.getName();
-            std::string aval = attr.getValue();
-            if (dict) aval = dict->expandString(aval);
-
-            if (aname == "name") setName(aval);
-            else if (aname == "value") {
-                // get attribute value(s)
-
-                // If type is simply "string", don't break it up.
-                if (oneString) {
-                    // ugly!
-                    ParameterT<string>* strParam =
-                            dynamic_cast<ParameterT<string>*>(this);
-                    strParam->setValue(aval);
-                }
-                else {
-                    std::istringstream ist(aval);
-                    if (ptype == "hex") ist >> hex;
-                    if (ptype == "bool") ist >> boolalpha;
-                    T val;
-                    for (int i = 0; ; i++) {
-                        ist >> val;
-#ifdef DEBUG
-                        std::cerr << 
-                            "Parameter::fromDOMElement, read, val=" << val <<
-                            " eof=" << ist.eof() <<
-                            " fail=" << ist.fail() << std::endl;
-#endif
-                        // In case a bool was entered as "0" or "1", turn off boolalpha and try again.
-                        if (ist.fail()) {
-                            if (ist.eof()) break;
-                            ist.clear();
-                            ist >> noboolalpha >> val;
-                            if (ist.fail())
-                                throw n_u::InvalidParameterException(
-                                    "parameter",getName(),aval);
-                            ist >> boolalpha;
-                        }
-                        setValue(i,val);
-                    }
-                }
-#ifdef DEBUG
-                std::cerr << "Parameter::fromDOMElement, getLength()=" <<
-                        getLength() << std::endl;
-#endif
+    // If type is simply "string", don't break it up.
+    if (ptype == "string") {
+        setValue(aval);
+    }
+    else {
+        std::istringstream ist(aval);
+        if (ptype == "hex") ist >> hex;
+        if (ptype == "bool") ist >> boolalpha;
+        T val;
+        for (int i = 0; ; i++) {
+            ist >> val;
+            // In case a bool was entered as "0" or "1", turn off boolalpha and try again.
+            if (ist.fail()) {
+                if (ist.eof()) break;
+                ist.clear();
+                ist >> noboolalpha >> val;
+                if (ist.fail())
+                    throw InvalidParameterException(
+                        "parameter",getName(),aval);
+                ist >> boolalpha;
             }
-            else if (aname != "type" && aname != "xmlns")
-                // XMLConfigWriter seems to add xmlns attributes
-                throw n_u::InvalidParameterException(
-                    "parameter",aname,aval);
+            setValue(i, val);
         }
+    }
+}
+
+
+void Parameter::fromDOMElement(const xercesc::DOMElement* node,
+                               const Dictionary* dict)
+{
+    XDOMElement xnode(node);
+    if(!node->hasAttributes())
+    {
+        return;
+    }
+    // get all the attributes of the node
+    const string& ptype = xnode.getAttributeValue("type");
+
+    // make sure type is consistent, in case not set by a subclass.
+    parType etype;
+    if (! string_to_type(ptype, etype))
+        throw InvalidParameterException("parameter", "type",
+                                        ptype + ": not a recognized parameter type");
+    set_type(etype);
+
+    xercesc::DOMNamedNodeMap *pAttributes = node->getAttributes();
+    int nSize = pAttributes->getLength();
+    for(int i=0;i<nSize;++i) {
+        XDOMAttr attr((xercesc::DOMAttr*) pAttributes->item(i));
+        const std::string& aname = attr.getName();
+        std::string aval = attr.getValue();
+        if (dict) aval = dict->expandString(aval);
+
+        if (aname == "name") setName(aval);
+        else if (aname == "value") {
+            // get attribute value(s)
+            switch (_type)
+            {
+                case FLOAT_PARAM:
+                    set_from_string<float>(ptype, aval);
+                    break;
+                case INT_PARAM:
+                    set_from_string<int>(ptype, aval);
+                    break;
+                case STRING_PARAM:
+                    set_from_string<std::string>(ptype, aval);
+                    break;
+                case BOOL_PARAM:
+                    set_from_string<bool>(ptype, aval);
+                    break;
+            }
+        }
+        else if (aname != "type" && aname != "xmlns")
+            // XMLConfigWriter seems to add xmlns attributes
+            throw InvalidParameterException(
+                "parameter",aname,aval);
     }
 }
 
@@ -575,12 +617,19 @@ void ParameterT<T>::setValues(const std::vector<T>& vals) {
 template <class T>
 void ParameterT<T>::setValue(unsigned int i, const T& val)
 {
-    set_value(i, val);
+    Parameter::setValue(i, val);
 }
 
 template <class T>
-void ParameterT<T>::setValue(const T& val) {
-    set_value(-1, val);
+void ParameterT<T>::setValue(const T& val)
+{
+    Parameter::setValue(val);
+}
+
+template <class T>
+void ParameterT<T>::setValue(const Parameter& param)
+{
+    Parameter::setValue(param);
 }
 
 template <class T>

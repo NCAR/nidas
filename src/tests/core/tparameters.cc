@@ -26,6 +26,11 @@ const char xml_bool[] = R"(
 )";
 
 
+const char xml_hex[] = R"(
+<parameter name='stypes' type='hex' value='0x01 0x80 0xff'/>
+)";
+
+
 const char xml_string[] = R"(
 <parameter name='onestring' type='string'
            value='one string to rule them all'/>
@@ -81,7 +86,70 @@ BOOST_AUTO_TEST_CASE(test_parameters)
     BOOST_TEST(param->getLength() == 6);
     BOOST_TEST(param->getStringValue(0) == "one");
     BOOST_TEST(param->getStringValue(5) == "all");
+}
 
+
+BOOST_AUTO_TEST_CASE(test_value_parameters)
+{
+    // similar to above, but using a value Parameter.
+    TFixture fix;
+    // in the normal case, we can create a parameter using the template
+    // subclasses.
+
+    Parameter pfloatv("", Parameter::FLOAT_PARAM);
+    Parameter* pfloat{&pfloatv};
+    pfloat->setValue(99);
+    BOOST_TEST(pfloat->getName() == "");
+    pfloat->setName("number");
+    BOOST_TEST(pfloat->getName() == "number");
+    BOOST_TEST(pfloat->getFloat(0) == 99);
+    BOOST_TEST(pfloat->getInt(0) == 99);
+    BOOST_TEST(pfloat->getBool(0) == true);
+
+    unique_ptr<xercesc::DOMDocument>
+        doc{XMLParser::ParseString(xml_bool)};
+
+    Parameter pv;
+    Parameter* param{&pv};
+    pv.fromDOMElement(doc->getDocumentElement());
+    BOOST_TEST(param->getName() == "working");
+    BOOST_TEST(param->getLength() == 4);
+    // false because there is more than one value
+    BOOST_TEST(param->getBoolValue() == false);
+    BOOST_TEST(param->getNumericValue(0) == 1);
+    BOOST_TEST(param->getNumericValue(1) == 0);
+    BOOST_TEST(param->getNumericValue(2) == 0);
+    BOOST_TEST(param->getNumericValue(3) == 1);
+
+    doc.reset(XMLParser::ParseString(xml_string));
+    param->fromDOMElement(doc->getDocumentElement());
+    BOOST_TEST(param->getName() == "onestring");
+    BOOST_TEST(param->getLength() == 1);
+    BOOST_TEST(param->getStringValue(0) == "one string to rule them all");
+
+    doc.reset(XMLParser::ParseString(xml_strings));
+    param->fromDOMElement(doc->getDocumentElement());
+    BOOST_TEST(param->getName() == "nstrings");
+    BOOST_TEST(param->getLength() == 6);
+    BOOST_TEST(param->getStringValue(0) == "one");
+    BOOST_TEST(param->getStringValue(5) == "all");
+}
+
+
+BOOST_AUTO_TEST_CASE(test_hex_parameter)
+{
+    unique_ptr<xercesc::DOMDocument>
+        doc{XMLParser::ParseString(xml_hex)};
+
+    Parameter pv;
+    pv.fromDOMElement(doc->getDocumentElement());
+
+    BOOST_TEST(pv.getName() == "stypes");
+    BOOST_TEST(pv.getType() == Parameter::INT_PARAM);
+    BOOST_REQUIRE(pv.getLength() == 3);
+    BOOST_TEST(pv.getInt(0) == 1);
+    BOOST_TEST(pv.getInt(1) == 128);
+    BOOST_TEST(pv.getInt(2) == 255);
 }
 
 
