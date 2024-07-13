@@ -67,6 +67,11 @@ public:
     explicit Parameter(const std::string& name, int value);
     explicit Parameter(const std::string& name, bool value);
 
+    /**
+     * Parameter with a double value is implicitly converted to FLOAT_PARAM.
+     */
+    explicit Parameter(const std::string& name, double value);
+
     virtual ~Parameter() {}
 
     /**
@@ -131,9 +136,9 @@ public:
 
     parType getType() const { return _type; }
 
-    virtual int getLength() const;
+    int getLength() const;
 
-    virtual double getNumericValue(int i) const;
+    double getNumericValue(int i) const;
 
     /**
      * If this Parameter has float, int, or bool type and length 1, return the
@@ -141,9 +146,17 @@ public:
      * an InvalidParameterException using the given context name, else return
      * false.
      */
-    virtual bool getBoolValue(const std::string& name = "") const;
+    bool getBoolValue(const std::string& name = "") const;
 
-    virtual std::string getStringValue(int i) const;
+    std::string getStringValue(int i) const;
+
+    /**
+     * A special case to get a string value which includes all the values,
+     * concatenated as strings separated with spaces, and cache that string
+     * value in the object so that c_str() is valid as long as the Parameter
+     * exists.
+     */
+    const std::string& getStringValue() const;
 
     /**
      * @throws nidas::util::InvalidParameterException
@@ -172,6 +185,8 @@ protected:
     std::vector<bool> _bools{};
 
     parType _type;
+
+    mutable std::string _cached_value{};
 
     template <typename T>
     std::vector<T>& get_vector();
