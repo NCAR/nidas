@@ -69,7 +69,12 @@ public:
 
     virtual ~Parameter() {}
 
-    virtual Parameter* clone() const = 0;
+    /**
+     * This allows a Parameter instance to be cloned if it was not already a
+     * ParameterT subclass.  Of course, such a cloned instance cannot be
+     * downcast to get the typed interface.
+     */
+    virtual Parameter* clone() const;
 
     /**
      * Use default assignment and copy, so any Parameter can be replaced, and
@@ -147,10 +152,15 @@ public:
     createParameter(const xercesc::DOMElement*, const Dictionary* d = 0);
 
     /**
-     * @throws nidas::util::InvalidParameterException
+     * @throws nidas::util::InvalidParameterException;
      **/
-    virtual void
-    fromDOMElement(const xercesc::DOMElement*, const Dictionary* dict) = 0;
+    void fromDOMElement(const xercesc::DOMElement*, const Dictionary* dict = 0);
+
+    /**
+     * If @p name matches the recognized names for parType, then set @p ptype
+     * and return true.  Otherwise return false.
+     */
+    static bool string_to_type(const std::string& name, parType& ptype);
 
 protected:
 
@@ -171,6 +181,13 @@ protected:
 
     template <typename T>
     T get_value(int i) const;
+
+    // If type must change, all the values have to be reset.
+    void set_type(parType etype);
+
+    template <typename T>
+    void
+    set_from_string(const std::string& ptype, const std::string& aval);
 };
 
 /**
@@ -203,22 +220,9 @@ public:
      */
     void setValue(const T& val);
 
-    void setValue(const Parameter& param)
-    {
-        Parameter::setValue(param);
-    }
+    void setValue(const Parameter& param);
 
     T getValue(int i) const;
-
-    /**
-     * @throws nidas::util::InvalidParameterException
-     **/
-    void fromDOMElement(const xercesc::DOMElement*);
-
-    /**
-     * @throws nidas::util::InvalidParameterException;
-     **/
-    void fromDOMElement(const xercesc::DOMElement*, const Dictionary* dict) override;
 };
 
 /**
@@ -236,29 +240,6 @@ private:
     const Parameter* p;
 };
 
-
-#ifdef notdef
-/**
- * ParameterC is a concrete Parameter instance which can be passed by value
- * but still preserve it's type and value.  It cannot be cast to the
- * templatized ParameterT subclasses to get the type-specific methods, so the
- * overloaded setValue() methods must be used instead.
- */
-class ParameterC: public Parameter
-{
-public:
-    ParameterC(const Parameter& p);
-
-    ParameterC* clone() const;
-
-    /**
-     * @throws nidas::util::InvalidParameterException
-     **/
-    virtual void
-    fromDOMElement(const xercesc::DOMElement*, const Dictionary* dict) override;
-
-};
-#endif
 
 }} // namespace nidas namespace core
 
