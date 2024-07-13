@@ -85,6 +85,14 @@ Parameter::Parameter(const std::string& name, float value):
 {
     setValue(value);
 }
+
+Parameter::Parameter(const std::string& name, double value):
+    _name(name),
+    _type(FLOAT_PARAM)
+{
+    setValue((float)value);
+}
+
 Parameter::Parameter(const std::string& name, int value):
     _name(name),
     _type(INT_PARAM)
@@ -168,6 +176,21 @@ std::string Parameter::getStringValue(int i) const
     }
     return ost.str();
 }
+
+
+const std::string&
+Parameter::getStringValue() const
+{
+    ostringstream ost;
+    for (int i = 0; i < getLength(); ++i)
+    {
+        ost << (i > 0 ? " " : "");
+        ost << getStringValue(i);
+    }
+    _cached_value = ost.str();
+    return _cached_value;
+}
+
 
 bool Parameter::getBoolValue(const std::string& name) const
 {

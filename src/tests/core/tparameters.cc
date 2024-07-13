@@ -59,6 +59,8 @@ BOOST_AUTO_TEST_CASE(test_parameters)
     BOOST_TEST(pfloat->getInt(0) == 99);
     BOOST_TEST(pfloat->getBool(0) == true);
 
+    BOOST_TEST(pfloat->getStringValue() == "99");
+
     unique_ptr<xercesc::DOMDocument>
         doc{XMLParser::ParseString(xml_bool)};
 
@@ -73,6 +75,8 @@ BOOST_AUTO_TEST_CASE(test_parameters)
     BOOST_TEST(param->getNumericValue(1) == 0);
     BOOST_TEST(param->getNumericValue(2) == 0);
     BOOST_TEST(param->getNumericValue(3) == 1);
+
+    BOOST_TEST(param->getStringValue() == "1 0 0 1");
 
     doc.reset(XMLParser::ParseString(xml_string));
     param.reset(Parameter::createParameter(doc->getDocumentElement()));
@@ -138,6 +142,8 @@ BOOST_AUTO_TEST_CASE(test_value_parameters)
 
 BOOST_AUTO_TEST_CASE(test_hex_parameter)
 {
+    TFixture fix;
+
     unique_ptr<xercesc::DOMDocument>
         doc{XMLParser::ParseString(xml_hex)};
 
