@@ -529,11 +529,9 @@ void Wind3D::updateAttributes()
 {
     // create a set of attributes which specify what kind of processing is
     // being done to the wind variables, then update those attributes on all
-    // the variables.  we could try to be more precise, for example limiting
-    // rotation attributes to just the wind vector variables, but for now take
-    // the shotgun approach.  this gets called after the first attempt to
-    // process data, hoping that the right cal file settings for the data time
-    // have been loaded.
+    // the variables.  this gets called after the first attempt to process
+    // data, hoping that the right cal file settings for the data time have
+    // been loaded and will be valid for the rest of this run.
 
     // this is making some assumptions for settings which come from calfiles,
     // such as for tilt corrections.  if the first process() call happens to
@@ -596,13 +594,14 @@ void Wind3D::updateAttributes()
         attributes.emplace_back("rotate_degrees", _rotator.getAngleDegrees());
     }
 
-    // Now blast the attributes onto every variable.
+    // Set the attributes on the uvw variables, always the first three.
     for (auto& stag: getSampleTags())
     {
-        for (auto& var: stag->getVariables())
+        auto& variables = stag->getVariables();
+        for (size_t i = 0; i < variables.size() && i < 3; ++i)
         {
             for (auto& att: attributes)
-                var->setAttribute(att);
+                variables[i]->setAttribute(att);
         }
     }
 }
