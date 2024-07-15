@@ -105,10 +105,8 @@ SampleTag& SampleTag::operator=(const SampleTag& rhs)
         _promptOffset = rhs._promptOffset;
         _enabled = rhs._enabled;
 
-        const vector<const Variable*>& vars = rhs.getVariables();
-        vector<const Variable*>::const_iterator vi;
-        for (vi = vars.begin(); vi != vars.end(); ++vi) {
-            const Variable* var = *vi;
+        for (auto& var: rhs.getVariables())
+        {
             Variable* newv = new Variable(*var);
             addVariable(newv);
         }

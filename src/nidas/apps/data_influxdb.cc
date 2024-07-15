@@ -647,7 +647,7 @@ class SampleToDatabase
                  << app->formatId(sid));
             return;
         }
-        const std::vector<const Variable *> &variables = stag->getVariables();
+        const auto &variables = stag->getVariables();
 
         // The sample has to have variables.
         if (variables.size() == 0)

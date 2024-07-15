@@ -202,7 +202,7 @@ WxtSensor::scanSample(AsciiSscanf* sscanf, const char* inputstr,
 {
     const SampleTag* stag = sscanf->getSampleTag();
     dsm_sample_id_t sid = stag->getId();
-    const std::vector<const Variable*>& variables = stag->getVariables();
+    const auto& variables = stag->getVariables();
     vector<string>& field_formats = _field_formats[sid];
 
     int nparsed = 0;
@@ -215,7 +215,7 @@ WxtSensor::scanSample(AsciiSscanf* sscanf, const char* inputstr,
     // the WXT is not reporting that field and assign it a missing value.
     vector<string>::iterator fi = field_formats.begin();
     vector<string>::iterator si = sample_fields.begin();
-    std::vector<const Variable*>::const_iterator vi = variables.begin();
+    auto vi = variables.begin();
 
     while (fi != field_formats.end() && vi != variables.end())
     {
