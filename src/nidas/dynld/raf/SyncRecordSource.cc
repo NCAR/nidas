@@ -309,7 +309,7 @@ selectVariablesFromSensor(DSMSensor* sensor,
 
 	dsm_sample_id_t sampleId = tag->getId();
 
-	const vector<const Variable*>& vars = tag->getVariables();
+	const auto& vars = tag->getVariables();
 
 	// skip samples with one non-continuous, non-counter variable
 	if (vars.size() == 1) {
@@ -329,16 +329,14 @@ selectVariablesFromSensor(DSMSensor* sensor,
         }
         idmap[sampleId] = variables.size();
 
-	vector<const Variable*>::const_iterator vi;
-	for (vi = vars.begin(); vi != vars.end(); ++vi)
+        for (auto& var: vars)
         {
-	    const Variable* var = *vi;
-	    Variable::type_t vt = var->getType();
-	    if (vt == Variable::CONTINUOUS || vt == Variable::COUNTER)
+            Variable::type_t vt = var->getType();
+            if (vt == Variable::CONTINUOUS || vt == Variable::COUNTER)
             {
-		variables.push_back(var);
-	    }
-	}
+                variables.push_back(var);
+            }
+        }
     }
 }
 
