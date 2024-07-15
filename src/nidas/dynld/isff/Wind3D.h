@@ -71,7 +71,7 @@ public:
 
     double getVazimuth() const
     {
-	return _rotator.getAngleDegrees();
+        return _rotator.getAngleDegrees();
     }
 
     /**
@@ -86,25 +86,25 @@ public:
      */
     void setVazimuth(double val)
     {
-	_rotator.setAngleDegrees(val);
+        _rotator.setAngleDegrees(val);
     }
 
     double getLeanDegrees() const
     {
-	return _tilter.getLeanDegrees();
+        return _tilter.getLeanDegrees();
     }
     void setLeanDegrees(double val)
     {
-	_tilter.setLeanDegrees(val);
+        _tilter.setLeanDegrees(val);
     }
 
     double getLeanAzimuthDegrees() const
     {
-	return _tilter.getLeanAzimuthDegrees();
+        return _tilter.getLeanAzimuthDegrees();
     }
     void setLeanAzimuthDegrees(double val)
     {
-	_tilter.setLeanAzimuthDegrees(val);
+        _tilter.setLeanAzimuthDegrees(val);
     }
 
     void setDespike(bool val)
@@ -123,8 +123,8 @@ public:
 
     void setOutlierProbability(double val)
     {
-	for (int i = 0; i < 4; i++)
-	    _despiker[i].setOutlierProbability(val);
+        for (int i = 0; i < 4; i++)
+            _despiker[i].setOutlierProbability(val);
     }
 
     double getOutlierProbability() const
@@ -134,8 +134,8 @@ public:
 
     void setDiscLevelMultiplier(double val)
     {
-	for (int i = 0; i < 4; i++)
-	    _despiker[i].setDiscLevelMultiplier(val);
+        for (int i = 0; i < 4; i++)
+            _despiker[i].setDiscLevelMultiplier(val);
     }
 
     double getDiscLevelMultiplier() const
@@ -185,7 +185,7 @@ public:
     }
 
     void despike(nidas::core::dsm_time_t tt,float* uvwt,int n, bool* spikeOrMissing)
-    	throw();
+        throw();
 
     /**
      * Do standard bias removal, tilt correction and horizontal rotation of
@@ -244,6 +244,10 @@ public:
     virtual void getTransducerRotation(nidas::core::dsm_time_t tt);
 
     virtual void transducerShadowCorrection(nidas::core::dsm_time_t, float *);
+
+    bool shadowCorrectionEnabled();
+
+    void updateAttributes();
 
 protected:
 
@@ -346,6 +350,8 @@ protected:
      * "shadowFactor".
      */
     double _shadowFactor;
+
+    bool _process_started;
 
     std::unique_ptr<Wind3D_impl> _impl;
 

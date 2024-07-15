@@ -34,10 +34,11 @@
 #include <string>
 #include <list>
 
+#include "Parameter.h"
+
 namespace nidas { namespace core {
 
 class SampleTag;
-class Parameter;
 class Site;
 
 /**
@@ -405,6 +406,17 @@ public:
     xercesc::DOMElement*
     toDOMElement(xercesc::DOMElement* node, bool complete) const;
 
+    /**
+     * Add Parameter @p att as an attribute to this Variable.  If an attribute
+     * already exists with the same name, it will be replaced.
+     */
+    void setAttribute(const Parameter& att);
+
+    /**
+     * Return the attributes attached to this Variable.
+     */
+    const std::vector<Parameter>& getAttributes() const;
+
 private:
 
     void setSiteSuffix(const std::string& val);
@@ -465,6 +477,7 @@ private:
 
     bool _dynamic;
 
+    std::vector<Parameter> _attributes;
 };
 
 }} // namespace nidas namespace core

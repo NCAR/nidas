@@ -104,6 +104,7 @@ Wind3D::Wind3D():
     _atMatrix(),
     _atInverse(),
     _shadowFactor(0.0),
+    _process_started(false),
     _impl{new Wind3D_impl{}}
 {
     for (int i = 0; i < 3; i++) {
@@ -255,6 +256,8 @@ void Wind3D::validate()
     parseParameters();
 
     checkSampleTags();
+
+    updateAttributes();
 }
 
 void Wind3D::parseParameters()
@@ -406,12 +409,19 @@ void Wind3D::validateSscanfs()
     }
 }
 
+
+bool Wind3D::shadowCorrectionEnabled()
+{
+    return _impl->_enabled && _atCalFile && _shadowFactor != 0.0 &&
+        !std::isnan(_atMatrix[0][0]);
+}
+
 void Wind3D::transducerShadowCorrection(dsm_time_t tt,float* uvw)
 {
-#ifdef HAVE_LIBGSL
-    if (!_atCalFile || _shadowFactor == 0.0 || std::isnan(_atMatrix[0][0]))
+    if (!shadowCorrectionEnabled())
         return;
 
+#ifdef HAVE_LIBGSL
     double spd2 = uvw[0] * uvw[0] + uvw[1] * uvw[1] + uvw[2] * uvw[2];
 
     /* If one component is missing, do we mark all as missing?
@@ -514,6 +524,90 @@ void Wind3D::getTransducerRotation(dsm_time_t tt)
 #endif
 }
 
+
+void Wind3D::updateAttributes()
+{
+    // create a set of attributes which specify what kind of processing is
+    // being done to the wind variables, then update those attributes on all
+    // the variables.  we could try to be more precise, for example limiting
+    // rotation attributes to just the wind vector variables, but for now take
+    // the shotgun approach.  this gets called after the first attempt to
+    // process data, hoping that the right cal file settings for the data time
+    // have been loaded.
+
+    // this is making some assumptions for settings which come from calfiles,
+    // such as for tilt corrections.  if the first process() call happens to
+    // be during a time when the calfile settings are nan, then the attributes
+    // will be nan.  really the tilt and rotation angles should be separate
+    // from the "invalidation" times rather than lumped together in one cal
+    // file.  and of course in general these attributes could change over a
+    // long processing run.
+
+    // maybe a future improvement could be to call this method to update the
+    // attributes whenever a calfile change happens, or whenever one of the
+    // set methods are called.
+
+    // start with all the parameters in this sensor, since those are relevant
+    // even if they might be redundant.
+    std::vector<Parameter> attributes;
+
+    for (auto& param: getParameters())
+    {
+        // do not add shadowFactor in favor of shadow_factor below
+        if (param->getName() != "shadowFactor")
+            attributes.push_back(*param);
+    }
+
+    if (_metek)
+        attributes.push_back(Parameter("metek_correction_applied", false));
+
+    // this may already be present from a parameter, but set it anyway.
+    attributes.emplace_back("despike", getDespike());
+
+    attributes.emplace_back("shadow_correction_applied",
+                            shadowCorrectionEnabled());
+    if (shadowCorrectionEnabled())
+    {
+        attributes.emplace_back("shadow_factor", _shadowFactor);
+        if (_atCalFile)
+            attributes.emplace_back("shadow_calfile",
+                                    _atCalFile->getCurrentFileName());
+    }
+
+    attributes.emplace_back("orientation", _orienter.getOrientationName());
+
+    attributes.emplace_back("tilt_correction_applied", _tiltCorrection);
+    if (_tiltCorrection)
+    {
+        attributes.emplace_back("lean_degrees", _tilter.getLeanDegrees());
+        attributes.emplace_back("lean_azimuth_degrees",
+                                _tilter.getLeanAzimuthDegrees());
+        if (_oaCalFile)
+            attributes.emplace_back("offsets_angles_calfile",
+                                    _oaCalFile->getCurrentFileName());
+    }
+
+    attributes.emplace_back("horizontal_rotation_applied",
+                            _horizontalRotation);
+
+    // probably avoids confusion to leave this out if not enabled.
+    if (_horizontalRotation)
+    {
+        attributes.emplace_back("rotate_degrees", _rotator.getAngleDegrees());
+    }
+
+    // Now blast the attributes onto every variable.
+    for (auto& stag: getSampleTags())
+    {
+        for (auto& var: stag->getVariables())
+        {
+            for (auto& att: attributes)
+                var->setAttribute(att);
+        }
+    }
+}
+
+
 bool Wind3D::process(const Sample* samp,
 	std::list<const Sample*>& results)
 {
@@ -538,7 +632,7 @@ bool Wind3D::process(const Sample* samp,
         if (pdata < pend) uvwtd[i] = *pdata++;
         else uvwtd[i] = floatNAN;
     }
-    
+
     //metek has a correction before we start applying other corrections
     if (_metek) {
         nidas::dynld::isff::metek::Apply3DCorrect(uvwtd);
@@ -610,6 +704,12 @@ bool Wind3D::process(const Sample* samp,
     }
     if (_dirIndex >= 0) {
         dout[_dirIndex] = n_u::dirFromUV(dout[0], dout[1]);
+    }
+
+    if (!_process_started)
+    {
+        updateAttributes();
+        _process_started = true;
     }
 
     results.push_back(wsamp);
