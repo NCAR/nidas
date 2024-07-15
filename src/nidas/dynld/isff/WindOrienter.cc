@@ -41,6 +41,7 @@ namespace n_u = nidas::util;
 
 WindOrienter::
 WindOrienter() :
+  _name("normal"),
   _unusualOrientation(false)
 {
     /* index and sign transform for usual sonic orientation.
@@ -162,12 +163,21 @@ setOrientation(const std::string& orientation, const std::string& name)
              "must be one string: 'normal' (default), 'down', 'lefthanded', "
              "'flipped' or 'horizontal'");
     }
+    _name = orientation;
     float before[3] = { 1.0, 2.0, 3.0 };
     float after[3] = { 1.0, 2.0, 3.0 };
-    
+
     applyOrientation(after);
     DLOG(("sonic wind orientation will convert (%g,%g,%g) to (%g,%g,%g)",
           before[0], before[1], before[2], after[0], after[1], after[2]));
+}
+
+
+std::string
+WindOrienter::
+getOrientationName()
+{
+    return _name;
 }
 
 

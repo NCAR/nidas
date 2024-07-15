@@ -56,7 +56,8 @@ Variable::Variable():
     _missingValue(1.e37),
     _minValue(-numeric_limits<float>::max()),
     _maxValue(numeric_limits<float>::max()),
-    _dynamic(false)
+    _dynamic(false),
+    _attributes()
 {
     _plotRange[0] = floatNAN;
     _plotRange[1] = floatNAN;
@@ -82,7 +83,8 @@ Variable::Variable(const Variable& x):
     _missingValue(x._missingValue),
     _minValue(x._minValue),
     _maxValue(x._maxValue),
-    _dynamic(x._dynamic)
+    _dynamic(x._dynamic),
+    _attributes(x._attributes)
 {
     if (x._converter)
         _converter = x._converter->clone();
@@ -117,6 +119,7 @@ Variable& Variable::operator=(const Variable& rhs)
         _plotRange[0] = rhs._plotRange[0];
         _plotRange[1] = rhs._plotRange[1];
         _dynamic = rhs._dynamic;
+        _attributes = rhs._attributes;
 
         // this invalidates the previous pointer to the converter, hmm.
         // don't want to create a virtual assignment op for converters.
@@ -152,6 +155,29 @@ Variable::~Variable()
     for (pi = _parameters.begin(); pi != _parameters.end(); ++pi)
     	delete *pi;
 }
+
+
+void Variable::setAttribute(const Parameter& att)
+{
+    DLOG(("setting attribute on ") << getName() << ": "
+         << att.getName() << "='" << att.getStringValue() << "'");
+    for (auto& ap: _attributes)
+    {
+        if (ap.getName() == att.getName())
+        {
+            ap = att;
+            return;
+        }
+    }
+    _attributes.push_back(att);
+}
+
+
+const std::vector<Parameter>& Variable::getAttributes() const
+{
+    return _attributes;
+}
+
 
 void Variable::setSiteSuffix(const string& val)
 {
