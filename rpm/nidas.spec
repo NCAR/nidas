@@ -1,15 +1,8 @@
 %define nidas_prefix /opt/nidas
 %define scons scons-3
 
-# Command line switches: --with arinc --with modules
-%bcond_with arinc
+# Command line switches: --with modules
 %bcond_with modules
-
-%if %{with arinc}
-%define buildarinc BUILD_ARINC=yes
-%else
-%define buildarinc BUILD_ARINC=no
-%endif
 
 %if %{with modules}
 %define buildmodules LINUX_MODULES=yes
@@ -101,7 +94,7 @@ NIDAS C/C++ headers, shareable library links, pkg-config.
 %build
 
 %{scons} -C src -j 4 --config=force gitinfo=off BUILD=host \
- REPO_TAG=v%{version} %{buildarinc} %{buildmodules} \
+ REPO_TAG=v%{version} %{buildmodules} \
  PREFIX=%{nidas_prefix} PKGCONFIGDIR=%{_libdir}/pkgconfig \
  SYSCONFIGDIR=%{_sysconfdir}
 
@@ -109,7 +102,7 @@ NIDAS C/C++ headers, shareable library links, pkg-config.
 rm -rf $RPM_BUILD_ROOT
 
 %{scons} -C src -j 4 --config=force gitinfo=off BUILD=host \
- REPO_TAG=v%{version} %{buildarinc} %{buildmodules} \
+ REPO_TAG=v%{version} %{buildmodules} \
  PREFIX=%{nidas_prefix} PKGCONFIGDIR=%{_libdir}/pkgconfig \
  SYSCONFIGDIR=%{_sysconfdir} \
  INSTALL_ROOT=$RPM_BUILD_ROOT install install.root
@@ -186,9 +179,6 @@ rm -rf $RPM_BUILD_ROOT
 %if %{with modules}
 %files modules
 %defattr(0775,root,root,2775)
-%if %{with arinc}
-%{nidas_prefix}/modules/arinc.ko
-%endif
 %{nidas_prefix}/modules/dmd_mmat.ko
 %{nidas_prefix}/modules/emerald.ko
 %{nidas_prefix}/modules/gpio_mm.ko

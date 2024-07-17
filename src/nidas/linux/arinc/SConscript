@@ -1,51 +1,13 @@
 # -*- python -*-
-## 2008, Copyright University Corporation for Atmospheric Research
+# 2008, Copyright University Corporation for Atmospheric Research
 
-import SCons
-from SCons.Script import Environment, EnumVariable, Return, Import
+from SCons.Script import Environment, Import
 
 Import(['env'])
 
 env: Environment
 
-
-variables = env.GlobalVariables()
-bahelp="""
- Control building of the arinc Linux kernel driver.  If 'yes', then the build
- fails if the arinc driver cannot be built because the Condor source is not
- present.  If 'auto', the default, then the arinc driver is built if the
- Condor source is present, but the build does not fail if not.  Set it to 'no'
- to disable building the arinc driver even if the Condor source is present.
-"""
-variables.Add(EnumVariable('BUILD_ARINC', bahelp, 'auto',
-                           allowed_values=('yes', 'auto', 'no')))
-variables.Update(env)
-
-buildarinc = env['BUILD_ARINC']
-if buildarinc == 'no':
-    print("arinc build disabled.")
-    Return()
-
-arinc_files = env.Split("""
-    Condor/CEI420A/Source/api220.c
-    Condor/CEI420A/Source/api220.h
-    Condor/CEI420A/Source/apiutils.c
-    Condor/CEI420A/Source/arincx20.h
-    Condor/CEI420A/Source/lowlevel.h
-    Condor/CEI420A/Source/fpga420a_16mhz_v100.h
-    Condor/CEI420A/Source/i960_220.h
-    Condor/CEI420A/Include/utildefs.h
-    main.c
-""")
-
 headers = env.Split("arinc.h")
 
-targets = env.NidasKernelModule(
-    ['arinc.ko'],
-    arinc_files + env.SymbolModules('revinfo', 'util', 'irig'),
-    headers)
-
-if not targets and buildarinc == 'yes':
-    raise SCons.Errors.StopError(
-        "Condor source not found or LINUX_MODULES disabled, "
-        "but BUILD_ARINC is set to 'yes'.")
+installs = env.Install('$LINUX_MODULES_INC/arinc', headers)
+env.Alias('install', installs)

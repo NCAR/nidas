@@ -324,8 +324,7 @@ if 'doxinstall' in COMMAND_LINE_TARGETS:
 # Override the SCons variable help formatter before calling SetHelp(), since
 # that actually generates all the text.
 def BriefVariableHelpText(env, key, help, dflt, actual, aliases=None) -> str:
-    briefs = ['PREFIX', 'BUILD', 'LINUX_MODULES',
-              'PKG_CONFIG_PATH', 'BUILD_ARINC']
+    briefs = ['PREFIX', 'BUILD', 'LINUX_MODULES', 'PKG_CONFIG_PATH']
     if key not in briefs:
         return ''
     brief = help or ''
