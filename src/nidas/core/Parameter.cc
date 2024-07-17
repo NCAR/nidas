@@ -617,6 +617,19 @@ void Parameter::fromDOMElement(const xercesc::DOMElement* node,
 }
 
 
+bool Parameter::operator==(const Parameter& rhs) const
+{
+    // only one of the vector values will contain anything, according to the
+    // type, so no harm in comparing all of them.
+    return _name == rhs._name &&
+        _type == rhs._type &&
+        _strings == rhs._strings &&
+        _floats == rhs._floats &&
+        _ints == rhs._ints &&
+        _bools == rhs._bools;
+}
+
+
 template <class T>
 ParameterT<T>::ParameterT():
     Parameter("", get_param_type<T>::par_type)
