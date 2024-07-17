@@ -261,10 +261,8 @@ protected:
 
     double _bias[3];
 
-    bool _allBiasesNaN;
-
     bool _despike;
-    
+
     bool _metek;
 
     nidas::core::AdaptiveDespiker _despiker[4];

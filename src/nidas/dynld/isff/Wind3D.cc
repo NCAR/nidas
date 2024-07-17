@@ -88,7 +88,6 @@ public:
 
 
 Wind3D::Wind3D():
-    _allBiasesNaN(false),
     _despike(false),
     _metek(false),
     _rotator(), _tilter(), _orienter(),
@@ -150,13 +149,8 @@ void Wind3D::despike(dsm_time_t tt,
 
 void Wind3D::setBias(int b, double val)
 {
-    int nnan = 0;
-    for (int i = 0; i < 3; i++)
-    {
-        if (b == i) _bias[i] = val;
-        if (std::isnan(_bias[i])) nnan++;
-    }
-    _allBiasesNaN = (nnan == 3);
+    if (0 <= b && b < 3)
+        _bias[b] = val;
 }
 
 
