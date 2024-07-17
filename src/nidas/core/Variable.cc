@@ -173,6 +173,19 @@ void Variable::setAttribute(const Parameter& att)
 }
 
 
+void Variable::removeAttribute(const std::string& name)
+{
+    auto match_name = [name](const Parameter& p) -> bool
+    {
+        return p.getName() == name;
+    };
+    auto it = std::find_if(_attributes.begin(), _attributes.end(),
+                           match_name);
+    if (it != _attributes.end())
+        _attributes.erase(it);
+}
+
+
 const std::vector<Parameter>& Variable::getAttributes() const
 {
     return _attributes;
@@ -217,12 +230,37 @@ void Variable::updateName()
     _nameWithoutSite = _prefix + suffix;
     VLOG(("") << "prefix=" << _prefix << ", suffix=" << _suffix
               << ", site=" << _siteSuffix << ": name => " << _name);
+
+    // if name needs to be updated, then likely the attributes inherited from
+    // the tag and sensor need to be updated also.  it might be useful to add
+    // site as an attribute, but deferring that for now.
+    const DSMSensor* sensor{_sampleTag ? _sampleTag->getDSMSensor() : nullptr};
+    if (sensor)
+    {
+        const std::string& depth = sensor->getDepthString();
+        if (!depth.empty())
+            setAttribute(Parameter("height", depth));
+        const std::string& height = sensor->getHeightString();
+        if (!height.empty())
+            setAttribute(Parameter("height", height));
+    }
 }
 
 
+void Variable::setConverter(VariableConverter* val)
+{
+    delete _converter;
+    _converter = val;
+    // presumably the converter has been fully specified by now, in particular
+    // it has been loaded from a dom element, so this is a good time to add
+    // the converter spec as an attribute.
+    if (_converter)
+        setAttribute(Parameter{"converter", _converter->toString()});
+}
+
 
 void Variable::setSampleTag(const SampleTag* val)
-{ 
+{
     _sampleTag = val;
     // if the Variable's site is undefined, set it from the sample
     if (!getSite()) setSite(_sampleTag->getSite());
@@ -400,9 +438,11 @@ void Variable::fromDOMElement(const xercesc::DOMElement* node)
                 VariableConverter::createVariableConverter(xchild);
             if (!cvtr) throw n_u::InvalidParameterException
                            (getName(), "unsupported child element", elname);
+            // set Variable on this converter now so it can get to the DSM
             cvtr->setVariable(this);
             cvtr->setUnits(getUnits());
             cvtr->fromDOMElement((xercesc::DOMElement*)child);
+            // this will set it again to update the converter attributes.
             setConverter(cvtr);
             nconverters++;
         }

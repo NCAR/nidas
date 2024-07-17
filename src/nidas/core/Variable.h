@@ -239,11 +239,7 @@ public:
      * Set the VariableConverter for this Variable.
      * Variable will own the pointer and will delete it.
      */
-    void setConverter(VariableConverter* val)
-    {
-        delete _converter;
-        _converter = val;
-    }
+    void setConverter(VariableConverter* val);
 
     const VariableConverter* getConverter() const { return _converter; }
 
@@ -411,6 +407,11 @@ public:
      * already exists with the same name, it will be replaced.
      */
     void setAttribute(const Parameter& att);
+
+    /**
+     * Remove the attribute with the given name, if it exists.
+     */
+    void removeAttribute(const std::string& name);
 
     /**
      * Return the attributes attached to this Variable.

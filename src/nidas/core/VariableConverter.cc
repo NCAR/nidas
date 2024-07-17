@@ -129,6 +129,14 @@ const DSMConfig* VariableConverter::getDSMConfig() const
     return snsr->getDSMConfig();
 }
 
+
+
+void VariableConverter::setVariable(Variable* val)
+{
+    _variable = val;
+}
+
+
 /*
  * Add a parameter to my map, and list.
  */
@@ -307,6 +315,12 @@ void VariableConverter::readCalFile(dsm_time_t t) throw()
             // method.
             if (!_handler || !_handler->handleCalFileRecord(_calFile))
                 parseFields(_calFile);
+            if (_variable)
+            {
+                _variable->setAttribute(Parameter{"calfile",
+                                        _calFile->getCurrentFileName()});
+                _variable->setAttribute(Parameter("converter", toString()));
+            }
         }
         catch(const n_u::EOFException& e)
         {
