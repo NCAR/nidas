@@ -175,6 +175,11 @@ public:
      */
     static bool string_to_type(const std::string& name, parType& ptype);
 
+    /**
+     * Two Parameters are equal if their name, type, and values are equal.
+     */
+    bool operator==(const Parameter& rhs) const;
+
 protected:
 
     std::string _name;
