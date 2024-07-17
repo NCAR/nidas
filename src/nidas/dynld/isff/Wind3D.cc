@@ -162,10 +162,24 @@ void Wind3D::setBias(int b, double val)
 
 void Wind3D::readOffsetsAnglesCalFile(dsm_time_t tt) throw()
 {
+    auto handler = [this](const nidas::util::Exception& ex)
+    {
+        WLOG(("") << _oaCalFile->getCurrentFileName()
+                    << ": " << ex.what());
+        for (int i = 0; i < 3; i++)
+            setBias(i, floatNAN);
+        setLeanDegrees(floatNAN);
+        setLeanAzimuthDegrees(floatNAN);
+        setVazimuth(floatNAN);
+        _oaCalFile = 0;
+    };
+
     // Read CalFile of bias, rotation angles, and orientation.
     // u.off   v.off   w.off    theta  phi    Vazimuth  t.off  t.slope  orientation
     if (_oaCalFile) {
         while(tt >= _oaCalFile->nextTime().toUsecs()) {
+            VLOG(("sensor ") << getName() << " reading cal file "
+                 << _oaCalFile->getCurrentFileName());
             float d[8];
             try {
                 n_u::UTime calTime;
@@ -197,32 +211,19 @@ void Wind3D::readOffsetsAnglesCalFile(dsm_time_t tt) throw()
                 {
                     _orienter.setOrientation(cfields[8], getName());
                 }
+                updateAttributes();
             }
             catch(const n_u::EOFException& e)
             {
             }
             catch(const n_u::IOException& e)
             {
-                n_u::Logger::getInstance()->log(LOG_WARNING,"%s: %s",
-                    _oaCalFile->getCurrentFileName().c_str(),e.what());
-                for (int i = 0; i < 3; i++)
-                    setBias(i, floatNAN);
-                setLeanDegrees(floatNAN);
-                setLeanAzimuthDegrees(floatNAN);
-                setVazimuth(floatNAN);
-                _oaCalFile = 0;
+                handler(e);
                 break;
             }
             catch(const n_u::ParseException& e)
             {
-                n_u::Logger::getInstance()->log(LOG_WARNING,"%s: %s",
-                    _oaCalFile->getCurrentFileName().c_str(),e.what());
-                for (int i = 0; i < 3; i++)
-                    setBias(i, floatNAN);
-                setLeanDegrees(floatNAN);
-                setLeanAzimuthDegrees(floatNAN);
-                setVazimuth(floatNAN);
-                _oaCalFile = 0;
+                handler(e);
                 break;
             }
         }
@@ -339,8 +340,13 @@ void Wind3D::parseParameters()
              getName(),"parameter",parameter->getName());
     }
 
-    _oaCalFile =  getCalFile("offsets_angles");
-    if (!_oaCalFile) _oaCalFile =  getCalFile("");
+    _oaCalFile = getCalFile("offsets_angles");
+    if (!_oaCalFile)
+    {
+        // not sure if this is worth warning about or not...
+        // WLOG(("offsets_angles cal file not specified: ") << getName());
+        _oaCalFile = getCalFile("");
+    }
 
     // transformation matrix from non-orthogonal axes to UVW
     _atCalFile = getCalFile("abc2uvw");
@@ -501,6 +507,7 @@ void Wind3D::getTransducerRotation(dsm_time_t tt)
                     }
                 }
                 gsl_matrix_free(inverseGSL);
+                updateAttributes();
             }
             catch(const n_u::EOFException& e)
             {
@@ -601,7 +608,14 @@ void Wind3D::updateAttributes()
         for (size_t i = 0; i < variables.size() && i < 3; ++i)
         {
             for (auto& att: attributes)
+            {
+                // preserve group order by removing and re-adding.  otherwise
+                // the first time an att like _applied is added and false, it
+                // will be further up the list than when it is enabled and the
+                // related atts are added.
+                variables[i]->removeAttribute(att.getName());
                 variables[i]->setAttribute(att);
+            }
         }
     }
 }
@@ -707,6 +721,7 @@ bool Wind3D::process(const Sample* samp,
 
     if (!_process_started)
     {
+        DLOG(("updating attributes after first process call: ") << getName());
         updateAttributes();
         _process_started = true;
     }
