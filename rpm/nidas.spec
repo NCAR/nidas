@@ -31,9 +31,9 @@ Release: %{releasenum}%{?dist}
 License: GPL
 Group: Applications/Engineering
 Obsoletes: nidas-daq <= 1.2
-Url: https://github.com/ncareol/nidas
+Url: https://github.com/NCAR/nidas
 Vendor: UCAR
-Source: https://github.com/ncareol/%{name}/archive/master.tar.gz#/%{name}-%{version}.tar.gz
+Source: https://github.com/NCAR/%{name}/archive/master.tar.gz#/%{name}-%{version}.tar.gz
 
 BuildRequires: gcc-c++ xerces-c-devel xmlrpc++ bluez-libs-devel bzip2-devel
 BuildRequires: flex gsl-devel kernel-devel libcap-devel
@@ -232,8 +232,8 @@ rm -rf $RPM_BUILD_ROOT
 %changelog
 * Sat Mar 02 2024 Gary Granger <granger@ucar.edu> - 1.2.3-1
 - package 1.2.3
-  https://github.com/ncareol/nidas/releases/tag/v1.2.3
+  https://github.com/NCAR/nidas/releases/tag/v1.2.3
 
 * Wed Dec 13 2023 Gary Granger <granger@ucar.edu> - 1.2.2-1
 - update package to v1.2.2:
-  https://github.com/ncareol/nidas/releases/tag/v1.2.2
+  https://github.com/NCAR/nidas/releases/tag/v1.2.2

@@ -17,7 +17,7 @@ git_clone_nidas() { #checkoug && cleanup
         popd
     else 
         mkdir -p $workingdir
-        git clone --progress --depth=1 https://github.com/ncareol/nidas.git $workingdir
+        git clone --progress --depth=1 https://github.com/NCAR/nidas.git $workingdir
     fi
 
     rm -fr $workingdir/doc/doxygen || exit 1 #wipe out any old cruft
@@ -33,7 +33,7 @@ create_ghpages() {
     git checkout --orphan gh-pages
     git add -A *
     git commit -m "documentation-for-gh-pages"
-    git remote add origin git@github.com:ncareol/nidas.git
+    git remote add origin git@github.com:NCAR/nidas.git
     git push -u -f origin gh-pages
     popd # doc/doxygen
     popd # $workingdir

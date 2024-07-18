@@ -7,10 +7,10 @@ Release: %{releasenum}
 License: GPL
 Group: Applications/Engineering
 BuildArch: noarch
-Url: https://github.com/ncareol/nidas
+Url: https://github.com/NCAR/nidas
 Vendor: UCAR
 # Source: %{name}-%{version}.tar.gz
-Source: https://github.com/ncareol/%{name}/archive/master.tar.gz#/%{name}-%{version}.tar.gz
+Source: https://github.com/NCAR/%{name}/archive/master.tar.gz#/%{name}-%{version}.tar.gz
 BuildRequires: doxygen graphviz
 BuildRoot: %{_topdir}/%{name}-%{version}-root
 # Allow this package to be relocatable to other places than /opt/nidas

@@ -6,7 +6,7 @@ This file summarizes notable changes to NIDAS source.  The format is based on
 ## [2.0] - Unreleased
 
 The 2.0 version of NIDAS will be a merge of the [master] and [buster]
-branches.  The [refactor-builds] branch has already been merged into [master].
+branches.  The refactor-builds branch has already been merged into [master].
 Following are the significant changes on each branch.  See the Changelog on
 the [buster] branch for the changes on that branch.
 
@@ -90,7 +90,7 @@ install in `/opt/local/nidas`:
 export PKG_CONFIG_PATH=/opt/local/nidas/lib/pkgconfig
 ```
 
-## [refactor-builds] - Branch
+## refactor-builds - Branch
 
 This branch includes all the changes done on the branches
 `scons-build-single-target`, `container-builds`, `simplify-nidas-rpms`, and
@@ -118,7 +118,7 @@ This branch includes all the changes done on the branches
 - The optional `nc_server` dependency has been removed.  The two classes which
   needed it, `NetcdfRPCChannel` and `NetcdfRPCOutput` in the
   `nidas::dynld::isff` namespace, have moved to the
-  [nc-server](https://github.com/ncareol/nc-server) source and are now built
+  [nc-server](https://github.com/NCAR/nc-server) source and are now built
   and installed from there.  NIDAS loads them from the `nc_server` lib
   directory (usually under `/opt/nc_server`) as long as that directory is on
   the `LD_LIBRARY_PATH`.
@@ -172,7 +172,7 @@ This branch includes all the changes done on the branches
   cross-compiled on the local host with a container, onto a DSM under an
   alternate prefix.  That alternate install can be selected and tested using
   `setup_nidas.sh`.  See
-  [Develop_Pi.md](https://github.com/ncareol/nidas/blob/buster/Develop_Pi.md)
+  [Develop_Pi.md](https://github.com/NCAR/nidas/blob/buster/Develop_Pi.md)
   for an example of using it for Pi3 development.
 
 - Lots of obsolete code, executables, and scripts have been removed.
@@ -198,12 +198,11 @@ to `v1.2-1721-g1ebc8bcd4`.
 [semantic versioning]: https://semver.org/spec/v2.0.0.html
 
 <!-- Versions -->
-[master]: https://github.com/ncareol/nidas
-[buster]: https://github.com/ncareol/nidas/tree/buster
-[refactor-builds]: https://github.com/ncareol/nidas/tree/refactor-builds
-[2.0]: https://github.com/ncareol/nidas/compare/master
-[1.3]: https://github.com/ncareol/nidas/compare/master...v1.3
-[1.2.3]: https://github.com/ncareol/nidas/releases/tag/v1.2.3
-[1.2.2]: https://github.com/ncareol/nidas/releases/tag/v1.2.2
-[1.2.1]: https://github.com/ncareol/nidas/releases/tag/v1.2.1
-[1.2]: https://github.com/ncareol/nidas/releases/tag/v1.2
+[master]: https://github.com/NCAR/nidas
+[buster]: https://github.com/NCAR/nidas/tree/buster
+[2.0]: https://github.com/NCAR/nidas/compare/master
+[1.3]: https://github.com/NCAR/nidas/compare/master...v1.3
+[1.2.3]: https://github.com/NCAR/nidas/releases/tag/v1.2.3
+[1.2.2]: https://github.com/NCAR/nidas/releases/tag/v1.2.2
+[1.2.1]: https://github.com/NCAR/nidas/releases/tag/v1.2.1
+[1.2]: https://github.com/NCAR/nidas/releases/tag/v1.2

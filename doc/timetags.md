@@ -2,9 +2,9 @@
 
 2020, Copyright University Corporation for Atmospheric Research
 
-[psfd_plots]: https://github.com/ncareol/nidas/wiki/ttadjust_plots/PSFD_ttadjust.pdf "WCR-TEST PSFD"
-[qcf_plots]: https://github.com/ncareol/nidas/wiki/ttadjust_plots/QCF_ttadjust.pdf "WCR-TEST QCF"
-[csat3_plots]: https://github.com/ncareol/nidas/wiki/ttadjust_plots/CSAT3_ttadjust.pdf "Perdigao CSAT3"
+[psfd_plots]: https://github.com/NCAR/nidas/wiki/ttadjust_plots/PSFD_ttadjust.pdf "WCR-TEST PSFD"
+[qcf_plots]: https://github.com/NCAR/nidas/wiki/ttadjust_plots/QCF_ttadjust.pdf "WCR-TEST QCF"
+[csat3_plots]: https://github.com/NCAR/nidas/wiki/ttadjust_plots/CSAT3_ttadjust.pdf "Perdigao CSAT3"
 
 ## Introduction
 

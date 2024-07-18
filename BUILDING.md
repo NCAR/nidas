@@ -1,7 +1,10 @@
 # Building NIDAS
 
 # Wiki Information
-The NIDAS Wiki at GitHub (https://github.com/ncareol/nidas/wiki) contains information on building NIDAS, including how to install developer packages of necessary external software from the Debian and NCAR/EOL repositories.
+
+The NIDAS Wiki at GitHub (https://github.com/NCAR/nidas/wiki) contains
+information on building NIDAS, including how to install developer packages of
+necessary external software from the Debian and NCAR/EOL repositories.
 
 # Other Notes on Building
 
@@ -48,7 +51,7 @@ Standard building preqs are required:
 - NIDAS uses a custom version of [xmlrpcpp](http://svn.eol.ucar.edu/svn/eol/imports/xmlrpcpp).  Heaven forbid you are using this lib in another project as it is rather old an sorta stale.  We picked the loser in the XML-RPC wars  :-(.
 
 ```sh
-    git clone https://github.com/ncareol/xmlrpcpp.git
+    git clone https://github.com/NCAR/xmlrpcpp.git
     pushd xmlrpcpp/xmlrpcpp
     sudo make prefix=/usr/local install
     sudo ldconfig
@@ -56,7 +59,7 @@ Standard building preqs are required:
 ```
 - After the pre-reqs are built, all that is needed is to run scons to get a working copy
 ```sh
-    git clone https://github.com/ncareol/nidas.git
+    git clone https://github.com/NCAR/nidas.git
     pushd nidas/src
     scons
     scons install PREFIX=/usr/local

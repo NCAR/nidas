@@ -7,8 +7,8 @@ Maintainer: Gordon Maclean <maclean@ucar.edu>
 # still succeeds
 Build-Depends: debhelper (>= 9), flex, pkg-config, libxerces-c-dev (>= 3.0), libbluetooth-dev, libbz2-dev, libgsl0ldbl[armel], libgsl0-dev[armel], libgsl-dev[!armel], libcap-dev, xmlrpc++-dev[armel], libxmlrpcpp-dev[!armel], libmodbus-dev[i386], libboost-regex-dev, libboost-test-dev, tzdata, net-tools, valgrind[i386 amd64], uio48-dev[i386]
 Standards-Version: 3.9.6
-Homepage: https://github.com/ncareol/nidas.git
-Vcs-Git: git://github.com/ncareol/nidas.git
+Homepage: https://github.com/NCAR/nidas.git
+Vcs-Git: git://github.com/NCAR/nidas.git
 
 Package: nidas
 Architecture: any

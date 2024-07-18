@@ -23,7 +23,7 @@ commands:
     steps:
       - run:
           name: Clone GitHub repository
-          command: git clone -b << parameters.branch >> --single-branch https://github.com/ncareol/nidas
+          command: git clone -b << parameters.branch >> --single-branch https://github.com/NCAR/nidas
   
   build:
     description: "Build nidas with arch parameter"
