@@ -77,7 +77,9 @@ public:
     /**
      * This allows a Parameter instance to be cloned if it was not already a
      * ParameterT subclass.  Of course, such a cloned instance cannot be
-     * downcast to get the typed interface.
+     * downcast to get the typed interface, but it could be copied or assigned
+     * into a typed subclass as long as the subclass type and the type of this
+     * Parameter agree.
      */
     virtual Parameter* clone() const;
 
@@ -99,13 +101,6 @@ public:
     {
         _name = val;
     }
-
-#ifdef notdef
-    void setValues(const std::vector<std::string>& vals);
-    void setValues(const std::vector<float>& vals);
-    void setValues(const std::vector<int>& vals);
-    void setValues(const std::vector<bool>& vals);
-#endif
 
     /**
      * Replace this value with the value of the Parameter @p param only if the
@@ -184,6 +179,10 @@ protected:
 
     std::string _name;
 
+    // this would take less memory as a union, but then we have to make sure
+    // the underlying type is correctly intialized and destroyed.  a variant
+    // might be nice, but not until C++14.  only one of these will ever have
+    // any values, so the same dynamic allocation as with a variant.
     std::vector<std::string> _strings{};
     std::vector<float> _floats{};
     std::vector<int> _ints{};
@@ -223,12 +222,6 @@ public:
     ParameterT();
 
     ParameterT* clone() const;
-
-#ifdef notdef
-    const std::vector<T> getValues() const;
-
-    void setValues(const std::vector<T>& vals);
-#endif
 
     /**
      * Set ith value.

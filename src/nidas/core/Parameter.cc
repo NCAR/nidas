@@ -232,33 +232,6 @@ std::vector<bool>& Parameter::get_vector<bool>()
 }
 
 
-#ifdef notdef
-void Parameter::setValues(const std::vector<std::string>& vals)
-{
-    _type = STRING_PARAM;
-    get_vector<std::string>() = vals;
-}
-
-void Parameter::setValues(const std::vector<float>& vals)
-{
-    _type = STRING_PARAM;
-    get_vector<float>() = vals;
-}
-
-void Parameter::setValues(const std::vector<int>& vals)
-{
-    _type = STRING_PARAM;
-    get_vector<int>() = vals;
-}
-
-void Parameter::setValues(const std::vector<bool>& vals)
-{
-    _type = STRING_PARAM;
-    get_vector<bool>() = vals;
-}
-#endif
-
-
 template <typename V, typename T>
 void
 set_vector_value(V& values, int i, const T& val)
@@ -449,13 +422,6 @@ void Parameter::setValue(const Parameter& x)
     }
 }
 
-#ifdef notdef
-Parameter* Parameter::clone() const
-{
-    return new Parameter(*this);
-}
-#endif
-
 
 bool
 Parameter::string_to_type(const std::string& name, parType& ptype)
@@ -636,19 +602,6 @@ ParameterT<T>::ParameterT():
 {
 }
 
-
-#ifdef notdef
-template <class T>
-const std::vector<T> ParameterT<T>::getValues() const
-{
-    return const_cast<ParameterT<T>*>(this)->get_vector<T>();
-}
-
-template <class T>
-void ParameterT<T>::setValues(const std::vector<T>& vals) {
-    get_vector<T>() = vals;
-}
-#endif
 
 template <class T>
 void ParameterT<T>::setValue(unsigned int i, const T& val)
