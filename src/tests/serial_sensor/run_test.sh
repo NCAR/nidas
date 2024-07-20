@@ -427,8 +427,19 @@ test_serial_dsm_server()
     # flushes those samples to the archive file.  this is all speculative and
     # not deterministic of course, since we have no way of synchronizing with
     # the actual reads and writes of the samples, but the final tests depend
-    # on every sample getting through.
-    sleep 5
+    # on every sample getting through.  and of course we can't watch the
+    # server data file to confirm when all the samples have arrived, because
+    # the server also won't flush the last sample until it is killed.
+
+    # this seems to fail most often on ubuntu32 under jenkins, and anyways a
+    # longer delay is more acceptable when jenkins is running the test.
+    user=`id -un`
+    if [ "$user" == "jenkins" ]; then
+        echo "sleeping 20 seconds for jenkins build..."
+        sleep 20
+    else
+        sleep 5
+    fi
     kill_dsm_server
     check_output $HOSTNAME
     check_output server
