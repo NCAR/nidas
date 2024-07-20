@@ -1,5 +1,10 @@
 %define nidas_prefix /opt/nidas
+
+%if 0%{?fedora} > 39
+%define scons scons
+%else
 %define scons scons-3
+%endif
 
 # Command line switches: --with arinc --with modules
 %bcond_with arinc
