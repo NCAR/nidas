@@ -395,5 +395,25 @@ bool GPS_Novatel_Serial::process(const Sample* samp,list<const Sample*>& results
             return true;
         }
     }
+    else if (strncmp(input, "#TIME", 5) == 0)
+    {
+      const char *semi = strchr(input, ';');
+      float leap;
+      if (semi++ == 0)
+        return false;
+
+      for (int i = 0; i < 10; ++i)
+      {
+        semi = strchr(semi, ',')+1;
+        if (i == 2){
+            // -18 as of 2024
+            leap = atof(semi);
+        }
+        if (i == 9 && semi[0] == 'V')
+            _leapSeconds = leap;
+      }
+    }
+
+
     return false;
 }
