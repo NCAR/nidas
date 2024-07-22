@@ -398,7 +398,7 @@ bool GPS_Novatel_Serial::process(const Sample* samp,list<const Sample*>& results
     else if (strncmp(input, "#TIME", 5) == 0)
     {
       const char *semi = strchr(input, ';');
-      float leap;
+      float leap = 0.0;
       if (semi++ == 0)
         return false;
 
