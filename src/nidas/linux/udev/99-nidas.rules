@@ -26,9 +26,6 @@ KERNEL=="gpiomm_*[0-9]", MODE="0666"
 # PC104SG IRIG
 KERNEL=="irig[0-9]", MODE="0666"
 
-# Condor ARINC
-KERNEL=="arinc[0-9]", MODE="0666"
-
 # NCAR A2D
 KERNEL=="ncar_a2d[0-9]", MODE="0666"
 

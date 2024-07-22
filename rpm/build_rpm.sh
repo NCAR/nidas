@@ -4,15 +4,11 @@ script=`basename $0`
 dir=`dirname $0`
 
 dopkg=nidas
-buildarinc=false
 buildmodules=true
 destdir=
 
 while [ $# -gt 0 ]; do
     case $1 in
-        -arinc)
-            buildarinc=true
-            ;;
         --no-modules)
             buildmodules=false
             ;;
@@ -24,7 +20,7 @@ while [ $# -gt 0 ]; do
             shift
             ;;
         -*)
-            echo "Usage: $0 [-nr] [-arinc] [--[no-]modules] [spec-file]"
+            echo "Usage: $0 [-nr] [--[no-]modules] [spec-file]"
             exit 1
             ;;
         *)
@@ -62,14 +58,6 @@ trap "{ rm -f $log; }" EXIT
 set -o pipefail
 
 if [ $dopkg == nidas -o $dopkg == nidas-doxygen ]; then
-
-    if $buildarinc; then
-        args="$args BUILD_ARINC=yes"
-        witharinc="--with arinc"
-    else
-        args="$args BUILD_ARINC=no"
-        witharinc=
-    fi
 
     if $buildmodules; then
         args="$args LINUX_MODULES=yes"
@@ -123,7 +111,7 @@ if [ $dopkg == nidas -o $dopkg == nidas-doxygen ]; then
     # being extracted from binaries. I tried to find them in the build messages for
     # configedit, but no luck.
 
-    rpmbuild $buildopt $withmodules $witharinc \
+    rpmbuild $buildopt $withmodules \
         --define "gitversion $version" --define "releasenum $release" \
         --define "_topdir $topdir" \
         --define "_unpackaged_files_terminate_build 0" \
