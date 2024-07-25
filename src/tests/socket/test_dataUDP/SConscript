@@ -1,0 +1,10 @@
+# -*- python -*-
+# 2009, Copyright University Corporation for Atmospheric Research
+
+from SCons.Script import Environment
+
+env = Environment(tools=['default', 'libnidas_dynld'])
+
+# Build the client, but only as a "test" and not by default
+client = env.Program('client', "client.cc")
+env.Alias('test', client)

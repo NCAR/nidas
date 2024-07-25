@@ -146,7 +146,7 @@ void connect(int argc, char** argv)
     if (servers.size() > 1) {
         cout << "Enter a index for the desired address:" << endl;
         si = servers.begin();
-        for (int i = 0; i < servers.size(); i++) {
+        for (size_t i = 0; i < servers.size(); i++) {
             cout << i << ' ' << si->first.getInet4Address().getHostName() << endl;
             ++si;
         }
@@ -248,7 +248,7 @@ void connect(int argc, char** argv)
             samp->getDataByteLength();
         if (samp->getType() == nidas::core::FLOAT_ST) {
             const float* fptr = (const float* )samp->getConstVoidDataPtr();
-            for (int i = 0; i < samp->getDataByteLength()/sizeof(float); i++)
+            for (size_t i = 0; i < samp->getDataByteLength()/sizeof(float); i++)
                 cout << ' ' << setprecision(5) << setw(8) << fptr[i];
         }
 #ifdef DEBUG
