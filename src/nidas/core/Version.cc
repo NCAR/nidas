@@ -27,9 +27,58 @@
 
 #include "Version.h"
 #include <nidas/Revision.h>
+#include <nidas/Config.h>
+#include <sstream>
+#include <cstring>
 
 #ifndef REPO_REVISION
 #define REPO_REVISION "unknown"
 #endif
 
-const char* nidas::core::Version::_version = REPO_REVISION;
+namespace
+{
+    const char* _version = REPO_REVISION;
+}
+
+#include "nidas/cpp_symbols.h"
+
+namespace nidas {
+namespace core {
+
+const char* Version::getSoftwareVersion()
+{
+    return _version;
+}
+
+const char* Version::getArchiveVersion()
+{
+    return "1";
+}
+
+
+std::string
+Version::
+getCompilerDefinitions()
+{
+    std::ostringstream out;
+#ifdef __VERSION__
+    out << "Compiler: " << __VERSION__ << "\n";
+#endif
+    for (auto& p: cpp_symbols)
+    {
+        // the value is the symbol name if undefined
+        out << p.first;
+        if (strcmp(p.first, p.second) == 0)
+            out << " (undefined)";
+        else if (p.second[0])
+            out << " (defined=" << p.second << ")";
+        else
+            out << " (defined)";
+        out << "\n";
+    }
+    return out.str();
+}
+
+
+} // namespace core
+} // namespace nidas

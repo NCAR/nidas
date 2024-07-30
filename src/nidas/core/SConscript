@@ -1,6 +1,8 @@
 # -*- python -*-
 # 2004, Copyright University Corporation for Atmospheric Research
 
+import re
+
 from SCons.Script import Environment, Export
 
 depends = ['xercesc', 'xmlrpc', 'libnidas_util']
@@ -237,6 +239,38 @@ if env.get('ENABLE_VALGRIND'):
                                  ['ENABLE_VALGRIND'])
 else:
     sampleobj = env.SharedObject('Sample.cc')
+
+
+_symbols_header = """
+#include <vector>
+#include <utility>
+
+#define _cpp_symbols_xstr(s) _cpp_symbols_str(s)
+#define _cpp_symbols_str(s) #s
+
+namespace {
+std::vector<std::pair<const char*, const char*> > cpp_symbols {
+%s
+};
+} // anonymous namespace
+"""
+
+
+def generate_cpp_symbols(target, source, env: Environment):
+    header = source[0].get_text_contents()
+    symbols = re.findall(r'\bHAVE_\w+\b', header)
+    text = ""
+    for s in symbols:
+        text += '{ "%s", _cpp_symbols_xstr(%s) },\n' % (s, s)
+    with open(target[0].get_abspath(), 'w') as f:
+        f.write(_symbols_header % (text))
+
+
+# write the cpp symbols header into the same place as the Config.h so it can be
+# found on the include path, but it will not be installed.
+configh = env.NidasConfigHeader()
+symbols = env.Command(configh.File("cpp_symbols.h"), configh,
+                      action=generate_cpp_symbols)
 
 #
 # Build the libnidas library.

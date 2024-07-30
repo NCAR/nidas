@@ -12,6 +12,12 @@ the [buster] branch for the changes on that branch.
 
 ## [master] - Unreleased on master branch
 
+### enhanced version info
+
+- The standard `--version` argument now also shows the compiler version and the
+  CPP definitions used to build NIDAS.  This can be helpful to show what
+  conditional components were built into a NIDAS application.
+
 ### data_stats and related improvements
 
 - `data_stats` JSON output includes problems detected in the statistics, so far

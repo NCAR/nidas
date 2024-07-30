@@ -510,7 +510,8 @@ Examples:
    " octal   Use octal for all samples.  Not really used.",
    "auto"),
   Version
-  ("-v,--version", "", "Print version information and exit."),
+  ("-v,--version", "",
+   "Print version, or compiler definitions also."),
   InputFiles(),
   OutputFiles
   ("-o,--output", "<strptime_path>[@<number>[units]]",
@@ -933,6 +934,8 @@ parseNext()
   else if (arg == &Version)
   {
     std::cout << "Version: " << Version::getSoftwareVersion() << std::endl;
+    if (arg->getFlag() == "--version")
+        std::cout << Version::getCompilerDefinitions();
     exit(0);
   }
   else if (arg == &Hostname)

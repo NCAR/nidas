@@ -12,6 +12,17 @@ from SCons.Script import Environment
 
 configh = None
 
+
+def NidasConfigHeader(env):
+    """
+    Return the Config.h header node written by NidasConfigure() contexts.
+    """
+    global configh
+    if not configh:
+        configh = env.File("$VARIANT_DIR/include/nidas/Config.h")
+    return configh
+
+
 def NidasConfigure(env: Environment, **kw):
     """
     Return a Configure context whose settings will be appended to a single
@@ -22,9 +33,7 @@ def NidasConfigure(env: Environment, **kw):
     SConscript files have to be careful to put the configure files under
     VARIANT_DIR, so configuration for different variants is cached separately.
     """
-    global configh
-    if not configh:
-        configh = env.File("$VARIANT_DIR/include/nidas/Config.h")
+    configh = NidasConfigHeader(env)
     conf = env._save_Configure(env, conf_dir="$VARIANT_DIR/.sconf_temp",
                                log_file='$VARIANT_DIR/config.log',
                                config_h=configh, **kw)
@@ -43,6 +52,7 @@ def Configure(env: Environment, **kw):
 
 
 def generate(env: Environment):
+    env.AddMethod(NidasConfigHeader)
     env.AddMethod(NidasConfigure)
     env._save_Configure = Environment.Configure
     env.AddMethod(Configure, "Configure")

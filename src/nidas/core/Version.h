@@ -27,6 +27,8 @@
 #ifndef NIDAS_CORE_VERSION_H
 #define NIDAS_CORE_VERSION_H
 
+#include <string>
+
 namespace nidas { namespace core {
 
 /**
@@ -35,11 +37,14 @@ namespace nidas { namespace core {
 class Version
 {
 public:
-    static const char* getSoftwareVersion() { return _version; }
-    static const char* getArchiveVersion() { return "1"; }
+    static const char* getSoftwareVersion();
+    static const char* getArchiveVersion();
 
-private:
-    static const char* _version;
+    /**
+     * Return a multi-line string listing the compiler version and conditional
+     * compile definitions.
+     */
+    static std::string getCompilerDefinitions();
 };
 
 }}	// namespace nidas namespace core
