@@ -183,10 +183,8 @@ void RawSampleService::connect(SampleInput* input) throw()
     const DSMConfig* dsm = input->getDSMConfig();
 
     if (dsm) {
-        n_u::Logger::getInstance()->log(LOG_INFO,
-            "%s (%s) has connected to %s",
-            input->getName().c_str(),dsm->getName().c_str(),
-            getName().c_str());
+        ILOG(("") << input->getName() << "(" << dsm->getName() << ")"
+             << " connect to " << getName());
         // Tell the input what samples it is expecting, so
         // that clients can query it for sample ids.
         SensorIterator si = dsm->getSensorIterator();
@@ -196,9 +194,8 @@ void RawSampleService::connect(SampleInput* input) throw()
         }
     }
     else {
-	n_u::Logger::getInstance()->log(LOG_WARNING,
-	    "RawSampleService: input %s does not match an address of any dsm, assuming from all",
-		input->getName().c_str());
+        WLOG(("") << "RawSampleService: input " << input->getName()
+             << " does not match an address of any dsm, assuming from all");
         SensorIterator si = Project::getInstance()->getSensorIterator();
         for ( ; si.hasNext(); ) {
             DSMSensor* sensor = si.next();
@@ -218,6 +215,7 @@ void RawSampleService::connect(SampleInput* input) throw()
     _workerMutex.lock();
     _workers[input] = worker;
     _dsms[input] = dsm; // may be 0
+    auto nworkers{ _workers.size() };
     _workerMutex.unlock();
 
     try {
@@ -235,6 +233,8 @@ void RawSampleService::connect(SampleInput* input) throw()
     }
 
     addSubThread(worker);
+    VLOG(("RawSampleService ") << getName() << " now running "
+         << nworkers << "workers");
 }
 
 /*
@@ -246,14 +246,7 @@ void RawSampleService::connect(SampleInput* input) throw()
  */
 void RawSampleService::disconnect(SampleInput* input) throw()
 {
-    n_u::Logger::getInstance()->log(LOG_INFO,
-	"%s has disconnected from %s",
-	input->getName().c_str(),getName().c_str());
-
-#ifdef DEBUG
-    cerr << "RawSampleService::disconnected, input=" << input <<
-    	" input=" << input << endl;
-#endif
+    ILOG(("") << input->getName() << " disconnect from " << getName());
 
     _pipeline->disconnect(input);
 
@@ -262,9 +255,8 @@ void RawSampleService::disconnect(SampleInput* input) throw()
 
     map<SampleInput*,Worker*>::iterator wi = _workers.find(input);
     if (wi == _workers.end()) {
-	n_u::Logger::getInstance()->log(LOG_ERR,
-	    "%s: can't find worker thread for input %s",
-		getName().c_str(),input->getName().c_str());
+        ELOG(("") << getName() << ": can't find worker thread for input "
+             << input->getName());
         return;
     }
 
@@ -273,10 +265,23 @@ void RawSampleService::disconnect(SampleInput* input) throw()
     // class, and will be joined and deleted by the checkSubThreads method.
     worker->interrupt();
     _workers.erase(input);
+    auto nworkers{ _workers.size() };
     size_t ds = _dsms.size();
     _dsms.erase(input);
     if (_dsms.size() + 1 != ds)
-        WLOG(("RawSampleService: disconnected, input not found in _dsms map, size=%d",ds));
+        WLOG(("RawSampleService: disconnected, "
+              "input not found in _dsms map, size=") << ds);
+    VLOG(("RawSampleService ") << getName() << " now running "
+         << nworkers << "workers");
+    if (nworkers == 0)
+    {
+        // if all the inputs have disconnected, that seems like a good time to
+        // also flush all the outputs.  otherwise samples will set in the
+        // pipeline or the output buffers until another input connects and
+        // sends more samples.
+        DLOG(("") << getName() << " inputs disconnected, flushing pipeline");
+        _pipeline->flush();
+    }
 }
 
 RawSampleService::Worker::Worker(RawSampleService* svc, 

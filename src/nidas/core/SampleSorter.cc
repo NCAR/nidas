@@ -78,6 +78,7 @@ using namespace std;
 namespace n_u = nidas::util;
 using nidas::util::endlog;
 using nidas::util::Logger;
+using nidas::util::UTime;
 
 SampleSorter::SampleSorter(const std::string& name,bool raw) :
     SampleThread(name),_source(raw),
@@ -454,6 +455,14 @@ void SampleSorter::flush() throw()
     // want it to wait anymore, we want it to flush
     _sampleSetCond.signal();
     int nsamples = _samples.size();
+    dsm_time_t timetag{0};
+    dsm_sample_id_t sid{0};
+    if (nsamples)
+    {
+        const Sample* last = *_samples.rbegin();
+        timetag = last->getTimeTag();
+        sid = last->getId();
+    }
     _sampleSetCond.unlock();
 
     _flushCond.lock();
@@ -474,6 +483,9 @@ void SampleSorter::flush() throw()
     {
         DLOG(((_source.getRawSampleSource() ? "raw" : "processed")) <<
              " samples drained from SampleSorter");
+        VLOG(("last sample flushed: ") << GET_DSM_ID(sid) << ","
+             << GET_SPS_ID(sid) << " at "
+             << UTime(timetag).format(true,"%Y %b %d %H:%M:%S.%3f"));
     }
     else
     {
@@ -502,7 +514,7 @@ bool SampleSorter::receive(const Sample *s) throw()
             if (!(_realTimeFutureSamples++ % _discardWarningCount))
                 WLOG(("sample with timetag in future by %f secs. time: ",
                       (float)(samptt - systt) / USECS_PER_SEC)
-                     << n_u::UTime(samptt).format(true,"%Y %b %d %H:%M:%S.%3f")
+                     << UTime(samptt).format(true,"%Y %b %d %H:%M:%S.%3f")
                      << " id=" << GET_DSM_ID(s->getId()) << ','
                      << GET_SPS_ID(s->getId())
                      << " total future samples=" << _realTimeFutureSamples);
