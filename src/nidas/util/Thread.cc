@@ -24,11 +24,6 @@
  ********************************************************************
 */
 
-/* needed with gcc 2.X and strsignal */
-#ifndef _GNU_SOURCE
-#define _GNU_SOURCE
-#endif
-
 #include "Thread.h"
 #include "ThreadSupport.h"
 #include "Logger.h"

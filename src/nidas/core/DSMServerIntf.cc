@@ -112,6 +112,7 @@ int DSMServerIntf::run()
 
     // Wait for requests indefinitely
     // This can be interrupted with a Thread::kill(SIGUSR1);
+    DLOG(("entering XmlRpcServer::work(-1)"));
     _xmlrpc_server->work(-1.0);
     return RUN_OK;
 }
