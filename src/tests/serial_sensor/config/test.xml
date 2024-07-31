@@ -34,7 +34,8 @@
     </logscheme>
 
     <site name="test" class="isff.GroundStation" suffix=".test">
-       <server statusAddr="sock:127.0.0.1:30001">
+       <!-- <server statusAddr="sock:127.0.0.1:30001"> -->
+        <server>
             <service class="XMLConfigService">
                 <output>
                     <socket port="$NIDAS_SVC_PORT_UDP" type="dgaccept"/>
@@ -55,11 +56,16 @@
             </service>
         </server>
 
-	<dsm rserialPort="30002" name="$HOSTNAME" id="1"
+	<!-- <dsm rserialPort="30002" name="$HOSTNAME" id="1"
             rawSorterLength="0" procSorterLength="0"
             rawHeapMax="50M" procHeapMax="50M"
             rawLateSampleCacheSize="4" procLateSampleCacheSize="10"
-            derivedData="sock::31000" statusAddr="sock::30001">
+            derivedData="sock::31000" statusAddr="sock::30001"> -->
+        <dsm rserialPort="30002" name="$HOSTNAME" id="1"
+            rawSorterLength="0" procSorterLength="0"
+            rawHeapMax="50M" procHeapMax="50M"
+            rawLateSampleCacheSize="4" procLateSampleCacheSize="10"
+            derivedData="sock::31000">
 	    <serialSensor class="DSMSerialSensor"
 		baud="57600" parity="none" databits="8" stopbits="1"
 		devicename="$TEST/test0" id="10" suffix=".t1">

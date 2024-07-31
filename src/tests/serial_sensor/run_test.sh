@@ -10,6 +10,7 @@ vgopts="--suppressions=suppressions.txt --gen-suppressions=all --leak-check=full
 valgrind="valgrind $vgopts"
 sspids=()
 dsmpid=
+serverpid=
 # The version of xmlrpc we're using on bionic debian does not do a pselect/ppoll
 # when it waits for connections, meaning that it can't atomically detect
 # a signal and exit.  So on these systems don't start xmlrpc thread with
@@ -18,16 +19,45 @@ dsmpid=
 source /etc/os-release
 xmlrpcopt=
 [ "$ID" != ubuntu ] && xmlrpcopt=-r
+xmlrpcopt=
 dsm_errs=0
 svr_errs=0
+logging="--log verbose --logfields time,level,thread,function,message"
+logging="--log verbose --logfields level,message"
 
 debugging=false
 alltests="test_serial_dsm_server test_serial_dsm"
 testnames=
+
+
+find_udp_port() {
+    which netstat >& /dev/null || { echo "netstat not found, install net-tools" && exit 1; }
+    local -a inuse=(`netstat -uan | awk '/^udp/{print $4}' | sed -r 's/.*:([0-9]+)$/\1/' | sort -u`)
+    local port1=$(( $(cat /proc/sys/net/ipv4/ip_local_port_range | awk '{print $1}') - 1))
+    for (( port = $port1; ; port--)); do
+        echo ${inuse[*]} | grep -F -q $port || break
+    done
+    echo $port
+}
+
+
 while [ $# -gt 0 ]; do
     case "$1" in
-        -d) debugging=true ;;
-        *) testnames="$testnames $1" ;;
+        -d)
+            debugging=true
+            ;;
+        --no-valgrind)
+            valgrind=
+            ;;
+        --valgrind)
+            valgrind="valgrind $vgopts"
+            ;;
+        findport)
+            find_udp_port
+            exit 0
+            ;;
+        *)
+            testnames="$testnames $1" ;;
     esac
     shift
 done
@@ -57,18 +87,33 @@ start_dsm() # config
 
     # start dsm data collection
     rm -f $TEST/dsm.pid
+    dsmpid=""
     (set -x
-     $valgrind dsm -d --pid $TEST/dsm.pid -l 6 $config 2>&1 | \
+     $valgrind dsm -d --pid $TEST/dsm.pid $logging $config 2>&1 | \
      tee $TEST/dsm.log ) &
-    dsmpid=$!
+    for x in 1 2 3 4 5 ; do
+        sleep 2
+        if [ -f "$TEST/dsm.pid" ]; then
+            dsmpid=`cat "$TEST/dsm.pid"`
+            break
+        fi
+    done
+    if [ -n "$dsmpid" ]; then
+        echo "DSM PID=$dsmpid"
+    else
+        echo "*** ERROR: DSM pid not found!"
+    fi
 }
+
 
 kill_dsm()
 {
     echo "doing kill_dsm"
     # send a TERM signal to dsm process
     nkill=0
-    dsmpid=`pgrep -f "valgrind.* dsm -d"`
+    if [ -z "$dsmpid" ]; then
+        dsmpid=`pgrep -f "dsm -d --pid $TEST/dsm.pid"`
+    fi
     if [ -n "$dsmpid" ]; then
         echo "Doing kill -TERM $dsmpid"
         kill -TERM $dsmpid
@@ -80,6 +125,8 @@ kill_dsm()
             nkill=$(($nkill + 1))
             sleep 1
         done
+    else
+        echo "*** DSM PID unknown, so could not be killed!"
     fi
 }
 
@@ -91,7 +138,9 @@ start_dsm_server()
     export NIDAS_CONFIGS=config/configs.xml
     # valgrind --tool=helgrind dsm_server -d -l 6 -r -c > $TEST/dsm_server.log 2>&1 &
     # --gen-suppressions=all
-    (set -x; exec $valgrind dsm_server -d -l 6 $xmlrpcopt -c > $TEST/dsm_server.log 2>&1) &
+    (set -x; exec $valgrind dsm_server -d $logging $xmlrpcopt -c > $TEST/dsm_server.log 2>&1) &
+    serverpid="$!"
+    echo "DSM Server PID: $serverpid"
 
     # seems like this should be synchronized on something, but I'm not sure
     # what.
@@ -102,20 +151,25 @@ start_dsm_server()
 kill_dsm_server() {
     # send a TERM signal to valgrind dsm_server process
     nkill=0
-    dsmpid=`pgrep -f "valgrind.* dsm_server"`
-    if [ -n "$dsmpid" ]; then
-        echo "Doing kill -TERM $dsmpid"
-        kill -TERM $dsmpid
-        while ps -p $dsmpid -f; do
+    if [ -z "$serverpid" ]; then
+        serverpid=`pgrep -f "dsm_server -d"`
+    fi
+    if [ -n "$serverpid" ]; then
+        echo "Doing kill -TERM $serverpid"
+        kill -TERM $serverpid
+        while ps -p $serverpid -f; do
             if [ $nkill -gt 10 ]; then
-                echo "Doing kill -9 $dsmpid"
-                kill -9 $dsmpid
+                echo "Doing kill -9 $serverpid"
+                kill -9 $serverpid
             fi
             nkill=$(($nkill + 1))
             sleep 1
         done
+    else
+        echo "*** No DSM server pid found, not killed."
     fi
 }
+
 
 kill_sims() {
     for pid in ${sspids[*]}; do
@@ -150,16 +204,6 @@ wait_for_devices() {
     echo "Devices found: $*"
 }
 
-
-find_udp_port() {
-    which netstat >& /dev/null || { echo "netstat not found, install net-tools" && exit 1; }
-    local -a inuse=(`netstat -uan | awk '/^udp/{print $4}' | sed -r 's/.*:([0-9]+)$/\1/' | sort -u`)
-    local port1=$(( $(cat /proc/sys/net/ipv4/ip_local_port_range | awk '{print $1}') - 1))
-    for (( port = $port1; ; port--)); do
-        echo ${inuse[*]} | grep -F -q $port || break
-    done
-    echo $port
-}
 
 export NIDAS_SVC_PORT_UDP=`find_udp_port`
 echo "Using port=$NIDAS_SVC_PORT_UDP"
@@ -340,15 +384,18 @@ check_output() # fileprefix
         echo "${0##*/}: proc sample test OK"
     fi
 
-    if [ $fp != server ]; then
-        # check for valgrind errors in dsm process
-        dsm_errs=`valgrind_errors $TEST/dsm.log`
-        echo "$dsm_errs errors reported by valgrind in $TEST/dsm.log"
-    else
-        # check for valgrind errors in dsm_server
-        if [ -f $TEST/dsm_server.log ]; then
-            svr_errs=`valgrind_errors $TEST/dsm_server.log`
-            echo "$svr_errs errors reported by valgrind in $TEST/dsm_server.log"
+    # do not check for valgrind errors if valgrind was not used...
+    if [ -n "$valgrind" ]; then
+        if [ $fp != server ]; then
+            # check for valgrind errors in dsm process
+            dsm_errs=`valgrind_errors $TEST/dsm.log`
+            echo "$dsm_errs errors reported by valgrind in $TEST/dsm.log"
+        else
+            # check for valgrind errors in dsm_server
+            if [ -f $TEST/dsm_server.log ]; then
+                svr_errs=`valgrind_errors $TEST/dsm_server.log`
+                echo "$svr_errs errors reported by valgrind in $TEST/dsm_server.log"
+            fi
         fi
     fi
 }
