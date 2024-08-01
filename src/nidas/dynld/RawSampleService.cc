@@ -272,7 +272,7 @@ void RawSampleService::disconnect(SampleInput* input) throw()
         WLOG(("RawSampleService: disconnected, "
               "input not found in _dsms map, size=") << ds);
     VLOG(("RawSampleService ") << getName() << " now running "
-         << nworkers << "workers");
+         << nworkers << " workers");
     if (nworkers == 0)
     {
         // if all the inputs have disconnected, that seems like a good time to
