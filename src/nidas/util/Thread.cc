@@ -142,15 +142,13 @@ Thread::Thread(const std::string& name, bool detached) :
     _interrupted(false),
     _cancel_enabled(true),
     _cancel_deferred(true),
-    _thread_attr(),
     _exception(0),
     _detached(detached),
+    _policy(NU_THREAD_OTHER),
+    _priority(0),
     _blockedSignals(),
     _unblockedSignals()
 {
-    ::pthread_attr_init(&_thread_attr);
-    ::pthread_attr_setdetachstate(&_thread_attr,
-            _detached ? PTHREAD_CREATE_DETACHED : PTHREAD_CREATE_JOINABLE);
     sigemptyset(&_unblockedSignals);
 
     // By default block signals that typically one wants to catch
@@ -162,32 +160,9 @@ Thread::Thread(const std::string& name, bool detached) :
 }
 
 
-/* Copy constructor */
-Thread::Thread(const Thread& x):
-    Runnable(),
-    _mutex(x._mutex),
-    _name(x._name),
-    _fullname(x._fullname),
-    _id(0),
-    _running(false),
-    _interrupted(false),
-    _cancel_enabled(x._cancel_enabled),
-    _cancel_deferred(x._cancel_deferred),
-    _thread_attr(),
-    _exception(0),
-    _detached(x._detached),
-    _blockedSignals(x._blockedSignals),
-    _unblockedSignals(x._unblockedSignals)
-{
-    ::pthread_attr_init(&_thread_attr);
-    ::pthread_attr_setdetachstate(&_thread_attr,
-            _detached ? PTHREAD_CREATE_DETACHED : PTHREAD_CREATE_JOINABLE);
-}
-
 Thread::~Thread()
 {
     delete _exception;
-    ::pthread_attr_destroy(&_thread_attr);
 
     if (isRunning()) {
         Exception e(string("thread ") + getName() +
@@ -363,16 +338,15 @@ void* Thread::thr_run_detached(void *me)
 int
 Thread::pRun()
 {
-    /* wait until ::start has finished, so that the id is initialized. */
-#ifdef SUPPORT_ASYNC_CANCEL
-    pthread_cleanup_push_defer_np(
-            (void(*)(void*))::pthread_mutex_unlock,(void*)_mutex.ptr());
+    // by syncing on _mutex here we know the ::start method is finished and the
+    // _id is set, since setThreadSchedulerNolock() needs the id.
+    
+    // According to pthread_create(3), this thread inherits the creator thread's
+    // capabilities, so this thread has permission to set it's real-time
+    // scheduling policy if the parent thread did.
     _mutex.lock();
-    pthread_cleanup_pop_restore_np(1);
-#else
-    // by syncing on _mutex here we know the ::start method is finished.
-    getId();
-#endif
+    setThreadSchedulerNolock();
+    _mutex.unlock();
 
     delete _exception;
     _exception = 0;
@@ -412,36 +386,30 @@ Thread::start()
          * You must sync on _mutex in ::pRun to avoid this.
          */
 
-        int state = 0;
-        ::pthread_attr_getdetachstate( &_thread_attr, &state);
+        pthread_attr_t thread_attr;
+        ::pthread_attr_init(&thread_attr);
+        status = status || ::pthread_attr_setdetachstate(&thread_attr,
+            _detached ? PTHREAD_CREATE_DETACHED : PTHREAD_CREATE_JOINABLE);
+        // all Thread instances must set their scheduling explicitly.
+        status = status || ::pthread_attr_setinheritsched(&thread_attr,
+                                                          PTHREAD_EXPLICIT_SCHED);
+        if (status)
+            throw Exception(getName(), string("setting pthread attributes: ") +
+                                       Exception::errnoToString(status));
 
-        for (int i = 0; i < 2; i++) {
-            if (state == PTHREAD_CREATE_DETACHED)
-                status = ::pthread_create(&_id, &_thread_attr,
-                        thr_run_detached, this);
-            else
-                status = ::pthread_create(&_id, &_thread_attr,
-                        thr_run, this);
-
-            if (!status) break;
-            _id = 0;
-            // If we get a permissions problem in asking for a real-time 
-            // schedule policy, then warn about the problem and ask for non
-            // real-time.
-            int policy;
-            ::pthread_attr_getschedpolicy( &_thread_attr, &policy);
-
-            if (status != EPERM || (policy != NU_THREAD_FIFO && policy != NU_THREAD_RR))
-                break;
-            WLOG(("") << getName() << ": start: " <<
-                    Exception::errnoToString(status) << ". Trying again with non-real-time priority.");
-            setThreadSchedulerNolock(NU_THREAD_OTHER,0);
-        }
+        void*(*run)(void*){_detached ? thr_run_detached : thr_run};
+        status = ::pthread_create(&_id, &thread_attr, run, this);
+        ::pthread_attr_destroy(&thread_attr);
 
         if (status) 
-            throw Exception(getName(),
-                    string("pthread_create: ") + Exception::errnoToString(status));
+            throw Exception(getName(), string("pthread_create: ") +
+                                       Exception::errnoToString(status));
 
+        // the thread itself will set its own scheduling policy in pRun(), so
+        // the scheduling is correct before entering run(), rather than waiting
+        // for this thread to change it.
+
+        // setThreadSchedulerNolock();
         makeFullName();
         registerThread();
 
@@ -616,38 +584,42 @@ bool Thread::setNonRealTimePriority() {
     return true;
 }
 
-void Thread::setThreadScheduler(enum SchedPolicy policy,int val) {
+void Thread::setThreadScheduler(enum SchedPolicy policy, int val) {
     Synchronized autolock(_mutex);
-    setThreadSchedulerNolock(policy,val);
+    setThreadSchedulerNolock(policy, val);
 }
 
-void Thread::setThreadSchedulerNolock(enum SchedPolicy policy,int val)
+void Thread::setThreadSchedulerNolock(enum SchedPolicy policy, int val)
 {
-    int status;
-    sched_param param = sched_param();
-    param.sched_priority = val;
+    _policy = policy;
+    _priority = val;
+    setThreadSchedulerNolock();
+}
 
+void Thread::setThreadSchedulerNolock()
+{
     if (_id) {
-        status = ::pthread_setschedparam(_id,policy,&param);
-        if (status)
-            throw Exception(getName(),
-                    string("pthread_setschedparam: ") + Exception::errnoToString(status));
-    }
-    else {
-        status = ::pthread_attr_setschedpolicy(&_thread_attr,policy);
-        // int maxprior = sched_get_priority_max(policy);
-        // cerr << "sched_get_priority_max(policy)=" << sched_get_priority_max(policy) << endl;
-        if (status)
-            throw Exception(getName(),
-                    string("pthread_attr_setschedpolicy: ") + Exception::errnoToString(status));
-        status = ::pthread_attr_setschedparam(&_thread_attr,&param);
-        if (status)
-            throw Exception(getName(),
-                    string("pthread_attr_setschedparam: ") + Exception::errnoToString(status));
-        status = ::pthread_attr_setinheritsched(&_thread_attr,PTHREAD_EXPLICIT_SCHED);
-        if (status)
-            throw Exception(getName(),
-                    string("pthread_attr_setinheritsched: ") + Exception::errnoToString(status));
+        sched_param param = sched_param();
+        param.sched_priority = _priority;
+
+        int status = ::pthread_setschedparam(_id, _policy, &param);
+        // warn about a permission problem but keep going.  all other errors
+        // raise an exception.
+        if (status == EPERM &&
+            (_policy == NU_THREAD_FIFO || _policy == NU_THREAD_RR))
+        {
+            WLOG(("") << getName() << ": " << Exception::errnoToString(status)
+                 << ": failed to set real-time priority, "
+                 << "running with default scheduling.");
+        }
+        else if (status)
+        {
+            ELOG(("") << getName() << ": " << Exception::errnoToString(status)
+                 << "policy=" << _policy << ",priority=" << _priority
+                 << "->status=" << status);
+            throw Exception(getName(), string("pthread_setschedparam: ") +
+                                       Exception::errnoToString(status));
+        }
     }
 }
 

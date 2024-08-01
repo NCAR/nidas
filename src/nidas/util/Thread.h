@@ -121,13 +121,7 @@ public:
      * blocked when the thread starts. Use unblockSignal(sig) to
      * unblock them if desired.
      */
-    Thread(const std::string& name,bool detached=false);
-
-    /**
-     * Copy constructor. Does not create a separate processor thread if
-     * the original thread is running.
-     */
-    Thread(const Thread& x);
+    Thread(const std::string& name, bool detached=false);
 
     /**
      * Thread destructor.  The destructor does not join or cancel
@@ -479,9 +473,22 @@ private:
     virtual int pRun ();
 
     /**
+     * Set the scheduler policy and priority for this thread, then call
+     * setThreadSchedulerNolock() to effect the settings if the thread is
+     * running.
+     *
      * @throws Exception
      **/
     void setThreadSchedulerNolock(enum SchedPolicy policy, int priority);
+
+    /**
+     * If the thread is running, set the scheduling policy according to the
+     * current policy and priority attributes in this Thread.  Warn but continue
+     * if realtime priority cannot be set, otherwise raise Exception.
+     *
+     * @throws Exception
+     **/
+    void setThreadSchedulerNolock();
 
     void makeFullName();		// add thread id to name once we know it
 
@@ -515,14 +522,14 @@ private:
 
     bool _cancel_deferred;
 
-    pthread_attr_t _thread_attr;
-
     /**
      * Exception thrown by run method.
      */
     Exception* _exception;
 
     bool _detached;
+    SchedPolicy _policy;
+    int _priority;
 
     sigset_t _blockedSignals;
 
@@ -537,11 +544,10 @@ private:
     }
 
     /**
-     * Assignment operator not supported. Supporting it wouldn't
-     * be much problem, since the copy constructor is supported,
-     * but there hasn't been a need yet.
+     * Copy and assignment not needed so not supported.
      */
-    Thread& operator=(const Thread& x);
+    Thread& operator=(const Thread& x) = delete;
+    Thread(const Thread& x) = delete;
 
 };
 
