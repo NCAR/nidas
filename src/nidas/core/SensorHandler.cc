@@ -697,8 +697,7 @@ int SensorHandler::run()
     }
     _newOpenedSensors.clear();
 
-    n_u::Logger::getInstance()->log(LOG_INFO,
-            "SensorHandler finishing, closing remaining %d sensors ",n);
+    ILOG(("SensorHandler finishing, closing remaining %d sensors ", n));
 
     handlePollingChange();
 
@@ -977,13 +976,8 @@ void SensorHandler::setupTimeouts(int sensorCheckIntervalMsecs)
 
 void SensorHandler::handlePollingChange()
 {
-    _pollingMutex.lock();
-    bool changed = _pollingChanged;
-    _pollingChanged = false;
-    _pollingMutex.unlock();
-
-    if (changed) {
-
+    if (_pollingChanged.exchange(false))
+    {
         _pollingMutex.lock();
         set<PolledDSMSensor*> tmpsensors = _pendingSensorClosures;
         _pendingSensorClosures.clear();

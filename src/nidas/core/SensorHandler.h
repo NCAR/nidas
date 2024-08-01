@@ -41,6 +41,7 @@
 
 #include <vector>
 #include <set>
+#include <atomic>
 
 /**
  * If this thread cannot block and then atomically catch a signal in its
@@ -387,10 +388,11 @@ private:
     mutable nidas::util::Mutex _pollingMutex;
 
     /**
-     * A change in the polling file descriptors needs
-     * to be handled.
+     * A change in the polling file descriptors needs to be handled.  This gets
+     * set and tested in so many places it's easier to use an atomic than guard
+     * it with _pollingMutex.
      */
-    bool _pollingChanged;
+    std::atomic<bool> _pollingChanged;
 
     /**
      * Collection of DSMSensors which have been opened.
