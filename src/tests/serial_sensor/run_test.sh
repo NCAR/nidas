@@ -32,7 +32,7 @@ loglevel="--log info"
 debugging=false
 alltests="dsm_server dsm"
 testnames=
-
+prefix=
 
 find_udp_port() {
     which netstat >& /dev/null || { echo "netstat not found, install net-tools" && exit 1; }
@@ -55,6 +55,8 @@ Options:
     --valgrind|--helgrind|--strace|--no-valgrind
     --log config
     --logfields fields
+    --prefix prefix_path
+If prefix is set, then source prefix/bin/setup_nidas.sh, useful with sudo.
 EOF
 }
 
@@ -63,6 +65,10 @@ while [ $# -gt 0 ]; do
     case "$1" in
         -d)
             debugging=true
+            ;;
+        --prefix)
+            prefix="$2"
+            shift
             ;;
         --no-valgrind)
             valgrind=
@@ -106,6 +112,10 @@ done
 echo testnames=$testnames
 logging="$loglevel $logfields"
 
+if [ -n "$prefix" ]; then
+    source "$prefix/bin/setup_nidas.sh"
+fi
+
 source ../nidas_tests.sh
 
 check_executable dsm
@@ -113,6 +123,9 @@ check_executable dsm_server
 
 if $debugging; then
     export TEST=/tmp/test_debug
+    if [ `id -u` == 0 ]; then
+        export TEST="${TEST}_root"
+    fi
     mkdir -p $TEST
 else
     export TEST=$(mktemp -d --tmpdir test_XXXXXX)
