@@ -14,9 +14,7 @@ sensor_sim = env.NidasApp('sensor_sim')
 # server, it makes sense to just run the one test.  the other test can be run
 # separately if that's more convenient for debugging.
 depends = ["run_test.sh", dsm, dsm_server, data_stats, sensor_sim]
-runtest = env.Command("xtest", depends,
-                      ["cd $SOURCE.dir && "
-                       "./run_test.sh test_serial_dsm_server"])
+runtest = env.Command("xtest", depends, ["cd $SOURCE.dir && ./run_test.sh"])
 
 env.Precious(runtest)
 env.AlwaysBuild(runtest)

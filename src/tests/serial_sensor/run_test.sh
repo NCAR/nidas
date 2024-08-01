@@ -6,8 +6,12 @@
 
 # scons may not set HOSTNAME
 export HOSTNAME=`hostname`
-vgopts="--suppressions=suppressions.txt --gen-suppressions=all --leak-check=full"
+spopts="--suppressions=suppressions.txt --gen-suppressions=all"
+vgopts="$spopts --leak-check=full"
 valgrind="valgrind $vgopts"
+hgopts="$spopts --tool=helgrind --track-lockorders=no"
+helgrind="valgrind $hgopts"
+strace="strace --timestamps --stack-trace"
 sspids=()
 dsmpid=
 serverpid=
@@ -22,11 +26,11 @@ xmlrpcopt=
 xmlrpcopt=
 dsm_errs=0
 svr_errs=0
-logging="--log verbose --logfields time,level,thread,function,message"
-logging="--log verbose --logfields level,message"
+logfields="--logfields time,level,thread,function,message"
+loglevel="--log info"
 
 debugging=false
-alltests="test_serial_dsm_server test_serial_dsm"
+alltests="dsm_server dsm"
 testnames=
 
 
@@ -41,6 +45,20 @@ find_udp_port() {
 }
 
 
+usage()
+{
+    cat <<EOF
+$0 [options ...] [testname ...]
+Test names: $alltests
+Options:
+    -d
+    --valgrind|--helgrind|--strace|--no-valgrind
+    --log config
+    --logfields fields
+EOF
+}
+
+
 while [ $# -gt 0 ]; do
     case "$1" in
         -d)
@@ -52,16 +70,41 @@ while [ $# -gt 0 ]; do
         --valgrind)
             valgrind="valgrind $vgopts"
             ;;
+        --helgrind)
+            valgrind="$helgrind"
+            ;;
+        --strace)
+            valgrind="$strace"
+            ;;
+        --log)
+            loglevel="--log $2"
+            shift
+            ;;
+        --logfields)
+            logfields="--logfields $2"
+            shift
+            ;;
+        -h)
+            usage
+            exit 0
+            ;;
         findport)
             find_udp_port
             exit 0
             ;;
+        -*)
+            echo "Unrecognized option: $1"
+            usage
+            exit 1
+            ;;
         *)
-            testnames="$testnames $1" ;;
+            testnames="$testnames $1"
+            ;;
     esac
     shift
 done
 echo testnames=$testnames
+logging="$loglevel $logfields"
 
 source ../nidas_tests.sh
 
@@ -495,17 +538,17 @@ test_serial_dsm_server()
 
 
 if [ -z "$testnames" ]; then
-    echo "Available test names: $alltests"
-    exit 1
+    testnames=dsm_server
+    echo "Running default test: $testnames"
 fi
 
 for test in $testnames ; do
     test_name=$test
     case "$test" in
-        test_serial_dsm|dsm)
+        dsm)
             test_serial_dsm
             ;;
-        test_serial_dsm_server|dsm_server)
+        dsm_server)
             test_serial_dsm_server
             ;;
     esac
