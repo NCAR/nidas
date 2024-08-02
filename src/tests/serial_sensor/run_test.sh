@@ -11,7 +11,7 @@ vgopts="$spopts --leak-check=full"
 valgrind="valgrind $vgopts"
 hgopts="$spopts --tool=helgrind --track-lockorders=no"
 helgrind="valgrind $hgopts"
-strace="strace --timestamps --stack-trace"
+strace="strace -f --timestamps --stack-trace"
 sspids=()
 dsmpid=
 serverpid=
@@ -26,7 +26,7 @@ xmlrpcopt=
 xmlrpcopt=
 dsm_errs=0
 svr_errs=0
-logfields="--logfields time,level,thread,function,message"
+logfields="--logfields time,level,thread,file,function,message"
 loglevel="--log info"
 
 debugging=false
