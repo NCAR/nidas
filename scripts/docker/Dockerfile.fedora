@@ -1,0 +1,37 @@
+FROM docker.io/fedora:39
+LABEL organization="NCAR EOL"
+
+RUN dnf -y update
+# To get dnf-config-manager to enable CRB repo permanently
+RUN dnf -y install dnf-utils
+RUN dnf -y install gcc-c++ git python3-scons doxygen graphviz flex
+
+RUN dnf -y install boost-devel libftdi-devel doxygen
+RUN dnf -y install libxml2-devel cmake
+
+RUN dnf -y install gsl-devel kernel-devel libcap-devel libpcap-devel bzip2-devel bzip2-libs bzip2 bluez-libs-devel jsoncpp-devel libcurl-devel xerces-c-devel
+
+RUN rpm -ihv http://www.eol.ucar.edu/software/rpms/eol-repo-epel-1-5.noarch.rpm
+
+# Someday this step can be replaced with a checkout and build of the rpm
+# and local install, to bootstrap a container without needing this rpm to
+# be already built.
+
+# RUN dnf -y install xmlrpc++
+
+RUN dnf -y install rpm-build rsync diffutils
+
+# hostname and which needed by test scripts, but maybe could be replaced with
+# whereis and $HOSTNAME.  net-tools is for netstat.
+RUN dnf -y install hostname which net-tools
+
+# Local packages
+RUN mkdir -p ublox
+COPY ./build-ublox.sh ublox
+RUN cd ublox && ./build-ublox.sh
+
+RUN mkdir -p xmlrpc-build
+COPY ./build-xmlrpc.sh xmlrpc-build
+RUN cd xmlrpc-build && ./build-xmlrpc.sh
+
+WORKDIR /root

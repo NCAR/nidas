@@ -135,13 +135,13 @@ is named, then the current repo is used.
 EOF
 }
 
-targets=(alma9 centos7 centos8 centos9 vulcan titan pi2 pi3 ubuntu vortex)
+targets=(alma9 centos7 centos8 centos9 vulcan titan pi2 pi3 ubuntu vortex fedora)
 
 # Return the arch for passing to build_dpkg
 get_arch() # alias
 {
     case "$1" in
-        centos*|alma*)
+        centos*|alma*|fedora*)
             echo x86_64
             ;;
         pi*)
@@ -162,7 +162,7 @@ get_arch() # alias
 get_build() # alias
 {
     case "$1" in
-        centos*|ubuntu*|alma*)
+        centos*|ubuntu*|alma*|fedora*)
             echo host
             ;;
         pi*)
@@ -213,6 +213,9 @@ get_image_tag() # alias
         vortex)
             echo nidas-build-ubuntu-i386:bionic
             ;;
+        fedora)
+            echo nidas-build-fedora-x86_64:fedora
+            ;;
     esac
 }
 
@@ -251,6 +254,9 @@ build_image()
             ;;
         vortex)
             podman build -t $tag -f docker/Dockerfile.ubuntu_i386_bionic --build-arg=dolocal=yes
+            ;;
+        fedora)
+            podman build -t $tag -f docker/Dockerfile.fedora
             ;;
     esac
 }
