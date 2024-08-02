@@ -502,8 +502,7 @@ int SensorHandler::run()
 
     for (;!isInterrupted();) {
 
-        if (_pollingChanged)
-            handlePollingChange();
+        handlePollingChange();
 
 #if POLLING_METHOD == POLL_EPOLL_ET || POLLING_METHOD == POLL_EPOLL_LT
 
