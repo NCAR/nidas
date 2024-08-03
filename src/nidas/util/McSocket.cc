@@ -340,6 +340,7 @@ int McSocketListener::run()
 
     while (!isInterrupted()) {
 
+        DLOG(("") << "waiting on " << _mcastAddr.toString() << "...");
 #ifdef HAVE_PPOLL
         int nfd = ::ppoll(&fds,1,NULL,&sigmask);
         if (nfd < 0) {

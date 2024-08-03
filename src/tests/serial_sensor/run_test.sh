@@ -4,8 +4,14 @@
 
 # -------------- GLOBALS --------------
 
-# scons may not set HOSTNAME
-export HOSTNAME=`hostname`
+# This was fixed at localhost way back in
+# 08b2bb579275a8b30890dbe51c51bea8d21fe6a3, but then it got missed when the two
+# test scripts were merged.  The gist is that the value returned by `hostname`
+# does not necessarily resolve to one of the interfaces in use by the current
+# host, such as when the host is on UCAR VPN.  So hardcode the hostname to use
+# the loopback interface.
+# 
+export HOSTNAME=localhost
 spopts="--suppressions=suppressions.txt --gen-suppressions=all"
 vgopts="$spopts --leak-check=full"
 valgrind="valgrind $vgopts"
@@ -23,6 +29,9 @@ serverpid=
 source /etc/os-release
 xmlrpcopt=
 [ "$ID" != ubuntu ] && xmlrpcopt=-r
+# On second thought, the xmlrpc is not needed and not tested by this test, and
+# it triggers warnings from helgrind which clutter the output, so leave it off
+# everywhere.
 xmlrpcopt=
 dsm_errs=0
 svr_errs=0
@@ -198,9 +207,10 @@ start_dsm_server()
     serverpid="$!"
     echo "DSM Server PID: $serverpid"
 
-    # seems like this should be synchronized on something, but I'm not sure
-    # what.
-    sleep 10
+    # we don't know when the server is fully "up" without checking when ports
+    # open, but we don't need to know, because dsm can't continue until it
+    # receives config from dsm_server.  so the multicast config provides the
+    # synchronization.
 }
 
 
