@@ -256,6 +256,7 @@ namespace nidas { namespace util {
  **/
 #define LOGGER_LOGPOINT(LEVEL,TAGS,MSG)                                 \
     do {                                                                \
+        nidas::util::Logger::init();                                    \
         static NIDAS_LOGGER_THREADLOCAL nidas::util::LogContext logctxt \
             (nidas::util::LEVEL, __FILE__,__PRETTY_FUNCTION__,          \
              __LINE__,TAGS);                                            \
@@ -1192,6 +1193,12 @@ namespace nidas { namespace util {
          */
         static void
         destroyInstance();
+
+        /**
+         * Initializes the logging implementation.
+         */
+        static void
+        init();
 
         /**
          * Build a message from a printf-format string and variable args, and log

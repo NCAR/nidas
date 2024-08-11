@@ -59,7 +59,11 @@ typedef map<string,LogScheme> log_schemes_t;
 // Keep the Mutex in the local anonymous namespace where it can be seen and
 // accessed only by the implmentations in this module.
 namespace {
-  static nidas::util::Mutex logger_mutex;
+  Mutex& get_logger_mutex()
+  {
+    static nidas::util::Mutex logger_mutex;
+    return logger_mutex;
+  }
 };
 
 
@@ -255,11 +259,22 @@ void
 Logger::
 destroyInstance()
 {
-  Synchronized sync(logger_mutex);
+  Synchronized sync(get_logger_mutex());
   delete _instance;
   _instance = 0;
 }
 
+/* static */
+void
+Logger::
+init()
+{
+    // just access the mutex so the static allocation goes onto the
+    // finalization stack before any LogContext instances are created. this
+    // may help assure that no LogContext destructor accesses the mutex after
+    // it has been destroyed.
+    get_logger_mutex();
+}
 
 /* static */
 Logger* Logger::_instance = 0;
@@ -270,7 +285,7 @@ Logger::
 createInstance(const std::string& ident, int logopt, int facility,
                const char *TZ)
 {
-  Synchronized sync(logger_mutex);
+  Synchronized sync(get_logger_mutex());
   delete _instance;
   _instance = new Logger(ident, logopt, facility, TZ);
   return _instance;
@@ -293,7 +308,7 @@ get_instance_locked(std::ostream* out)
 /* static */
 Logger* Logger::createInstance(std::ostream* out) 
 {
-  Synchronized sync(logger_mutex);
+  Synchronized sync(get_logger_mutex());
   delete _instance;
   _instance = 0;
   return get_instance_locked(out);
@@ -340,7 +355,7 @@ Logger::
 msg(const nidas::util::LogContextState& lc, const std::string& msg)
 {
   static const char* fixedsep = "|";
-  Synchronized sync(logger_mutex);
+  Synchronized sync(get_logger_mutex());
 
   // Double-check that the context is enabled.  It's a simple check, and it
   // guards against code accidentally logging a message to a context
@@ -462,7 +477,7 @@ void
 Logger::
 setScheme(const std::string& name)
 {
-  Synchronized sync(logger_mutex);
+  Synchronized sync(get_logger_mutex());
   current_scheme = get_scheme(name);
   LoggerPrivate::reconfig(current_scheme, log_points);
 }
@@ -472,7 +487,7 @@ void
 Logger::
 setScheme(const LogScheme& scheme)
 {
-  Synchronized sync(logger_mutex);
+  Synchronized sync(get_logger_mutex());
   log_schemes[scheme.getName()] = scheme;
   current_scheme = scheme;
   LoggerPrivate::reconfig(current_scheme, log_points);
@@ -483,7 +498,7 @@ LogScheme
 Logger::
 getScheme(const std::string& name)
 {
-  Synchronized sync(logger_mutex);
+  Synchronized sync(get_logger_mutex());
   return get_scheme(name);
 }
 
@@ -492,7 +507,7 @@ LogScheme
 Logger::
 getScheme()
 {
-  Synchronized sync(logger_mutex);
+  Synchronized sync(get_logger_mutex());
   return current_scheme;
 }
 
@@ -501,7 +516,7 @@ bool
 Logger::
 knownScheme(const std::string& name)
 {
-  Synchronized sync(logger_mutex);
+  Synchronized sync(get_logger_mutex());
   return bool(lookup_scheme(name));
 }
 
@@ -510,7 +525,7 @@ void
 Logger::
 updateScheme(const LogScheme& scheme)
 {
-  Synchronized sync(logger_mutex);
+  Synchronized sync(get_logger_mutex());
   log_schemes[scheme.getName()] = scheme;
   if (current_scheme.getName() == scheme.getName())
   {
@@ -524,7 +539,7 @@ void
 Logger::
 clearSchemes()
 {
-  Synchronized sync(logger_mutex);
+  Synchronized sync(get_logger_mutex());
   log_schemes.clear();
   current_scheme = get_scheme("");
   // resetting the current scheme also resets log points.
@@ -998,12 +1013,12 @@ showLogPoints(bool show)
     // LogContext to go away in another thread even while the copy is being
     // logged.
     std::vector<LogContextState> points;
-    logger_mutex.lock();
+    get_logger_mutex().lock();
     for (auto& lcp: log_points)
     {
       points.emplace_back(*lcp);
     }
-    logger_mutex.unlock();
+    get_logger_mutex().unlock();
     for (auto& lc: points)
     {
       show_log_point(lc);
@@ -1032,7 +1047,7 @@ LogContext(int level, const char* file, const char* function, int line,
 {
   LogScheme scheme;
   {
-    Synchronized sync(logger_mutex);
+    Synchronized sync(get_logger_mutex());
     log_points.push_back(this);
     scheme = current_scheme;
     LoggerPrivate::reconfig(scheme, { this });
@@ -1049,7 +1064,7 @@ LogContext(int level, const char* file, const char* function, int line,
 bool
 LogContext::active() const
 {
-  Synchronized sync(logger_mutex);
+  Synchronized sync(get_logger_mutex());
   return _active;
 }
 
@@ -1075,7 +1090,7 @@ threadName() const
 LogContext::
 ~LogContext()
 {
-  Synchronized sync(logger_mutex);
+  Synchronized sync(get_logger_mutex());
   log_points_v::iterator it;
   it = find(log_points.begin(), log_points.end(), this);
   if (it != log_points.end())
