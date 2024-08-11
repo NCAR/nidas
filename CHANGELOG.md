@@ -12,6 +12,19 @@ the [buster] branch for the changes on that branch.
 
 ## [master] - Unreleased on master branch
 
+### threading fixes
+
+- The Logger macros now use thread_local for the LogContext instance, and the
+  Logger locking has been modified, to fix errors detected by concurrency
+  checks.  Other missing synchronization points for critical sections have
+  been fixed.  As always with synchronization changes, be aware of unintended
+  consequences.
+
+- Related to fixing concurrency errors, calcStatistics() is now only called on
+  opened sensors, where before it was called on all sensors, including the
+  ones which were not open yet.  Presumably that will not interfere with
+  expected diagnostics.
+
 ### enhanced version info
 
 - The standard `--version` argument now also shows the compiler version and the
