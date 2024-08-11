@@ -36,6 +36,8 @@
 using namespace std;
 using namespace nidas::core;
 
+using nidas::util::Synchronized;
+
 namespace n_u = nidas::util;
 
 SensorHandler::
@@ -164,14 +166,14 @@ void SensorHandler::checkTimeouts(dsm_time_t tnow)
 /* returns a copy of our sensor list. */
 list<DSMSensor*> SensorHandler::getAllSensors() const
 {
-    n_u::Synchronized autosync(_pollingMutex);
+    Synchronized autosync(_pollingMutex);
     return _allSensors;
 }
 
 /* returns a copy of our opened sensors. */
 list<DSMSensor*> SensorHandler::getOpenedSensors() const
 {
-    n_u::Synchronized autosync(_pollingMutex);
+    Synchronized autosync(_pollingMutex);
     return _openedSensors;
 }
 
@@ -489,7 +491,7 @@ int SensorHandler::run()
     }
 
     unsigned int nsamplesAlloc = 0;
-    _pollingChanged = true;
+    setPollingChanged();
 
 #if POLLING_METHOD == POLL_EPOLL_ET
     // When doing edge-triggered epoll, one must keep a list of
@@ -684,7 +686,7 @@ int SensorHandler::run()
     for (pi = _polledSensors.begin(); pi != _polledSensors.end(); ++pi,n++)
         _pendingSensorClosures.insert(*pi);
 
-    _pollingChanged = true;
+    setPollingChanged();
 
     // There's a small chance of newly opened sensors. Close them.
     // These are not wrapped with a PolledDSMSensor, so
@@ -977,11 +979,24 @@ void SensorHandler::setupTimeouts(int sensorCheckIntervalMsecs)
     }
 }
 
+bool SensorHandler::getPollingChanged()
+{
+    Synchronized sync(_pollingMutex);
+    return _pollingChanged;
+}
+
+void SensorHandler::setPollingChanged()
+{
+    Synchronized sync(_pollingMutex);
+    _pollingChanged = true;
+}
+
 void SensorHandler::handlePollingChange()
 {
-    if (_pollingChanged.exchange(false))
+    if (getPollingChanged())
     {
         _pollingMutex.lock();
+        _pollingChanged = false;
         set<PolledDSMSensor*> tmpsensors = _pendingSensorClosures;
         _pendingSensorClosures.clear();
         _pollingMutex.unlock();
