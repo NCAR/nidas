@@ -132,11 +132,15 @@ void SensorHandler::calcStatistics(dsm_time_t tnow)
         // cerr << "tnow-_sensorStatsTime=" << (tnow - _sensorStatsTime) << endl;
         _sensorStatsTime = n_u::timeCeiling(tnow, _sensorStatsInterval);
     }
-    list<DSMSensor*> allCopy = getAllSensors();
-    list<DSMSensor*>::const_iterator si;
+    // While a sensor is being opened, it is being accessed by the
+    // SensorOpener thread, including possibly reading from the sensor and
+    // updating stats like nbytes read.  And really we don't need to update
+    // stats from sensors which are not opened yet.  So limit the statistics
+    // calculations to sensors which are being handled by the SensorHandler
+    // thread.  This avoids a race condition with the stats members.
+    list<DSMSensor*> openedCopy = getOpenedSensors();
 
-    for (si = allCopy.begin(); si != allCopy.end(); ++si) {
-        DSMSensor *sensor = *si;
+    for (auto sensor: openedCopy) {
         sensor->calcStatistics(_sensorStatsInterval);
     }
 }
