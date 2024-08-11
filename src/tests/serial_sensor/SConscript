@@ -20,3 +20,9 @@ env.Precious(runtest)
 env.AlwaysBuild(runtest)
 env.Alias('test', runtest)
 env.Alias('sstest', runtest)
+
+check = env.Command("threadcheck", depends,
+                    ["cd $SOURCE.dir && ./run_test.sh --helgrind"])
+env.Precious(check)
+env.AlwaysBuild(check)
+env.Alias('test', check)
