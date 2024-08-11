@@ -35,6 +35,7 @@
 #include <string>
 #include <map>
 #include <set>
+#include <atomic>
 
 namespace nidas { namespace util {
 
@@ -516,7 +517,7 @@ private:
 
     bool _running;
 
-    bool _interrupted;
+    std::atomic<bool> _interrupted;
 
     bool _cancel_enabled;
 
