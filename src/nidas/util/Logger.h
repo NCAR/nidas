@@ -27,21 +27,31 @@
 #ifndef NIDAS_UTIL_LOGGER_H_
 #define NIDAS_UTIL_LOGGER_H_
 
-#include "ThreadSupport.h"
-
-#include <cstdarg>
 #include <syslog.h>
-
-#include <iostream>
+#include <pthread.h> // pthread_id
 #include <string>
 #include <sstream>
-#include <cstdio>
-#include <cstring>
 #include <vector>
 #include <map>
 
-#if !defined(SVR4) && ( defined(__GNUC__) && __GNUC__ < 2)
-#include <varargs.h>
+// define to thread_local to use C++11 thread_local storage for static
+// LogContext instances declared by the logging macros.  if every LogContext
+// is in thread-local storage, then the active flag is only (almost) accessed
+// by one thread.  if another thread changes the current LogScheme and
+// reconfigures all the log points, then that would be flagged by a
+// concurrency checker. however, in all nidas programs so far, the log scheme
+// is setup once at startup and never changed.
+#ifndef NIDAS_LOGGER_THREADLOCAL
+#define NIDAS_LOGGER_THREADLOCAL thread_local
+#endif
+
+// define to non-zero to guard all access to the LogContext active flag. this
+// is one way to prevent multiple threads from accessing the active flag of
+// the same LogContext instance, but it incurs the overhead (unmeasured) of
+// locking the logging mutex on every test of the active flag.  it is here for
+// historical record but deprecated in favor of thread_local.
+#ifndef NIDAS_LOGGER_GUARD_ACTIVE
+#define NIDAS_LOGGER_GUARD_ACTIVE 0
 #endif
 
 namespace nidas { namespace util {
@@ -246,7 +256,7 @@ namespace nidas { namespace util {
  **/
 #define LOGGER_LOGPOINT(LEVEL,TAGS,MSG)                                 \
     do {                                                                \
-        static nidas::util::LogContext logctxt                          \
+        static NIDAS_LOGGER_THREADLOCAL nidas::util::LogContext logctxt \
             (nidas::util::LEVEL, __FILE__,__PRETTY_FUNCTION__,          \
              __LINE__,TAGS);                                            \
         if (logctxt.active())                                           \
@@ -334,77 +344,41 @@ namespace nidas { namespace util {
     std::string
     logLevelToString(int);
 
-    class Mutex;
-
     /**
-     * The LogContext is created at a point in the application code and filled
-     * in with details about that log point, such as the file and line number,
-     * and the function name of the containing function, and the log level of
-     * that log point, such as LOGGER_DEBUG or LOGGER_ERROR.  Except for the
-     * log level and tags, the rest of the LogContext can be filled in with CPP
-     * macros and predefined compiler symbols like __PRETTY_FUNCTION__.  The
-     * LogContext holds its own active state, so a simple, inline boolean test
-     * determines whether a log point has been activated and thus needs to
-     * generate and log its message.  Otherwise the log point can be skipped
-     * with minimal time overhead.  Where further discrimination of log points
-     * is needed, a log point can be associated with a string of tags, and a
-     * LogConfig can match the log point by one of its tags.  The tags string
-     * is empty unless specified at creation.
-     *
-     * The LogContext effectively stashes context info for a log point so that
-     * info can be used in the log message output, and so that info can be used
-     * as criteria for selecting which messages are logged.  Thus a LogContext
-     * registers itself with the Logger class, and the Logger class can enable
-     * or disable a log point according to the current configuration scheme,
-     * @ref LoggerSchemes.  The LogContext contains a flag which is false if
-     * the log point is not active, meaning almost all overhead of generating a
-     * log message can be avoided by testing the active() flag first.  The
-     * typical usage of a LogContext will be as a static object, and the log
-     * macros DLOG, ELOG, and so on test the active() flag before passing a
-     * message.
-     *
-     * The ultimate goal is to make all log messages always available in the
-     * runtime while incurring as little performance overhead as possible when
-     * they are not needed, and without requiring alternate compile
-     * configurations.  However, if it should ever be necessary, then the log
-     * macros can still be defined as completely empty.
-     *
-     * See LogContext::log() for using a LogContext instance to enclose more
-     * complicated blocks of logging output.
-     *
-     * A LogContext has no support for concurrency.  If it might be shared
-     * among multiple threads, then it should be guarded with a lock or
-     * created in thread-local storage.  However, a LogContext does record
-     * the thread which created it, and the name of that thread is returned 
-     * by the threadName() method.
-     **/
-    class LogContext
+     * LogContextState holds the status members of a LogContext and related
+     * behavior. It can be copied and saved but by itself has no connection to
+     * the global log points, so it's active flag does not change except through
+     * setActive().
+     */
+    class LogContextState
     {
     public:
 
         /**
-         * The LogContext constructor initializes all the static context
-         * information, adds this context to the global registry of log
-         * points, then sets the active() status according to the current
-         * log configuration.  The constructor also records the ID of the
-         * current thread, so if this LogContext is instantiated in
-         * thread-local storage, all messages logged through it will be
-         * associated with the correct thread name.
+         * The LogContextState constructor initializes all the static context
+         * information and also records the ID of the current thread.
          **/
-        LogContext (int level, const char* file, const char* function, int line,
-                    const char* tags = 0);
-
-        ~LogContext();
+        LogContextState(int level, const char* file, const char* function,
+                        int line, const char* tags = 0);
 
         /**
-         * Return true if log messages from this context would be accepted.
-         * If this returns false, then there is no point in generating and
+         * Return true if log messages from this context have been enabled. If
+         * this returns false, then there is no point in generating and
          * submitting a log message.
          **/
-        bool
+        inline bool
         active() const
         {
             return _active;
+        }
+
+        /**
+         * Enable this log point according to @p active.
+         */
+        void
+        setActive(bool active)
+        {
+            _active = active;
         }
 
         const char*
@@ -454,7 +428,8 @@ namespace nidas { namespace util {
 
         /**
          * Convenience method which writes the given message to the current
-         * Logger instance, passing this object as the LogContext instance.
+         * Logger instance, passing this object as the LogContextState.
+         * Normally this method is called from a LogContext:
          *
          * @code
          * static LogContext lp(LOG_INFO);
@@ -470,7 +445,7 @@ namespace nidas { namespace util {
         log(const std::string& msg) const;
 
         /**
-         * Return a LogMessage associated with this LogContext, so the
+         * Return a LogMessage associated with this LogContextState, so the
          * message will be logged through this context when the LogMessage
          * goes out of scope.  Typically this is used as a temporary object
          * to which the log message content can be streamed, which can be a
@@ -489,7 +464,7 @@ namespace nidas { namespace util {
         inline LogMessage
         log() const;
 
-    private:
+    protected:
         int _level;
         const char* _file;
         const char* _function;
@@ -499,15 +474,96 @@ namespace nidas { namespace util {
         bool _active;
 
         pthread_t _threadId;
+    };
+
+    /**
+     * The LogContext is created at a point in the application code and filled
+     * in with details about that log point, such as the file and line number,
+     * and the function name of the containing function, and the log level of
+     * that log point, such as LOGGER_DEBUG or LOGGER_ERROR.  Except for the log
+     * level and tags, the rest of the LogContext can be filled in with CPP
+     * macros and predefined compiler symbols like __PRETTY_FUNCTION__.  The
+     * LogContext holds its own active state, so a simple, inline boolean test
+     * determines whether a log point has been activated and thus needs to
+     * generate and log its message.  Otherwise the log point can be skipped
+     * with minimal time overhead.  Where further discrimination of log points
+     * is needed, a log point can be associated with a string of tags, and a
+     * LogConfig can match the log point by one of its tags.  The tags string is
+     * empty unless specified at creation.
+     *
+     * The LogContext effectively stashes context info for a log point so that
+     * info can be used in the log message output, and so that info can be used
+     * as criteria for selecting which messages are logged.  Thus a LogContext
+     * registers itself with the Logger class, and the Logger class can enable
+     * or disable a log point according to the current configuration scheme,
+     * @ref LoggerSchemes.  The LogContextState contains a flag which is false
+     * if the log point is not active, meaning almost all overhead of generating
+     * a log message can be avoided by testing the active() flag first.  The
+     * typical usage of a LogContext will be as a static object, and the log
+     * macros DLOG, ELOG, and so on test the active() flag before passing a
+     * message.
+     *
+     * The ultimate goal is to make all log messages always available in the
+     * runtime while incurring as little performance overhead as possible when
+     * they are not needed, and without requiring alternate compile
+     * configurations.  However, if it should ever be necessary, then the log
+     * macros can still be defined as completely empty.
+     *
+     * See LogContextState::log() for using a LogContext instance to enclose
+     * more complicated blocks of logging output.
+     *
+     *A LogContext itself is not thread-safe except for updating the global
+     * registry of log points.  Rather than guard the _active flag against
+     * concurrent access, it is assumed the flag will be "consistent enough".
+     * In other words, it will be mostly read, and it is not critical that the
+     * read state be immediately updated on each logging config change.
+     *
+     * Thread-safe access can be assured for most cases by constructing a
+     * LogContext in thread-local storage.  (See NIDAS_LOOGER_THREADLOCAL.) A
+     * LogContext always records the thread which created it, and the name of
+     * that thread is returned by the threadName() method.  When the
+     * LogContext is used to send a log message, then the name of the current
+     * thread is used in the log message, even if different from the creating
+     * thread.
+     **/
+    class LogContext: public LogContextState
+    {
+    public:
+
+        /**
+         * Initialize LogContextState with the static context information, then
+         * add this context to the global registry of log points and set the
+         * active() status according to the current log configuration.
+         **/
+        LogContext (int level, const char* file, const char* function, int line,
+                    const char* tags = 0);
+
+#if NIDAS_LOGGER_GUARD_ACTIVE
+        bool
+        active() const;
+
+        void
+        setActive(bool active);
+#endif
+
+        /**
+         * Since the constructor registers this context with the global log
+         * points, the destructor unregisters it.
+         */
+        ~LogContext();
+
+        /**
+         * LogContext allocates a resource: it's registration with the global
+         * log points. The global logging modifies the active flag of this
+         * instance through a pointer to this instance, so only one instance can
+         * own that pointer and be responsible for deallocating it
+         * (unregistering). Thus copy and assignment are prohibited.
+         */
+        LogContext(const LogContext&) = delete;
+        LogContext& operator=(const LogContext&) = delete;
 
         friend class nidas::util::Logger;
         friend class nidas::util::LoggerPrivate;
-
-        /** No copying */
-        LogContext (const LogContext&);
-
-        /** No assignment */
-        LogContext& operator= (const LogContext&);
     };
 
 
@@ -870,7 +926,7 @@ namespace nidas { namespace util {
     private:
 
         void
-        show_log_point(LogContext& lp);
+        show_log_point(const LogContextState& lp) const;
 
         std::string _name;
         log_configs_v log_configs;
@@ -936,7 +992,7 @@ namespace nidas { namespace util {
          * }
          * @endcode
          **/
-        LogMessage(const LogContext* lp, const std::string& s = "") :
+        LogMessage(const LogContextState* lp, const std::string& s = "") :
             msg(),
             _log_context(lp)
         {
@@ -1023,7 +1079,7 @@ namespace nidas { namespace util {
 
     private:
         std::ostringstream msg;
-        const LogContext* _log_context;
+        const LogContextState* _log_context;
     };
 
 
@@ -1153,17 +1209,9 @@ namespace nidas { namespace util {
          * so on, since those macros will not waste time generating the message
          * if the message will not be logged.
          **/
-#if defined(SVR4) || ( defined(__GNUC__) && __GNUC__ > 1 )
         void
         log(int severity, const char* file, const char* fn,
             int line, const char *fmt, ...);
-#elif defined(__GNUC__)
-        void
-        log(...);
-#else
-        void
-        log(va_alist);
-#endif
 
         /**
          * Send a log message for the given LogContext @p lc.  The Logger
@@ -1178,10 +1226,10 @@ namespace nidas { namespace util {
          * and thread name.
          **/
         void
-        msg(const LogContext& lc, const std::string& msg);
+        msg(const LogContextState& lc, const std::string& msg);
 
         inline void
-        msg(const LogContext& lc, const LogMessage& m)
+        msg(const LogContextState& lc, const LogMessage& m)
         {
             msg (lc, m.getMessage());
         }
@@ -1275,27 +1323,20 @@ namespace nidas { namespace util {
          * TZ once in the constructor. Otherwise, in a multithreaded app
          * the log() method could have problems, since this is a singleton
          * shared by multiple threads, and we don't provide a locking
-         * mechanism for loggerTZ.
+         * mechanism for _loggerTZ.
          */
         void setTZ(const char* val);
 
         static Logger* _instance;
 
-        std::ostream* output;
-        bool syslogit;
+        std::ostream* _output;
+        bool _syslogit;
 
-        char* loggerTZ;
-        char* saveTZ;
+        char* _loggerTZ;
+        char* _saveTZ;
         char* _ident;
 
     private:
-
-        /**
-         * Other Log classes call this method to log a message when the log
-         * mutex is already locked.
-         **/
-        void
-        msg_locked(const nidas::util::LogContext& lc, const std::string& msg);
 
         /**
          * @brief Return the current instance or create a default, without locking.
@@ -1308,8 +1349,7 @@ namespace nidas { namespace util {
 
         friend class nidas::util::LogContext;
         friend class nidas::util::LogScheme;
-
-        static nidas::util::Mutex mutex;
+        friend class nidas::util::LoggerPrivate;
 
         ~Logger();
 
@@ -1321,14 +1361,14 @@ namespace nidas { namespace util {
     };
 
     inline void
-    LogContext::
+    LogContextState::
     log(const std::string& msg) const
     {
-        Logger::getInstance()->msg (*this, msg);
+        Logger::getInstance()->msg(*this, msg);
     }
 
     inline LogMessage
-    LogContext::
+    LogContextState::
     log() const
     {
         return LogMessage(this);

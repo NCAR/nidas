@@ -119,7 +119,7 @@ while [ $# -gt 0 ]; do
     shift
 done
 echo testnames=$testnames
-logging="$loglevel $logfields"
+logging="--logshow $loglevel $logfields"
 
 if [ -n "$prefix" ]; then
     source "$prefix/bin/setup_nidas.sh"

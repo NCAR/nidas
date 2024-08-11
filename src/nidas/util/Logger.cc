@@ -35,6 +35,8 @@ using nidas::util::Thread;
 
 #include <string>
 #include <cerrno>
+#include <cstring>
+#include <cstdarg>
 #include <vector>
 #include <map>
 #include <algorithm>
@@ -53,7 +55,13 @@ using namespace std;
 typedef vector<LogContext*> log_points_v;
 typedef map<string,LogScheme> log_schemes_t;
 
-Mutex Logger::mutex;
+
+// Keep the Mutex in the local anonymous namespace where it can be seen and
+// accessed only by the implmentations in this module.
+namespace {
+  static nidas::util::Mutex logger_mutex;
+};
+
 
 /// Vector of pointers to all the LogContext instances initialized so far.
 static log_points_v log_points;
@@ -139,21 +147,24 @@ public:
   static const int DEFAULT_LOGLEVEL = LOGGER_NOTICE;
 
   // Return the appropriate setting for the given context's active flag
-  // according to all the current log configs.
+  // according to all the log configs in the given scheme.  Note that this does
+  // not use any objects other than the LogScheme and LogContext passed into it,
+  // so if a lock is needed to guard those objects, it must be locked before
+  // calling this function.
   static bool
-  get_active_flag(LogScheme& scheme, LogContext* lc)
+  get_active_flag(const LogScheme& scheme, LogContext* lc)
   {
     bool active = false;
-    LogScheme::log_configs_v& log_configs = scheme.log_configs;
-    LogScheme::log_configs_v::iterator firstconfig = log_configs.begin();
-    LogScheme::log_configs_v::iterator ic;
+    const LogScheme::log_configs_v& log_configs = scheme.log_configs;
+    auto firstconfig = log_configs.begin();
+    auto ic = firstconfig;
 
     // If there are no configs, then check it against the default level.
     if (firstconfig == log_configs.end())
     {
       active = (lc->_level <= DEFAULT_LOGLEVEL);
     }
-    for (ic = firstconfig ; ic != log_configs.end(); ++ic)
+    for ( ; ic != log_configs.end(); ++ic)
     {
       if (ic->matches(*lc))
       {
@@ -171,8 +182,12 @@ public:
   }
 
   static void
-  reconfig(LogScheme& scheme, log_points_v::iterator firstpoint)
+  reconfig(const LogScheme& scheme, const log_points_v& points)
   {
+    // This does not lock the logger_mutex, because it does not use shared
+    // objects unless they are passed in, in which case locking is up to the
+    // caller.
+    //
     if (DEBUG_LOGGER)
     {
       stream_backtrace (cerr);
@@ -180,12 +195,11 @@ public:
       cerr << " - " << scheme.log_configs.size() << " configs\n"
            << " - showfields: " 
            << scheme.getShowFieldsString() << "\n";
-      cerr << "currently " << log_points.size() << " log points.\n";
+      cerr << "currently " << points.size() << " log points.\n";
     }
-    log_points_v::iterator it;
-    for (it = firstpoint ; it != log_points.end(); ++it)
+    for (auto& lcp: points)
     {
-      (*it)->_active = get_active_flag(scheme, (*it));
+      lcp->setActive(get_active_flag(scheme, lcp));
     }
   }
 };
@@ -199,7 +213,7 @@ public:
 
 Logger::Logger(const std::string& ident, int logopt, int facility,
                const char *TZ):
-	output(0), syslogit(true), loggerTZ(0), saveTZ(0), _ident(0)
+	_output(0), _syslogit(true), _loggerTZ(0), _saveTZ(0), _ident(0)
 {
   // Stash the identity in a char array tied to the lifetime of the Logger.
   _ident = new char[ident.size() + 1];
@@ -214,24 +228,24 @@ Logger::Logger(const std::string& ident, int logopt, int facility,
 }
 
 Logger::Logger(std::ostream* out) : 
-  output(out), syslogit(false), loggerTZ(0), saveTZ(0), _ident(0)
+  _output(out), _syslogit(false), _loggerTZ(0), _saveTZ(0), _ident(0)
 {
 }
 
 Logger::Logger():
-    output(&cerr),
-    syslogit(false),
-    loggerTZ(0),
-    saveTZ(0),
+    _output(&cerr),
+    _syslogit(false),
+    _loggerTZ(0),
+    _saveTZ(0),
     _ident(0)
 {
 }
 
 Logger::~Logger() {
-  if (syslogit) ::closelog();
-  if (output) output->flush();
-  delete [] loggerTZ;
-  delete [] saveTZ;
+  if (_syslogit) ::closelog();
+  if (_output) _output->flush();
+  delete [] _loggerTZ;
+  delete [] _saveTZ;
   delete [] _ident;
 }
 
@@ -241,7 +255,7 @@ void
 Logger::
 destroyInstance()
 {
-  Synchronized sync(Logger::mutex);
+  Synchronized sync(logger_mutex);
   delete _instance;
   _instance = 0;
 }
@@ -256,7 +270,7 @@ Logger::
 createInstance(const std::string& ident, int logopt, int facility,
                const char *TZ)
 {
-  Synchronized sync(Logger::mutex);
+  Synchronized sync(logger_mutex);
   delete _instance;
   _instance = new Logger(ident, logopt, facility, TZ);
   return _instance;
@@ -279,7 +293,7 @@ get_instance_locked(std::ostream* out)
 /* static */
 Logger* Logger::createInstance(std::ostream* out) 
 {
-  Synchronized sync(Logger::mutex);
+  Synchronized sync(logger_mutex);
   delete _instance;
   _instance = 0;
   return get_instance_locked(out);
@@ -295,11 +309,11 @@ Logger* Logger::getInstance()
 
 void Logger::setTZ(const char* val) {
 
-  delete [] loggerTZ;
-  loggerTZ = 0;
+  delete [] _loggerTZ;
+  _loggerTZ = 0;
 
-  delete [] saveTZ;
-  saveTZ = 0;
+  delete [] _saveTZ;
+  _saveTZ = 0;
 
   if (!val) return;	// user wants default TZ
 
@@ -310,31 +324,23 @@ void Logger::setTZ(const char* val) {
   // environment varibles. The pointer must always be valid
   // so we use simple char*.
   if (strcmp(val,tz)) {
-    loggerTZ = new char[strlen(val) + 4];
-    strcpy(loggerTZ,"TZ=");
-    strcat(loggerTZ,val);
+    _loggerTZ = new char[strlen(val) + 4];
+    strcpy(_loggerTZ,"TZ=");
+    strcat(_loggerTZ,val);
 
-    saveTZ = new char[strlen(tz) + 4];
-    strcpy(saveTZ,"TZ=");
-    strcat(saveTZ,tz);
+    _saveTZ = new char[strlen(tz) + 4];
+    strcpy(_saveTZ,"TZ=");
+    strcat(_saveTZ,tz);
   }
 }
 
 
 void
 Logger::
-msg(const nidas::util::LogContext& lc, const std::string& msg)
-{
-  Synchronized sync(Logger::mutex);
-  msg_locked(lc, msg);
-}
-
-
-void
-Logger::
-msg_locked(const nidas::util::LogContext& lc, const std::string& msg)
+msg(const nidas::util::LogContextState& lc, const std::string& msg)
 {
   static const char* fixedsep = "|";
+  Synchronized sync(logger_mutex);
 
   // Double-check that the context is enabled.  It's a simple check, and it
   // guards against code accidentally logging a message to a context
@@ -342,13 +348,13 @@ msg_locked(const nidas::util::LogContext& lc, const std::string& msg)
   //
   // Probably it is a bad idea to send VERBOSE messages to syslog(), so
   // trap that here too.
-  if (!lc.active() || (syslogit && lc.level() == LOGGER_VERBOSE))
+  if (!lc.active() || (_syslogit && lc.level() == LOGGER_VERBOSE))
   {
     return;
   }
 
-  if (loggerTZ) {
-    putenv(loggerTZ);
+  if (_loggerTZ) {
+    putenv(_loggerTZ);
     tzset();
   }
   ostringstream oss;
@@ -396,7 +402,7 @@ msg_locked(const nidas::util::LogContext& lc, const std::string& msg)
   }
   if (oss.str().length() > 0)
   {
-    if (syslogit)
+    if (_syslogit)
     {
       syslog(lc.level(), "%s", oss.str().c_str());
     }
@@ -404,11 +410,11 @@ msg_locked(const nidas::util::LogContext& lc, const std::string& msg)
     {
       // We want to flush the stream as well write a newline, in the hopes
       // of keeping log messages intact.
-      *output << oss.str() << std::endl;
+      *_output << oss.str() << std::endl;
     }
   }
-  if (loggerTZ) {
-    putenv(saveTZ);
+  if (_loggerTZ) {
+    putenv(_saveTZ);
     tzset();
   }
 }
@@ -431,35 +437,11 @@ fillError(string fmt)
 }
 
 
-#if defined(SVR4) || ( defined(__GNUC__) && __GNUC__ > 1 )
 void Logger::log(int severity, const char* file, const char* fn,
 		 int line, const char *fmt, ...)
-#elif defined(__GNUC__)
-void Logger::log(...)
-#else
-void Logger::log(va_alist)
-va_dcl
-#endif
 {
   va_list args;
-#if !defined(SVR4) && ( !defined(__GNUC__) || __GNUC__ < 2 )
-  int severity;
-  const char* file;
-  const char* fn;
-  int line;
-  const char *fmt;
-#endif
-
-#if defined(SVR4) || ( defined(__GNUC__) && __GNUC__ > 1 )
-  va_start(args,fmt);
-#else
-  va_start(args);
-  severity = va_arg(args,int);
-  file = va_arg(args,const char*);
-  fn = va_arg(args,const char*);
-  line = va_arg(args,int);
-  fmt = va_arg(args,const char *);
-#endif
+  va_start(args, fmt);
 
   // Construct a LogContext here, then check if it's enabled by
   // the current configuration.  It will be destroyed when this
@@ -480,9 +462,9 @@ void
 Logger::
 setScheme(const std::string& name)
 {
-  Synchronized sync(Logger::mutex);
+  Synchronized sync(logger_mutex);
   current_scheme = get_scheme(name);
-  LoggerPrivate::reconfig(current_scheme, log_points.begin());
+  LoggerPrivate::reconfig(current_scheme, log_points);
 }
 
 
@@ -490,10 +472,10 @@ void
 Logger::
 setScheme(const LogScheme& scheme)
 {
-  Synchronized sync(Logger::mutex);
+  Synchronized sync(logger_mutex);
   log_schemes[scheme.getName()] = scheme;
   current_scheme = scheme;
-  LoggerPrivate::reconfig(current_scheme, log_points.begin());
+  LoggerPrivate::reconfig(current_scheme, log_points);
 }
 
 
@@ -501,7 +483,7 @@ LogScheme
 Logger::
 getScheme(const std::string& name)
 {
-  Synchronized sync(Logger::mutex);
+  Synchronized sync(logger_mutex);
   return get_scheme(name);
 }
 
@@ -510,7 +492,7 @@ LogScheme
 Logger::
 getScheme()
 {
-  Synchronized sync(Logger::mutex);
+  Synchronized sync(logger_mutex);
   return current_scheme;
 }
 
@@ -519,7 +501,7 @@ bool
 Logger::
 knownScheme(const std::string& name)
 {
-  Synchronized sync(Logger::mutex);
+  Synchronized sync(logger_mutex);
   return bool(lookup_scheme(name));
 }
 
@@ -528,12 +510,12 @@ void
 Logger::
 updateScheme(const LogScheme& scheme)
 {
-  Synchronized sync(Logger::mutex);
+  Synchronized sync(logger_mutex);
   log_schemes[scheme.getName()] = scheme;
   if (current_scheme.getName() == scheme.getName())
   {
     current_scheme = scheme;
-    LoggerPrivate::reconfig(current_scheme, log_points.begin());
+    LoggerPrivate::reconfig(current_scheme, log_points);
   }
 }
 
@@ -542,9 +524,11 @@ void
 Logger::
 clearSchemes()
 {
-  Synchronized sync(Logger::mutex);
+  Synchronized sync(logger_mutex);
   log_schemes.clear();
   current_scheme = get_scheme("");
+  // resetting the current scheme also resets log points.
+  LoggerPrivate::reconfig(current_scheme, log_points);
 }
 
 
@@ -974,9 +958,13 @@ static LogContext
 show_point(LOG_STATIC_CONTEXT(LOGGER_INFO), "show_log_points");
 
 
+/**
+ * Log a message about the existence and state of the given LogContext @lp. Like
+ * other log messages, this one happens without a lock of the logger_mutex.
+ */
 void
 LogScheme::
-show_log_point(LogContext& lp)
+show_log_point(const LogContextState& lp) const
 {
   std::ostringstream buf;
   const char* tags = "";
@@ -990,7 +978,7 @@ show_log_point(LogContext& lp)
     << " in " << lp.function() << "@"
     << lp.filename() << ":" << lp.line()
     << " is" << (lp.active() ? "" : " not") << " active";
-  Logger::get_instance_locked()->msg_locked(show_point, buf.str());
+  show_point.log(buf.str());
 }
 
 
@@ -998,16 +986,27 @@ void
 LogScheme::
 showLogPoints(bool show)
 {
+  // Set the flag to show log points, and in case some log points were already
+  // created, show those now.  Rather than hold the lock to log them all, send
+  // copies of the log points.
   _showlogpoints = show;
   if (_showlogpoints)
   {
-    // Do not to create any LogContext in this block or otherwise modify
-    // the log points vector while it's locked.
-    Synchronized sync(Logger::mutex);
-    log_points_v::iterator it;
-    for (it = log_points.begin(); it != log_points.end(); ++it)
+    // Copy the LogContext objects while locked, then iterate through them
+    // calling show_log_point without the lock.  show_log_point() only needs the
+    // copy to log information about the log point, and it's safe for a
+    // LogContext to go away in another thread even while the copy is being
+    // logged.
+    std::vector<LogContextState> points;
+    logger_mutex.lock();
+    for (auto& lcp: log_points)
     {
-      show_log_point(*(*it));
+      points.emplace_back(*lcp);
+    }
+    logger_mutex.unlock();
+    for (auto& lc: points)
+    {
+      show_log_point(lc);
     }
   }
 }
@@ -1017,53 +1016,72 @@ showLogPoints(bool show)
 // LogContext
 //================================================================
 
-LogContext::
-LogContext (int level, const char* file, const char* function, int line,
-	    const char* tags) :
+LogContextState::
+LogContextState(int level, const char* file, const char* function,
+                int line, const char* tags) :
   _level(level), _file(file), _function(function), _line(line), 
   _tags(tags),
   _active(false),
   _threadId(Thread::currentThreadId())
+{}
+
+LogContext::
+LogContext(int level, const char* file, const char* function, int line,
+           const char* tags) :
+  LogContextState(level, file, function, line, tags)
 {
-  Synchronized sync(Logger::mutex);
-  log_points.push_back(this);
-  // At one point the active flag was set outside the critical section,
-  // so concurrency checkers would not complain when later on the same
-  // flag was tested by other threads without a lock.  However, in case
-  // the log point will be shown by the current log scheme, the flag
-  // should be set before showing it.  And it seemed excessive to release
-  // the lock just to set the flag and then lock again to show the log
-  // point.
-  _active = LoggerPrivate::get_active_flag(current_scheme, this);
-  if (current_scheme.getShowLogPoints())
+  LogScheme scheme;
   {
-    current_scheme.show_log_point(*this);
+    Synchronized sync(logger_mutex);
+    log_points.push_back(this);
+    scheme = current_scheme;
+    LoggerPrivate::reconfig(scheme, { this });
+  }
+  // The lock is not needed to call show_log_point().
+  if (scheme.getShowLogPoints())
+  {
+    scheme.show_log_point(*this);
   }
 }
 
 
+#if NIDAS_LOGGER_GUARD_ACTIVE
+bool
+LogContext::active() const
+{
+  Synchronized sync(logger_mutex);
+  return _active;
+}
+
+void
+LogContext::setActive(bool active)
+{
+  // this is only called while the lock is already held, since otherwise this
+  // might write to memory for a LogContext which no longer exists.
+  _active = active;
+}
+#endif
+
+
 std::string
-LogContext::
+LogContextState::
 threadName() const
 {
     Thread* thread = Thread::lookupThread(_threadId);
-    if (!thread)
-    {
-        return "unknown";
-    }
-    return thread->getName();
+    return !thread ? "unknown" : thread->getName();
 }
 
 
 LogContext::
 ~LogContext()
 {
-  Synchronized sync(Logger::mutex);
+  Synchronized sync(logger_mutex);
   log_points_v::iterator it;
   it = find(log_points.begin(), log_points.end(), this);
   if (it != log_points.end())
     log_points.erase(it);
 }
+
 
 namespace {
     typedef map<string, int> level_strings_t;
