@@ -13,16 +13,18 @@ env.Precious(runtest)
 env.AlwaysBuild(runtest)
 env.Alias('test', runtest)
 
-env.ValgrindLog('memcheck',
-                env.Command('vg.memcheck.log', tests,
-                            "cd ${SOURCE.dir} && "
-                            "${VALGRIND_PATH} --leak-check=full"
-                            " --gen-suppressions=all ./${SOURCE.file}"
-                            " >& ${TARGET.abspath}"))
+check = env.Command('vg.memcheck.log', tests,
+                    "cd ${SOURCE.dir} && "
+                    "${VALGRIND_PATH} --leak-check=full"
+                    " --gen-suppressions=all ./${SOURCE.file}"
+                    " >& ${TARGET.abspath}")
+env.AlwaysBuild(check)
+env.ValgrindLog('memcheck', check)
 
-env.ValgrindLog('threadcheck',
-                env.Command('vg.threadcheck.log', tests,
-                            "cd ${SOURCE.dir} && "
-                            "${VALGRIND_PATH} --tool=helgrind"
-                            " --gen-suppressions=all ./${SOURCE.file}"
-                            " >& ${TARGET.abspath}"))
+check = env.Command('vg.threadcheck.log', tests,
+                    "cd ${SOURCE.dir} && "
+                    "${VALGRIND_PATH} --tool=helgrind"
+                    " --gen-suppressions=all ./${SOURCE.file}"
+                    " >& ${TARGET.abspath}")
+env.AlwaysBuild(check)
+env.ValgrindLog('threadcheck', check)

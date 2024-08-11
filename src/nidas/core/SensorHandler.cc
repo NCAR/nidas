@@ -36,6 +36,8 @@
 using namespace std;
 using namespace nidas::core;
 
+using nidas::util::Synchronized;
+
 namespace n_u = nidas::util;
 
 SensorHandler::
@@ -132,11 +134,15 @@ void SensorHandler::calcStatistics(dsm_time_t tnow)
         // cerr << "tnow-_sensorStatsTime=" << (tnow - _sensorStatsTime) << endl;
         _sensorStatsTime = n_u::timeCeiling(tnow, _sensorStatsInterval);
     }
-    list<DSMSensor*> allCopy = getAllSensors();
-    list<DSMSensor*>::const_iterator si;
+    // While a sensor is being opened, it is being accessed by the
+    // SensorOpener thread, including possibly reading from the sensor and
+    // updating stats like nbytes read.  And really we don't need to update
+    // stats from sensors which are not opened yet.  So limit the statistics
+    // calculations to sensors which are being handled by the SensorHandler
+    // thread.  This avoids a race condition with the stats members.
+    list<DSMSensor*> openedCopy = getOpenedSensors();
 
-    for (si = allCopy.begin(); si != allCopy.end(); ++si) {
-        DSMSensor *sensor = *si;
+    for (auto sensor: openedCopy) {
         sensor->calcStatistics(_sensorStatsInterval);
     }
 }
@@ -160,14 +166,14 @@ void SensorHandler::checkTimeouts(dsm_time_t tnow)
 /* returns a copy of our sensor list. */
 list<DSMSensor*> SensorHandler::getAllSensors() const
 {
-    n_u::Synchronized autosync(_pollingMutex);
+    Synchronized autosync(_pollingMutex);
     return _allSensors;
 }
 
 /* returns a copy of our opened sensors. */
 list<DSMSensor*> SensorHandler::getOpenedSensors() const
 {
-    n_u::Synchronized autosync(_pollingMutex);
+    Synchronized autosync(_pollingMutex);
     return _openedSensors;
 }
 
@@ -485,7 +491,7 @@ int SensorHandler::run()
     }
 
     unsigned int nsamplesAlloc = 0;
-    _pollingChanged = true;
+    setPollingChanged();
 
 #if POLLING_METHOD == POLL_EPOLL_ET
     // When doing edge-triggered epoll, one must keep a list of
@@ -502,8 +508,7 @@ int SensorHandler::run()
 
     for (;!isInterrupted();) {
 
-        if (_pollingChanged)
-            handlePollingChange();
+        handlePollingChange();
 
 #if POLLING_METHOD == POLL_EPOLL_ET || POLLING_METHOD == POLL_EPOLL_LT
 
@@ -681,7 +686,7 @@ int SensorHandler::run()
     for (pi = _polledSensors.begin(); pi != _polledSensors.end(); ++pi,n++)
         _pendingSensorClosures.insert(*pi);
 
-    _pollingChanged = true;
+    setPollingChanged();
 
     // There's a small chance of newly opened sensors. Close them.
     // These are not wrapped with a PolledDSMSensor, so
@@ -697,8 +702,7 @@ int SensorHandler::run()
     }
     _newOpenedSensors.clear();
 
-    n_u::Logger::getInstance()->log(LOG_INFO,
-            "SensorHandler finishing, closing remaining %d sensors ",n);
+    ILOG(("SensorHandler finishing, closing remaining %d sensors ", n));
 
     handlePollingChange();
 
@@ -975,16 +979,24 @@ void SensorHandler::setupTimeouts(int sensorCheckIntervalMsecs)
     }
 }
 
+bool SensorHandler::getPollingChanged()
+{
+    Synchronized sync(_pollingMutex);
+    return _pollingChanged;
+}
+
+void SensorHandler::setPollingChanged()
+{
+    Synchronized sync(_pollingMutex);
+    _pollingChanged = true;
+}
+
 void SensorHandler::handlePollingChange()
 {
-    _pollingMutex.lock();
-    bool changed = _pollingChanged;
-    _pollingChanged = false;
-    _pollingMutex.unlock();
-
-    if (changed) {
-
+    if (getPollingChanged())
+    {
         _pollingMutex.lock();
+        _pollingChanged = false;
         set<PolledDSMSensor*> tmpsensors = _pendingSensorClosures;
         _pendingSensorClosures.clear();
         _pollingMutex.unlock();

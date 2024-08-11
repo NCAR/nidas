@@ -40,6 +40,7 @@ XmlRpcThread::XmlRpcThread(const std::string& name):
 {
     // unblock SIGUSR1 to register a signal handler, then block it
     // so that the pselect within XmlRpcDispatch will catch it.
+    DLOG(("unblocking then blocking SIGUSR1"));
     unblockSignal(SIGUSR1);
     blockSignal(SIGUSR1);
 }
@@ -50,6 +51,7 @@ void XmlRpcThread::interrupt()
     // XmlRpcServer::work(-1.0) if there are no rpc
     // requests coming in, but we'll do it anyway.
     if (_xmlrpc_server) _xmlrpc_server->exit();
+    DLOG(("interrupting XmlRpcThread ") << getName() << " with SIGUSR1");
     try {
         kill(SIGUSR1);
     }

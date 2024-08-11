@@ -81,23 +81,21 @@ void SampleOutputRequestThread::addConnectRequest(SampleOutput* output,
     SampleConnectionRequester* requester,
     int delaySecs)
 {
-#ifdef DEBUG
-    cerr << "addConnectRequest, output=" << output->getName() <<
-        " delay=" << delaySecs << endl;
-#endif
+    VLOG(("") << "addConnectRequest, output=" << output->getName()
+              << " delay=" << delaySecs);
     ConnectRequest req(output,requester,::time(0) + delaySecs);
     _requestCond.lock();
     _connectRequests.push_back(req);
-    _requestCond.unlock();
     _requestCond.signal();
+    _requestCond.unlock();
 }
 
 void SampleOutputRequestThread::addDeleteRequest(SampleOutput* output)
 {
     _requestCond.lock();
     _disconnectRequests.push_back(output);
-    _requestCond.unlock();
     _requestCond.signal();
+    _requestCond.unlock();
 }
 
 void SampleOutputRequestThread::clear()
@@ -121,7 +119,9 @@ void SampleOutputRequestThread::interrupt()
 {
     Thread::interrupt();
     clear();
+    _requestCond.lock();
     _requestCond.signal();
+    _requestCond.unlock();
 }
 
 int SampleOutputRequestThread::run()

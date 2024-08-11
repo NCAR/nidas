@@ -307,8 +307,8 @@ void SampleBuffer::interrupt()
     // and it could then wait (forever) again on _sampleBufCond.
 
     Thread::interrupt();
-    _sampleBufCond.unlock();
     _sampleBufCond.signal();
+    _sampleBufCond.unlock();
 }
 
 // We've removed some samples from the heap. Decrement heapSize

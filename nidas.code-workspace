@@ -88,6 +88,9 @@
 		],
 		"files.exclude": {
 			"src/build*": true
-		}
+		},
+		"editor.tabSize": 8,
+                "editor.detectIndentation": false,
+                "editor.indentSize": 4
 	}
 }

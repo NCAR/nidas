@@ -314,10 +314,11 @@ int DSMServerApp::run() throw()
 
 void DSMServerApp::startXmlRpcThread()
 {
-    if (!_externalControl) return;
-    if (_xmlrpcThread) return;
-    _xmlrpcThread = new DSMServerIntf();
-    _xmlrpcThread->start();
+    if (_externalControl && !_xmlrpcThread)
+    {
+        _xmlrpcThread = new DSMServerIntf();
+        _xmlrpcThread->start();
+    }
 }
 
 void DSMServerApp::killXmlRpcThread()

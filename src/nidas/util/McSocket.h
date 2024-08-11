@@ -662,15 +662,17 @@ template<class SocketT>
 void McSocket<SocketT>::listen()
 {
     if (getRequestType() < 0)
-        throw IOException(_mcastAddr.toString(),"listen",
-		"request number has not been set");
+        throw IOException(_mcastAddr.toString(), "listen",
+                          "request number has not been set");
+    _connectCond.lock();
     _newsocket = 0;
     _socketOffered = false;
+    _connectCond.unlock();
     try {
-	McSocketListener::accept(this);
+        McSocketListener::accept(this);
     }
     catch (const Exception& e) {
-	throw IOException(_mcastAddr.toString(),"accept",e.what());
+        throw IOException(_mcastAddr.toString(), "accept", e.what());
     }
 }
 
@@ -698,8 +700,10 @@ void McSocket<SocketT>::request()
     if (getRequestType() < 0)
         throw IOException(_mcastAddr.toString(),"listen",
                           "request number has not been set");
+    _connectCond.lock();
     _newsocket = 0;
     _socketOffered = false;
+    _connectCond.unlock();
     // if (!_mcastAddr.getInet4Address().isMultiCastAddress())
     // 	throw IOException(_mcastAddr.toString(),"accept","is not a multicast address");
 
