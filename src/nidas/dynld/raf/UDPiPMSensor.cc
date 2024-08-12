@@ -124,7 +124,7 @@ void UDPiPMSensor::open(int flags)
 
     args[argc++] = (char *)"ipm_ctrl";
     if (_deviceAddr.length() > 0) {
-        args[argc++] = (char *)"-p";
+        args[argc++] = (char *)"-D";
         args[argc++] = (char *)_deviceAddr.c_str();
     }
 
