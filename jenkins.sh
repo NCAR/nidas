@@ -64,32 +64,34 @@ build_rpms()
 # uid                  NCAR EOL Software <eol-prog@eol.ucar.edu>
 # sub   2048R/1857091F 2014-08-29
 
+# $1 is list of packages to sign
 sign_rpms()
 {
-    (set -x; exec rpm --addsign --define="%_gpg_name ${GPGKEY}" --define='_gpg_digest_algo sha256' `cat src/rpms.txt`)
+    (set -x; exec rpm --addsign --define="%_gpg_name ${GPGKEY}" --define='_gpg_digest_algo sha256' $1)
 }
 
 
+# $1 is list of packages to push to repo
 push_eol_repo()
 {
     source $YUM_REPOSITORY/scripts/repo_funcs.sh
-    move_rpms_to_eol_repo `cat src/rpms.txt`
+    move_rpms_to_eol_repo $1
     update_eol_repo $YUM_REPOSITORY
 }
 
 
+# $1 is list of packages to refresh
 update_local_packages()
 {
     # These commands must be matched by a NOPWCMDS setting in /etc/sudoers.
     # Since centos7 does not support --refresh, we cannot use the more
     # convenient combined command.
     yum="yum -y --disablerepo=* --enablerepo=eol"
-    pkgs="nc_server-lib nc_server-devel nc_server-clients nc_server"
     if false ; then
-        sudo -n $yum --refresh -- update $pkgs
+        sudo -n $yum --refresh -- update $1
     else
         sudo -n $yum -- clean expire-cache
-        sudo -n $yum -- update $pkgs
+        sudo -n $yum -- update $1
     fi
 }
 
@@ -116,15 +118,18 @@ case "$method" in
         ;;
 
     sign_rpms)
-        sign_rpms
+        pkgs=`cat src/rpms.txt`
+        sign_rpms $pkgs
         ;;
 
     push_rpms)
-        push_eol_repo
+        pkgs=`cat src/rpms.txt`
+        push_eol_repo $pkgs
         ;;
 
     update_rpms)
-        update_local_packages
+        pkgs='nc_server-lib nc_server-devel nc_server-clients nc_server'
+        update_local_packages $pkgs
         ;;
 
     *)
