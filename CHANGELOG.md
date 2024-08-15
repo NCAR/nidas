@@ -14,6 +14,10 @@ the [buster] branch for the changes on that branch.
 
 ### Changes related to M2HATS
 
+- Much more metadata from the XML and from processing is now attached to
+  variables at run time as attributes.  The netcdf output uses them to set the
+  netcdf variable attributes.
+
 - NIDAS XML configurations can now associate a different site with a sensor
   than the DSM which acquires that sensor.  If the site has been defined, the
   name of that site can be added as an attribute to the sensor:
@@ -30,6 +34,14 @@ the [buster] branch for the changes on that branch.
 
   The sensor's variable names then contain the right site suffix as well as
   important metadata like `height`.
+
+- The sensor suffix can override the site suffix if prepended with `!`.  This
+  can be used, for example, to omit the site name for DSM-specific GPS
+  variables even when the site element sets `suffix=".${SITE}"`.
+
+  ```xml
+  <serialSensor devicename="usock::32947" suffix="!.${DSM}"/>
+  ```
 
 - `svnStatus()` has been removed.  It was only used by the NetCDF RPC outputs,
   and it has been a while since the project configurations were under

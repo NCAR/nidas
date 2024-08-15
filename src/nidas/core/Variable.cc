@@ -211,17 +211,13 @@ void Variable::updateName()
 {
     string site = _siteSuffix;
     string suffix = _suffix;
-    // if the site suffix begins with ?, then do not append it
-    // if this variable already has a suffix.
-    if (site.length() > 0 && site[0] == '?')
-    {
-        if (_suffix.length()) {
-            site = "";
-        }
-        else {
-            site = site.substr(1);
-        }
-    }
+    // If the suffix starts with !, then it overrides any suffix that might be
+    // contributed from the site.  Since the full variable name is always
+    // assembled from prefix + suffix + site, then suffix can force the site
+    // to be omitted if it starts with !.  This is useful for sensors which
+    // must add their own suffix to be unique within the site and across all
+    // sites and thus don't also need a site suffix.  The site will still be
+    // included as an attribute though, if it has been specified.
     if (suffix.length() && suffix[0] == '!') {
         site = "";
         suffix = suffix.substr(1);
@@ -232,8 +228,7 @@ void Variable::updateName()
               << ", site=" << _siteSuffix << ": name => " << _name);
 
     // if name needs to be updated, then likely the attributes inherited from
-    // the tag and sensor need to be updated also.  it might be useful to add
-    // site as an attribute, but deferring that for now.
+    // the tag and sensor need to be updated also.
     const DSMSensor* sensor{_sampleTag ? _sampleTag->getDSMSensor() : nullptr};
     if (sensor)
     {
@@ -243,6 +238,20 @@ void Variable::updateName()
         const std::string& height = sensor->getHeightString();
         if (!height.empty())
             setAttribute(Parameter("height", height));
+        // The only way to identify (ie, uniquely distinguish) sensors in
+        // nidas is by the dsm and device path, as returned by
+        // DSMSensor::getName(). However, since the catalog name is a kind of
+        // proxy for sensor model, include that if set.
+        std::string sensor_device{ sensor->getCatalogName() };
+        if (sensor_device.length())
+            sensor_device += ":";
+        sensor_device += sensor->getName();
+        setAttribute(Parameter("sensor_device", sensor_device));
+    }
+    const Site* sitep = getSite();
+    if (sitep && sitep->getName().length())
+    {
+        setAttribute(Parameter("site", sitep->getName()));
     }
 }
 
