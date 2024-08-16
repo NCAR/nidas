@@ -64,21 +64,6 @@ build_rpms()
 # uid                  NCAR EOL Software <eol-prog@eol.ucar.edu>
 # sub   2048R/1857091F 2014-08-29
 
-# $1 is list of packages to sign
-sign_rpms()
-{
-    (set -x; exec rpm --addsign --define="%_gpg_name ${GPGKEY}" --define='_gpg_digest_algo sha256' $1)
-}
-
-
-# $1 is list of packages to push to repo
-push_eol_repo()
-{
-    source $YUM_REPOSITORY/scripts/repo_funcs.sh
-    move_rpms_to_eol_repo $1
-    update_eol_repo $YUM_REPOSITORY
-}
-
 
 # $1 is list of packages to refresh
 update_local_packages()
@@ -117,12 +102,8 @@ case "$method" in
         build_rpms snapshot "$@"
         ;;
 
-    sign_rpms)
-        pkgs=`cat src/rpms.txt`
-        sign_rpms $pkgs
-        ;;
-
     push_rpms)
+        source $YUM_REPOSITORY/scripts/repo_funcs.sh
         pkgs=`cat src/rpms.txt`
         push_eol_repo $pkgs
         ;;
