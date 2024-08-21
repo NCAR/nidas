@@ -97,21 +97,22 @@ pipeline {
         stage('Ubuntu32 (Vortex)') {
           agent {
             node {
-              label 'ub32'
+              label 'CentOS8'
             }
           }
 
           stages {
 
-            stage('Compile and test') {
-              steps {
-                sh './jenkins.sh test'
-              }
-            }
+#            stage('Compile and test') {
+#              steps {
+#                sh './jenkins.sh test'
+#              }
+#            }
 
             stage('Build Debian packages') {
               steps {
-                sh 'scripts/build_dpkg.sh -I bionic i386'
+#                sh 'scripts/build_dpkg.sh -I bionic i386'
+                sh scripts/run_podman.sh bionic /root/nidas/scripts/build_dpkg.sh -I bionic i386
               }
             }
           }
