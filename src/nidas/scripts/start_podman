@@ -30,7 +30,7 @@ usage() {
     # Run shell under Ubuntu bionic
     ${0##*/} bionic 
     # Run package build script, non-interactive
-    ${0##*/} bionic /root/nidas/scripts/build_dpkg.sh -I bionic i386
+    ${0##*/} bionic /root/current/scripts/build_dpkg.sh -I bionic i386
     "
 
     exit 1
