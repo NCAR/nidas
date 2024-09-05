@@ -20,7 +20,7 @@ pipeline {
   stages {
     stage('Build NIDAS on all targets') {
 
-//      parallel {
+      parallel {
 
         stage('CentOS8_x86_64') {
           agent {
@@ -97,7 +97,7 @@ pipeline {
         stage('Ubuntu32 (Vortex)') {
           agent {
             node {
-              label 'CentOS8'
+              label 'CentOS9_x86_64'
             }
           }
 
@@ -141,7 +141,7 @@ pipeline {
           }
         }
 
-//      }
+      }
     }
   }
 
