@@ -79,7 +79,7 @@ jobs:
     - if: matrix.build-mode == 'manual'
       shell: bash
       run: |
-        scripts/docker/setup_ubuntu.sh
+        sudo scripts/docker/setup_ubuntu.sh
         scons -C src
 
     - name: Perform CodeQL Analysis
