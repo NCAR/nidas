@@ -213,8 +213,8 @@ get_image_tag() # alias
         vortex)
             echo nidas-build-ubuntu-i386:bionic
             ;;
-        fedora)
-            echo nidas-build-fedora-x86_64:fedora
+        fedora*)
+            echo nidas-build-fedora-x86_64:$1
             ;;
     esac
 }
@@ -255,7 +255,7 @@ build_image()
         vortex)
             podman build -t $tag -f docker/Dockerfile.ubuntu_i386_bionic --build-arg=dolocal=yes
             ;;
-        fedora)
+        fedora*)
             podman build -t $tag -f docker/Dockerfile.fedora
             ;;
     esac

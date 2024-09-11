@@ -1,4 +1,4 @@
-FROM docker.io/fedora:39
+FROM docker.io/fedora:40
 LABEL organization="NCAR EOL"
 
 RUN dnf -y update
