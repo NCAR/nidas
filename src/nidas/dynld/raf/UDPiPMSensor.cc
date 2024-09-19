@@ -80,7 +80,7 @@ void UDPiPMSensor::validate()
     ILOG(("recordperiod is ") << _recordPeriod);
 
     p = getParameter("baudrate"); // Baud rate
-    // Baud rate is now optional since hardcoded to 115200
+    // Baud rate is now optional since hardcoded
     if (p) {
         _baudRate = (unsigned int)p->getNumericValue(0);
         ILOG(("baudrate is ") << _baudRate);
