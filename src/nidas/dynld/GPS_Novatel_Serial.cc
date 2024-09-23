@@ -337,16 +337,18 @@ dsm_time_t GPS_Novatel_Serial::gps_to_utc(const char* input)
 
     // GPS time has leapseconds, UTC does not
     if (_leapSeconds == 0 && _ttgps != 0) {
-        _leapSeconds = gps_usec - _ttgps;
+        _leapSeconds = _ttgps - gps_usec;
+        ILOG(("%s: estimating initial GPS leap seconds=", getName().c_str()) << _leapSeconds);
         // Should be between 15 (our first data was 2013) and 25 seconds,
         // arbitrary future
-        if (_leapSeconds < 15 * USECS_PER_SEC || _leapSeconds > 25 * USECS_PER_SEC) {
+        long leaps = abs(_leapSeconds) / USECS_PER_SEC;
+        if (leaps < 15 || leaps > 25) {
             ELOG(("%s: computed leap seconds out of bounds ", getName().c_str()) << _leapSeconds);
             _leapSeconds = 0;
         }
     }
 
-    return gps_usec - _leapSeconds;
+    return gps_usec + _leapSeconds;
 }
 
 bool GPS_Novatel_Serial::process(const Sample* samp,list<const Sample*>& results) throw()
@@ -410,10 +412,9 @@ bool GPS_Novatel_Serial::process(const Sample* samp,list<const Sample*>& results
             leap = atof(semi);
         }
         if (i == 9 && semi[0] == 'V')
-            _leapSeconds = leap;
+            _leapSeconds = leap * USECS_PER_SEC;
       }
     }
-
 
     return false;
 }
