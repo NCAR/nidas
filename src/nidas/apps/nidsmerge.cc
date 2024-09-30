@@ -252,19 +252,15 @@ int NidsMerge::parseRunstring(int argc, char** argv) throw()
          "the output file length. The @ specifier takes precedence.\n"
          "Output file length is required if the output filename contains\n"
          "time specifiers.");
-    NidasAppArg DSMid
-        ("-d,--dsm", "id",
-         "DSM id to accept from the input data. By default,\n"
-         "all input samples are passed to the merge.  If any DSM IDs are\n"
-         "specified with -d, then only input samples from those DSMs\n"
-         "will be included in the merge. Multiple -d options are allowed.\n");
 
     app.enableArguments(app.LogConfig | app.LogShow | app.LogFields |
                         app.LogParam | app.StartTime | app.EndTime |
                         app.Version | app.OutputFiles | KeepOpening |
                         FilterArg | InputFileSet | InputFileSetFile |
-                        ReadAhead | ConfigName | OutputFileLength | DSMid |
-                        app.Help);
+                        ReadAhead | ConfigName | OutputFileLength |
+                        app.SampleRanges | app.Help);
+    // -i conflicts with input specifiers, so require --samples
+    app.SampleRanges.acceptShortFlag(false);
     app.InputFiles.allowFiles = true;
     app.InputFiles.allowSockets = false;
     // -l conflicts with output file length.
@@ -288,8 +284,6 @@ int NidsMerge::parseRunstring(int argc, char** argv) throw()
                 else
                     outputFileLength = app.outputFileLength();
             }
-            else if (arg == &DSMid)
-                allowed_dsms.push_back(DSMid.asInt());
             else if (arg == &InputFileSet)
             {
                 // First argument has already been retrieved.
@@ -453,9 +447,9 @@ NidsMerge::flushSorter(dsm_time_t tcur,
     SortedSampleSet3::const_iterator rsi = sorter.lower_bound(&dummy);
 
     for (SortedSampleSet3::const_iterator si = rsb; si != rsi; ++si) {
-        const Sample *s = *si;
-        bool ok = receiveAllowedDsm(outStream, s);
-        s->freeReference();
+        const Sample *sample = *si;
+        bool ok = outStream.receive(sample);
+        sample->freeReference();
         if (!ok)
             throw n_u::IOException("send sample",
                 "Send failed, output disconnected.");
@@ -479,16 +473,7 @@ NidsMerge::flushSorter(dsm_time_t tcur,
 int NidsMerge::run() throw()
 {
     try {
-        nidas::core::FileSet* outSet = 0;
-#ifdef HAVE_BZLIB_H
-        if (outputFileName.find(".bz2") != string::npos)
-            outSet = new nidas::core::Bzip2FileSet();
-        else
-#endif
-        {
-            outSet = new nidas::core::FileSet();
-        }
-        outSet->setFileName(outputFileName);
+        nidas::core::FileSet* outSet = FileSet::createFileSet(outputFileName);
         outSet->setFileLengthSecs(outputFileLength);
 
         SampleOutputStream outStream(outSet);
@@ -507,13 +492,7 @@ int NidsMerge::run() throw()
             list<string>::const_iterator fi = inputFiles.begin();
             if (inputFiles.size() == 1 && fi->find('%') != string::npos)
             {
-#ifdef HAVE_BZLIB_H
-                if (fi->find(".bz2") != string::npos)
-                    fset = new nidas::core::Bzip2FileSet();
-                else
-#endif
-                    fset = new nidas::core::FileSet();
-                fset->setFileName(*fi);
+                fset = FileSet::createFileSet(*fi);
                 fset->setStartTime(startTime);
                 fset->setEndTime(endTime);
             }
@@ -551,15 +530,18 @@ int NidsMerge::run() throw()
                 neof++;
             }
             catch (const n_u::IOException& e) {
-                if (e.getErrno() != ENOENT) throw e;
-                cerr << e.what() << endl;
                 lastTimes[ii] = LONG_LONG_MAX;
                 neof++;
+                // we only get here on an io read error or if keep-opening is
+                // false and a file cannot be opened.  either are good reasons
+                // to exit with an error.
+                throw;
             }
         }
 
         samplesRead = vector<size_t>(inputs.size(), 0);
         samplesUnique = vector<size_t>(inputs.size(), 0);
+        SampleMatcher& matcher = _app.sampleMatcher();
 
         cout << "     date(GMT)      ";
         for (unsigned int ii = 0; ii < inputs.size(); ii++) {
@@ -584,6 +566,13 @@ int NidsMerge::run() throw()
                     dsm_time_t lastTime = lastTimes[ii];
                     while (!_app.interrupted() && lastTime < tcur + readAheadUsecs) {
                         Sample* samp = input->readSample();
+
+                        if (!matcher.match(samp))
+                        {
+                            samp->freeReference();
+                            continue;
+                        }
+
                         lastTime = samp->getTimeTag();
                         // set startTime to the first time read if user
                         // did not specify it in the runstring.
@@ -616,10 +605,9 @@ int NidsMerge::run() throw()
                     neof++;
                 }
                 catch (const n_u::IOException& e) {
-                    if (e.getErrno() != ENOENT) throw e;
-                    cerr << e.what() << endl;
                     lastTimes[ii] = LONG_LONG_MAX;
                     neof++;
+                    throw;
                 }
                 samplesRead[ii] = nread;
                 samplesUnique[ii] = nunique;
@@ -646,6 +634,6 @@ int NidsMerge::run() throw()
         cerr << ioe.what() << endl;
         return 1;
     }
-    std::cout << "Merge discarded " << ndropped << " samples.";
+    std::cout << "Merge discarded " << ndropped << " samples." << endl;
     return 0;
 }
