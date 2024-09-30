@@ -207,6 +207,12 @@ struct tm* UTime::toTm(struct tm* tmp,int *usecs) const
 }
 
 /* static */
+UTime UTime::parse(const std::string& str, int *ncharp)
+{
+    return parse(true, str, ncharp);
+}
+
+/* static */
 UTime UTime::parse(bool utc, const std::string& str, int *ncharp)
 {
     char cmon[32];
@@ -230,16 +236,20 @@ UTime UTime::parse(bool utc, const std::string& str, int *ncharp)
     // will be negative.
     static const char* formats[] =
         { "%Y-%m-%dT%H:%M:%S.%f",
-          "%Y-%m-%d %H:%M:%S.%f",
           "%Y-%m-%dT%H:%M:%S",
-          "%Y-%m-%d %H:%M:%S",
           "%Y-%m-%dT%H:%M",
-          "%Y-%m-%d %H:%M",
           "%Y-%m-%d", 0 };
 
     for (const char** fi = formats; *fi; ++fi)
     {
-        if (ut.checkParse(utc, str, *fi, ncharp))
+        // replace separator in format with separator in string to accept
+        // either space, underscore, or T as separator. 
+        string fmt(*fi);
+        string::size_type fsep = fmt.find('T');
+        int sep{(str.length() > 10) ? str[10] : 0};
+        if (fsep != string::npos && (sep == ' ' || sep == '_'))
+            fmt[fsep] = sep;
+        if (ut.checkParse(utc, str, fmt, ncharp))
         {
             return ut;
         }

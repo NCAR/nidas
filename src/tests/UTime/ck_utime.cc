@@ -258,6 +258,8 @@ BOOST_AUTO_TEST_CASE(test_utime)
     cases_t cases;
     cases.push_back(make_pair("2019-11-07T16:10:55.001",
                               UTime(true, 2019, 11, 7, 16, 10, 55.001)));
+    cases.push_back(make_pair("2019-11-07_16:10:55.001",
+                              UTime(true, 2019, 11, 7, 16, 10, 55.001)));
     cases.push_back(make_pair("2019-11-07 16:10:55.001",
                               UTime(true, 2019, 11, 7, 16, 10, 55.001)));
     cases.push_back(make_pair("2019-11-07 16:10:55.124000",
@@ -266,6 +268,8 @@ BOOST_AUTO_TEST_CASE(test_utime)
     cases.push_back(make_pair("2019-11-07 16:10:55",
                               UTime(true, 2019, 11, 7, 16, 10, 55)));
     cases.push_back(make_pair("2019-11-07 16:10",
+                              UTime(true, 2019, 11, 7, 16, 10, 0)));
+    cases.push_back(make_pair("2019-11-07_16:10",
                               UTime(true, 2019, 11, 7, 16, 10, 0)));
     cases.push_back(make_pair("2019-11-07",
                               UTime(true, 2019, 11, 7, 0, 0, 0)));
@@ -304,5 +308,15 @@ BOOST_AUTO_TEST_CASE(test_utime)
         BOOST_TEST(ut.round(0) == ut);
         BOOST_TEST(ut.earlier(0) == ut);
     }
+
+    // make sure a trailing separator is not parsed
+    int nparsed{0};
+    UTime when = UTime::parse("2019-11-07T", &nparsed);
+    BOOST_CHECK_EQUAL(nparsed, 10);
+    BOOST_CHECK_EQUAL(when, UTime(true, 2019, 11, 7, 0, 0, 0));
+
+    when = UTime::parse("2019-11-07 ", &nparsed);
+    BOOST_CHECK_EQUAL(nparsed, 10);
+    BOOST_CHECK_EQUAL(when, UTime(true, 2019, 11, 7, 0, 0, 0));
 
 }

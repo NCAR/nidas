@@ -164,11 +164,9 @@ public:
      */
     UTime(bool utc, int year,int yday,int hour, int min, double sec);
 
-    UTime(const UTime& u) :
-        _utime(u._utime),
-        _fmt(u._fmt),
-        _utc(u._utc)
-    { }
+    UTime(const UTime& u) = default;
+
+    UTime& operator=(const UTime& u) = default;
 
     void setFromSecs(time_t t) { _utime = fromSecs(t); }
 
@@ -227,6 +225,11 @@ public:
      * @throws ParseException
      */
     static UTime parse(bool utc, const std::string& string, int* nparsed=0);
+
+    /**
+     * Same as parse() except UTC is implied.
+     */
+    static UTime parse(const std::string& string, int* nparsed=0);
 
     /**
      * Parse a character string into a UTime.
@@ -306,15 +309,6 @@ public:
      *
      */
     std::string format() const;
-
-    UTime& operator=(const UTime& u)
-    {
-        if (this != &u) {
-            _utime = u._utime;
-            _fmt = u._fmt;
-        }
-        return *this;
-    }
 
     UTime& operator=(long long u) { _utime = u; return *this; }
 
