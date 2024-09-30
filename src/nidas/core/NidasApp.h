@@ -828,7 +828,7 @@ public:
 
     /**
      * Set the list of command-line argument strings to be parsed and
-     * handled by successive calls to nextArgument().  The usual calling
+     * handled by successive calls to nextArg().  The usual calling
      * sequence is this:
      *
      * @code
@@ -867,7 +867,7 @@ public:
      * the standard arguments.
      * 
      * Recognized arguments are removed from the argument list.  Call
-     * parseRemaining() to return the arguments which have not been parsed,
+     * unparsedArgs() to return the arguments which have not been parsed,
      * such as to access positional arguments or detect unrecognized
      * arguments.  Positional arguments like input sockets and file names
      * are not handled here, since they cannot be differentiated from
@@ -891,7 +891,11 @@ public:
     bool
     nextArg(std::string& arg);
 
-
+    /**
+     * Return any arguments left in the argument list.  From the argument list
+     * passed into startArgs(), this returns the arguments which have not
+     * already been handled by parseNext() or nextArg().  
+     */
     ArgVector
     unparsedArgs();
 

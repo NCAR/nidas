@@ -326,12 +326,20 @@ int NidsMerge::parseRunstring(int argc, char** argv) throw()
                 }
             }
         }
-        readAheadUsecs = ReadAhead.asInt() * (long long)USECS_PER_SEC;
-        configName = ConfigName.getValue();
         if (app.helpRequested())
         {
             return usage(argv[0]);
         }
+        ArgVector unparsed = app.unparsedArgs();
+        if (unparsed.size() > 0)
+        {
+            xmsg << "Unrecognized arguments:";
+            for (auto& arg: unparsed)
+                xmsg << " " << arg;
+            throw NidasAppException(xmsg.str());
+        }
+        readAheadUsecs = ReadAhead.asInt() * (long long)USECS_PER_SEC;
+        configName = ConfigName.getValue();
         startTime = app.getStartTime();
         endTime = app.getEndTime();
         outputFileName = app.outputFileName();

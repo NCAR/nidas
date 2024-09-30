@@ -303,6 +303,7 @@ accept(const std::string& arg)
       {
         // The negative flag sets the value to false.
         _value = "false";
+        return true;
       }
     }
     start = comma+1;
@@ -481,19 +482,27 @@ NidasApp(const std::string& name) :
   ("-e,--end", "<end-time>",
    "End samples at end-time, in the form 'YYYY {MMM|mm} dd HH:MM[:SS]'"),
   SampleRanges
-  ("-i,--samples", "[^]{<d1>[-<d2>]|*|/}[,{<s1>[-<s2>]|*|/}]",
+  ("-i,--samples", "[^]{<d1>[-<d2>]|*|/}[,{<s1>[-<s2>]|*|/}]"
+                   ",[<t1>,<t2>],file=<pattern>",
    R"(D is a range of dsm ids 'd1-d2', or /, *, or -1 for all, or '.'.
 S is a range of sample IDs 's1-s2', or all IDs if *, /, -1, or omitted.
-Sample ids can be specified in 0x hex format with a leading 0x, in which
-case they will also be output in hex.
-A DSM ID of '.' matches the DSM of the first sample received.
-Prefix the range option with ^ to exclude that range of samples.
-Multiple range options can be specified.  Samples are either included
-or excluded according to the first option which matches their ID.
-If only exclusions are specified, then all other samples are implicitly
-included.
-Use data_stats to see DSM ids and sample ids in a data file.
-More than one sample range can be specified.
+Sample ids can be specified in 0x hex format with a leading 0x, in which case
+the output format is set to hex.  A DSM ID of '.' matches the DSM of the first
+sample received.  Prefix the range option with ^ to exclude that range of
+samples.  Multiple range options can be specified.  Samples are included or
+excluded according to the first option they match.  One inclusion implicitly
+excludes all other samples.
+
+If the time range is given, it is inclusive, and the begin or end time of the
+range can be omitted, but not both.  Times are accepted in multiple formats,
+but without any commas or spaces.  For example,
+[2023-08-10_12:00:00,2023-08-10_13:00:00] matches samples from 12:00 to 13:00
+on August 10, 2023 UTC.  The brackets are required to identify the time range.
+
+When file pattern is given, a sample matches only if the pattern is found as a
+case-sensitive substring in the input stream name, which for datafile streams
+is the filename.  The filename criteria requires the file= prefix.
+
 Examples:
  -i /         All samples.
  -i .,30-40   Samples 30-40 from only the first DSM ID in the data.
@@ -855,12 +864,16 @@ parseNext()
   else if (arg == &SampleRanges)
   {
     std::string optarg = SampleRanges.getValue();
-    if (! _sampleMatcher.addCriteria(optarg))
-    {
-      throw NidasAppException("sample criteria could not be parsed: " +
-			      optarg);
+    try {
+        _sampleMatcher.addCriteria(optarg);
     }
-    if (optarg.find("0x", 0) != string::npos && _idFormat._idFormat == NOFORMAT_ID)
+    catch (nidas::util::ParseException& pe)
+    {
+      throw NidasAppException("samples criteria: " +
+                              optarg + ": " + pe.what());
+    }
+    if (optarg.find("0x", 0) != string::npos &&
+        _idFormat._idFormat == NOFORMAT_ID)
     {
       setIdFormat(HEX_ID);
     }
