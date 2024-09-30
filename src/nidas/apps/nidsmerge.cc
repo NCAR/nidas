@@ -67,15 +67,7 @@ public:
 
     void sendHeader(dsm_time_t thead,SampleOutput* out);
 
-    /**
-     * for debugging.
-     */
-    void printHeader();
-
 private:
-
-    // Write sample if allowed
-    bool receiveAllowedDsm(SampleOutputStream &, const Sample *);
 
     void flushSorter(dsm_time_t tcur, SampleOutputStream& outStream);
 
@@ -125,6 +117,7 @@ private:
 
     BadSampleFilterArg FilterArg;
     NidasAppArg KeepOpening;
+    NidasAppArg PrintHeader;
 };
 
 int main(int argc, char** argv)
@@ -179,7 +172,9 @@ NidsMerge::NidsMerge():
     KeepOpening
     ("--keep-opening", "",
      "Open the next file when an error occurs instead of stopping.",
-     "true")
+     "true"),
+    PrintHeader("--print-header", "",
+                "Print the header whenever written to the output.")
 {
 }
 
@@ -258,7 +253,7 @@ int NidsMerge::parseRunstring(int argc, char** argv) throw()
                         app.Version | app.OutputFiles | KeepOpening |
                         FilterArg | InputFileSet | InputFileSetFile |
                         ReadAhead | ConfigName | OutputFileLength |
-                        app.SampleRanges | app.Help);
+                        app.SampleRanges | PrintHeader | app.Help);
     // -i conflicts with input specifiers, so require --samples
     app.SampleRanges.acceptShortFlag(false);
     app.InputFiles.allowFiles = true;
@@ -271,6 +266,8 @@ int NidsMerge::parseRunstring(int argc, char** argv) throw()
         app.startArgs(argc, argv);
         std::ostringstream xmsg;
         NidasAppArg* arg;
+        // handle just the arguments which must be accumulated in the order
+        // they occur on the command-line.
         while ((arg = app.parseNext()))
         {
             if (arg == &OutputFileLength)
@@ -398,42 +395,13 @@ void NidsMerge::sendHeader(dsm_time_t,SampleOutput* out)
 {
     if (configName.length() > 0)
         header.setConfigName(configName);
-    printHeader();
+    if (PrintHeader.asBool())
+    {
+            std::cout << header.toString() << std::endl;
+    }
     header.write(out);
 }
 
-void NidsMerge::printHeader()
-{
-    cerr << "ArchiveVersion:" << header.getArchiveVersion() << endl;
-    cerr << "SoftwareVersion:" << header.getSoftwareVersion() << endl;
-    cerr << "ProjectName:" << header.getProjectName() << endl;
-    cerr << "SystemName:" << header.getSystemName() << endl;
-    cerr << "ConfigName:" << header.getConfigName() << endl;
-    cerr << "ConfigVersion:" << header.getConfigVersion() << endl;
-}
-
-/**
- * receiveAllowedDsm writes the passed sample to the stream if the DSM id of
- * the sample is in allowed_dsms.  If allowed_dsms is empty, the sample is
- * written to the stream.  Returns whatever stream.receive(sample) returns,
- * or else true, so a return of false means the write to the output stream
- * failed.
- **/
-bool NidsMerge::receiveAllowedDsm(SampleOutputStream &stream, const Sample * sample)
-{
-    if (allowed_dsms.size() == 0)
-    {
-        return stream.receive(sample);
-    }
-    unsigned int want = sample->getDSMId();
-    for (list<unsigned int>::const_iterator i = allowed_dsms.begin();
-         i !=  allowed_dsms.end(); i++)
-    {
-        if (*i == want) 
-            return stream.receive(sample);
-    }
-    return true;
-}
 
 inline std::string
 tformat(dsm_time_t dt)
