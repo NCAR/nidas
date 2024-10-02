@@ -47,8 +47,8 @@ using namespace nidas::core;
 using namespace nidas::dynld;
 using namespace std;
 
-namespace n_u = nidas::util;
-
+using nidas::util::IOException;
+using nidas::util::EOFException;
 using nidas::util::UTime;
 
 class NidsMerge: public HeaderSource
@@ -57,11 +57,11 @@ public:
 
     NidsMerge();
 
-    int parseRunstring(int argc, char** argv) throw();
+    int parseRunstring(int argc, char** argv);
 
-    int run() throw();
+    int run();
 
-    int main(int argc, char** argv) throw();
+    int main(int argc, char** argv);
 
     int usage(const char* argv0);
 
@@ -149,22 +149,27 @@ int NidsMerge::usage(const char* argv0)
 }
 
 
-int NidsMerge::main(int argc, char** argv) throw()
+int NidsMerge::main(int argc, char** argv)
 {
     NidasApp::setupSignals();
 
-    int res = parseRunstring(argc, argv);
-
-    if (res != 0)
-        return res;
-
     try {
+        int res = parseRunstring(argc, argv);
+        if (res != 0)
+            return res;
         run();
     }
-    catch (n_u::IOException& ioe) {
+    catch (NidasAppException& ex)
+    {
+        cerr << ex.what() << endl;
+        cerr << "Use -h to see usage info." << endl;
+        return 1;
+    }
+    catch (IOException& ioe) {
         cerr << ioe.what() << endl;
         return 1;
     }
+
     std::cout << "Merge discarded " << ndropped << " samples." << endl;
     return 0;
 }
@@ -215,7 +220,7 @@ check_fileset(list<string>& filenames, bool& requiretimes)
 }
 
 
-int NidsMerge::parseRunstring(int argc, char** argv) throw()
+int NidsMerge::parseRunstring(int argc, char** argv)
 {
     // Use LogConfig instead of the older LogLevel option to avoid -l
     // conflict with the output file length option.  Also the -i input
@@ -274,108 +279,100 @@ int NidsMerge::parseRunstring(int argc, char** argv) throw()
     app.LogConfig.acceptShortFlag(false);
 
     bool requiretimes = false;
-    try {
-        app.startArgs(argc, argv);
-        std::ostringstream xmsg;
-        NidasAppArg* arg;
-        // handle just the arguments which must be accumulated in the order
-        // they occur on the command-line.
-        while ((arg = app.parseNext()))
+    app.startArgs(argc, argv);
+    std::ostringstream xmsg;
+    NidasAppArg* arg;
+    // handle just the arguments which must be accumulated in the order
+    // they occur on the command-line.
+    while ((arg = app.parseNext()))
+    {
+        if (arg == &OutputFileLength)
+            outputFileLength = OutputFileLength.asInt();
+        else if (arg == &app.OutputFiles)
         {
-            if (arg == &OutputFileLength)
+            // Use the length suffix if given with the output,
+            // otherwise revert to the last length option.
+            if (app.outputFileLength() == 0 && OutputFileLength.specified())
                 outputFileLength = OutputFileLength.asInt();
-            else if (arg == &app.OutputFiles)
+            else
+                outputFileLength = app.outputFileLength();
+        }
+        else if (arg == &InputFileSet)
+        {
+            // First argument has already been retrieved.
+            list<string> fileNames;
+            string filespec = InputFileSet.getValue();
+            // Collect any additional filenames in the file set up
+            // until the next option specified.
+            do {
+                fileNames.push_back(filespec);
+            } while (app.nextArg(filespec));
+            check_fileset(fileNames, requiretimes);
+            inputFileNames.push_back(fileNames);
+        }
+        else if (arg == &InputFileSetFile)
+        {
+            // filepath is the argument
+            string path = arg->getValue();
+            std::ifstream files(path.c_str());
+            string line;
+            while (!files.eof())
             {
-                // Use the length suffix if given with the output,
-                // otherwise revert to the last length option.
-                if (app.outputFileLength() == 0 && OutputFileLength.specified())
-                    outputFileLength = OutputFileLength.asInt();
-                else
-                    outputFileLength = app.outputFileLength();
-            }
-            else if (arg == &InputFileSet)
-            {
-                // First argument has already been retrieved.
-                list<string> fileNames;
-                string filespec = InputFileSet.getValue();
-                // Collect any additional filenames in the file set up
-                // until the next option specified.
-                do {
-                    fileNames.push_back(filespec);
-                } while (app.nextArg(filespec));
-                check_fileset(fileNames, requiretimes);
-                inputFileNames.push_back(fileNames);
-            }
-            else if (arg == &InputFileSetFile)
-            {
-                // filepath is the argument
-                string path = arg->getValue();
-                std::ifstream files(path.c_str());
-                string line;
-                while (!files.eof())
+                list<string> filenames;
+                std::getline(files, line);
+                DLOG(("Inputs line: ") << line);
+                std::istringstream fileset(line);
+                string filespec;
+                while (fileset >> filespec)
                 {
-                    list<string> filenames;
-                    std::getline(files, line);
-                    DLOG(("Inputs line: ") << line);
-                    std::istringstream fileset(line);
-                    string filespec;
-                    while (fileset >> filespec)
-                    {
-                        // skip lines whose first non-ws character is '#'
-                        if (filespec[0] == '#')
-                            break;
-                        filenames.push_back(filespec);
-                    }
-                    // ignore empty lines
-                    if (filenames.size())
-                    {
-                        check_fileset(filenames, requiretimes);
-                        inputFileNames.push_back(filenames);
-                    }
+                    // skip lines whose first non-ws character is '#'
+                    if (filespec[0] == '#')
+                        break;
+                    filenames.push_back(filespec);
+                }
+                // ignore empty lines
+                if (filenames.size())
+                {
+                    check_fileset(filenames, requiretimes);
+                    inputFileNames.push_back(filenames);
                 }
             }
         }
-        if (app.helpRequested())
-        {
-            return usage(argv[0]);
-        }
-        ArgVector unparsed = app.unparsedArgs();
-        if (unparsed.size() > 0)
-        {
-            xmsg << "Unrecognized arguments:";
-            for (auto& arg: unparsed)
-                xmsg << " " << arg;
-            throw NidasAppException(xmsg.str());
-        }
-        readAheadUsecs = ReadAhead.asInt() * (long long)USECS_PER_SEC;
-        configName = ConfigName.getValue();
-        startTime = app.getStartTime();
-        endTime = app.getEndTime();
-        outputFileName = app.outputFileName();
-        if (outputFileName.length() == 0)
-        {
-            xmsg << "Output file name is required.";
-            throw NidasAppException(xmsg.str());
-        }
-        if (outputFileLength == 0 &&
-            outputFileName.find('%') != string::npos)
-        {
-            xmsg << "Output file length is required for "
-                    "output filenames with time specifiers.";
-            throw NidasAppException(xmsg.str());
-        }
-        if (requiretimes && (startTime.isMin() || endTime.isMax()))
-        {
-            xmsg << "Start and end times must be set when a fileset uses "
-                 << "a % time specifier.";
-            throw NidasAppException(xmsg.str());
-        }
     }
-    catch (NidasAppException& ex)
+    if (app.helpRequested())
     {
-        std::cerr << ex.what() << std::endl;
-        std::cerr << "Use -h to see usage info." << std::endl;
-        return 1;
+        return usage(argv[0]);
+    }
+    ArgVector unparsed = app.unparsedArgs();
+    if (unparsed.size() > 0)
+    {
+        xmsg << "Unrecognized arguments:";
+        for (auto& arg: unparsed)
+            xmsg << " " << arg;
+        throw NidasAppException(xmsg.str());
+    }
+    readAheadUsecs = ReadAhead.asInt() * (long long)USECS_PER_SEC;
+    configName = ConfigName.getValue();
+    startTime = app.getStartTime();
+    endTime = app.getEndTime();
+    outputFileName = app.outputFileName();
+    if (outputFileName.length() == 0)
+    {
+        xmsg << "Output file name is required.";
+        throw NidasAppException(xmsg.str());
+    }
+    if (outputFileLength == 0 &&
+        outputFileName.find('%') != string::npos)
+    {
+        xmsg << "Output file length is required for "
+                "output filenames with time specifiers.";
+        throw NidasAppException(xmsg.str());
+    }
+    if (requiretimes && (startTime.isMin() || endTime.isMax()))
+    {
+        xmsg << "Start and end times must be set when a fileset uses "
+                << "a % time specifier.";
+        throw NidasAppException(xmsg.str());
     }
 
     static nidas::util::LogContext configlog(LOG_DEBUG);
@@ -439,7 +436,7 @@ NidsMerge::flushSorter(dsm_time_t tcur,
         bool ok = outStream.receive(sample);
         sample->freeReference();
         if (!ok)
-            throw n_u::IOException("send sample",
+            throw IOException("send sample",
                 "Send failed, output disconnected.");
     }
 
@@ -499,24 +496,18 @@ NidsMerge::addInputStream(vector<SampleInputStream*>& inputs,
         // save header for later writing to output
         header = input->getInputHeader();
     }
-    catch (const n_u::EOFException& e) {
+    catch (const EOFException& e) {
         cerr << e.what() << endl;
         lastTimes.back() = LONG_LONG_MAX;
         neof++;
     }
-    catch (const n_u::IOException& e) {
-        lastTimes.back() = LONG_LONG_MAX;
-        neof++;
-        // we only get here on an io read error or if keep-opening is
-        // false and a file cannot be opened.  either are good reasons
-        // to exit with an error.
-        throw;
-    }
+    // IOException propagates to here only on an io read error or if
+    // keep-opening is false and a file cannot be opened.  either are good
+    // reasons to exit with an error, so let the exception propagate.
 }
 
 
-
-int NidsMerge::run() throw()
+int NidsMerge::run()
 {
     nidas::core::FileSet* outSet = FileSet::createFileSet(outputFileName);
     outSet->setFileLengthSecs(outputFileLength);
@@ -590,15 +581,10 @@ int NidsMerge::run() throw()
                 }
                 lastTimes[ii] = lastTime;
             }
-            catch (const n_u::EOFException& e) {
+            catch (const EOFException& e) {
                 cerr << e.what() << endl;
                 lastTimes[ii] = LONG_LONG_MAX;
                 neof++;
-            }
-            catch (const n_u::IOException& e) {
-                lastTimes[ii] = LONG_LONG_MAX;
-                neof++;
-                throw;
             }
 
             // set startTime to the first time read across all inputs if user
