@@ -77,14 +77,10 @@ RangeMatcher&
 RangeMatcher::
 parse_specifier(const std::string& specifier)
 {
-  if (specifier.empty())
-  {
-    throw ParseException("empty range specifier");
-  }
   std::string spec = specifier;
   // start out assuming this will include samples
   include = true;
-  if (spec[0] == '^')
+  if (!spec.empty() && spec[0] == '^')
   {
     include = false;
     spec = spec.substr(1);
@@ -95,30 +91,30 @@ parse_specifier(const std::string& specifier)
   // with left bracket, and a file pattern starts with file=.
   try {
     int nfields = 0;
-    while (! spec.empty())
-    {
+    string::size_type ic;
+    do {
       if (++nfields > 4)
         throw invalid_argument("too many fields");
 
       // isolate the next field, possibly enclosed in brackets
-      string::size_type ic = spec.find(',');
-      if (spec[0] == '[')
+      ic = spec.find(',');
+      if (!spec.empty() && spec[0] == '[')
       {
         string::size_type b2 = spec.find(']');
         if (b2 == string::npos)
-          throw invalid_argument("missing closing ]: " + specifier);
+          throw invalid_argument("missing closing ]");
         // there must be a comma or nothing after the bracket
         ic = spec.find(',', ++b2);
         if (b2 < spec.length() && spec[b2] != ',')
-          throw invalid_argument("missing comma after ]: " + specifier);
+          throw invalid_argument("missing comma after ]");
         // leave the brackets to identify the field as a time range
       }
       string field = spec.substr(0, ic);
-        spec = (ic == string::npos ? "" : spec.substr(ic+1));
+      spec = (ic == string::npos ? "" : spec.substr(ic+1));
 
       if (field.empty())
       {
-        throw invalid_argument("empty field not allowed: " + specifier);
+        throw invalid_argument("empty field not allowed");
       }
       if (nfields == 1)
       {
@@ -132,7 +128,7 @@ parse_specifier(const std::string& specifier)
         // comma separator is required to differentiate begin from end, even
         // though begin or end can be omitted.
         if (tsep == string::npos)
-          throw invalid_argument("missing comma in time range: " + field);
+          throw invalid_argument("missing comma in time range");
         // these throw ParseException if the time strings do not parse
         time_from_string(time1, field.substr(0, tsep));
         time_from_string(time2, field.substr(tsep+1));
@@ -153,7 +149,9 @@ parse_specifier(const std::string& specifier)
       {
         throw invalid_argument("unrecognized field: " + field);
       }
-    }
+      // ic points to the comma before the next field, or else there are no
+      // more fields.
+    } while (ic != string::npos);
   }
   catch (invalid_argument& e)
   {

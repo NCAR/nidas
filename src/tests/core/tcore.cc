@@ -313,6 +313,20 @@ BOOST_AUTO_TEST_CASE(test_time_match)
 }
 
 
+static void
+expect_parse_exception(const std::string& spec, const std::string& msg)
+{
+  RangeMatcher rm;
+  try {
+    rm.parse_specifier(spec);
+    BOOST_FAIL("expected exception: " + msg + ": " + spec);
+  }
+  catch (ParseException& e) {
+    BOOST_CHECK_EQUAL(e.what(), msg);
+  }
+}
+
+
 BOOST_AUTO_TEST_CASE(test_time_parsing)
 {
   // test RangeMatcher::parse_specifier with time ranges
@@ -330,23 +344,15 @@ BOOST_AUTO_TEST_CASE(test_time_parsing)
   BOOST_CHECK_EQUAL(UTime(rm.time2), end);
 
   // exception when whole time not parsed
-  try {
-    rm.parse_specifier("/,[2023-08-10x,2023-08-10y]");
-    BOOST_FAIL("expected ParseException");
-  }
-  catch (ParseException& e) {
-    BOOST_CHECK_EQUAL(e.what(), "unexpected characters in time string");
-  }
+  expect_parse_exception("/,[2023-08-10x,2023-08-10y]",
+                         "unexpected characters in time string");
 
   // catch extra text after time brackets
-  try {
-    rm.parse_specifier("/,[2023-08-10,2023-08-10]z");
-    BOOST_FAIL("expected ParseException");
-  }
-  catch (ParseException& e) {
-    BOOST_CHECK_EQUAL(e.what(),
-                      "missing comma after ]: /,[2023-08-10,2023-08-10]z");
-  }
+  expect_parse_exception("/,[2023-08-10,2023-08-10]z",
+                         "missing comma after ]");
+
+  expect_parse_exception("/,[2023-08-10:2023-08-10]",
+                         "missing comma in time range");
 }
 
 
@@ -386,6 +392,19 @@ BOOST_AUTO_TEST_CASE(test_samples_all_fields_parsing)
   BOOST_CHECK_EQUAL(rm.match_time(UTime::MAX.toUsecs()), true);
   BOOST_CHECK_EQUAL(rm.match_time(begin.toUsecs() - 10), false);
 }
+
+
+BOOST_AUTO_TEST_CASE(test_empty_field_parsing)
+{
+  expect_parse_exception("", "empty field not allowed");
+  expect_parse_exception("^", "empty field not allowed");
+  expect_parse_exception("^2,10,file=isfs_,,", "empty field not allowed");
+  expect_parse_exception("^2,10,file=isfs_," , "empty field not allowed");
+  expect_parse_exception("1,2,x", "unrecognized field: x");
+  expect_parse_exception("1,2,3", "unrecognized field: 3");
+  expect_parse_exception("1,2,,file=isfs_", "empty field not allowed");
+}
+
 
 BOOST_AUTO_TEST_CASE(test_exclude_network_samples)
 {
