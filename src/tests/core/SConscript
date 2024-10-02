@@ -10,7 +10,7 @@ tests = env.Program('tcore', ["tcore.cc", "tsamples.cc",
                               "tdom.cc", "tbadsamplefilter.cc",
                               "tparameters.cc", "tvariables.cc"])
 
-cmd = "echo $$LD_LIBRARY_PATH && ./$SOURCE.file --log_level=all"
+cmd = "echo $$LD_LIBRARY_PATH && ./$SOURCE.file"
 runtest = env.Command("xtest", tests, env.ChdirActions([cmd]))
 env.Precious(runtest)
 env.AlwaysBuild(runtest)
