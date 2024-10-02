@@ -22,6 +22,7 @@ public:
 
     static const int MATCH_FIRST;
     static const int MATCH_ALL;
+    static const dsm_time_t MATCH_ALL_TIME;
 
     /**
      * Fill this RangeMatcher by parsing @p specifier using the syntax
@@ -78,11 +79,15 @@ public:
 
     /**
      * Return true when @p stime is within the time range or if no time range
-     * has been specified.
+     * has been specified, or @p stime is MATCH_ALL_TIME.
      */
     bool
     match_time(dsm_time_t stime);
 
+    /**
+     * Return true when the file pattern is found as a substring of @p
+     * filename, or when the file pattern or @p filename are empty.
+     */
     bool
     match_file(const std::string& filename);
 
@@ -151,20 +156,21 @@ public:
 
     /**
      * Return true if the given @p id satisfies the current range criteria.
-     * Search the ranges for one which includes this id, then return true
-     * if the range is an inclusion and otherwise false.  The outcome is
-     * cached for future lookups, but the cache is cleared if the criteria
-     * change.
+     * Search the ranges for one which includes this id, then return true if
+     * the range is an inclusion and otherwise false.
      **/
     bool
-    match(dsm_sample_id_t id);
+    match(dsm_sample_id_t id, dsm_time_t tt=RangeMatcher::MATCH_ALL_TIME,
+          const std::string& inputname="");
 
     /**
-     * Return true if this sample matches all the criteria in this matcher,
-     * both sample ids and time range.
+     * Return true if this sample is selected using all the criteria in all
+     * the ranges, including id ranges, time range, and filename pattern.  If
+     * @p inputname is empty, it matches all file patterns.  This just calls
+     * match() using the ID and time from the Sample @p samp.
      **/
     bool
-    match(const Sample* samp);
+    match(const Sample* samp, const std::string& inputname="");
 
     /**
      * Return true if this matcher can only match a single ID pair
@@ -222,6 +228,8 @@ private:
     nidas::util::UTime _startTime;
     nidas::util::UTime _endTime;
     dsm_sample_id_t _first_dsmid;
+    bool _all_excludes;
+
 };
 
 

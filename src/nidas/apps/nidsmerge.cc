@@ -169,8 +169,6 @@ int NidsMerge::main(int argc, char** argv)
         cerr << ioe.what() << endl;
         return 1;
     }
-
-    std::cout << "Merge discarded " << ndropped << " samples." << endl;
     return 0;
 }
 
@@ -532,6 +530,7 @@ int NidsMerge::run()
     }
     cout << "    before   after  output" << endl;
 
+    unsigned int nskipped = 0;
     dsm_time_t tcur;
     for (tcur = startTime.toUsecs();
          neof < inputs.size() && tcur < endTime.toUsecs() &&
@@ -551,8 +550,13 @@ int NidsMerge::run()
 
                     lastTime = samp->getTimeTag();
 
-                    if (!matcher.match(samp))
+                    // maybe we should "bind" a matcher instance to each
+                    // stream, so the filename matching does not need to be
+                    // done each time since it shouldn't change within the
+                    // same input stream...
+                    if (!matcher.match(samp, input->getName()))
                     {
+                        ++nskipped;
                         samp->freeReference();
                         continue;
                     }
@@ -616,5 +620,11 @@ int NidsMerge::run()
         input->close();
         delete input;
     }
+
+    cout << "Skipped " << nskipped
+         << " samples due to filter matching." << endl;
+    cout << "Discarded " << ndropped << " samples whose times "
+         << "were earlier than the merge window when read." << endl;
+
     return 0;
 }

@@ -43,6 +43,7 @@ namespace
 
 const int RangeMatcher::MATCH_FIRST = -9;
 const int RangeMatcher::MATCH_ALL = -1;
+const dsm_time_t RangeMatcher::MATCH_ALL_TIME = LONG_LONG_MIN;
 
 
 static void
@@ -186,7 +187,8 @@ bool
 RangeMatcher::
 match_time(dsm_time_t stime)
 {
-  return stime >= time1 && (time2 == 0 || stime <= time2);
+  return (stime == MATCH_ALL_TIME) ||
+    (stime >= time1 && (time2 == 0 || stime <= time2));
 }
 
 
@@ -194,6 +196,8 @@ bool
 RangeMatcher::
 match_file(const std::string& filename)
 {
+  // find("") returns 0, so filename matches if filename is empty or
+  // file_pattern is empty, otherwise filename must contain file_pattern.
   return file_pattern.empty() || filename.find(file_pattern) != string::npos;
 }
 
@@ -213,7 +217,10 @@ SampleMatcher() :
   _lookup(),
   _startTime(UTime::MIN),
   _endTime(UTime::MAX),
-  _first_dsmid(0)
+  _first_dsmid(0),
+  // this defaults to true because no ranges implies all samples are included,
+  // same as if all ranges are excludes.
+  _all_excludes(true)
 {
   _lookup.clear();
 }
@@ -237,22 +244,41 @@ void
 SampleMatcher::
 addCriteria(const RangeMatcher& rm)
 {
-  // invalidate the cache
-  _lookup.clear();
   _ranges.push_back(rm);
   if (_first_dsmid)
     _ranges.back().set_first_dsm(_first_dsmid);
+
+  // reset the cache.  if all ranges are excludes, then we can automatically
+  // include any sample with an id not in the cache.
+  _all_excludes = true;
+  for (auto& rm: _ranges)
+  {
+    _all_excludes = _all_excludes && (!rm.include);
+  }
+
+  // as ids are matched, they are added to the lookup cache: true if the
+  // id alone is matched by any of the range criteria, and otherwise false.
+  // the next time an id is matched, if the cache value is false, then
+  // the id is matched only if all_excludes is true.  if the cache value
+  // is true, then all the ranges have to be checked to see if one
+  // matches the id and also the time and filename criteria.
+  _lookup.clear();
 }
 
 
 bool
 SampleMatcher::
-match(dsm_sample_id_t id)
+match(dsm_sample_id_t id, dsm_time_t tt, const std::string& filename)
 {
   id_lookup_t::iterator it = _lookup.find(id);
   if (it != _lookup.end())
   {
-    return it->second;
+    // if this id alone is not matched by of the ranges, then the other
+    // criteria do not need to be checked.
+    if (!it->second)
+    {
+      return _all_excludes;
+    }
   }
   int did = GET_DSM_ID(id);
   int sid = GET_SHORT_ID(id);
@@ -273,34 +299,40 @@ match(dsm_sample_id_t id)
       rm.set_first_dsm(_first_dsmid);
   }
 
-  bool all_excludes = true;
+  // no choice but to find the range which matches the id as well as the
+  // current time and filename.
+  bool id_matched_range = false;
   range_matches_t::iterator ri;
   for (ri = _ranges.begin(); ri != _ranges.end(); ++ri)
   {
-    all_excludes = all_excludes && (!ri->include);
-    // See if the id is in this range, in which case the result depends
-    // upon whether this range is included or excluded.
     if (ri->match(did, sid))
-      break;
+    {
+      id_matched_range = true;
+      if (ri->match_time(tt) && ri->match_file(filename))
+        break;
+    }
   }
 
   // If there are no ranges or only excluded ranges that the sample did not
   // match, then the sample is implicitly included, otherwise the sample is
   // included according to the matched range.
-  bool result = (all_excludes && ri == _ranges.end()) ||
+  bool result = (_all_excludes && ri == _ranges.end()) ||
                 (ri != _ranges.end() && ri->include);
-  _lookup[id] = result;
+  // cache whether the id alone matched any ranges, since if it didn't there
+  // is no point in checking the other criteria next time.
+  _lookup[id] = id_matched_range;
   return result;
 }
 
 
 bool
 SampleMatcher::
-match(const Sample* samp)
+match(const Sample* samp, const std::string& inputname)
 {
   dsm_time_t tt = samp->getTimeTag();
   dsm_sample_id_t sampid = samp->getId();
-  if (tt < _startTime.toUsecs() || tt > _endTime.toUsecs() || !match(sampid))
+  if (tt < _startTime.toUsecs() || tt > _endTime.toUsecs() ||
+      !match(sampid, tt, inputname))
   {
     return false;
   }

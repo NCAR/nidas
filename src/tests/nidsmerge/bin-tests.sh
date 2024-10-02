@@ -25,7 +25,9 @@ clean
 
 run_merge() {
     # use --no-keep-opening since a file which cannot be opened is a problem
-    if ! nidsmerge --log debug -r 300 --no-keep-opening "$@"; then
+    logging="--log debug"
+    logging=
+    if ! nidsmerge $logging -r 300 --no-keep-opening "$@"; then
         failed "nidsmerge $*"
     fi
 }
@@ -70,31 +72,37 @@ cat <<EOF
 ...a dat file with it explicitly excluded.
 EOF
 
-run_merge -s "2023-07-31_04:01" -e "2023-07-31_04:02" -i isfs_20230731_0401.dat.bz2 --samples ^2,10 -o outputs/isfs_20230731_0401_no_sonic.dat.bz2
+times="-s 2023-07-31_04:01 -e 2023-07-31_04:02"
+run_merge $times -i t2_20230731_0401.dat.bz2 --samples ^2,10 -o outputs/t2_20230731_0401_no_sonic.dat.bz2
 echo ...make sure the sonic was excluded
-nlines=`data_stats -i 2,10 outputs/isfs_20230731_0401_no_sonic.dat.bz2 2> /dev/null | tail -n +2 | wc -l`
+nlines=`data_stats -i 2,10 outputs/t2_20230731_0401_no_sonic.dat.bz2 2> /dev/null | tail -n +2 | wc -l`
 if [ $nlines -ne 0 ]; then
-    failed "sonic was not excluded from network stream"
+    failed "sonic was not excluded from usb stream"
 fi
 echo ...stats in the network stream without 2,10 should match the merged stream
-data_stats isfs_20230731_0401.dat.bz2 --samples ^2,10 > outputs/isfs_no_sonic.stats.txt
-data_stats outputs/isfs_20230731_0401_no_sonic.dat.bz2 > outputs/isfs_no_sonic_merged.stats.txt
-run_diff outputs/isfs_no_sonic.stats.txt outputs/isfs_no_sonic_merged.stats.txt
+data_stats t2_20230731_0401.dat.bz2 --samples ^2,10 > outputs/t2_no_sonic.stats.txt
+data_stats outputs/t2_20230731_0401_no_sonic.dat.bz2 > outputs/t2_no_sonic_merged.stats.txt
+run_diff outputs/t2_no_sonic.stats.txt outputs/t2_no_sonic_merged.stats.txt
 
 # merging network and usb should still create the same merge as the baseline,
 # except only if the start time is set explicitly, otherwise the start time is
 # set to the first sample times in the files, which are unlikely to be the
 # earliest times in the files.  for this case, setting the start time prevents
 # 4 out-of-order samples from being dropped.
-echo ...usb merged with no-sonic network stream should match full merge
-run_merge -s "2023-07-31_04:01" -e "2023-07-31_04:02" -i t2_20230731_0401.dat.bz2 -i outputs/isfs_20230731_0401_no_sonic.dat.bz2 -o outputs/merged_20230731_0401_no_sonic.dat.bz2
-data_stats outputs/merged_20230731_0401_no_sonic.dat.bz2 > outputs/m2hats_merged_no_sonic.stats.txt
-run_diff outputs/m2hats_baseline.stats.txt outputs/m2hats_merged_no_sonic.stats.txt
+echo ...no-sonic usb merged with network stream should match full merge
+run_merge $times -i outputs/t2_20230731_0401_no_sonic.dat.bz2 -i isfs_20230731_0401.dat.bz2 -o outputs/merged_20230731_0401_no_usb_sonic.dat.bz2
+data_stats outputs/merged_20230731_0401_no_usb_sonic.dat.bz2 > outputs/m2hats_merged_no_usb_sonic.stats.txt
+run_diff outputs/m2hats_baseline.stats.txt outputs/m2hats_merged_no_usb_sonic.stats.txt
 
-# Now merging t2 without sonic while excluding sonic from network should be
-# the same as excluding the sonic altogether.
-#run_merge --samples ^2,10,file=isfs_, -i isfs_20230731_0401.dat.bz2 -i outputs/t2_20230731_0401_no_sonic.dat.bz2 -o outputs/merged_20230731_0401_no_sonic.dat.bz2
-
+# Now merging t2 and isfs while excluding sonic from network should be the
+# same as merging with the network sonic already excluded.  since the samples
+# in t2_ are explicitly included, the rest of the samples in isfs_ files have
+# to be explicitly included also.  the "normal" way to run this would be to
+# use just the single exclude.
+echo ...merge t2 and network while excluding sonic from network
+run_merge $times --samples ^2,10,file=isfs_ --samples /,file=isfs_ --samples /,file=t2_ -i isfs_20230731_0401.dat.bz2 -i t2_20230731_0401.dat.bz2 -o outputs/merged_20230731_0401_filter_network_sonic.dat.bz2
+data_stats outputs/merged_20230731_0401_filter_network_sonic.dat.bz2 > outputs/m2hats_merged_filter_network_sonic.stats.txt
+run_diff outputs/m2hats_baseline.stats.txt outputs/m2hats_merged_filter_network_sonic.stats.txt
 
 echo
 echo "OK.  All tests passed."
