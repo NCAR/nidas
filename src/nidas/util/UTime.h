@@ -232,6 +232,11 @@ public:
     static UTime parse(const std::string& string, int* nparsed=0);
 
     /**
+     * parse() the full string in UTC or else throw ParseException.
+     */
+    static UTime convert(const std::string& string);
+
+    /**
      * Parse a character string into a UTime.
      * @param format: a time format in the form of strptime. All the % format
      * descriptors of strptime are available. In addition one can

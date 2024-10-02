@@ -206,6 +206,20 @@ struct tm* UTime::toTm(struct tm* tmp,int *usecs) const
     return toTm(_utc,tmp,usecs);
 }
 
+
+/* static */
+UTime UTime::convert(const std::string& string)
+{
+    int nparsed{0};
+    UTime ut = UTime::parse(true, string, &nparsed);
+    if (nparsed != (int)string.length())
+    {
+      throw ParseException("unexpected characters in time string");
+    }
+    return ut;
+}
+
+
 /* static */
 UTime UTime::parse(const std::string& str, int *ncharp)
 {

@@ -30,6 +30,7 @@ using std::string;
 
 using namespace nidas::core;
 namespace n_u = nidas::util;
+using nidas::util::ParseException;
 using nidas::util::Logger;
 using nidas::util::LogScheme;
 
@@ -772,13 +773,13 @@ nidas::util::UTime
 NidasApp::
 parseTime(const std::string& optarg)
 {
-  nidas::util::UTime ut;
+  UTime ut;
   try {
-    ut = n_u::UTime::parse(true, optarg);
+    ut = UTime::convert(optarg);
   }
-  catch (const n_u::ParseException& pe) {
+  catch (const ParseException& pe) {
     throw NidasAppException("could not parse time " + optarg +
-			    ": " + pe.what());
+                            ": " + pe.what());
   }
   return ut;
 }
