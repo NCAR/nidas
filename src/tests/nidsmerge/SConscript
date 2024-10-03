@@ -1,0 +1,16 @@
+# -*- python -*-
+# 2009-2024, Copyright University Corporation for Atmospheric Research
+
+from SCons.Script import Environment
+
+env = Environment(tools=['default', 'nidasapps'])
+
+nidsmerge = env.NidasApp('nidsmerge')
+data_stats = env.NidasApp('data_stats')
+
+depends = ["test_nidsmerge.sh", nidsmerge, data_stats]
+runtest = env.Command("xtest", depends, ["cd $SOURCE.dir && ./test_nidsmerge.sh"])
+
+env.Precious(runtest)
+env.AlwaysBuild(runtest)
+env.Alias('test', runtest)

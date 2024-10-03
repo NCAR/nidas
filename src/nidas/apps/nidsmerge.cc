@@ -530,7 +530,6 @@ int NidsMerge::run()
     }
     cout << "    before   after  output" << endl;
 
-    unsigned int nskipped = 0;
     dsm_time_t tcur;
     for (tcur = startTime.toUsecs();
          neof < inputs.size() && tcur < endTime.toUsecs() &&
@@ -556,7 +555,6 @@ int NidsMerge::run()
                     // same input stream...
                     if (!matcher.match(samp, input->getName()))
                     {
-                        ++nskipped;
                         samp->freeReference();
                         continue;
                     }
@@ -621,8 +619,9 @@ int NidsMerge::run()
         delete input;
     }
 
-    cout << "Skipped " << nskipped
-         << " samples due to filter matching." << endl;
+    cout << "Excluded " << matcher.numSamplesExcluded() << " samples "
+         << "(out of " << matcher.numSamplesChecked() << ") "
+         << "due to filter matching." << endl;
     cout << "Discarded " << ndropped << " samples whose times "
          << "were earlier than the merge window when read." << endl;
 

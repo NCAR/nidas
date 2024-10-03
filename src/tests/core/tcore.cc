@@ -420,6 +420,68 @@ BOOST_AUTO_TEST_CASE(test_exclude_network_samples)
 }
 
 
+BOOST_AUTO_TEST_CASE(test_samples_cache)
+{
+    // call match() repeatedly and make sure that cache is used as expected
+    // and especially doesn't change the answer.
+    SampleMatcher sm;
+    UTime stime{true, 2023, 7, 20, 12, 0, 0};
+
+    sm.addCriteria("^2,10,file=isfs_,[2023-07-27,2023-08-02]");
+    unsigned int ncached = 0;
+    unsigned int nsamples = 0;
+    unsigned int nexcluded = 0;
+    BOOST_CHECK_EQUAL(ncached, sm.numCacheHits());
+    BOOST_CHECK_EQUAL(nsamples, sm.numSamplesChecked());
+    BOOST_CHECK_EQUAL(nexcluded, sm.numSamplesExcluded());
+
+    std::string netfile_fmt = "isfs_%Y%m%d_%H%M%S.dat";
+    std::string dsmfile_fmt = "t2_%Y%m%d_%H%M%S.dat";
+    SampleT<float> sample;
+    for (int day = 0; day < 20; ++day)
+    {
+      std::string netfile{ stime.format(true, netfile_fmt) };
+      std::string dsmfile{ stime.format(dsmfile_fmt) };
+      // first write 10 network samples with different SIDs, then the one
+      // sample id which should be excluded, alternating between inputs.
+      bool matched;
+      sample.setTimeTag(stime.toUsecs());
+
+      BOOST_TEST_MESSAGE("time: " << stime << "; netfile: " << netfile
+                          << "; dsmfile: " << dsmfile);
+      for (int i = 0; i < 20; ++i)
+      {
+        sample.setRawId(SampleId(1, i/2));
+        matched = sm.match(&sample, (i % 2) ? dsmfile : netfile);
+        BOOST_CHECK_EQUAL(matched, true);
+        ++nsamples;
+        // after first day or if second file, the sample id has been cached.
+        ncached += (day > 0) || (i % 2);
+      }
+      BOOST_CHECK_EQUAL(ncached, sm.numCacheHits());
+      BOOST_CHECK_EQUAL(nsamples, sm.numSamplesChecked());
+      BOOST_CHECK_EQUAL(nexcluded, sm.numSamplesExcluded());
+
+      for (int i = 0; i < 2; ++i)
+      {
+        sample.setRawId(SampleId(2, 10));
+        matched = sm.match(&sample, i ? dsmfile : netfile);
+        // if day is 27-32 and netfile, then this should be excluded.
+        bool excluded = (7 <= day && day < 13) && (i == 0);
+        BOOST_CHECK_EQUAL(matched, !excluded);
+        ++nsamples;
+        nexcluded += excluded;
+        // for these, the cache hit count should not change.
+      }
+
+      BOOST_CHECK_EQUAL(ncached, sm.numCacheHits());
+      BOOST_CHECK_EQUAL(nsamples, sm.numSamplesChecked());
+      BOOST_CHECK_EQUAL(nexcluded, sm.numSamplesExcluded());
+      stime += USECS_PER_DAY;
+    }
+}
+
+
 BOOST_AUTO_TEST_CASE(test_log_level_parse)
 {
   // These tests assume the logging scheme is at its initial state and with

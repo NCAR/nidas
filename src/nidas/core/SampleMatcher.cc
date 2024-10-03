@@ -220,7 +220,10 @@ SampleMatcher() :
   _first_dsmid(0),
   // this defaults to true because no ranges implies all samples are included,
   // same as if all ranges are excludes.
-  _all_excludes(true)
+  _all_excludes(true),
+  _nsamples(0),
+  _nexcluded(0),
+  _ncached(0)
 {
   _lookup.clear();
 }
@@ -270,6 +273,7 @@ bool
 SampleMatcher::
 match(dsm_sample_id_t id, dsm_time_t tt, const std::string& filename)
 {
+  ++_nsamples;
   id_lookup_t::iterator it = _lookup.find(id);
   if (it != _lookup.end())
   {
@@ -277,6 +281,8 @@ match(dsm_sample_id_t id, dsm_time_t tt, const std::string& filename)
     // criteria do not need to be checked.
     if (!it->second)
     {
+      _ncached += 1;
+      _nexcluded += (!_all_excludes);
       return _all_excludes;
     }
   }
@@ -321,6 +327,7 @@ match(dsm_sample_id_t id, dsm_time_t tt, const std::string& filename)
   // cache whether the id alone matched any ranges, since if it didn't there
   // is no point in checking the other criteria next time.
   _lookup[id] = id_matched_range;
+  _nexcluded += (!result);
   return result;
 }
 

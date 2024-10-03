@@ -14,6 +14,12 @@ the [buster] branch for the changes on that branch.
 
 ### Changes related to M2HATS
 
+- The `-i/--samples` sample filter criteria have been expanded to include a
+  time range and an input name, and the argument has been added to
+  `nidsmerge`.  As an example, this filter specifier excludes samples 2,10
+  from a network file stream over 5 days:
+  `^2,10,file=isfs_,[2023-07-27,2023-08-02]`.
+
 - Much more metadata from the XML and from processing is now attached to
   variables at run time as attributes.  The netcdf output uses them to set the
   netcdf variable attributes.

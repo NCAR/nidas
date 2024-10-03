@@ -155,9 +155,8 @@ public:
     addCriteria(const RangeMatcher& rm);
 
     /**
-     * Return true if the given @p id satisfies the current range criteria.
-     * Search the ranges for one which includes this id, then return true if
-     * the range is an inclusion and otherwise false.
+     * Return true if the given @p id, time @p tt, and @p inputname are
+     * selected by the current range criteria.
      **/
     bool
     match(dsm_sample_id_t id, dsm_time_t tt=RangeMatcher::MATCH_ALL_TIME,
@@ -219,6 +218,34 @@ public:
         return _endTime;
     }
 
+    /**
+     * Return the number of samples checked by this SampleMatcher with
+     * either match() method.
+     */
+    unsigned int
+    numSamplesChecked()
+    {
+        return _nsamples;
+    }
+
+    /**
+     * Return the number samples for which match() returned false.
+     */
+    unsigned int
+    numSamplesExcluded()
+    {
+        return _nexcluded;
+    }
+
+    /**
+     * Return the number of samples whose match() result was taken from the
+     * cache.
+     */
+    unsigned int numCacheHits()
+    {
+        return _ncached;
+    }
+
 private:
     using id_lookup_t = std::unordered_map<dsm_sample_id_t, bool> ;
     using range_matches_t = std::vector<RangeMatcher>;
@@ -229,6 +256,9 @@ private:
     nidas::util::UTime _endTime;
     dsm_sample_id_t _first_dsmid;
     bool _all_excludes;
+    unsigned int _nsamples;
+    unsigned int _nexcluded;
+    unsigned int _ncached;
 
 };
 
