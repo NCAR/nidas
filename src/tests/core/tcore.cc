@@ -602,17 +602,17 @@ BOOST_AUTO_TEST_CASE(test_nidas_app_long_args)
     BOOST_CHECK_EQUAL(args.empty(), true);
   }
   {
-    // Make sure deprecated options still accepted but not in usage.
+    // Deprecated options have been removed.
     NidasApp app("test");
     BOOST_CHECK_EQUAL(app.LogConfig.accept("-l"), true);
     BOOST_CHECK_EQUAL(app.LogConfig.accept("--log"), true);
-    BOOST_CHECK_EQUAL(app.LogConfig.accept("--logconfig"), true);
-    BOOST_CHECK_EQUAL(app.LogConfig.accept("--loglevel"), true);
+    BOOST_CHECK_EQUAL(app.LogConfig.accept("--logconfig"), false);
+    BOOST_CHECK_EQUAL(app.LogConfig.accept("--loglevel"), false);
   }
   {
     NidasApp app("test");
     app.enableArguments(app.LogConfig);
-    const char* argv[] = { "--loglevel", "debug" };
+    const char* argv[] = { "--log", "debug" };
     args = array_vector(argv);
     app.resetLogging();
     args = app.parseArgs(args);

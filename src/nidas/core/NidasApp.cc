@@ -80,7 +80,8 @@ NidasAppArg(const std::string& flags,
 	    const std::string& syntax,
 	    const std::string& usage,
 	    const std::string& default_,
-            bool required) :
+            bool required,
+            unsigned int atts) :
   _flags(flags),
   _syntax(syntax),
   _usage(usage),
@@ -88,7 +89,8 @@ NidasAppArg(const std::string& flags,
   _arg(),
   _value(),
   _enableShortFlag(true),
-  _required(required)
+  _required(required),
+  _omitbrief(atts & OMITBRIEF)
 {}
 
 
@@ -453,25 +455,30 @@ NidasApp(const std::string& name) :
    "Specify the path to the NIDAS XML header file.\n"),
   LogShow
   ("--logshow", "",
-   "As log points are created, show information for each one that can\n"
-   "be used to enable log messages from that log point."),
+   "Show log points, as they are reached, with attributes that can\n"
+   "be used to enable or disable that log point.", "",
+   false, NidasAppArg::OMITBRIEF),
   LogConfig
-  ("-l,--log[,--logconfig,--loglevel]", "<logconfig>",
-   "Add a log config to the log scheme.  The log config settings are\n"
-   "specified as a comma-separated list of fields, using syntax\n"
-   "<field>=<value>, where fields are tag, file, function, line, enable,\n"
-   "and disable.\n"
-   "The log level can be specified as either a number or string: \n"
-   "7=debug,6=info,5=notice,4=warning,3=error,2=critical.\n"
-   "--logconfig and --loglevel are accepted but deprecated.",
+  ("-l,--log", "<config>",
+   R"(Configure log messages according to a comma-separated list of
+criteria in the form <field>=<value>, where fields are tag, file, function,
+line, enable, and disable.  The log level can be a number (2-7) or a word from
+{critical, error, warning, notice, info, debug}.  Just "debug" enables all
+messages up to debug.  "verbose,file=SampleMatcher.cc" enables messages in the
+file SampleMatcher.cc down to verbose.  Multiple log configs can be applied:
+the first config matched by a log message can enable or disable it.  A
+matching message is enabled unless the config includes the "disable" field, so
+"verbose,file=SerialSensor.cc,disable" disables all messages in one file.)",
    "info"),
   LogFields
   ("--logfields", "{thread|function|file|level|time|message},...",
    "Set the log fields to be shown in log messages, as a comma-separated list\n"
-   "of log field names: thread, function, file, level, time, and message."),
+   "of log field names: thread, function, file, level, time, and message.",
+   "", false, NidasAppArg::OMITBRIEF),
   LogParam
   ("--logparam", "<name>=<value>",
-   "Set a log scheme parameter with syntax <name>=<value>."),
+   "Set a log scheme parameter with syntax <name>=<value>.",
+   "", false, NidasAppArg::OMITBRIEF),
   Help
   ("-h,--help", "", "Print usage, --help for full."),
   ProcessData
@@ -1258,12 +1265,14 @@ std::string
 NidasApp::
 usage(const std::string& indent, bool brief)
 {
-  // Iterate through the list this application's arguments, dumping usage
+  // Iterate through this application's arguments, dumping usage
   // info for each.
   std::ostringstream oss;
   nidas_app_arglist_t::iterator it;
   for (it = _app_arguments.begin(); it != _app_arguments.end(); ++it)
   {
+    if (brief && (*it)->omitBrief())
+      continue;
     NidasAppArg& arg = (**it);
     oss << arg.usage(indent, brief);
   }

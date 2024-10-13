@@ -75,6 +75,9 @@ expectArg(const ArgVector& args, int i)
 class NidasAppArg
 {
 public:
+
+    enum ATTS: unsigned int { NONE=0, OMITBRIEF=2 };
+
     /**
      * Construct a NidasAppArg from a list of accepted short and long
      * flags, the syntax for any arguments to the flag, a usage string, and
@@ -116,12 +119,17 @@ public:
      * Arguments can be marked as required, which allows unset required
      * arguments to be detected by NidasApp::checkRequiredArguments().  See
      * setRequired().
+     *
+     * The @p atts parameter is a bitmask of attributes for the argument.
+     * NidasApp::usage() will not show usage for arguments with the OMITBRIEF
+     * attribute.  See omitBrief().
      **/
     NidasAppArg(const std::string& flags,
                 const std::string& syntax = "",
                 const std::string& usage = "",
                 const std::string& default_ = "",
-                bool required = false);
+                bool required = false,
+                unsigned int atts = NONE);
 
     virtual
     ~NidasAppArg();
@@ -288,6 +296,12 @@ public:
         return _default;
     }
 
+    bool
+    omitBrief()
+    {
+        return _omitbrief;
+    }
+
 protected:
 
     std::string _flags;
@@ -298,6 +312,7 @@ protected:
     std::string _value;
     bool _enableShortFlag;
     bool _required;
+    bool _omitbrief;
 
     /**
      * Return true for arguments which are only a single argument.  They

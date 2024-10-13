@@ -1044,7 +1044,7 @@ bool SyncRecordSource::receive(const Sample* samp) throw()
     /*
      * To enable the SampleTracer for a given sample id, add these arguments
      * to sync_server:
-     *  --logconfig enable,level=verbose,function=SyncRecordSource::receive
+     *  --log enable,level=verbose,function=SyncRecordSource::receive
      *  --logparam trace_samples=20,141
      *  --logfields level,message
      */
