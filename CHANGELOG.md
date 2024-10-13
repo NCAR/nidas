@@ -12,6 +12,11 @@ the [buster] branch for the changes on that branch.
 
 ## [master] - Unreleased on master branch
 
+- The deprecated logging arguments `--logconfig` and `--loglevel` have been
+  removed.  The rarely used arguments `--logshow`, `--logfields`, and
+  `--logparam` are now omitted from brief help usage (`-h`) and instead only
+  included in the full usage (`--help`).
+
 ### Changes related to M2HATS
 
 - The `-i/--samples` sample filter criteria have been expanded to include a
