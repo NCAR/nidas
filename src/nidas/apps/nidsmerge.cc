@@ -556,57 +556,57 @@ int NidsMerge::run()
              ii++)
         {
             SampleInputStream* input = inputs[ii];
+            dsm_time_t lastTime = lastTimes[ii];
             size_t nread = 0;
             size_t nunique = 0;
 
-            try {
-                dsm_time_t lastTime = lastTimes[ii];
-                while (!_app.interrupted() &&
-                    lastTime < tcur + readAheadUsecs)
-                {
-                    Sample* samp = input->readSample();
-
-                    lastTime = samp->getTimeTag();
-
-                    // maybe we should "bind" a matcher instance to each
-                    // stream, so the filename matching does not need to be
-                    // done each time since it shouldn't change within the
-                    // same input stream...
-                    if (!matcher.match(samp, input->getName()))
-                    {
-                        samp->freeReference();
-                        continue;
-                    }
-
-                    // until startTime has been set, no samples can be
-                    // dropped.
-                    if (lastTime < startTime.toUsecs())
-                    {
-                        ndropped += 1;
-                        DLOG(("dropping sample ") << ndropped
-                                << " precedes start "
-                                << tformat(startTime.toUsecs()) << ": "
-                                << "(" << samp->getDSMId() << ","
-                                << samp->getSpSId() << ")"
-                                << " at " << tformat(lastTime));
-                        samp->freeReference();
-                    }
-                    else if (!sorter.insert(samp).second)
-                    {
-                        // duplicate of sample already in the sorter set.
-                        samp->freeReference();
-                    }
-                    else
-                        nunique++;
-                    nread++;
+            while (lastTime < tcur + readAheadUsecs && !_app.interrupted())
+            {
+                Sample* samp{ nullptr };
+                try {
+                    samp = input->readSample();
                 }
-                lastTimes[ii] = lastTime;
+                catch (const EOFException& e) {
+                    cerr << e.what() << endl;
+                    lastTime = LONG_LONG_MAX;
+                    ++neof;
+                    break;
+                }
+                lastTime = samp->getTimeTag();
+
+                // maybe we should "bind" a matcher instance to each
+                // stream, so the filename matching does not need to be
+                // done each time since it shouldn't change within the
+                // same input stream...
+                if (!matcher.match(samp, input->getName()))
+                {
+                    samp->freeReference();
+                    continue;
+                }
+
+                // until startTime has been set, no samples can be
+                // dropped.
+                if (lastTime < startTime.toUsecs())
+                {
+                    ndropped += 1;
+                    DLOG(("dropping sample ") << ndropped
+                            << " precedes start "
+                            << tformat(startTime.toUsecs()) << ": "
+                            << "(" << samp->getDSMId() << ","
+                            << samp->getSpSId() << ")"
+                            << " at " << tformat(lastTime));
+                    samp->freeReference();
+                }
+                else if (!sorter.insert(samp).second)
+                {
+                    // duplicate of sample already in the sorter set.
+                    samp->freeReference();
+                }
+                else
+                    nunique++;
+                nread++;
             }
-            catch (const EOFException& e) {
-                cerr << e.what() << endl;
-                lastTimes[ii] = LONG_LONG_MAX;
-                neof++;
-            }
+            lastTimes[ii] = lastTime;
 
             // set startTime to the first time read across all inputs if user
             // did not specify it in the runstring.  conveniently, the
