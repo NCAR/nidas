@@ -233,6 +233,7 @@ UTime UTime::parse(bool utc, const std::string& str, int *ncharp)
     int year,mon,day,hour,min;
     double dsec = 0.;
     int nchar = 0;
+    int nparsed = 0;
     UTime ut(0L);
     bool done = false;
 
@@ -249,7 +250,8 @@ UTime UTime::parse(bool utc, const std::string& str, int *ncharp)
     // scanf("%d %d %d") will parse "YYYY-mm-dd", and the month and days
     // will be negative.
     static const char* formats[] =
-        { "%Y-%m-%dT%H:%M:%S.%f",
+        { "%Y-%m-%dT%H:%M:%S.%6f",
+          "%Y-%m-%dT%H:%M:%S.%f",
           "%Y-%m-%dT%H:%M:%S",
           "%Y-%m-%dT%H:%M",
           "%Y-%m-%d", 0 };
@@ -263,8 +265,14 @@ UTime UTime::parse(bool utc, const std::string& str, int *ncharp)
         int sep{(str.length() > 10) ? str[10] : 0};
         if (fsep != string::npos && (sep == ' ' || sep == '_'))
             fmt[fsep] = sep;
-        if (ut.checkParse(utc, str, fmt, ncharp))
+        nparsed = 0;
+        if (ut.checkParse(utc, str, fmt, &nparsed))
         {
+            if (nparsed < (int)str.length() && str[nparsed] == 'Z' && utc)
+            {
+                ++nparsed;
+            }
+            if (ncharp) *ncharp = nparsed;
             return ut;
         }
     }

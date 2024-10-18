@@ -258,14 +258,18 @@ BOOST_AUTO_TEST_CASE(test_utime)
     cases_t cases;
     cases.push_back(make_pair("2019-11-07T16:10:55.001",
                               UTime(true, 2019, 11, 7, 16, 10, 55.001)));
-    cases.push_back(make_pair("2019-11-07_16:10:55.001",
+    cases.push_back(make_pair("2019-11-07_16:10:55.001Z",
                               UTime(true, 2019, 11, 7, 16, 10, 55.001)));
     cases.push_back(make_pair("2019-11-07 16:10:55.001",
                               UTime(true, 2019, 11, 7, 16, 10, 55.001)));
-    cases.push_back(make_pair("2019-11-07 16:10:55.124000",
-                              UTime(true, 2019, 11, 7, 16, 10, 55.124)));
+    cases.push_back(make_pair("2019-11-07 16:10:55.124050",
+                              UTime(true, 2019, 11, 7, 16, 10, 55.12405)));
+    cases.push_back(make_pair("2019-11-07 16:10:55.124050Z",
+                              UTime(true, 2019, 11, 7, 16, 10, 55.12405)));
     // Make sure shortened forms handled correctly too.
     cases.push_back(make_pair("2019-11-07 16:10:55",
+                              UTime(true, 2019, 11, 7, 16, 10, 55)));
+    cases.push_back(make_pair("2019-11-07 16:10:55Z",
                               UTime(true, 2019, 11, 7, 16, 10, 55)));
     cases.push_back(make_pair("2019-11-07 16:10",
                               UTime(true, 2019, 11, 7, 16, 10, 0)));
@@ -273,10 +277,14 @@ BOOST_AUTO_TEST_CASE(test_utime)
                               UTime(true, 2019, 11, 7, 16, 10, 0)));
     cases.push_back(make_pair("2019-11-07",
                               UTime(true, 2019, 11, 7, 0, 0, 0)));
+    cases.push_back(make_pair("2019-11-07Z",
+                              UTime(true, 2019, 11, 7, 0, 0, 0)));
 
     for (cases_t::iterator cit = cases.begin(); cit != cases.end(); ++cit)
     {
-        UTime ut = UTime::parse(true, cit->first);
+        // use convert() because the whole string should be parsed
+        BOOST_TEST_CHECKPOINT("Checking " << cit->first << " ... ");
+        UTime ut = UTime::convert(cit->first);
         BOOST_TEST(ut == cit->second);
     }
 
@@ -319,4 +327,9 @@ BOOST_AUTO_TEST_CASE(test_utime)
     BOOST_CHECK_EQUAL(nparsed, 10);
     BOOST_CHECK_EQUAL(when, UTime(true, 2019, 11, 7, 0, 0, 0));
 
+    // a Z suffix should not be parsed if utc is false, but it won't throw an
+    // exception.
+    when = UTime::parse(false, "2019-11-08Z", &nparsed);
+    BOOST_CHECK_EQUAL(nparsed, 10);
+    BOOST_CHECK_EQUAL(when, UTime(false, 2019, 11, 8, 0, 0, 0));
 }

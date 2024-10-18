@@ -201,25 +201,39 @@ public:
     void setUTC(bool val) { _utc = val; }
 
     /**
-     * Parse a character string into a UTime, using these formats until success:
+     * Parse a character string into a UTime, trying the following formats
+     * until success.  If the string is empty, or the string "now", return the
+     * current time.  If the parsing should consume the entire string, then
+     * the convert() method might be more convenient.  Otherwise, use the
+     * nparsed parameter to determine how much of the string was parsed.
      *
-     * [CC]YY [cmon|mon] day h:m[:s.f]      h,m and s are one or two digits
-     * [CC]YY [cmon|mon] day hhmmss[.f]     hh, mm and ss are two digits
-     * [CC]YY [cmon|mon] day
-     * s.f
-     * YYYY-mm-dd[THH:MM[:SS[.f]]]          ISO format
-     * YYYY-mm-dd[ HH:MM[:SS[.f]]]          ISO format with space separator
+     * ISO format with space, T, or underscore separator, and when utc is
+     * true, an optional Z suffix:
+     *
+     *     YYYY-mm-dd[{T|_| }HH:MM[:SS[.f]]][Z]
+     * 
+     * The fractional seconds in the ISO formats can be either 3 or 6 digits,
+     * ie, either milliseconds or microseconds.
+     *
+     * Other formats:
+     *
+     *     [CC]YY [cmon|mon] day h:m[:s.f]      h,m and s are one or two digits
+     *     [CC]YY [cmon|mon] day hhmmss[.f]     hh, mm and ss are two digits
+     *     [CC]YY [cmon|mon] day
+     *     s.f
      *
      * "cmon" is a character month or abbreviation.
      * "mon" is a numeric month (1-12).
      * "day" is day of month, 1-31.
      * "h" or "hh" are in the range 0-23.
      * "f" is the fractional seconds, one or more digits.
+     *
      * The last format, "s.f" is the number of non-leap seconds since
      * 1970 Jan 1 00:00 GMT. For example, 1262304000.0 is 2010 Jan 1 00:00 GMT.
      * Note: one can also use a "%s" descriptor in the format argument to
      * parse(false,str,format,nparsed) to do the same conversion.
      * If all parsing fails, throw ParseException.
+     *
      * @param nparsed: number of characters parsed.
      *
      * @throws ParseException
