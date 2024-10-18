@@ -368,7 +368,15 @@ void FileSet::initialize()
             }
         }
 
-        if (_fileset.empty()) throw IOException(_fullpath,"open",ENOENT);
+        // If there are no files within the time range which match the
+        // pattern, then treat that like an immediate EOF, same as if a file
+        // had been opened but was empty.  We cannot know from the pattern
+        // whether there should have files to find.  When explicit filenames
+        // have been added to the fileset with addFileName(), ie, when
+        // fullpath is empty, then those files must exist and an exception
+        // IOException will be thrown if they cannot be opened.
+        _currname = _fullpath;
+        // if (_fileset.empty()) throw IOException(_fullpath,"open",ENOENT);
     }
     _fileiter = _fileset.begin();
     _initialized = true;
