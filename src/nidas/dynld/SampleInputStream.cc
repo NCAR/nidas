@@ -1006,7 +1006,7 @@ sampleFromHeader() throw()
         // at the beginning of the sample, skip this sample.
         _skipSample = true;
         WLOG(CNAME << "skipping first unfiltered sample at end of bad block: "
-             "filepos=" << offset << _sheader);
+             "filepos=" << offset << "," << _sheader);
     }
     else
     {
