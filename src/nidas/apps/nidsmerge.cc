@@ -265,10 +265,11 @@ int NidsMerge::parseRunstring(int argc, char** argv)
 
     app.enableArguments(app.LogConfig | app.LogShow | app.LogFields |
                         app.LogParam | app.StartTime | app.EndTime |
-                        app.Version | app.OutputFiles | KeepOpening |
+                        app.OutputFiles | app.Clipping | KeepOpening |
                         FilterArg | InputFileSet | InputFileSetFile |
                         ReadAhead | ConfigName | OutputFileLength |
-                        app.SampleRanges | PrintHeader | app.Help);
+                        app.SampleRanges | PrintHeader |
+                        app.Version | app.Help);
     // -i conflicts with input specifiers, so require --samples
     app.SampleRanges.acceptShortFlag(false);
     app.InputFiles.allowFiles = true;
@@ -429,9 +430,12 @@ NidsMerge::flushSorter(dsm_time_t tcur,
     dummy.setTimeTag(tcur);
     SortedSampleSet3::const_iterator rsi = sorter.lower_bound(&dummy);
 
-    for (SortedSampleSet3::const_iterator si = rsb; si != rsi; ++si) {
+    for (SortedSampleSet3::const_iterator si = rsb; si != rsi; ++si)
+    {
         const Sample *sample = *si;
-        bool ok = outStream.receive(sample);
+        bool ok{ true };
+        if (!endTime.isSet() || (sample->getTimeTag() < endTime.toUsecs()))
+            ok = outStream.receive(sample);
         sample->freeReference();
         if (!ok)
             throw IOException("send sample",
@@ -463,8 +467,11 @@ NidsMerge::addInputStream(vector<SampleInputStream*>& inputs,
     if (inputFiles.size() == 1 && fi->find('%') != string::npos)
     {
         fset = FileSet::createFileSet(*fi);
-        fset->setStartTime(startTime);
-        fset->setEndTime(endTime);
+        // If a time range has been given, then presumably the intent is to
+        // merge all samples within that time range, even if they appear in
+        // the data files just outside the time range, so those need to be
+        // included those also.  The Clipping argument enables the expansion.
+        _app.setFileSetTimes(startTime, endTime, fset);
     }
     else
     {
@@ -530,21 +537,33 @@ int NidsMerge::run()
     }
     cout << "    before   after  output" << endl;
 
+    // Keep reading as long as there is at least one input stream that has not
+    // reached EOF and until we've read at least one whole readahead period
+    // past the end.  We want to avoid quitting exactly when tcur == endTime,
+    // because then the loop hasn't had a chance to read past endTime to catch
+    // any more samples that might also precede endTime.  The flushSorter()
+    // method makes sure to never write samples outside the time range.
     dsm_time_t tcur;
     for (tcur = startTime.toUsecs();
-         neof < inputs.size() && tcur < endTime.toUsecs() &&
+         neof < inputs.size() &&
+         (!endTime.isSet() || (tcur < endTime.toUsecs() + readAheadUsecs)) &&
          !_app.interrupted();
          tcur += readAheadUsecs)
     {
         DLOG(("merge loop at step: ") << tformat(tcur));
-        for (unsigned int ii = 0; ii < inputs.size(); ii++) {
+        for (unsigned int ii = 0;
+             ii < inputs.size() && !_app.interrupted();
+             ii++)
+        {
             SampleInputStream* input = inputs[ii];
             size_t nread = 0;
             size_t nunique = 0;
 
             try {
                 dsm_time_t lastTime = lastTimes[ii];
-                while (!_app.interrupted() && lastTime < tcur + readAheadUsecs) {
+                while (!_app.interrupted() &&
+                    lastTime < tcur + readAheadUsecs)
+                {
                     Sample* samp = input->readSample();
 
                     lastTime = samp->getTimeTag();
@@ -600,16 +619,24 @@ int NidsMerge::run()
 
             samplesRead[ii] = nread;
             samplesUnique[ii] = nunique;
-            if (_app.interrupted()) break;
         }
+        // all the inputs have been read up to the first sample past the
+        // read-ahead time, so flush only up until the beginning of the
+        // read-ahead period (tcur).  the samples in the individual input
+        // streams are likely not in time order, so there will be more samples
+        // which fall into the current read-ahead period.
         if (!_app.interrupted())
         {
             flushSorter(tcur, outStream);
         }
     }
+    // All the samples have been read which need to be read, so flush all the
+    // remaining samples.  Make it explicit by passing UTime::MAX as the
+    // cutoff time.  If an end time was set, then flushSorter() will clip
+    // samples at the end time.
     if (!_app.interrupted())
     {
-        flushSorter(tcur, outStream);
+        flushSorter(UTime::MAX.toUsecs(), outStream);
     }
     outStream.flush();
     outStream.close();
