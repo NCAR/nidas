@@ -220,19 +220,19 @@ openFileForWriting(const std::string& filename)
  * Create a file using a time to create the name.
  * Return the time of the next file.
  */
-UTime FileSet::createFile(const UTime ftime,bool exact)
+UTime FileSet::createFile(const UTime ftime, bool exact)
 {
-    DLOG(("this=%p, nidas::util::FileSet::createFile, ftime=",this)
-     << ftime.format(true,"%c"));
+    DLOG(("this=%p, nidas::util::FileSet::createFile, ftime=", this)
+         << ftime.format(true, "%c"));
     closeFile();
 
     UTime ntime = ftime;
 
     if (!exact && _fileLength < LONG_LONG_MAX)
-    ntime -= ntime.toUsecs() % _fileLength;
+        ntime = ntime.earlier(_fileLength);
 
     // convert input time into date/time format using GMT timezone
-    _currname = ntime.format(true,_fullpath);
+    _currname = ntime.format(true, _fullpath);
 
     DLOG(("nidas::util::FileSet:: fullpath=") << _fullpath);
     DLOG(("nidas::util::FileSet:: currname=") << _currname);
@@ -274,14 +274,12 @@ UTime FileSet::createFile(const UTime ftime,bool exact)
         throw e;
     }
 
-    UTime nextFileTime = ntime + USECS_PER_SEC;	// add one sec
+    UTime nextFileTime{ UTime::MAX };
     if (_fileLength < LONG_LONG_MAX)
-        nextFileTime += _fileLength - (nextFileTime.toUsecs() % _fileLength);
-    else
-        nextFileTime = LONG_LONG_MAX;
+        nextFileTime = (ntime + _fileLength).earlier(_fileLength);
 
     DLOG(("nidas::util::FileSet:: nextFileTime=")
-     << nextFileTime.format(true,"%c"));
+         << nextFileTime.format(true,"%c"));
     _newFile = true;
 
     return nextFileTime;

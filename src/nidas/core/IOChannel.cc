@@ -77,6 +77,13 @@ IOChannel* IOChannel::createIOChannel(const xercesc::DOMElement* node)
 }
 
 
+dsm_time_t
+IOChannel::createFile(dsm_time_t /*t*/, bool /*exact*/)
+{
+    return LONG_LONG_MAX;
+}
+
+
 void
 IOChannel::addSampleTag(const nidas::core::SampleTag*)
 {}

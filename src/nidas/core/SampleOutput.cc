@@ -277,8 +277,8 @@ void SampleOutputBase::createNextFile(dsm_time_t tt)
 {
     // The very first file we use an exact time in the name,
     // otherwise it is truncated down.
-    _nextFileTime = getIOChannel()->createFile(tt,
-    	_nextFileTime == LONG_LONG_MIN);
+    bool exact = (_nextFileTime == LONG_LONG_MIN);
+    _nextFileTime = getIOChannel()->createFile(tt, exact);
     if (getIOChannel()->writeNidasHeader()) {
         if (_headerSource)
             _headerSource->sendHeader(tt,this);

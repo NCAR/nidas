@@ -141,9 +141,6 @@ public:
      **/
     size_t write(const void* buf, size_t len)
     {
-#ifdef DEBUG
-	std::cerr << getName() << " write, len=" << len << std::endl;
-#endif
         return _fset->write(buf,len);
     }
 

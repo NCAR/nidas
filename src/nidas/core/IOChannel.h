@@ -225,14 +225,7 @@ public:
      *
      * @throws nidas::util::IOException
      */
-#ifdef DOXYGEN
-    virtual dsm_time_t createFile(dsm_time_t t, bool exact)
-#else
-    virtual dsm_time_t createFile(dsm_time_t, bool)
-#endif
-    {
-        return LONG_LONG_MAX;
-    }
+    virtual dsm_time_t createFile(dsm_time_t t, bool exact);
 
     /**
      * Should the NIDAS header be written to this IOChannel?
