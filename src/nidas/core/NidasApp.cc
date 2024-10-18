@@ -562,8 +562,7 @@ Examples:
    "Clip the output samples to the given time range,\n"
    "and expand the input time boundaries by 5 minutes.\n"
    "The input times are expanded to catch all raw samples\n"
-   "whose processed sample times might fall within the output times.\n"
-   "This option only applies to netcdf outputs.\n"),
+   "whose processed sample times might fall within the output times.\n"),
   SorterLength("-s,--sortlen,--sorterlength", "<seconds>",
                "Sorter length for processed samples in "
                "floating point seconds (optional)", "5.0"),
@@ -1742,7 +1741,7 @@ setOutputClipping(const UTime& start, const UTime& end,
 {
   if (Clipping.asBool())
   {
-    ILOG(("clipping netcdf output [")
+    ILOG(("clipping output [")
           << _startTime.format(true,"%Y %m %d %H:%M:%S")
           << ","
           << _endTime.format(true,"%Y %m %d %H:%M:%S")
