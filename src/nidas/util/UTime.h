@@ -292,6 +292,8 @@ public:
      * if not specified.  For example:
      * ut.format(true,"time is: %Y %m %d %H:%M:%S.%2f");
      *
+     * If this UTime is MIN or MAX, the string "MIN" or "MAX" is returned.
+     *
      * The "%s" format descriptor will print the number of non-leap seconds
      * since 1970 Jan 01 00:00 UTC. This is the same number returned by toSecs().
      * Note that %s will generate the same value as strftime in the following code:

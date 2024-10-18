@@ -332,4 +332,7 @@ BOOST_AUTO_TEST_CASE(test_utime)
     when = UTime::parse(false, "2019-11-08Z", &nparsed);
     BOOST_CHECK_EQUAL(nparsed, 10);
     BOOST_CHECK_EQUAL(when, UTime(false, 2019, 11, 8, 0, 0, 0));
+
+    BOOST_CHECK_EQUAL(UTime::MIN.format(), "MIN");
+    BOOST_CHECK_EQUAL(UTime::MAX.format(), "MAX");
 }

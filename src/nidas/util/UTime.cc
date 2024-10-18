@@ -493,6 +493,8 @@ string UTime::format() const
 // method for conversion to string.
 std::string UTime::format(bool utc, const std::string& fmt) const
 {
+    if (isMin()) return "MIN";
+    else if (isMax()) return "MAX";
     //
     // Add support for %nf format to print fractional seconds,
     // where n is number of digits after decimal point, 1-6
