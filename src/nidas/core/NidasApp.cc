@@ -512,11 +512,14 @@ case-sensitive substring in the input stream name, which for datafile streams
 is the filename.  The filename criteria requires the file= prefix.
 
 Examples:
- -i /         All samples.
- -i .,30-40   Samples 30-40 from only the first DSM ID in the data.
- -i ^1        All samples except those with DSM ID 1.
- -i '^5' -i 1-10,1-2
-              Sample IDs 1-2 for DSMs 1-10 except for DSM 5.)"),
+ --samples /
+     All samples.
+ --samples .,30-40
+     Samples 30-40 from only the first DSM ID found.
+ --samples ^5 --samples 1-10,1-2
+     Include sample IDs 1-2 for DSMs 1-10 except for DSM 5.
+ --samples ^2,file=isfs_,[,2023-07-21Z]
+     Exclude all DSM 2 samples in network files before 2023-07-21.)"),
   FormatHexId("-X", "", "Format sensor-plus-sample IDs in hex"),
   FormatSampleId
   ("--id-format", "auto|decimal|hex|octal",

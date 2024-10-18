@@ -1527,7 +1527,7 @@ DataStats::
 receive(const Sample* samp) throw()
 {
     dsm_sample_id_t sampid = samp->getId();
-    if (! _app.sampleMatcher().match(sampid))
+    if (! _app.sampleMatcher().match(samp))
     {
         return false;
     }
