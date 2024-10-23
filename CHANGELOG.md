@@ -19,6 +19,20 @@ the [buster] branch for the changes on that branch.
 
 ### Changes related to M2HATS
 
+- `nidsmerge` now supports `--clip`: clipping expands the time range for
+  filename pattern inputs to catch samples within the requested time range but
+  which were recorded in preceding or succeeding files.  The time bounds
+  arguments `--start` and `--end` are always applied to the output, so no
+  samples are ever written outside those bounds.
+
+- Fix a bug where an output file started within 1 second of the next output
+  period would include the next period instead of starting a new file.
+
+- UTime formats the MIN and MAX times as "MIN" and "MAX", since they are
+  indecipherable and indistinguishable when formatted as time strings.  Also,
+  when parsing a time string with the default ISO-based formats, a "Z" suffix
+  will be accepted and parsed for UTC times.
+
 - The `-i/--samples` sample filter criteria have been expanded to include a
   time range and an input name, and the argument has been added to
   `nidsmerge`.  As an example, this filter specifier excludes samples 2,10
