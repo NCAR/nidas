@@ -226,37 +226,37 @@ build_image()
     set -x
     case "$alias" in
         alma9)
-            podman build -t $tag -f docker/Dockerfile.alma9
+            podman build -t $tag -f docker/Dockerfile.alma9 "$@"
             ;;
         centos9)
-            podman build -t $tag -f docker/Dockerfile.centos9
+            podman build -t $tag -f docker/Dockerfile.centos9 "$@"
             ;;
         centos8)
-            podman build -t $tag -f docker/Dockerfile.centos8
+            podman build -t $tag -f docker/Dockerfile.centos8 "$@"
             ;;
         centos7)
-            podman build -t $tag -f docker/Dockerfile.centos7
+            podman build -t $tag -f docker/Dockerfile.centos7 "$@"
             ;;
         pi2)
-            podman build -t $tag -f docker/Dockerfile.cross_arm --build-arg hostarch=armhf
+            podman build -t $tag -f docker/Dockerfile.cross_arm --build-arg hostarch=armhf "$@"
             ;;
         pi3)
-            podman build -t $tag -f docker/Dockerfile.buster_cross_arm --build-arg hostarch=armhf
+            podman build -t $tag -f docker/Dockerfile.buster_cross_arm --build-arg hostarch=armhf "$@"
             ;;
         titan)
-            podman build -t $tag -f docker/Dockerfile.cross_arm --build-arg hostarch=armel
+            podman build -t $tag -f docker/Dockerfile.cross_arm --build-arg hostarch=armel "$@"
             ;;
         vulcan)
-            podman build -t $tag -f docker/Dockerfile.cross_ael_armbe
+            podman build -t $tag -f docker/Dockerfile.cross_ael_armbe "$@"
             ;;
         ubuntu)
-            podman build -t $tag -f docker/Dockerfile.ubuntu_amd64
+            podman build -t $tag -f docker/Dockerfile.ubuntu_amd64 "$@"
             ;;
         vortex)
-            podman build -t $tag -f docker/Dockerfile.ubuntu_i386_bionic --build-arg=dolocal=yes
+            podman build -t $tag -f docker/Dockerfile.ubuntu_i386_bionic --build-arg=dolocal=yes "$@"
             ;;
         fedora*)
-            podman build -t $tag -f docker/Dockerfile.fedora
+            podman build -t $tag -f docker/Dockerfile.fedora "$@"
             ;;
     esac
 }

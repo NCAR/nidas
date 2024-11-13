@@ -14,13 +14,14 @@ LABEL organization="NCAR EOL"
 # old header package:  linux-headers-4.4.6
 
 ARG dolocal=no
+ARG install_uio48=yes
 
 # kmod provides modinfo command for querying modules
 # In ubuntu 18 bionic, you need libfl-dev for /usr/include/FlexLexer.h
 RUN apt-get update && \
     apt-get install -y --no-install-recommends apt-utils vim curl \
     build-essential fakeroot libncurses-dev bc dh-make ca-certificates \
-    git ssh scons doxygen graphviz gnupg2 reprepro flex gawk \
+    git ssh systemd scons doxygen graphviz gnupg2 reprepro flex gawk \
     devscripts lintian pkg-config libbz2-dev libgsl23 libgsl-dev \
     libcap-dev libcap2-bin libxerces-c-dev libbluetooth-dev libnetcdf-dev \
     libxmlrpcpp-dev libjsoncpp-dev xmlto libxerces-c-dev kmod rsync quilt \
@@ -36,8 +37,10 @@ RUN apt-get update && \
     apt-get -t bionic-backports install -y --no-install-recommends debhelper
 
 # Add EOL repository for local packages
-RUN echo "deb https://archive.eol.ucar.edu/software/debian/codename-bionic bionic main" > /etc/apt/sources.list.d/eol.list 
-RUN curl https://archive.eol.ucar.edu/software/debian/conf/eol-prog.gpg.key | apt-key add -
+RUN echo "deb https://archive.eol.ucar.edu/software/debian/codename-bionic bionic main" > /etc/apt/sources.list.d/eol.list
+RUN curl -o eol-repo.deb https://archive.eol.ucar.edu/software/debian/eol-repo.deb && \
+    dpkg -i eol-repo.deb && apt-get update
+# RUN curl https://archive.eol.ucar.edu/software/debian/conf/eol-prog.gpg.key | apt-key add -
 
 # Force override of libxerces-c3.2 from the EOL repo
 RUN printf 'Package: libxerces-c3.2\nPin: release l=EOL\nPin-Priority: 1001\n' > /etc/apt/preferences.d/libxerces-c
@@ -68,7 +71,7 @@ RUN apt-get update && \
 RUN DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends tzdata
 
 # when installing local packages, must first do apt-get update to see new packages
-RUN if [ $dolocal = yes ]; then \
+RUN if [ $dolocal = yes -a ${install_uio48} = yes ]; then \
         apt-get update; \
         apt-get install -y --no-install-recommends uio48-dev; \
     fi
@@ -88,6 +91,11 @@ RUN apt-get update && \
     update-alternatives --install /usr/bin/scons scons /usr/bin/scons3.0.1 1 && \
     update-alternatives --install /usr/bin/scons scons /usr/local/bin/scons 2 && \
     apt-get upgrade -y eol-scons
+
+# set the passwords to 'test'
+RUN useradd ads -p '$y$j9T$XdQSoXGBQLIC/4r/CYY3I0$U.bamzBj/TyJSYit/gc4kPeiAPiz6AR3HhP5jU2ZAjC'
+RUN usermod -aG sudo ads
+RUN usermod root -p '$y$j9T$XdQSoXGBQLIC/4r/CYY3I0$U.bamzBj/TyJSYit/gc4kPeiAPiz6AR3HhP5jU2ZAjC'
 
 WORKDIR /root
 
