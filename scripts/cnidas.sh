@@ -289,9 +289,12 @@ run_image() # command...
     # If the repository is available on this host, then mount that
     # too.
     DEBIAN_REPOSITORY=/net/www/docs/software/debian
-    repomoun=""
+    mounts=""
     if [ -d $DEBIAN_REPOSITORY ]; then
-        repomount="--volume ${DEBIAN_REPOSITORY}:/debian:rw,Z"
+        mounts="$mounts --volume ${DEBIAN_REPOSITORY}:/debian:rw,Z"
+    fi
+    if [ -d "$HOME/.scons" ]; then
+        mounts="$mounts --volume $HOME/.scons:/root/.scons:rw,Z"
     fi
     set -x
     # Mount the local scripts directory over top of the source, so the
@@ -301,13 +304,11 @@ run_image() # command...
     # May have to rethink the /opt/nidas mount as the default install
     # directory for builds in the container, since that conflicts with testing
     # installs of the nidas packages inside the container...
-    exec podman run --rm -i -t \
+    exec podman run --rm -i -t $mounts \
       --volume "$dest":/nidas:rw,Z \
       --volume "$install":/opt/nidas:rw,Z \
-      --volume "$HOME/.scons":/root/.scons:rw,Z \
       --volume "$packagepath":/packages:rw,Z \
       --volume "$scripts":/nidas/scripts:rw,Z \
-      $repomount \
       $imagetag "$@"
 }
 

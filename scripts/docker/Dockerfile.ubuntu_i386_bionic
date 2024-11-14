@@ -93,9 +93,9 @@ RUN apt-get update && \
     apt-get upgrade -y eol-scons
 
 # set the passwords to 'test'
-RUN useradd ads -p '$y$j9T$XdQSoXGBQLIC/4r/CYY3I0$U.bamzBj/TyJSYit/gc4kPeiAPiz6AR3HhP5jU2ZAjC'
+RUN useradd ads -p '$6$nBsa1BHh$3vfeiC3/1cl7EyOfr6XRPDh8MgtxcBgKlqFKLWozxrI9PnUR6B2por6SSEY0Gi9ivV08rxnCra9rfqcskaWMd/'
 RUN usermod -aG sudo ads
-RUN usermod root -p '$y$j9T$XdQSoXGBQLIC/4r/CYY3I0$U.bamzBj/TyJSYit/gc4kPeiAPiz6AR3HhP5jU2ZAjC'
+RUN usermod root -p '$6$nBsa1BHh$3vfeiC3/1cl7EyOfr6XRPDh8MgtxcBgKlqFKLWozxrI9PnUR6B2por6SSEY0Gi9ivV08rxnCra9rfqcskaWMd/'
 
 WORKDIR /root
 
