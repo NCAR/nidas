@@ -13,9 +13,6 @@ LABEL organization="NCAR EOL"
 # reprepro -b /net/www/docs/software/debian/codename-bionic includedeb bionic linux-headers-4.15.18-vortex86dx3_i386.deb
 # old header package:  linux-headers-4.4.6
 
-ARG dolocal=no
-ARG install_uio48=yes
-
 # kmod provides modinfo command for querying modules
 # In ubuntu 18 bionic, you need libfl-dev for /usr/include/FlexLexer.h
 RUN apt-get update && \
@@ -48,19 +45,6 @@ RUN printf 'Package: libxerces-c3.2\nPin: release l=EOL\nPin-Priority: 1001\n' >
 # GPG_TTY is needed for package signing
 RUN printf 'umask 0002\nexport GPG_TTY=$(tty)\n' >> .bashrc
 
-# We'll use the package instead of a local site_scons
-# RUN mkdir .scons && cd .scons && git clone https://github.com/NCAR/eol_scons site_scons
-
-# Install local packages once they are ready in the repo.
-# You have to do "apt-get update && apt-get install", so that if you
-# add a package to the list, the update will be performed.
-# Get linux-headers-4.15.18-vortex86dx3 from EOL repo.
-# Due to above Pin in /etc/apt/preferences.d/libxerces-c, libxerces-c3.2
-# will be fetched and possibly downgraded from EOL repository.
-RUN if [ $dolocal = yes ]; then apt-get update && \
-    apt-get install -y --no-install-recommends --allow-downgrades \
-    linux-headers-4.15.18-vortex86dx3 eol-scons eol-repo libxerces-c3.2; fi
-
 # net-tools is for netstat, used in tests, also valgrind.  pytest is helpful
 # so this same image can be used to test eol_scons.
 RUN apt-get update && \
@@ -69,12 +53,6 @@ RUN apt-get update && \
 
 # installation of tzdata wants to ask user for the time zone.  We have to be noninterative
 RUN DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends tzdata
-
-# when installing local packages, must first do apt-get update to see new packages
-RUN if [ $dolocal = yes -a ${install_uio48} = yes ]; then \
-        apt-get update; \
-        apt-get install -y --no-install-recommends uio48-dev; \
-    fi
 
 # make default python version 3
 RUN update-alternatives --install /usr/bin/python python /usr/bin/python2.7 1 && \
@@ -92,10 +70,32 @@ RUN apt-get update && \
     update-alternatives --install /usr/bin/scons scons /usr/local/bin/scons 2 && \
     apt-get upgrade -y eol-scons
 
-# set the passwords to 'test'
-RUN useradd ads -p '$6$nBsa1BHh$3vfeiC3/1cl7EyOfr6XRPDh8MgtxcBgKlqFKLWozxrI9PnUR6B2por6SSEY0Gi9ivV08rxnCra9rfqcskaWMd/'
-RUN usermod -aG sudo ads
-RUN usermod root -p '$6$nBsa1BHh$3vfeiC3/1cl7EyOfr6XRPDh8MgtxcBgKlqFKLWozxrI9PnUR6B2por6SSEY0Gi9ivV08rxnCra9rfqcskaWMd/'
+# Install local packages once they are ready in the repo.
+# You have to do "apt-get update && apt-get install", so that if you
+# add a package to the list, the update will be performed.
+# Get linux-headers-4.15.18-vortex86dx3 from EOL repo.
+# Due to above Pin in /etc/apt/preferences.d/libxerces-c, libxerces-c3.2
+# will be fetched and possibly downgraded from EOL repository.
+ARG dolocal=no
+RUN if [ $dolocal = yes ]; then apt-get update && \
+    apt-get install -y --no-install-recommends --allow-downgrades \
+    linux-headers-4.15.18-vortex86dx3 eol-scons eol-repo libxerces-c3.2; fi
+
+# Use the package instead of a local site_scons
+# RUN mkdir .scons && cd .scons && git clone https://github.com/NCAR/eol_scons site_scons
+
+# when installing local packages, must first do apt-get update to see new packages
+RUN if [ $dolocal = yes ]; then \
+        apt-get update; \
+        apt-get install -y --no-install-recommends uio48-dev; \
+    fi
+
+# setup users with password 'test' to allow logins when systemd runs
+ARG setup_users=no
+RUN if [ $setup_users = yes ]; then \
+        useradd ads -p '$6$nBsa1BHh$3vfeiC3/1cl7EyOfr6XRPDh8MgtxcBgKlqFKLWozxrI9PnUR6B2por6SSEY0Gi9ivV08rxnCra9rfqcskaWMd/'; \
+        usermod -aG sudo ads; \
+        usermod root -p '$6$nBsa1BHh$3vfeiC3/1cl7EyOfr6XRPDh8MgtxcBgKlqFKLWozxrI9PnUR6B2por6SSEY0Gi9ivV08rxnCra9rfqcskaWMd/'; \
+    fi
 
 WORKDIR /root
-
