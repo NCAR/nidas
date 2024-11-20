@@ -550,7 +550,8 @@ int NidsMerge::run()
          !_app.interrupted();
          tcur += readAheadUsecs)
     {
-        DLOG(("merge loop at step: ") << tformat(tcur));
+        DLOG(("") << inputs.size() << " inputs left, "
+                  << "merge loop at step: " << tformat(tcur));
         for (unsigned int ii = 0;
              ii < inputs.size() && !_app.interrupted();
              ii++)
@@ -609,12 +610,14 @@ int NidsMerge::run()
             lastTimes[ii] = lastTime;
 
             // set startTime to the first time read across all inputs if user
-            // did not specify it in the runstring.  conveniently, the
-            // earliest time is the first in the sorter.
-            if (startTime.isMin() && sorter.size() > 0)
+            // did not specify it in the runstring.
+            if (startTime.isMin())
             {
-                startTime = (*sorter.begin())->getTimeTag();
-                tcur = startTime.toUsecs();
+                auto minmax =
+                    std::minmax_element(lastTimes.begin(), lastTimes.end());
+                tcur = *minmax.first;
+                startTime = tcur;
+                DLOG(("set start time: ") << tformat(tcur));
             }
 
             samplesRead[ii] = nread;
