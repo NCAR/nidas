@@ -1,0 +1,13 @@
+#
+# Used by CalFile parser
+# dateFormat = "%Y %b %d %H:%M:%S"
+# timeZone = "US/Mountain"
+#
+# DateTime     		 offset	 gain
+2021 Jul 01 00:00:00     NA      NA
+# bad periods until popsicle stick replaced
+2022 Nov 14 00:00:00     0.00    1.00
+2022 Dec 08 11:00:00     NA      NA
+2022 Dec 13 19:00:00     0.00    1.00
+2023 Jan 01 02:00:00     NA      NA
+2023 Jan 23 10:40:00     0.00    1.00

@@ -1,0 +1,14 @@
+#
+# Used by CalFile parser
+# dateFormat = "%Y %b %d %H:%M:%S"
+# timeZone = "US/Mountain"
+#
+# boom: determined from Leica shoots, into sonic array
+# vazimuth is boom - 90
+#
+#
+# DateTime     		u.off   v.off   w.off    lean	leanaz Vazimuth	t.off	t.gain
+2022 Jan 01 00:00:00 	 0.00	 0.00	0.00	  0.0	 0.0	127.5	0.0	1.0
+2022 Oct 01 00:00:00 	 0.00	 0.00  -0.036	  3.6	 46.3	146.6	0.0	1.0
+2022 Nov 29 00:00:00 	 0.00	 0.00  -0.005	  4.6	 55.6	146.6	0.0	1.0
+2023 May 16 00:00:00 	 0.00	 0.00  -0.025	  3.6	 45.7	146.6	0.0	1.0

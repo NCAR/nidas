@@ -1,0 +1,10 @@
+#
+# Used by CalFile parser
+# dateFormat = "%Y %b %d %H:%M:%S"
+# timeZone = "US/Mountain"
+#
+# DateTime     		 offset	 gain
+2022 Jun 1 00:00:00     0.00    1.00
+2023 Apr 7 04:50:00	na	na
+2023 May 14 06:50:00	0.00	1.00
+2023 May 26 02:15:00	na	na
