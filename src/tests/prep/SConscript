@@ -32,6 +32,26 @@ trexdiff = env.Diff(['baseline/trex-prep.txt', 'output/trex-prep.txt'])
 
 env.Alias('trex-prep-test', [trextest, trexdiff])
 
+# The SOS prep test uses a data file extracted from the merge dataset with
+# just 1 flowcapt sample from each flowcapt on ue, plus 10m sonic on d, and
+# all the lower-rate Tsnow, soil, and victron data from d:
+
+# nidsmerge --start 2023-03-15_00:01:00 --end 2023-03-15_00:01:30 \
+#   --samples 20,16 --samples 20,26 --samples 10,100-9999 \
+#   -i ../merge/isfs_20230315_000000.dat.bz2 \
+#   -o isfs_x_20230315_000000.dat.bz2
+
+# Then generate 1-Hz prep output for a few variables:
+
+# prep -r 1 -D SF_min.1m.ue,SF_min.2m.ue,u.10m.d,P.10m.d,Tsnow.1.2m.d \
+#    isfs_x_20230315_000000.dat.bz2 > prep.txt
+
+# The idea is to show cases where lower-rate values are duplicated by the
+# resampler, so those could be fixed without breaking resampling.  There is
+# also a problem with the pressure output where periodically several NaNs
+# appear in a row, likely due to 0.5-second jumps in the pressure timestamps,
+# but this data excerpt does not cover one of those periods.
+
 env = env.Clone()
 env['ENV'].update({'ISFS': env.Dir('config').abspath,
                    'PROJECT': 'SOS'})
