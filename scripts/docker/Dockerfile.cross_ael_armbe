@@ -3,7 +3,7 @@ LABEL organization="NCAR EOL"
 
 USER root:root
 
-RUN rpm -ihv http://www.eol.ucar.edu/software/rpms/eol-repo-epel-1-3.noarch.rpm
+RUN rpm -ihv http://www.eol.ucar.edu/software/rpms/eol-repo-epel.noarch.rpm
 
 # xmlrpc++ contains /usr/lib64/pkgconfig/xmlrpcpp.pc, which the
 # scons tool wants to find.

@@ -13,7 +13,7 @@ RUN dnf -y install libxml2-devel cmake
 
 RUN dnf -y install gsl-devel kernel-devel libcap-devel libpcap-devel bzip2-devel bzip2-libs bzip2 bluez-libs-devel jsoncpp-devel libcurl-devel xerces-c-devel
 
-RUN rpm -ihv http://www.eol.ucar.edu/software/rpms/eol-repo-epel-1-5.noarch.rpm
+RUN dnf -y install http://www.eol.ucar.edu/software/rpms/eol-repo-epel.noarch.rpm
 
 # Someday this step can be replaced with a checkout and build of the rpm
 # and local install, to bootstrap a container without needing this rpm to

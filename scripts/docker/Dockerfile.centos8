@@ -42,7 +42,7 @@ RUN ln --force -s scons /usr/local/bin/scons-3
 RUN ln --force -s /usr/local/lib64/python3.6/site-packages/SCons /usr/lib64/python3.6/site-packages/SCons
 
 # Not actually using this at this point, so leave it out.
-# RUN rpm -ihv http://www.eol.ucar.edu/software/rpms/eol-repo-epel-1-5.noarch.rpm
+# RUN rpm -ihv http://www.eol.ucar.edu/software/rpms/eol-repo-epel.noarch.rpm
 
 # For some reason /usr/include/linux/errno.h is missing at this point, and an
 # install of kernel-headers says it already installed, so this reinstall fixes
