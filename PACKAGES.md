@@ -51,3 +51,14 @@ For Fedora:
 ```sh
 sudo dnf install https://www.eol.ucar.edu/software/rpms/eol-repo-fedora.noarch.rpm
 ```
+
+## TODO
+
+It might make sense to roll `nidas-libs` into `nidas`, since the shared
+libraries are of course required by the nidas executables.  However, looking
+at other Fedora packages, there are plenty split up into one package for
+`-libs`, one for programs, and one for `-devel`.  Maybe that's so the shared
+libs can be updated without requiring the binaries to change.  It seems like
+that would never happen for `nidas`, so maybe it's reasonable to always
+release binaries and libraries at the same time and in the same package,
+without violating any system package conventions.

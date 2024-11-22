@@ -120,6 +120,9 @@ different install locations, such as between NIDAS versions installed from
 different branches, or between the system package location (`/opt/nidas`) and
 a local build (eg `/opt/local/nidas`).
 
+See [Variant-Builds.md](doc/Variant-Builds.md) for more information on variant
+builds.
+
 ### Testing
 
 Running all the tests can take significant time, so it is possible to run a
