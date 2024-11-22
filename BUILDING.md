@@ -1,66 +1,167 @@
 # Building NIDAS
 
-# Wiki Information
+## Install Dependencies
 
-The NIDAS Wiki at GitHub (https://github.com/NCAR/nidas/wiki) contains
-information on building NIDAS, including how to install developer packages of
-necessary external software from the Debian and NCAR/EOL repositories.
-
-# Other Notes on Building
-
-These notes cover much of the same as the Wiki, but include some information people have found useful.
-
-You will need the eol_scons addon in order to manually build.  You can add it via the following (brute force, assumes no other scons addons):
+NIDAS uses [SCons](https://scons.org/) and
+[eol_scons](https://github.com/NCAR/eol_scons) to build from source.  Install
+`SCons` as a system package or with `pip`.  `eol_scons` is most easily
+installed by cloning it into the one of the locations searched by `SCons`, as
+shown below.
 
 ```sh
-    mkdir -p ~/.scons/
-    pushd ~/.scons
-    git clone https://github.com/ncar/eol_scons site_scons
-    popd
+mkdir -p ~/.scons/site_scons
+cd ~/.scons/site_scons
+git clone https://github.com/ncar/eol_scons
 ```
+
+See the [SCons](https://scons.org/) and
+[eol_scons](https://github.com/NCAR/eol_scons) web sites for more installation
+options.
+
+On RedHat systems, other dependencies can be installed as system packages
+using the `nidas.spec` file and the DNF `builddep` plugin:
+
+```sh
+git clone https://github.com/NCAR/nidas
+cd nidas
+dnf builddep rpm/nidas.spec
+```
+
+NIDAS also depends on the [XmlRpc++](https://xmlrpcpp.sourceforge.net/)
+library, now very old and not always available as a system package.  It can be
+downloaded and installed separately from the version kept in the [NCAR github
+xmlrpcpp repo](https://github.com/NCAR/xmlrpcpp), usually by first creating a
+package then installing it.
+
+```sh
+git clone https://github.com/NCAR/xmlrpcpp.git
+cd xmlrpcpp
+./build_rpm.sh  # or ./build_dpkg.sh
+# then install the resulting package, eg:
+dnf install xmlrpc++-0.7-1.fc40.x86_64
+```
+
+The advantage to installing the package is that then the RPM build
+dependencies are met, necessary to build the NIDAS RPM packages.  See below
+for more options for installing `XmlRpc++`.
+
+## Build NIDAS
+
+The `SCons` configuration is controlled by the `src/SContruct` file and then
+various `SConscript` files and python tool scripts in `src/tools`.  A native
+build is done by default, but a specific target can be named with the `BUILD`
+variable, such as to cross-compile for the Raspberry Pi 3 armhf architecture
+on a Debian host.  In the `src` directory, run `scons -Q -h` to see brief
+usage info, including a list of the available targets.  On most systems, it
+should suffice to run the default build with just `scons`
+
+```sh
+scons
+```
+
+Change the PREFIX by setting it on the command-line or storing it in
+`nidas.conf`:
+
+```python
+PREFIX="/opt/local/nidas"
+```
+
+Run the `install` build target to install, `test` to run the tests:
+
+```sh
+scons test
+scons install
+```
+
+There is a second install target called `target.root` for installing into
+locations which usually require root permissions.  Usually that target is only
+run when building system packages.
+
+## Developer Hints
+
+### Compiler Warnings
+
+NIDAS has been developed with the help of GCC compiler checks like `-Wall`,
+`-Wextra`, and `-Weffc++`, and the goal is to compile cleanly without warnings
+whenever possible.
+
+The `SCons` configuration provides a variable called `allow_warnings` which
+defaults to `on`, but the CI builds disable it on systems where the build is
+expected to compile without warnings.  For development, it's a good idea to
+set it off in `nidas.conf`:
+
+```python
+allow_warnings="off"
+```
+
+This adds the `-Werror` flag to the compiler command-line.  For systems or
+containers which do not compile without warnings, leave `allow_warnings` unset
+or override the setting on the command line.
+
+### Variant builds
+
+Each target architecture and OS is assigned a different variant output
+directory under `src/build`, eg `x86_64_fedora40`.  This allows the same
+source tree to be used to build different targets, either from the host or by
+mounting the source tree into a container.  However, the tests do not work for
+cross-compiles, and they are not well-tested running inside a container.
+
+The layout of the variant build output matches the install layout, so a
+specific build can be tested without installing it using `setup_nidas.sh`:
+
+```sh
+source build/x86_64_fedora40/bin/setup_nidas.sh
+which data_stats
+.../src/build/x86_64_fedora40/bin/data_stats
+```
+
+Of course, `setup_nidas.sh` is intended primarily for switching between
+different install locations, such as between NIDAS versions installed from
+different branches, or between the system package location (`/opt/nidas`) and
+a local build (eg `/opt/local/nidas`).
+
+### Testing
+
+Running all the tests can take significant time, so it is possible to run a
+single test by naming the test directory, like so:
+
+```sh
+cd src
+scons tests/core
+# ...or...
+cd src/tests/core
+scons -u .
+```
+
+Some tests also have their own aliases in the `SConscript` file.
+
+### Kernel modules
+
+Kernel modules are built by default for targets which support them, but they
+can be disabled when not needed by setting `LINUX_MODULES=no`.
+
+### Container builds
+
+It is possible to build the same source tree for different targets using
+containers.  See the [README.md](scripts/README.md) file in the scripts
+directory for more (but incomplete) information.
 
 ## Documentation
-There are 2 scripts that can build the documentation.  One is a bit older and still uses svn (```scripts/make_doxy.sh```)  to create and rsync the data to an internal server, where as ```scripts/create-doxygen-ghpages.sh```  builds the doxygen API doc off HEAD and pushes them to github.io via the gh-pages branch. If you dont care to push data just running ```doxygen doc/doxygen_conf/nidas.doxy``` from the git checkout root should suffice.
 
-## Getting Nidas on Debian (For the truly impatient)
-
-Simply connect to EOL's build server to fetch the build products:
+Doxygen API documentation can be built with `scons`:
 
 ```sh
-    curl -O https://archive.eol.ucar.edu/software/debian/eol-repo.deb 
-    sudo dpkg -i eol-repo.deb 
-    sudo apt update
-    sudo apt install nidas
+cd src
+scons dox
 ```
 
-You will need the eol_scons addon in order to build properly.  You can add it via the following (brute force, assumes no other scons addons):
+Browse to this location to see it: `../doc/doxygen/html/index.html`.
+
+## Install XmlRpc++ directly from source
 
 ```sh
-    mkdir -p ~/.scons/
-    pushd ~/.scons
-    git clone https://github.com/ncar/eol_scons site_scons
-    popd
-```
-
-## Building Nidas (Manually) on Debian
-Standard building preqs are required:
-```sh
-    sudo apt get install build-essentials scons libxerces-c-dev devscripts debhelper flex subversion git
-```
-
-- NIDAS uses a custom version of [xmlrpcpp](http://svn.eol.ucar.edu/svn/eol/imports/xmlrpcpp).  Heaven forbid you are using this lib in another project as it is rather old an sorta stale.  We picked the loser in the XML-RPC wars  :-(.
-
-```sh
-    git clone https://github.com/NCAR/xmlrpcpp.git
-    pushd xmlrpcpp/xmlrpcpp
-    sudo make prefix=/usr/local install
-    sudo ldconfig
-    popd
-```
-- After the pre-reqs are built, all that is needed is to run scons to get a working copy
-```sh
-    git clone https://github.com/NCAR/nidas.git
-    pushd nidas/src
-    scons
-    scons install PREFIX=/usr/local
+git clone https://github.com/NCAR/xmlrpcpp.git
+cd xmlrpcpp/xmlrpcpp
+sudo make prefix=/usr/local install
+sudo ldconfig
 ```

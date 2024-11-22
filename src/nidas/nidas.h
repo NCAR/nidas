@@ -26,63 +26,38 @@
 
 /*!
   \mainpage NIDAS
+
   \section intro_sec Introduction
-  NCAR In-Situ Data Acquisition Software
+  
+NIDAS is the NCAR In-Situ Data Acquisition Software, used for data
+acquisition, archiving, and processing on NSF NCAR aircraft platforms and
+surface observation networks.  This is the API documentation for the C++
+libraries and executables.  More information on installing, building, and
+developing NIDAS is in the top README.md, or at the NIDAS repository website:
+https://github.com/NCAR/nidas.
 
-  \section install_both How to Build and Install NIDAS for ARM and Intel Systems
+  \section namespaces_sec Namespaces
 
-  Building NIDAS requires the the gcc and g++ compilers, the flex parser, and the scons build tool.
+There are three main namespaces in NIDAS: nidas::util, nidas::core,
+nidas::util.
 
-  NIDAS uses various other software, such as xerces-c, xmlrpc++, bluez for bluetooth, and the Linux kernel headers for building kernel modules
+nidas::util provides general, lower-level utility interfaces.
 
-  On RedHat systems, yum install the <b>nidas-build</b> package from the EOL repository before building nidas. Installing that package will ensure that your development system has the required software to do a build.
+nidas::core contains, naturally, the core of NIDAS.  The important base class
+nidas::core::DSMSensor defines the interface which all NIDAS sensors
+implement.  Other important interfaces define data samples
+(nidas::core::Sample), the interfaces by which samples can be received
+(nidas::core::SampleClient) and distributed (nidas::core::SampleSource).
+Classes for reading and writing file and network IO devices implement
+nidas::core::IOStream.  Classes which manage sensors and metadata
+(nidas::core::Project) and archiving (nidas::core::SampleArchiver) can be
+configured from the XML configuration file, facilitated by implementing the
+nidas::core::DOMable interface.
 
-  \section install_all How to Build and Install NIDAS for All Supported Hosts
-  - cd src
-  - scons install
+nidas::dynld contains classes which implement more specific kinds of sensors
+and outputs which are used by different platforms at runtime, so they can be
+loaded dynamically as needed.
 
-  \section prefix Setting install destination with PREFIX
-  The value of PREFIX defaults to /opt/nidas. It can be changed with a scons runstring variable:
-  - cd src
-  - scons PREFIX=/usr install
-
-  \section install_x86 How to Build NIDAS for Build Host's Architecture
-  - cd src
-  - scons BUILDS=host
-  - scons BUILDS=host install
-
-  \section install_arm How to Build NIDAS for ARM
-
-  On RedHat systems, yum install the <b>nidas-ael</b> package from the EOL repository. Installing that package will ensure that your development system has the required software to do a build for ARM systems.
-
-  Then make sure arm-linux-g++, and the other arm tools are available and in your path. For example:
-
-  - sh/bash:  PATH=/opt/arcom/bin:$PATH
-  - csh/tcsh: set path = (/opt/arcom/bin $path)
-
-  - cd src
-  - scons BUILDS=arm
-  - scons BUILDS=arm install
-
-  - cd src
-  - scons BUILDS=armbe
-  - scons BUILDS=armbe install
-
-  \section directory Directory of NIDAS Installation
-  $PREFIX defaults to /opt/nidas. It can be changed with a scons runstring variable.
-  <dl>
-  <dt>$PREFIX/bin</dt>	<dd>Executables for the host system</dd>
-  <dt>$PREFIX/lib</dt>	<dd>Libraries for the host (libnidas.so, libnidas_dynld.so)</dd>
-  <dt>$PREFIX/modules</dt>	<dd>Kernel modules for the host</dd>
-  <dt>$PREFIX/include</dt>	<dd>C/C++ header files</dd>
-  <dt>$PREFIX/arm/bin</dt>	<dd>Executables for ARM</dd>
-  <dt>$PREFIX/arm/lib</dt>	<dd>Libraries for ARM (libnidas.so, libnidas_dynld.so)</dd>
-  <dt>$PREFIX/arm/modules/viper</dt>	<dd>Kernel modules for Eurotech Viper CPU</dd>
-  <dt>$PREFIX/arm/modules/titan</dt>	<dd>Kernel modules for Eurotech Titan CPU</dd>
-  <dt>$PREFIX/armbe/bin</dt>	<dd>Executables for big-endian ARM</dd>
-  <dt>$PREFIX/armbe/lib</dt>	<dd>Libraries for big-endian ARM (libnidas.so, libnidas_dynld.so)</dd>
-  <dt>$PREFIX/armbe/modules/vulcan</dt>	<dd>Kernel modules for Eurotech Vulcan CPU</dd>
-  </dl>
   \namespace nidas
     \brief Root namespace for the NCAR In-Situ Data Acquisition Software.
  */
