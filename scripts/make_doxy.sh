@@ -5,29 +5,38 @@
 ## Copyright 2005 UCAR, NCAR, All Rights Reserved
 ##
 
-renice +20 -p $$ > /dev/null
+htmldest=jenkins@jenkins.eol.ucar.edu:/net/www/docs/software/nidas/doxygen/html
 
-codir=${TMPDIR:-/tmp}/nidas_doxy/nidas
+if [ ! -f doc/doxygen_conf/nidas.doxy ]; then
+    echo "doc/doxygen_conf/nidas.doxy not found."
+    echo "Run this script from the top of the NIDAS source tree."
+    exit 1
+fi
 
-svn_co_nidas() {
-    if [ -d $codir ]; then
-	cd $codir || exit 1
-        if  ! svn update; then
-            svn cleanup
-            svn update || { cd $HOME; rm -rf $codir || exit 1; svn_co_nidas; }
-        fi
-    else
-        [ -d ${codir%/*} ] || mkdir -p ${codir%/*}
-	cd ${codir%/*} || exit 1
-	svn co http://svn/svn/nidas/trunk nidas
-    fi
+make_html()
+{
+    set -x
+    rm -rf doc/doxygen/html
+    scons -C src dox
 }
 
-svn_co_nidas
-cd $codir || exit 1
+push_eol()
+{
+    if [ ! -f doc/doxygen/html/index.html ]; then
+        echo "Doxygen index.html not found.  Run make_html first."
+        exit 1
+    fi
+    (set -x; rsync -a -O --no-perms --delete doc/doxygen/html/ $htmldest)
+}
 
-rm -rf doc/doxygen
-nice doxygen doc/doxygen_conf/nidas.doxy
-
-rsync -a -O --no-perms --delete doc/doxygen /net/www/docs/software/nidas
-
+case "$1" in
+    push*)
+        push_eol
+        ;;
+    make*)
+        make_html
+        ;;
+    *)
+        echo "Usage: $0 [make|push]"
+        ;;
+esac
