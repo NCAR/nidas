@@ -140,13 +140,13 @@ def LinuxModulesEnabled(env: Environment):
 NIDAS_BUILD = check_target(env)
 ARCH = env['ARCH']
 MACH = env['MACH']
+REPO_TAG = env.get('REPO_TAG')
 
 
 def nidas_build(env: Environment):
     """
-    Setup the basic build environment for all NIDAS source, adding
-    ARCH, MACH, NIDAS_BUILD, and VARIANT_DIR settings, and adding global
-    compiler options like 
+    Setup the basic build environment for all NIDAS source, adding ARCH, MACH,
+    NIDAS_BUILD, and VARIANT_DIR settings, and adding global compiler options.
     """
     opts.Update(env)
     env['ARCH'] = ARCH
@@ -161,6 +161,9 @@ def nidas_build(env: Environment):
     # need this everywhere sharedlibrary is used, because sharedlibrary uses
     # REPO_TAG as a fallback for SHLIBMAJORVERSION.
     env.Tool('gitinfo')
+    # but use the REPO_TAG variable if provided to override gitinfo
+    if REPO_TAG:
+        env['REPO_TAG'] = REPO_TAG
     # Load nidasconfig tool before any Configure contexts are created in this
     # tree or external tools, so the settings can be stored in the variant
     # dirs.
