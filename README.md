@@ -1,5 +1,10 @@
 # NCAR Insitu Data Acqusition Software (NIDAS)
 
+## Introduction
+
+[Introduction.md](doc/Introduction.md) is an overview of NIDAS written by the
+original author, Gordon Maclean.
+
 ## Changelog
 
 Recent changes are noted in the [Changelog](CHANGELOG.md).
@@ -19,8 +24,6 @@ The EOL web site hosts the [NIDAS API
 documentation](https://www.eol.ucar.edu/software/nidas/doxygen/html) generated
 with [Doxygen](https://doxygen.nl/), but it is not always updated.
 
-## Wiki
+## Time tags
 
-The [NIDAS Wiki](https://github.com/NCAR/nidas/wiki) contains an overview and
-some documentation on NIDAS time tags, while documentation on building and
-packaging has been moved to the source repository.
+See [timetags.md](doc/timetags.md) for a disucssion of time tags in NIDAS.

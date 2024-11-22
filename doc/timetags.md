@@ -1,10 +1,6 @@
 # NIDAS Sample Time Tags
 
-2020, Copyright University Corporation for Atmospheric Research
-
-[psfd_plots]: https://github.com/NCAR/nidas/wiki/ttadjust_plots/PSFD_ttadjust.pdf "WCR-TEST PSFD"
-[qcf_plots]: https://github.com/NCAR/nidas/wiki/ttadjust_plots/QCF_ttadjust.pdf "WCR-TEST QCF"
-[csat3_plots]: https://github.com/NCAR/nidas/wiki/ttadjust_plots/CSAT3_ttadjust.pdf "Perdigao CSAT3"
+2020-2024, Copyright University Corporation for Atmospheric Research
 
 ## Introduction
 
@@ -313,7 +309,7 @@ These plots show results of TimetagAdjuster on the PSFD data during the first 20
 seconds of sampling after a data system start on Nov 11, 2020, prior to a
 WCR-TEST test flight.  With `Npts=50`, this is 20 adjustment periods.
 
-![TimetagAdjuster, WCR-TEST, PSFD, 50 sps serial][psfd_plots]
+![TimetagAdjuster, WCR-TEST, PSFD, 50 sps serial](ttadjust/PSFD_ttadjust.pdf)
 
 In the top plot, `tdiff` has a linear slope in each 50 point period, which
 gradually decreases in later periods as the adjuster determines a better value
@@ -332,7 +328,7 @@ QCF is a dynamic pressure from a Honeywell PPT pressure transducer, that is
 prompted by the data system at 50 Hz.  Plots of QCF later in the flight,
 covering 30 seconds, show the adjustment over a time of bad latency.
 
-![TimetagAdjuster, WCR-TEST, QCF, 50 sps serial, prompted][qcf_plots]
+![TimetagAdjuster, WCR-TEST, QCF, 50 sps serial, prompted](ttadjust/QCF_ttadjust.pdf)
 
 The top trace shows the decreasing tdiff after two large latency gaps exceeding 4 seconds.
 The third trace of `dtadj` indicates, surprisingly, that no data were lost, since
@@ -347,7 +343,7 @@ FTDI USB/Serial converter chip, on a Raspberry Pi 2 Model B, data system "tse07"
 an arbitrary hour of data, on Jan 19, 2017 from 01:00-02:00 UTC, there were 3 latency gaps,
 of 0.7, 0.4 and 0.1 seconds. The plots show the adjustment over the 0.7 sec gap, at 01:20:24.6 UTC.
 
-![TimetagAdjuster, Perdigao, CSAT3, 20 sps, FTDI Serial-USB][csat3_plots]
+![TimetagAdjuster, Perdigao, CSAT3, 20 sps, FTDI Serial-USB](ttadjust/CSAT3_ttadjust.pdf)
 
 The top trace shows the decreasing tdiff after the gap.  Again, the third trace of `dtadj`
 indicates that no data was lost, since the resulting delta-Ts are between 0.04990 and 0.05010.
