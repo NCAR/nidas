@@ -57,6 +57,8 @@ public:
 
     bool process(const Sample* samp,std::list<const Sample*>& results);
 
+    virtual void updateAttributes() override;
+
     /**
      * Calculate the CRC signature of a data record. From EC150 manual.
      */
@@ -91,6 +93,9 @@ private:
      * Counter of the number of records with incorrect CRC signatures.
      */
     unsigned int _badCRCs;
+
+    /// integer mask for IRGA diagnostic bits to ignore
+    unsigned int _irgaDiagMask;
 
     VariableIndex _irgaDiag;
     VariableIndex _h2o;

@@ -133,6 +133,16 @@ public:
 
     int getLength() const;
 
+    /**
+     * Return true if this Parameter has the given type and length, otherwise
+     * false.
+     */
+    bool check(parType ptype, int len) const;
+
+    /**
+     * Return a FLOAT, INT, or BOOL parameter as a double.  Return NAN if type
+     * is a STRING.
+     */
     double getNumericValue(int i) const;
 
     /**
@@ -152,6 +162,14 @@ public:
      * exists.
      */
     const std::string& getStringValue() const;
+
+    /**
+     * Return true if this Parameter contains one FLOAT, and set @p value to
+     * the value.  Otherwise return false. 
+     */
+    bool get(float& value) const;
+
+    bool get(int& value) const;
 
     /**
      * @throws nidas::util::InvalidParameterException

@@ -328,6 +328,7 @@ void Wind3D::parseParameters()
         else if (parameter->getName() == "expectedCounts");
         else if (parameter->getName() == "maxMissingFraction");
         else if (parameter->getName() == "bandwidth");
+        else if (parameter->getName() == "irgadiagmask");
         else if (parameter->getName() == "configure");
         else if (parameter->getName() == "checkCounter");
         else throw n_u::InvalidParameterException(

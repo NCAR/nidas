@@ -247,7 +247,7 @@ public:
 
     bool shadowCorrectionEnabled();
 
-    void updateAttributes();
+    virtual void updateAttributes();
 
 protected:
 

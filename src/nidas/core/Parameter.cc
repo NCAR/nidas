@@ -138,6 +138,12 @@ Parameter::getLength() const
 }
 
 
+bool
+Parameter::check(parType ptype, int len) const
+{
+    return _type == ptype && getLength() == len;
+}
+
 
 double Parameter::getNumericValue(int i) const
 {
@@ -189,6 +195,30 @@ Parameter::getStringValue() const
     }
     _cached_value = ost.str();
     return _cached_value;
+}
+
+
+bool
+Parameter::get(float& value) const
+{
+    if (check(FLOAT_PARAM, 1))
+    {
+        value = getFloat(0);
+        return true;
+    }
+    return false;
+}
+
+
+bool
+Parameter::get(int& value) const
+{
+    if (check(INT_PARAM, 1))
+    {
+        value = getInt(0);
+        return true;
+    }
+    return false;
 }
 
 
