@@ -30,7 +30,7 @@
 #include <nidas/core/Sample.h>
 #include <nidas/core/AsciiSscanf.h>
 #include <nidas/core/TimetagAdjuster.h>
-
+#include <nidas/util/Logger.h>
 #include <limits>
 
 using namespace nidas::dynld::isff;
@@ -39,6 +39,7 @@ using namespace std;
 using nidas::util::InvalidParameterException;
 using nidas::util::EndianConverter;
 using nidas::util::dirFromUV;
+using nidas::util::LogContext;
 
 NIDAS_CREATOR_FUNCTION_NS(isff,CSI_IRGA_Sonic)
 
@@ -182,7 +183,10 @@ void CSI_IRGA_Sonic::updateAttributes()
             attributes.push_back(*param);
         }
     }
-    auto vars = vector<VariableIndex>{_irgaDiag, _h2o, _co2};
+    // Pirga and Tirga could be affected by the mask since they will not be
+    // flagged if the system startup bit is masked, so give them the
+    // attributes also.
+    auto vars = vector<VariableIndex>{_irgaDiag, _h2o, _co2, _Pirga, _Tirga};
     for (auto& vi: vars)
     {
         Variable* var = vi.variable();
@@ -412,8 +416,19 @@ bool CSI_IRGA_Sonic::process(const Sample* samp,
     // screen h2o and co2 values when the IRGA diagnostic value is indexed and
     // is non-zero, masked by irgadiagmask.  And in the mask once, so the sys
     // startup bit could be ignored also by setting the mask to 0x4.
-    unsigned int irgadiag = (unsigned int)_irgaDiag.get(dout, 0.0);
-    irgadiag &= (~_irgaDiagMask);
+    unsigned int irgadiagbits = (unsigned int)_irgaDiag.get(dout, 0.0);
+    unsigned int irgadiag = irgadiagbits & (~_irgaDiagMask);
+    // log the diag bits before and after the mask, and show the values before
+    // changing them, in case they were already nan.
+    static LogContext lp(LOG_VERBOSE);
+    if (lp.active() && _irgaDiagMask && irgadiagbits)
+    {
+        lp.log() << "irgadiag=0x" << hex << irgadiagbits
+                 << " & ~0x" << hex << _irgaDiagMask
+                 << "==> irgadiag=" << hex << irgadiag
+                 << "; h2o=" << _h2o.get(dout, 0.0)
+                 << "; co2=" << _co2.get(dout, 0.0);
+    }
     if (irgadiag != 0) {
         _h2o.set(dout, floatNAN);
         _co2.set(dout, floatNAN);
