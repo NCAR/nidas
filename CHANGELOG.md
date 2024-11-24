@@ -19,6 +19,9 @@ the [buster] branch for the changes on that branch.
 
 ### Changes related to M2HATS
 
+- Add `irgadiagmask` parameter to `CSI_IRGA_Sonic` class to prevent selected
+  IRGA diagnostic bits from causing H2O and CO2 to be set to NANs.
+
 - `nidsmerge` now supports `--clip`: clipping expands the time range for
   filename pattern inputs to catch samples within the requested time range but
   which were recorded in preceding or succeeding files.  The time bounds
