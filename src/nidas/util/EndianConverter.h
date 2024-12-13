@@ -27,6 +27,7 @@
 #ifndef NIDAS_UTIL_ENDIANCONVERTER_H
 #define NIDAS_UTIL_ENDIANCONVERTER_H
 
+#include <cstdint> // uint32_t
 
 namespace nidas { namespace util {
 
