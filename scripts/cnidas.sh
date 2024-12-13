@@ -131,7 +131,7 @@ is named, then the current repo is used.
 EOF
 }
 
-targets=(centos7 centos8 vulcan titan pi2 pi3 ubuntu)
+targets=(centos7 centos8 vulcan titan pi2 pi3 arm64 ubuntu)
 
 # Return the arch for passing to build_dpkg
 get_arch() # alias
@@ -142,6 +142,9 @@ get_arch() # alias
             ;;
         pi*)
             echo armhf
+            ;;
+        arm64)
+            echo arm64
             ;;
         titan)
             echo armel
@@ -186,6 +189,9 @@ get_image_tag() # alias
         pi3)
             echo nidas-build-debian-armhf:buster
             ;;
+        arm64)
+            echo nidas-build-debian-arm64:bookworm
+            ;;
         titan)
             echo nidas-build-debian-armel:jessie
             ;;
@@ -215,6 +221,9 @@ build_image()
             ;;
         pi3)
             podman build -t $tag -f docker/Dockerfile.buster_cross_arm --build-arg hostarch=armhf
+            ;;
+        arm64)
+            podman build -t $tag -f docker/Dockerfile.bookworm_cross_arm64
             ;;
         titan)
             podman build -t $tag -f docker/Dockerfile.cross_arm --build-arg hostarch=armel
@@ -309,6 +318,11 @@ push_packages() # path
     packages=`ls "$path"/*.deb | egrep -v dbgsym`
     echo $packages
     case "$alias" in
+        arm64)
+            repo="ncareol/isfs-testing/debian/bookworm"
+            (set -x
+            package_cloud push $repo $packages)
+            ;;
         pi3)
             repo="ncareol/isfs-testing/raspbian/buster"
             (set -x

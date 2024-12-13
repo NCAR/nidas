@@ -1,0 +1,96 @@
+ARG hostarch=arm64
+
+FROM docker.io/debian:bookworm-slim AS base
+LABEL organization="NCAR EOL"
+
+USER root
+
+# FROM line above "consumes" hostarch arg, unless we re-declare it here
+# But don't re-assign it!!!
+ARG hostarch
+
+RUN echo "hostarch == $hostarch"
+
+RUN dpkg --add-architecture ${hostarch}
+
+# sudo is not technically needed, but there are other scripts which expect it,
+# like build-xmlrpc.
+RUN apt-get -y update && \
+    apt-get install -y --no-install-recommends gnupg wget cmake apt-utils \
+    sudo vim nano curl git ca-certificates build-essential fakeroot \
+    libncurses-dev bc dh-make quilt rsync crossbuild-essential-${hostarch} \
+    flex libfl-dev gawk devscripts pkg-config libbz2-dev:${hostarch} \
+    libgsl0-dev:${hostarch} libcap-dev:${hostarch} \
+    libxerces-c-dev:${hostarch} libbluetooth-dev:${hostarch} \
+    libnetcdf-dev:${hostarch} reprepro \
+    libjsoncpp-dev:${hostarch} lsb-release \
+    xsltproc docbook-xsl \
+    libxml2-dev \
+    libi2c-dev \
+    valgrind net-tools less \
+    python3 python3-pip scons
+
+# libgsl0ldbl is now in libgsl0-dev??
+#RUN apt-get install -y --no-install-recommends libgsl0ldbl:${hostarch} 
+
+# Add the eol repo first
+# But need to allow apt to use ftp, since Buster doesn't allow it by default
+# RUN touch /etc/apt/apt.conf
+# RUN echo '// allow ftp for eol repo' >> /etc/apt/apt.conf
+# RUN echo 'dir::bin::methods::ftp "ftp";' >> /etc/apt/apt.conf
+# RUN cat /etc/apt/apt.conf
+# RUN echo "deb ftp://ftp.eol.ucar.edu/pub/archive/software/debian/ buster main" > /etc/apt/sources.list.d/eol.list
+# RUN curl ftp://ftp.eol.ucar.edu/pub/archive/software/debian/conf/eol-prog.gpg.key | apt-key add -
+
+# Also, backports has moved to archive, so fix that -- PEO still true for stretch??
+# RUN echo "deb http://deb.debian.org/debian buster-backports main" >> /etc/apt/sources.list
+#RUN echo "Acquire::Check-Valid-Until no;" > /etc/apt/apt.conf.d/99no-check-valid-until
+
+# Even though container builds can use a locally mounted eol_scons, it is
+# still a build dependency, and it would be required if building nidas on a
+# stock system without the eol_scons mount.
+
+# However, until there is a buster EOL repo, do without it.  Actually, this
+# and the xmlrpc++ dependency below should be installed from the
+# packagecloud repo if that's where the nidas packages are going to end up.
+
+# RUN apt-get -y install eol-scons
+
+# need boost-system, filesystem, asio, thread, so make it easy and get all
+RUN apt-get -y update && apt-get -y --no-install-recommends install \
+    libboost-all-dev:${hostarch}
+
+# Add libxml2 for the ublox build below.
+#RUN apt-get -y install 
+
+# add libi2c-dev as original docker image didn't have correct one
+# don't need an ${hostarch} variant, as all the functions are in-line
+# in a single header.
+#RUN apt-get -y install
+
+# get and install ftdi 1.4 and depends libusb-1.0
+#RUN apt-get -y install libusb-1.0:amd64 libusb-1.0:${hostarch} libusb-1.0-0-dev 
+#RUN apt-get -y remove libftdi1=0.20-4
+RUN apt-get -y update && apt-get -y --no-install-recommends \
+    -o Dpkg::Options::="--force-overwrite" install libftdi1-dev:${hostarch}
+
+ENV CROSS_ARCH=$hostarch
+
+# It can be helpful to have package_cloud available in the container.
+RUN apt-get -y --no-install-recommends install ruby ruby-dev
+
+# The rake gem has to be installed first, else the package_cloud install gets an
+# error.
+RUN gem install rake
+RUN gem install package_cloud
+
+WORKDIR /root
+
+# Local packages
+RUN mkdir -p ublox
+COPY ./build-ublox.sh ublox
+RUN cd ublox && ./build-ublox.sh
+
+RUN mkdir -p xmlrpc-build
+COPY ./build-xmlrpc.sh xmlrpc-build
+RUN cd xmlrpc-build && ./build-xmlrpc.sh ${hostarch}

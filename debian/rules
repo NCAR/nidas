@@ -47,6 +47,9 @@ else ifeq ($(DEB_HOST_GNU_TYPE),arm-linux-gnueabi)
 else ifeq ($(DEB_HOST_GNU_TYPE),arm-linux-gnueabihf)
     $(info armhf build)
     BUILDS := armhf
+else ifeq ($(DEB_HOST_GNU_TYPE),aarch64-linux-gnu)
+    $(info arm64 build)
+    BUILDS := arm64
 else
     $(error DEB_HOST_GNU_TYPE=$(DEB_HOST_GNU_TYPE) is not supported)
 endif
