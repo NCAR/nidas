@@ -2,6 +2,7 @@
 ## 2004, Copyright University Corporation for Atmospheric Research
 
 import os
+from SCons.Script import BoolVariable
 
 ##
 ##  Import the build environment.
@@ -24,6 +25,12 @@ def nidas_xmlrpcpp(env):
         env.Append(LIBS=[env.File(libpath)])
     else:
         env.Append(LIBS=['xmlrpcpp'])
+
+
+variables = env.GlobalVariables()
+variables.Add(BoolVariable('ENABLE_FTDI_HARDWARE_INTERFACE',
+                           'Enable FTDI hardware interface', 'off'))
+variables.Update(env)
 
 ##
 ##  List of header files
@@ -173,7 +180,6 @@ sources = Split("""
     DynamicLoader.cc
     FileSet.cc
     FsMount.cc
-    HardwareInterface.cc
     HeaderSource.cc
     IOChannel.cc
     IOStream.cc
@@ -300,10 +306,16 @@ Export('libftdi')
 env.Require(['nidasutil', nidas_xmlrpcpp])
 env.Append(LIBS=['dl', 'xerces-c'])
 
-# Build the ftdi hardware interface
-hwenv = env.Clone()
-hwenv.Require([libftdi])
-shobjs += hwenv.SharedObject('HardwareInterfaceFTDI.cc')
+# Build the ftdi hardware interface if enabled
+enable_ftdi = env.get('ENABLE_FTDI_HARDWARE_INTERFACE')
+if enable_ftdi:
+    hwenv = env.Clone()
+    hwenv.Append(CPPDEFINES=['ENABLE_FTDI_HARDWARE_INTERFACE'])
+    hwenv.Require([libftdi])
+    shobjs += hwenv.SharedObject("HardwareInterface.cc")
+    shobjs += hwenv.SharedObject('HardwareInterfaceFTDI.cc')
+else:
+    shobjs += env.SharedObject("HardwareInterface.cc")
 
 ##
 ##  Build the libnidas library. Search other needed libraries.
@@ -327,6 +339,8 @@ Clean('install', nodes)
 def nidascore(env):
     env.Append(LIBS=[libnidas_core])
     env.Require(['nidasutil', nidas_xmlrpcpp])
-    env.Append(LIBS=['dl', 'xerces-c', 'ftdi1'])
+    env.Append(LIBS=['dl', 'xerces-c'])
+    if enable_ftdi:
+        env.Append(LIBS=['ftdi1'])
 
 Export('nidascore')
