@@ -130,10 +130,11 @@ env.Require('nidasdynld')
 for prog in programs:
     env.Alias(prog, env.NidasProgram(prog+'.cc', libs=[]))
 
-hwenv = env.Clone()
-hwenv.Require('libftdi')
-hwenv.NidasPlainProgram('initFTDI.cc')
-hwenv.NidasPlainProgram('readFTDIpins.cc')
+if env.get('ENABLE_FTDI_HARDWARE_INTERFACE'):
+    hwenv = env.Clone()
+    hwenv.Require('libftdi')
+    hwenv.NidasPlainProgram('initFTDI.cc')
+    hwenv.NidasPlainProgram('readFTDIpins.cc')
 
 didbenv = env.Clone()
 dbconf = didbenv.Configure(custom_tests=custom_tests)
