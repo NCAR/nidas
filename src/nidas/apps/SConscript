@@ -18,6 +18,7 @@
 import os
 import eol_scons
 import eol_scons.parseconfig as pc
+from SCons.Script import BoolVariable
 
 
 def check_pkg_config(env, pkg):
@@ -209,16 +210,23 @@ def ublox(env):
 
 Export('ublox')
 
-# ubloxbin requires boost_asio, but as far as I can tell boost_asio is a
-# header only library.
-ubenv = env.Clone()
-ubenv.Append(CXXFLAGS='-Wno-effc++')
-ubenv['CXXFLAGS'].remove('-Weffc++')
-ubenv.Require(['boost_system', 'ublox'])
-# boost_thread requires pthread, so someday boost_thread tool should be
-# fixed to add that.
-ubenv.Append(LIBS=['boost_thread', 'pthread'])
-env.Alias('ubloxbin', ubenv.NidasProgram(['ubloxbin.cc']))
+
+variables = env.GlobalVariables()
+variables.Add(BoolVariable('ENABLE_UBLOXBIN',
+                           'Build ubloxbin utility.', 'on'))
+variables.Update(env)
+
+if env.get('ENABLE_UBLOXBIN'):
+    # ubloxbin requires boost_asio, but as far as I can tell boost_asio is a
+    # header only library.
+    ubenv = env.Clone()
+    ubenv.Append(CXXFLAGS='-Wno-effc++')
+    ubenv['CXXFLAGS'].remove('-Weffc++')
+    ubenv.Require(['boost_system', 'ublox'])
+    # boost_thread requires pthread, so someday boost_thread tool should be
+    # fixed to add that.
+    ubenv.Append(LIBS=['boost_thread', 'pthread'])
+    env.Alias('ubloxbin', ubenv.NidasProgram(['ubloxbin.cc']))
 
 env.Alias('utime', env.NidasUtilProgram('utime.cc'))
 

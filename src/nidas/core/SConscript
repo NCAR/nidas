@@ -29,7 +29,7 @@ def nidas_xmlrpcpp(env):
 
 variables = env.GlobalVariables()
 variables.Add(BoolVariable('ENABLE_FTDI_HARDWARE_INTERFACE',
-                           'Enable FTDI hardware interface', 'off'))
+                           'Enable FTDI hardware interface', 'on'))
 variables.Update(env)
 
 ##
