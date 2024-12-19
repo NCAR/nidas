@@ -2,6 +2,8 @@
 ## 2006, Copyright University Corporation for Atmospheric Research
 
 import eol_scons.parseconfig as pc
+from SCons.Script import BoolVariable
+
 
 ##
 ##  Import the build environment.
@@ -52,6 +54,11 @@ env.Append(LINKFLAGS=
     ['-Xlinker','-rpath-link=' + env.Dir('util').path + ':' + env.Dir('core').path])
 # ['-Xlinker','-rpath=' + env.Dir('$PREFIX').path])
 
+variables = env.GlobalVariables()
+variables.Add(BoolVariable('ENABLE_NC_SERVER',
+                           'Build with nc_server if found', 1))
+variables.Update(env)
+enable_nc_server = env.get('ENABLE_NC_SERVER')
 
 # To decipher the link statement:
 # print 'LINKCOM=' + str(env['LINKCOM'])
@@ -98,17 +105,18 @@ if conf.CheckCXXHeader('gsl/gsl_linalg.h') and conf.CheckLibWithHeader(
 # /opt/arcom/bin/armbe-linux-pkg-config.  However, the closest thing to
 # this I've found is in scripts/build_nidas.sh.  Maybe that kind of
 # customization should be in the scons arm*cross tools.
-pc.ParseConfig(conf.env, 'pkg-config --cflags --libs nc_server')
-if conf.CheckLib('nc_server_rpc') and conf.CheckLibWithHeader(
-        'nc_server_rpc', 'nc_server_rpc.h','C++',
-        'xdr_connection(0,0);'):
-    # append nc_server library to build environment
-    # I don't grok all the issues related to using RPATH. Debian
-    # advises against it in most, but not all situations. We'll
-    # enable it here and see what happens...
-    env.AppendUnique(CPPPATH=conf.env['CPPPATH'])
-    env.AppendUnique(LIBS=conf.env['LIBS'],LIBPATH=conf.env['LIBPATH'],
-                     RPATH=conf.env['LIBPATH'])
+if enable_nc_server:
+    pc.ParseConfig(conf.env, 'pkg-config --cflags --libs nc_server')
+    if conf.CheckLib('nc_server_rpc') and conf.CheckLibWithHeader(
+            'nc_server_rpc', 'nc_server_rpc.h','C++',
+            'xdr_connection(0,0);'):
+        # append nc_server library to build environment
+        # I don't grok all the issues related to using RPATH. Debian
+        # advises against it in most, but not all situations. We'll
+        # enable it here and see what happens...
+        env.AppendUnique(CPPPATH=conf.env['CPPPATH'])
+        env.AppendUnique(LIBS=conf.env['LIBS'],LIBPATH=conf.env['LIBPATH'],
+                         RPATH=conf.env['LIBPATH'])
 
 tmp_env = conf.Finish()
 
