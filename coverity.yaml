@@ -28,6 +28,7 @@ analyze:
 
 commit:
   connect:
+    project: NIDAS
     stream: nidas-m2hats
     url: https://snoopy.eol.ucar.edu/coverity
     # A project version for the committed snapshot.
