@@ -242,8 +242,9 @@ int PacketReader::parseRunstring(int argc, char** argv)
         if (fgets(buf,sizeof(buf),fp)) _header += buf;
     }
     if (ferror(fp)) {
-        n_u::IOException e(argv[1],"open",errno);
+        n_u::IOException e(argv[1],"fgets",errno);
         cerr << e.what() << endl;
+        fclose(fp);
         return usage(argv[0]);
     }
     fclose(fp);
