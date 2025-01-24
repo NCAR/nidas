@@ -650,7 +650,7 @@ bool GPS_NMEA_Serial::process(const Sample* samp,list<const Sample*>& results)
         results.push_back(outs);
         return true;
     }
-    else if (!strncmp(input,"HDT,",4) && _hdtId != 0) {
+    else if (!strncmp(input,"HDT,",4) && _hdtId != 0) {	// True Heading, need an ALIGN capable receiver.
         input += 4;
         SampleT<double>* outs = getSample<double>(_hdtNvars);
         outs->setTimeTag(samp->getTimeTag());

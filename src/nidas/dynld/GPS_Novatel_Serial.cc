@@ -145,19 +145,16 @@ dsm_time_t GPS_Novatel_Serial::parseBESTPOS(const char* input,double *dout,int n
             break;
 
         case 15:	// latitude standard deviation (m)
-            if (nvars < 6) break;
             if (valid && sscanf(input,"%f",&latdev) == 1) dout[iout++] = double(latdev);
             else dout[iout++] = doubleNAN;
             break;
 
         case 16:	// longitude standard deviation (m)
-            if (nvars < 6) break;
             if (valid && sscanf(input,"%f",&londev) == 1) dout[iout++] = double(londev);
             else dout[iout++] = doubleNAN;
             break;
 
         case 17:	// height standard deviation (m) -Field #11 in OEM6 document
-            if (nvars < 6) break;
             if (valid && sscanf(input,"%f",&altdev) == 1) dout[iout++] = double(altdev);
             else dout[iout++] = doubleNAN;
             break;
