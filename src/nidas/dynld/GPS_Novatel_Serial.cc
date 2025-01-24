@@ -125,21 +125,25 @@ dsm_time_t GPS_Novatel_Serial::parseBESTPOS(const char* input,double *dout,int n
             break;
 
         case 10:	// latitude (deg)
+            if (nvars == 6) break;
             if (valid && sscanf(input,"%lf",&lat) == 1) dout[iout++] = lat;
             else dout[iout++] = doubleNAN;
             break;
 
         case 11:	// longitude (deg)
+            if (nvars == 6) break;
             if (valid && sscanf(input,"%lf",&lon) == 1) dout[iout++] = lon;
             else dout[iout++] = doubleNAN;
             break;
 
         case 12:	// Height above mean sea level (m)
+            if (nvars == 6) break;
             if (valid && sscanf(input,"%lf",&alt) == 1) dout[iout++] = alt;
             else dout[iout++] = doubleNAN;
             break;
 
         case 13:        // Undulation
+            if (nvars == 6) break;
             if (valid && sscanf(input,"%f",&und) == 1) dout[iout++] = double(und);
             else dout[iout++] = doubleNAN;
             break;
@@ -160,12 +164,14 @@ dsm_time_t GPS_Novatel_Serial::parseBESTPOS(const char* input,double *dout,int n
             break;
 
         case 18:        // Base station ID (1008?)
+            if (nvars == 6) break;
             if (sscanf(input,"\"%d", &refid) == 1) 
                 dout[iout++] = double(refid);
             else dout[iout++] = doubleNAN;
             break;
 
         case 19:        // Solution age in seconds - GGDAGE
+            if (nvars == 6) break;
             if (sscanf(input,"%f",&sol_age) == 1) dout[iout++] = double(sol_age);
             else dout[iout++] = doubleNAN;
             break;
@@ -176,6 +182,7 @@ dsm_time_t GPS_Novatel_Serial::parseBESTPOS(const char* input,double *dout,int n
             break;
 
         case 22:        //number of satellites used in solution - GGNSAT
+            if (nvars == 6) break;
             if (sscanf(input,"%d",&nsat) == 1) dout[iout++] = double(nsat);
             else dout[iout++] = doubleNAN;
             break;
