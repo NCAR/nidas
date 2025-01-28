@@ -169,8 +169,6 @@ StatisticsCruncher::~StatisticsCruncher()
 void StatisticsCruncher::setStartTime(const nidas::util::UTime& val) 
 {
     _startTime = val;
-    if (_startTime.toUsecs() != LONG_LONG_MIN) 
-        _tout =  _startTime.toUsecs() + _periodUsecs - _startTime.toUsecs() % _periodUsecs;
 }
 
 
@@ -1378,10 +1376,19 @@ bool StatisticsCruncher::receive(const Sample* samp) throw()
     dsm_time_t tt = samp->getTimeTag();
     while (tt > _tout) {
         if (tt > _endTime.toUsecs()) return false;
-	if (_tout != LONG_LONG_MIN) {
-	    computeStats();
-	}
-	if (!getFillGaps() || _tout == LONG_LONG_MIN) 
+        // If _tout has not been set yet, then this is the first sample
+        // received.  If there is a start time and gap-filling is enabled,
+        // then set _tout to fill gaps beginning at the start time.  Otherwise
+        // set _tout to the period containing this first sample.
+        if (_tout == LONG_LONG_MIN && _startTime.toUsecs() != LONG_LONG_MIN &&
+            getFillGaps())
+        {
+            _tout = _startTime.toUsecs() + _periodUsecs - _startTime.toUsecs() % _periodUsecs;
+        }
+        if (_tout != LONG_LONG_MIN) {
+            computeStats();
+        }
+        if (!getFillGaps() || _tout == LONG_LONG_MIN)
             _tout = tt - (tt % _periodUsecs) + _periodUsecs;
         else
             _tout += _periodUsecs;

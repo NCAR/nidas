@@ -12,6 +12,13 @@ the [buster] branch for the changes on that branch.
 
 ## [master] - Unreleased on master branch
 
+## [1.2.4] - 2025-01-28
+
+- Fix bug in `StatisticsCruncher`: an empty data period would be written when
+  gap filling was disabled but a start time had been set.  Now if gap fills
+  are disabled, the output starts at the first sample, even when the first
+  sample is days after the start time.
+
 ### threading fixes
 
 - The Logger macros now use thread_local for the LogContext instance, and the
@@ -221,6 +228,7 @@ to `v1.2-1721-g1ebc8bcd4`.
 [buster]: https://github.com/NCAR/nidas/tree/buster
 [2.0]: https://github.com/NCAR/nidas/compare/master
 [1.3]: https://github.com/NCAR/nidas/compare/master...v1.3
+[1.2.4]: https://github.com/NCAR/nidas/releases/tag/v1.2.4
 [1.2.3]: https://github.com/NCAR/nidas/releases/tag/v1.2.3
 [1.2.2]: https://github.com/NCAR/nidas/releases/tag/v1.2.2
 [1.2.1]: https://github.com/NCAR/nidas/releases/tag/v1.2.1

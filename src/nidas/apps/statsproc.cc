@@ -668,6 +668,7 @@ int StatsProcess::run() throw()
                 }
             }
 
+            DLOG(("entering readSamples loop..."));
             for (;;) {
                 if (_app.interrupted()) break;
                 sis.readSamples();
