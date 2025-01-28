@@ -92,7 +92,7 @@ private:
      * Number of variables requested from Novatel BESTVEL record (sample id == 5)
      */
     int _bestVelNvars;
-    
+
     /**
      * Full sample id of Novatel BESTVEL variables.
      */

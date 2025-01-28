@@ -70,9 +70,10 @@ void GPS_Novatel_Serial::validate()
         switch(stag->getSampleId()) {
         case BESTPOS_SAMPLE_ID:
             _bestPosNvars = stag->getVariables().size();
-            if (_bestPosNvars != 13) {
+            if (_bestPosNvars != 6 &&
+                _bestPosNvars != 13) {
                 throw n_u::InvalidParameterException(getName(),
-                        "number of variables in BESTPOS sample","must be 13");
+                        "number of variables in BESTPOS sample","must be 6 or 13");
             }
             _bestPosId = stag->getId();
             break;
@@ -165,7 +166,7 @@ dsm_time_t GPS_Novatel_Serial::parseBESTPOS(const char* input,double *dout,int n
 
         case 18:        // Base station ID (1008?)
             if (nvars == 6) break;
-            if (sscanf(input,"\"%d", &refid) == 1) 
+            if (sscanf(input,"\"%d", &refid) == 1)
                 dout[iout++] = double(refid);
             else dout[iout++] = doubleNAN;
             break;
@@ -186,7 +187,7 @@ dsm_time_t GPS_Novatel_Serial::parseBESTPOS(const char* input,double *dout,int n
             if (sscanf(input,"%d",&nsat) == 1) dout[iout++] = double(nsat);
             else dout[iout++] = doubleNAN;
             break;
-    
+
         case 23:        //number of satellites with L1/E1/B1 signals used in solution - GGNSATL1
             if (sscanf(input,"%d",&nsat) == 1) dout[iout++] = double(nsat);
             else dout[iout++] = doubleNAN;
@@ -259,7 +260,7 @@ dsm_time_t GPS_Novatel_Serial::parseBESTVEL(const char* input,double *dout,int n
 
 namespace {
 
-    // Novatel checksum algorithm, from 
+    // Novatel checksum algorithm, from
     // www.novatel.com/assets/Documents/Bulletins/apn030.pdf
     const unsigned int CRC32_POLYNOMIAL = 0xEDB88320;
     unsigned int CRC32Value(int i)
@@ -320,7 +321,7 @@ bool GPS_Novatel_Serial::novatelChecksumOK(const char* rec,int len)
 dsm_time_t GPS_Novatel_Serial::gps_to_utc(const char* input)
 {
     // scan GPS string for gps_weeks, gps_secconds_in_week
-    // Novatel Packet headers have these at positions 4 and 5  
+    // Novatel Packet headers have these at positions 4 and 5
     int gps_weeks = 0;
     double sec_in_week = 0.0;
 
@@ -364,7 +365,7 @@ bool GPS_Novatel_Serial::process(const Sample* samp,list<const Sample*>& results
 
     // if the message starts with a '$' then assume its a NMEA message and
     // use the base class process method
-    if (slen > 0 && input[0] == '$') 
+    if (slen > 0 && input[0] == '$')
         return GPS_NMEA_Serial::process(samp,results);
 
     if (!novatelChecksumOK(input,slen)) {

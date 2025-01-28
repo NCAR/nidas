@@ -259,15 +259,15 @@ dsm_time_t GPS_NMEA_Serial::parseRMC(const char* input,double *dout,int nvars,
             else if (*input != 'E') lon = doubleNAN;
             dout[iout++] = lon;			// E lon
             break;
-        case 6:	// speed over ground, Knots, output variable 
+        case 6:	// speed over ground, Knots, output variable
             if (nvars < 6) break;
             if (sscanf(input,"%lf",&f1) == 1) sog = f1 * MS_PER_KNOT;
             dout[iout++] = sog;			// spd
             break;
-        case 7:	// Course made good, True, deg, output variable 
+        case 7:	// Course made good, True, deg, output variable
             if (nvars < 6) break;
             if (sscanf(input,"%lf",&f1) == 1) {
-                dout[iout++] = f1;                      	// course
+                dout[iout++] = f1;                              // course
                 dout[iout++] =  sog * sin(f1 * M_PI / 180.);	// east-west velocity
                 dout[iout++] =  sog * cos(f1 * M_PI / 180.);	// north-south velocity
             }
@@ -492,7 +492,7 @@ dsm_time_t GPS_NMEA_Serial::parseGGA(const char* input,double *dout,int nvars,
         case 12:	// secs since DGPS update
             if (nvars < 10) break;
             if (sscanf(input,"%lf",&f1) == 1) dout[iout++] = f1;
-            else dout[iout++] = doubleNAN; 		// var 8, dsecs
+            else dout[iout++] = doubleNAN;		// var 8, dsecs
             sep = '*';	// next separator is '*' before checksum
             break;
         case 13:	// DGPS station id
