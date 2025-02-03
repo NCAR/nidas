@@ -23,7 +23,7 @@ Name: nidas
 %if %{defined gitversion}
 Version: %{gitversion}
 %else
-Version: 1.2.4
+Version: 1.2.5
 %endif
 Release: %{releasenum}%{?dist}
 License: GPL
@@ -225,6 +225,9 @@ rm -rf $RPM_BUILD_ROOT
 %attr(0775,-,-) %{nidas_prefix}/bin/start_podman
 
 %changelog
+* Mon Feb 03 2025 Gary Granger <granger@ucar.edu> - 1.2.5-1
+- build v1.2.5
+
 * Tue Jan 28 2025 Gary Granger <granger@ucar.edu> - 1.2.4-1
 - build v1.2.4
 

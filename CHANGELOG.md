@@ -12,6 +12,8 @@ the [buster] branch for the changes on that branch.
 
 ## [master] - Unreleased on master branch
 
+## [1.2.5] - 2025-02-03
+
 - The deprecated logging arguments `--logconfig` and `--loglevel` have been
   removed.  The rarely used arguments `--logshow`, `--logfields`, and
   `--logparam` are now omitted from brief help usage (`-h`) and instead only
@@ -31,7 +33,7 @@ the [buster] branch for the changes on that branch.
 - Fix a bug where an output file started within 1 second of the next output
   period would include the next period instead of starting a new file.
 
-- UTime formats the MIN and MAX times as "MIN" and "MAX", since they are
+- `UTime` formats the MIN and MAX times as "MIN" and "MAX", since they are
   indecipherable and indistinguishable when formatted as time strings.  Also,
   when parsing a time string with the default ISO-based formats, a "Z" suffix
   will be accepted and parsed for UTC times.
@@ -292,6 +294,7 @@ to `v1.2-1721-g1ebc8bcd4`.
 [buster]: https://github.com/NCAR/nidas/tree/buster
 [2.0]: https://github.com/NCAR/nidas/compare/master
 [1.3]: https://github.com/NCAR/nidas/compare/master...v1.3
+[1.2.5]: https://github.com/NCAR/nidas/releases/tag/v1.2.5
 [1.2.4]: https://github.com/NCAR/nidas/releases/tag/v1.2.4
 [1.2.3]: https://github.com/NCAR/nidas/releases/tag/v1.2.3
 [1.2.2]: https://github.com/NCAR/nidas/releases/tag/v1.2.2
