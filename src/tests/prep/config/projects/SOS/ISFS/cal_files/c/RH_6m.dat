@@ -1,0 +1,8 @@
+# 06m used TRH117 till 01/19/23 ~ 19:47 UTC, then TRH46
+# Used by CalFile parser
+# dateFormat = "%Y %b %d %H:%M:%S"
+# timeZone = "US/Mountain"
+# RH = Ha0 + Ha1*RHraw + Ha2*RHraw*RHraw + Ha3*T + Ha4*T*RHraw
+# DateTime     	    	   Ha0          Ha1          Ha2           Ha3           Ha4 
+2022 Jun 01 00:00:00  raw -1.355883     0.00153133 1.356222e-09 -0.003062862 -1.8157489e-06
+2023 Jan 19 12:47:00  raw -1.645866e+00 1.459221e-03 2.432402e-09 -1.893585e-03 -5.959187e-07

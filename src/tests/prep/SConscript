@@ -6,13 +6,10 @@ env = Environment(tools=['default', 'nidasapps', 'valgrind'])
 
 prep = env.NidasApp('prep')
 
-env['PREPFLAGS'] = str('-D "u.5m#1,v.5m#2,w.5m#3" '
-                       '-B "2006 mar 31 00:00:00.05" '
-                       '-E "2006 apr 02 23:59"')
-
 env['ENV'].update({'ISFF': env.Dir('config').abspath,
                    'PROJECT': 'TREX',
                    'TREX_CONFIG': 'trex',
+                   'CSAT3_SHADOW_FACTOR': '0.16',
                    'RAWDATADIR': env.Dir('data').abspath})
 
 env['VALGRIND_OPTIONS'] = str("--leak-check=full"
@@ -21,14 +18,56 @@ env['VALGRIND_OPTIONS'] = str("--leak-check=full"
                               " -v --leak-check=full --show-leak-kinds=all"
                               " --gen-suppressions=all")
 
-preptest = env.Valgrind(['preptest.out'], [prep],
+trextest = env.Valgrind(['output/trex-prep.txt'], [prep],
                         "cd ${TARGET.dir} && "
-                        "${VALGRIND_COMMAND} ${SOURCE.file} ${PREPFLAGS} "
-                        " > preptest.out",
+                        "${VALGRIND_COMMAND} ${SOURCE.file} "
+                        "-D 'u.5m#1,v.5m#2,w.5m#3' "
+                        "-B '2006 mar 31 00:00:00.05' "
+                        "-E '2006 apr 02 23:59' "
+                        " > ${TARGET.file}",
                         VALGRIND_DEFAULT='on')
+env.AlwaysBuild(trextest)
 
-difftest = env.Diff(['preptest.out', 'preptest.baseline'])
+trexdiff = env.Diff(['baseline/trex-prep.txt', 'output/trex-prep.txt'])
 
-env.AlwaysBuild(preptest)
-env.Alias('test', [preptest, difftest])
-env.Alias('preptest', [preptest, difftest])
+env.Alias('trex-prep-test', [trextest, trexdiff])
+
+# The SOS prep test uses a data file extracted from the merge dataset with
+# just 1 flowcapt sample from each flowcapt on ue, plus 10m sonic on d, and
+# all the lower-rate Tsnow, soil, and victron data from d:
+
+# nidsmerge --start 2023-03-15_00:01:00 --end 2023-03-15_00:01:30 \
+#   --samples 20,16 --samples 20,26 --samples 10,100-9999 \
+#   -i ../merge/isfs_20230315_000000.dat.bz2 \
+#   -o isfs_x_20230315_000000.dat.bz2
+
+# Then generate 1-Hz prep output for a few variables:
+
+# prep -r 1 -D SF_min.1m.ue,SF_min.2m.ue,u.10m.d,P.10m.d,Tsnow.1.2m.d \
+#    isfs_x_20230315_000000.dat.bz2 > prep.txt
+
+# The idea is to show cases where lower-rate values are duplicated by the
+# resampler, so those could be fixed without breaking resampling.  There is
+# also a problem with the pressure output where periodically several NaNs
+# appear in a row, likely due to 0.5-second jumps in the pressure timestamps,
+# but this data excerpt does not cover one of those periods.
+
+env = env.Clone()
+env['ENV'].update({'ISFS': env.Dir('config').abspath,
+                   'PROJECT': 'SOS'})
+
+sosdata = env.File("data/SOS/isfs_x_20230315_000000.dat.bz2")
+sostest = env.Valgrind(['output/sos-prep.txt'], [prep, sosdata],
+                       "cd ${TARGET.dir} && "
+                       "${VALGRIND_COMMAND} ${SOURCE.file} "
+                       "-r 1 "
+                       "-D SF_min.1m.ue,SF_min.2m.ue "
+                       "-D u.10m.d,P.10m.d,Tsnow.1.2m.d "
+                       "${SOURCES[1].abspath}"
+                       " > ${TARGET.file}",
+                       VALGRIND_DEFAULT='on')
+env.AlwaysBuild(sostest)
+sosdiff = env.Diff(['baseline/sos-prep.txt', 'output/sos-prep.txt'])
+env.Alias('sos-prep-test', [sostest, sosdiff])
+
+env.Alias('test', ["trex-prep-test", "sos-prep-test"])

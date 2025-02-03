@@ -141,9 +141,6 @@ public:
      **/
     size_t write(const void* buf, size_t len)
     {
-#ifdef DEBUG
-	std::cerr << getName() << " write, len=" << len << std::endl;
-#endif
         return _fset->write(buf,len);
     }
 
@@ -258,6 +255,12 @@ public:
      * @throws nidas::util::InvalidParameterException
      **/
     static FileSet* getFileSet(const std::list<std::string>& filenames);
+
+    /**
+     * Return a new FileSet or Bzip2FileSet, depending on the suffix of the
+     * filename, and call setFileName() with the given @p filename.
+     */
+    static FileSet* createFileSet(const std::string& filename);
 
 protected:
 

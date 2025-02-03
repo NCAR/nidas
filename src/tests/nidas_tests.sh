@@ -51,3 +51,9 @@ compare() # reffile
     fi
     echo "Comparing $reffile to $outfile: success."
 }
+
+failed() # message
+{
+    echo "FAILED: $@"
+    exit 1
+}

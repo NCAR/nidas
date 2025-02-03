@@ -30,13 +30,16 @@
 #include <nidas/core/Sample.h>
 #include <nidas/core/AsciiSscanf.h>
 #include <nidas/core/TimetagAdjuster.h>
-
+#include <nidas/util/Logger.h>
 #include <limits>
 
 using namespace nidas::dynld::isff;
 using namespace std;
 
-namespace n_u = nidas::util;
+using nidas::util::InvalidParameterException;
+using nidas::util::EndianConverter;
+using nidas::util::dirFromUV;
+using nidas::util::LogContext;
 
 NIDAS_CREATOR_FUNCTION_NS(isff,CSI_IRGA_Sonic)
 
@@ -45,6 +48,7 @@ CSI_IRGA_Sonic::CSI_IRGA_Sonic():
     _numOut(0),
     _timeDelay(0),
     _badCRCs(0),
+    _irgaDiagMask(0),
     _irgaDiag(),
     _h2o(),
     _co2(),
@@ -81,15 +85,22 @@ void CSI_IRGA_Sonic::parseParameters()
         const Parameter* parameter = *pi;
 
         if (parameter->getName() == "bandwidth") {
-            if (parameter->getType() != Parameter::FLOAT_PARAM ||
-                parameter->getLength() != 1)
-                throw n_u::InvalidParameterException(getName(),
-                        "bandwidth parameter","must be one float value, in Hz");
-            float bandwidth = parameter->getNumericValue(0);
-            if (bandwidth <= 0.0)
-                throw n_u::InvalidParameterException(getName(),
-                        "bandwidth parameter","must be positive value in Hz");
+            float bandwidth;
+            if (!parameter->get(bandwidth) || bandwidth <= 0.0)
+                throw InvalidParameterException(
+                    getName(), "bandwidth parameter",
+                    "must be one positive value in Hz");
             _timeDelay = (int)(rintf(25.0 / bandwidth * 160.0) * USECS_PER_MSEC);
+        }
+        if (parameter->getName() == "irgadiagmask") {
+            int mask{ 0 };
+            if (!parameter->get(mask) || mask < 0)
+                throw InvalidParameterException(
+                    getName(), "irgadiagmask parameter",
+                    "must be one non-negative integer value");
+            _irgaDiagMask = static_cast<unsigned int>(mask);
+            DLOG(("") << "IRGA diagnostic mask: " << _irgaDiagMask
+                      << " (0x" << hex << _irgaDiagMask << ")");
         }
     }
     if (_timeDelay == 0.0)
@@ -107,7 +118,7 @@ void CSI_IRGA_Sonic::checkSampleTags()
     list<SampleTag*>& tags= getSampleTags();
 
     if (tags.size() != 1)
-        throw n_u::InvalidParameterException(getName() +
+        throw InvalidParameterException(getName() +
                 " must have one sample");
 
     const SampleTag* stag = tags.front();
@@ -138,7 +149,7 @@ void CSI_IRGA_Sonic::checkSampleTags()
     _Tirga = findVariableIndex("Tirga");
 
     if (_numParsed  < 5)
-        throw n_u::InvalidParameterException(getName() +
+        throw InvalidParameterException(getName() +
                 ": expect at least 5 variables in sample: u,v,w,tc,diag");
 
     bool ok = true;
@@ -148,15 +159,45 @@ void CSI_IRGA_Sonic::checkSampleTags()
     if (_ldiagIndex >= 0 && _numOut - _ldiagIndex > 3) ok = false;
 
     if (!ok)
-        throw n_u::InvalidParameterException(getName() +
+        throw InvalidParameterException(getName() +
                 " CSI_IRGA_Sonic speed, direction and ldiag variables should be at the end of the list");
 
      const std::list<AsciiSscanf*>& sscanfers = getScanfers();
      if (sscanfers.empty()) {
          _binary = true;
-         _converter = n_u::EndianConverter::getConverter(_endian,
-            n_u::EndianConverter::getHostEndianness());
+         _converter = EndianConverter::getConverter(_endian,
+            EndianConverter::getHostEndianness());
      }
+}
+
+void CSI_IRGA_Sonic::updateAttributes()
+{
+    CSAT3_Sonic::updateAttributes();
+    std::vector<Parameter> attributes;
+
+    // Add any parameters which affect the IRGA variables as attributes.
+    for (auto& param: getParameters())
+    {
+        if (param->getName() == "irgadiagmask")
+        {
+            attributes.push_back(*param);
+        }
+    }
+    // Pirga and Tirga could be affected by the mask since they will not be
+    // flagged if the system startup bit is masked, so give them the
+    // attributes also.
+    auto vars = vector<VariableIndex>{_irgaDiag, _h2o, _co2, _Pirga, _Tirga};
+    for (auto& vi: vars)
+    {
+        Variable* var = vi.variable();
+        if (!var)
+            continue;
+        for (auto& att: attributes)
+        {
+            var->removeAttribute(att.getName());
+            var->setAttribute(att);
+        }
+    }
 }
 
 unsigned short CSI_IRGA_Sonic::signature(const unsigned char* buf, const unsigned char* eob)
@@ -339,10 +380,8 @@ bool CSI_IRGA_Sonic::process(const Sample* samp,
         despike(wsamptime, uvwtd,4,spikes);
     }
 
-#ifdef HAVE_LIBGSL
     // apply shadow correction before correcting for unusual orientation
     transducerShadowCorrection(wsamptime, uvwtd);
-#endif
 
     applyOrientation(wsamptime, uvwtd);
 
@@ -371,12 +410,25 @@ bool CSI_IRGA_Sonic::process(const Sample* samp,
         dout[_spdIndex] = sqrt(uvwtd[0] * uvwtd[0] + uvwtd[1] * uvwtd[1]);
     }
     if (_dirIndex >= 0 && _dirIndex < (signed)_numOut) {
-        dout[_dirIndex] = n_u::dirFromUV(uvwtd[0], uvwtd[1]);
+        dout[_dirIndex] = dirFromUV(uvwtd[0], uvwtd[1]);
     }
 
-    // screen h2o and co2 values when the IRGA diagnostic value is indexed
-    // and is non-zero.
-    unsigned int irgadiag = (unsigned int)_irgaDiag.get(dout, 0.0);
+    // screen h2o and co2 values when the IRGA diagnostic value is indexed and
+    // is non-zero, masked by irgadiagmask.  And in the mask once, so the sys
+    // startup bit could be ignored also by setting the mask to 0x4.
+    unsigned int irgadiagbits = (unsigned int)_irgaDiag.get(dout, 0.0);
+    unsigned int irgadiag = irgadiagbits & (~_irgaDiagMask);
+    // log the diag bits before and after the mask, and show the values before
+    // changing them, in case they were already nan.
+    static LogContext lp(LOG_VERBOSE);
+    if (lp.active() && _irgaDiagMask && irgadiagbits)
+    {
+        lp.log() << "irgadiag=0x" << hex << irgadiagbits
+                 << " & ~0x" << hex << _irgaDiagMask
+                 << "==> irgadiag=" << hex << irgadiag
+                 << "; h2o=" << _h2o.get(dout, 0.0)
+                 << "; co2=" << _co2.get(dout, 0.0);
+    }
     if (irgadiag != 0) {
         _h2o.set(dout, floatNAN);
         _co2.set(dout, floatNAN);

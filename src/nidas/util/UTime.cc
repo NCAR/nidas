@@ -206,6 +206,26 @@ struct tm* UTime::toTm(struct tm* tmp,int *usecs) const
     return toTm(_utc,tmp,usecs);
 }
 
+
+/* static */
+UTime UTime::convert(const std::string& string)
+{
+    int nparsed{0};
+    UTime ut = UTime::parse(true, string, &nparsed);
+    if (nparsed != (int)string.length())
+    {
+      throw ParseException("unexpected characters in time string");
+    }
+    return ut;
+}
+
+
+/* static */
+UTime UTime::parse(const std::string& str, int *ncharp)
+{
+    return parse(true, str, ncharp);
+}
+
 /* static */
 UTime UTime::parse(bool utc, const std::string& str, int *ncharp)
 {
@@ -213,6 +233,7 @@ UTime UTime::parse(bool utc, const std::string& str, int *ncharp)
     int year,mon,day,hour,min;
     double dsec = 0.;
     int nchar = 0;
+    int nparsed = 0;
     UTime ut(0L);
     bool done = false;
 
@@ -229,18 +250,29 @@ UTime UTime::parse(bool utc, const std::string& str, int *ncharp)
     // scanf("%d %d %d") will parse "YYYY-mm-dd", and the month and days
     // will be negative.
     static const char* formats[] =
-        { "%Y-%m-%dT%H:%M:%S.%f",
-          "%Y-%m-%d %H:%M:%S.%f",
+        { "%Y-%m-%dT%H:%M:%S.%6f",
+          "%Y-%m-%dT%H:%M:%S.%f",
           "%Y-%m-%dT%H:%M:%S",
-          "%Y-%m-%d %H:%M:%S",
           "%Y-%m-%dT%H:%M",
-          "%Y-%m-%d %H:%M",
           "%Y-%m-%d", 0 };
 
     for (const char** fi = formats; *fi; ++fi)
     {
-        if (ut.checkParse(utc, str, *fi, ncharp))
+        // replace separator in format with separator in string to accept
+        // either space, underscore, or T as separator. 
+        string fmt(*fi);
+        string::size_type fsep = fmt.find('T');
+        int sep{(str.length() > 10) ? str[10] : 0};
+        if (fsep != string::npos && (sep == ' ' || sep == '_'))
+            fmt[fsep] = sep;
+        nparsed = 0;
+        if (ut.checkParse(utc, str, fmt, &nparsed))
         {
+            if (nparsed < (int)str.length() && str[nparsed] == 'Z' && utc)
+            {
+                ++nparsed;
+            }
+            if (ncharp) *ncharp = nparsed;
             return ut;
         }
     }
@@ -461,6 +493,8 @@ string UTime::format() const
 // method for conversion to string.
 std::string UTime::format(bool utc, const std::string& fmt) const
 {
+    if (isMin()) return "MIN";
+    else if (isMax()) return "MAX";
     //
     // Add support for %nf format to print fractional seconds,
     // where n is number of digits after decimal point, 1-6
@@ -633,9 +667,23 @@ int UTime::month(string monstr)
 
 UTime UTime::earlier(long long y) const
 {
+    if (y == 0)
+        return *this;
     long long ymod = _utime % y;
     if (ymod >= 0) return UTime(_utime - ymod);
     return UTime(_utime - (y + ymod));
+}
+
+UTime UTime::round(long long y) const
+{
+    if (y == 0)
+        return *this;
+    long long ymod = _utime % y;
+    if (ymod < 0)
+        ymod += y;
+    if (ymod >= y / 2)
+        ymod = ymod - y;
+    return UTime(_utime - ymod);
 }
 
 /* static */

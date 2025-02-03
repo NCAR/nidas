@@ -33,14 +33,14 @@
 #include "WindOrienter.h"
 #include "WindTilter.h"
 #include "WindRotator.h"
-
-#ifdef HAVE_LIBGSL
-#include <gsl/gsl_linalg.h>
-#endif
+#include <memory>
 
 namespace nidas {
 
 namespace dynld { namespace isff {
+
+
+class Wind3D_impl;
 
 /**
  * A class for performing the common processes on
@@ -71,7 +71,7 @@ public:
 
     double getVazimuth() const
     {
-	return _rotator.getAngleDegrees();
+        return _rotator.getAngleDegrees();
     }
 
     /**
@@ -86,25 +86,25 @@ public:
      */
     void setVazimuth(double val)
     {
-	_rotator.setAngleDegrees(val);
+        _rotator.setAngleDegrees(val);
     }
 
     double getLeanDegrees() const
     {
-	return _tilter.getLeanDegrees();
+        return _tilter.getLeanDegrees();
     }
     void setLeanDegrees(double val)
     {
-	_tilter.setLeanDegrees(val);
+        _tilter.setLeanDegrees(val);
     }
 
     double getLeanAzimuthDegrees() const
     {
-	return _tilter.getLeanAzimuthDegrees();
+        return _tilter.getLeanAzimuthDegrees();
     }
     void setLeanAzimuthDegrees(double val)
     {
-	_tilter.setLeanAzimuthDegrees(val);
+        _tilter.setLeanAzimuthDegrees(val);
     }
 
     void setDespike(bool val)
@@ -123,8 +123,8 @@ public:
 
     void setOutlierProbability(double val)
     {
-	for (int i = 0; i < 4; i++)
-	    _despiker[i].setOutlierProbability(val);
+        for (int i = 0; i < 4; i++)
+            _despiker[i].setOutlierProbability(val);
     }
 
     double getOutlierProbability() const
@@ -134,8 +134,8 @@ public:
 
     void setDiscLevelMultiplier(double val)
     {
-	for (int i = 0; i < 4; i++)
-	    _despiker[i].setDiscLevelMultiplier(val);
+        for (int i = 0; i < 4; i++)
+            _despiker[i].setDiscLevelMultiplier(val);
     }
 
     double getDiscLevelMultiplier() const
@@ -185,7 +185,7 @@ public:
     }
 
     void despike(nidas::core::dsm_time_t tt,float* uvwt,int n, bool* spikeOrMissing)
-    	throw();
+        throw();
 
     /**
      * Do standard bias removal, tilt correction and horizontal rotation of
@@ -236,7 +236,6 @@ public:
      */
     virtual void checkSampleTags();
 
-#ifdef HAVE_LIBGSL
     /**
      * Read 3x3 matrix to be used for the transformation of wind vectors in ABC
      * transducer coordinates to orthoganal UVW coordinates. These values are typically
@@ -245,7 +244,10 @@ public:
     virtual void getTransducerRotation(nidas::core::dsm_time_t tt);
 
     virtual void transducerShadowCorrection(nidas::core::dsm_time_t, float *);
-#endif
+
+    bool shadowCorrectionEnabled();
+
+    virtual void updateAttributes();
 
 protected:
 
@@ -259,10 +261,8 @@ protected:
 
     double _bias[3];
 
-    bool _allBiasesNaN;
-
     bool _despike;
-    
+
     bool _metek;
 
     nidas::core::AdaptiveDespiker _despiker[4];
@@ -329,7 +329,6 @@ protected:
      */
     nidas::core::CalFile* _oaCalFile;
 
-#ifdef HAVE_LIBGSL
     /**
      * CalFile containing the transducer geometry matrix for rotation
      * to transducer coordinates, which is necessary for transducer
@@ -341,19 +340,7 @@ protected:
      * Axes transformation matrix, from non-orthogonal ABC to orthogonal UVW coordinates.
      */
     double _atMatrix[3][3];
-
-#define COMPUTE_ABC2UVW_INVERSE
-#ifdef COMPUTE_ABC2UVW_INVERSE
     double _atInverse[3][3];
-#else
-    gsl_vector* _atVectorGSL1;
-    gsl_vector* _atVectorGSL2;
-#endif
-
-    gsl_matrix* _atMatrixGSL;
-
-    gsl_permutation* _atPermutationGSL;
-#endif
 
     /**
      * Transducer shadow (aka flow distortion) correction factor.
@@ -361,6 +348,10 @@ protected:
      * "shadowFactor".
      */
     double _shadowFactor;
+
+    bool _process_started;
+
+    std::unique_ptr<Wind3D_impl> _impl;
 
 private:
 

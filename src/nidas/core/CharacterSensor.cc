@@ -223,49 +223,39 @@ void CharacterSensor::validateSscanfs()
 
 void CharacterSensor::fromDOMElement(const xercesc::DOMElement* node)
 {
-
+    DOMableContext dmc(this, "CharacterSensor: ", node);
     DSMSensor::fromDOMElement(node);
+    handledElements({"message", "prompt"});
 
-    XDOMElement xnode(node);
+    std::string aval;
+    if (getAttribute(node, "init_string", aval))
+        setInitString(aval);
 
-    if(node->hasAttributes()) {
-    // get all the attributes of the node
-	xercesc::DOMNamedNodeMap *pAttributes = node->getAttributes();
-	int nSize = pAttributes->getLength();
-	for(int i=0;i<nSize;++i) {
-	    XDOMAttr attr((xercesc::DOMAttr*) pAttributes->item(i));
-	    // get attribute name
-	    const std::string& aname = attr.getName();
-	    const std::string& aval = attr.getValue();
+    // accepted but no longer used.
+    handledAttributes({"nullterm"});
 
-	    if (aname == "nullterm") { }
-	    else if (aname == "init_string")
-		setInitString(aval);
-
-	}
-    }
     xercesc::DOMNode* child;
     for (child = node->getFirstChild(); child != 0;
-	    child=child->getNextSibling())
+         child=child->getNextSibling())
     {
-	if (child->getNodeType() != xercesc::DOMNode::ELEMENT_NODE) continue;
-	XDOMElement xchild((xercesc::DOMElement*) child);
-	const string& elname = xchild.getNodeName();
+        if (child->getNodeType() != xercesc::DOMNode::ELEMENT_NODE) continue;
+        XDOMElement xchild((xercesc::DOMElement*) child);
+        const string& elname = xchild.getNodeName();
 
-	if (elname == "message") {
-	    const string& str = xchild.getAttributeValue("position");
+        if (elname == "message") {
+            const string& str = xchild.getAttributeValue("position");
             bool eom = true;
-	    if (str == "beg") eom = false;
-	    else if (str == "end") eom = true;
-	    else if (str != "") throw n_u::InvalidParameterException
-			(getName(),"messageSeparator position",str);
+            if (str == "beg") eom = false;
+            else if (str == "end") eom = true;
+            else if (str != "") throw n_u::InvalidParameterException
+                        (getName(),"messageSeparator position",str);
 
-	    istringstream ist(xchild.getAttributeValue("length"));
-	    unsigned int len;
-	    ist >> len;
-	    if (ist.fail())
-		throw n_u::InvalidParameterException(getName(),
-		    "message length", xchild.getAttributeValue("length"));
+            istringstream ist(xchild.getAttributeValue("length"));
+            unsigned int len;
+            ist >> len;
+            if (ist.fail())
+                throw n_u::InvalidParameterException(getName(),
+                    "message length", xchild.getAttributeValue("length"));
 
             // The signature of this method indicates that it can throw IOException,
             // but it won't actually, since the device isn't opened yet.
@@ -275,8 +265,8 @@ void CharacterSensor::fromDOMElement(const xercesc::DOMElement* node)
             catch(const n_u::IOException& e) {
                 throw n_u::InvalidParameterException(e.what());
             }
-	}
-	else if (elname == "prompt") {
+        }
+        else if (elname == "prompt") {
 
             xercesc::DOMNamedNodeMap *promptAttrs = child->getAttributes();
             int nSize = promptAttrs->getLength();
@@ -316,7 +306,7 @@ void CharacterSensor::fromDOMElement(const xercesc::DOMElement* node)
                     setPromptOffset(offset);
                 }
             }
-	}
+        }
     }
 }
 

@@ -220,19 +220,19 @@ openFileForWriting(const std::string& filename)
  * Create a file using a time to create the name.
  * Return the time of the next file.
  */
-UTime FileSet::createFile(const UTime ftime,bool exact)
+UTime FileSet::createFile(const UTime ftime, bool exact)
 {
-    DLOG(("this=%p, nidas::util::FileSet::createFile, ftime=",this)
-     << ftime.format(true,"%c"));
+    DLOG(("this=%p, nidas::util::FileSet::createFile, ftime=", this)
+         << ftime.format(true, "%c"));
     closeFile();
 
     UTime ntime = ftime;
 
     if (!exact && _fileLength < LONG_LONG_MAX)
-    ntime -= ntime.toUsecs() % _fileLength;
+        ntime = ntime.earlier(_fileLength);
 
     // convert input time into date/time format using GMT timezone
-    _currname = ntime.format(true,_fullpath);
+    _currname = ntime.format(true, _fullpath);
 
     DLOG(("nidas::util::FileSet:: fullpath=") << _fullpath);
     DLOG(("nidas::util::FileSet:: currname=") << _currname);
@@ -274,14 +274,12 @@ UTime FileSet::createFile(const UTime ftime,bool exact)
         throw e;
     }
 
-    UTime nextFileTime = ntime + USECS_PER_SEC;	// add one sec
+    UTime nextFileTime{ UTime::MAX };
     if (_fileLength < LONG_LONG_MAX)
-        nextFileTime += _fileLength - (nextFileTime.toUsecs() % _fileLength);
-    else
-        nextFileTime = LONG_LONG_MAX;
+        nextFileTime = (ntime + _fileLength).earlier(_fileLength);
 
     DLOG(("nidas::util::FileSet:: nextFileTime=")
-     << nextFileTime.format(true,"%c"));
+         << nextFileTime.format(true,"%c"));
     _newFile = true;
 
     return nextFileTime;
@@ -368,7 +366,15 @@ void FileSet::initialize()
             }
         }
 
-        if (_fileset.empty()) throw IOException(_fullpath,"open",ENOENT);
+        // If there are no files within the time range which match the
+        // pattern, then treat that like an immediate EOF, same as if a file
+        // had been opened but was empty.  We cannot know from the pattern
+        // whether there should have files to find.  When explicit filenames
+        // have been added to the fileset with addFileName(), ie, when
+        // fullpath is empty, then those files must exist and an exception
+        // IOException will be thrown if they cannot be opened.
+        _currname = _fullpath;
+        // if (_fileset.empty()) throw IOException(_fullpath,"open",ENOENT);
     }
     _fileiter = _fileset.begin();
     _initialized = true;

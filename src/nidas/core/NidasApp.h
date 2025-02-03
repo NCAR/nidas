@@ -75,6 +75,9 @@ expectArg(const ArgVector& args, int i)
 class NidasAppArg
 {
 public:
+
+    enum ATTS: unsigned int { NONE=0, OMITBRIEF=2 };
+
     /**
      * Construct a NidasAppArg from a list of accepted short and long
      * flags, the syntax for any arguments to the flag, a usage string, and
@@ -116,12 +119,17 @@ public:
      * Arguments can be marked as required, which allows unset required
      * arguments to be detected by NidasApp::checkRequiredArguments().  See
      * setRequired().
+     *
+     * The @p atts parameter is a bitmask of attributes for the argument.
+     * NidasApp::usage() will not show usage for arguments with the OMITBRIEF
+     * attribute.  See omitBrief().
      **/
     NidasAppArg(const std::string& flags,
                 const std::string& syntax = "",
                 const std::string& usage = "",
                 const std::string& default_ = "",
-                bool required = false);
+                bool required = false,
+                unsigned int atts = NONE);
 
     virtual
     ~NidasAppArg();
@@ -288,6 +296,12 @@ public:
         return _default;
     }
 
+    bool
+    omitBrief()
+    {
+        return _omitbrief;
+    }
+
 protected:
 
     std::string _flags;
@@ -298,6 +312,7 @@ protected:
     std::string _value;
     bool _enableShortFlag;
     bool _required;
+    bool _omitbrief;
 
     /**
      * Return true for arguments which are only a single argument.  They
@@ -828,7 +843,7 @@ public:
 
     /**
      * Set the list of command-line argument strings to be parsed and
-     * handled by successive calls to nextArgument().  The usual calling
+     * handled by successive calls to nextArg().  The usual calling
      * sequence is this:
      *
      * @code
@@ -867,7 +882,7 @@ public:
      * the standard arguments.
      * 
      * Recognized arguments are removed from the argument list.  Call
-     * parseRemaining() to return the arguments which have not been parsed,
+     * unparsedArgs() to return the arguments which have not been parsed,
      * such as to access positional arguments or detect unrecognized
      * arguments.  Positional arguments like input sockets and file names
      * are not handled here, since they cannot be differentiated from
@@ -891,7 +906,11 @@ public:
     bool
     nextArg(std::string& arg);
 
-
+    /**
+     * Return any arguments left in the argument list.  From the argument list
+     * passed into startArgs(), this returns the arguments which have not
+     * already been handled by parseNext() or nextArg().  
+     */
     ArgVector
     unparsedArgs();
 

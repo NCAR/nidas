@@ -833,10 +833,8 @@ int StatsProcess::listOutputSamples()
             const SampleTag* stag = *ti;
 
             cout << setw(4) << (stag->getSpSId() - sproc->getSampleId()) << ' ';
-            const std::vector<const Variable*>& vars = stag->getVariables();
-            std::vector<const Variable*>::const_iterator vi = vars.begin();
-            for ( ; vi != vars.end(); ++vi) {
-                const Variable* var = *vi;
+            for (auto& var: stag->getVariables())
+            {
                 cout << var->getName() << ' ';
             }
             cout << endl;

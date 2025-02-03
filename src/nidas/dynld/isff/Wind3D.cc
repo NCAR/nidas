@@ -35,6 +35,11 @@
 #include "Wind3D.h"
 #include "metek.h"
 
+#ifdef HAVE_LIBGSL
+#include <gsl/gsl_linalg.h>
+#endif
+
+
 #include <sstream>
 
 using namespace nidas::core;
@@ -48,8 +53,41 @@ namespace n_u = nidas::util;
 
 NIDAS_CREATOR_FUNCTION_NS(isff,Wind3D)
 
+
+namespace nidas {
+namespace dynld {
+namespace isff {
+
+
+class Wind3D_impl
+{
+public:
+#ifdef HAVE_LIBGSL
+    Wind3D_impl():
+        _atMatrixGSL(gsl_matrix_alloc(3,3)),
+        _atPermutationGSL(gsl_permutation_alloc(3))
+    {}
+
+    ~Wind3D_impl()
+    {
+        gsl_matrix_free(_atMatrixGSL);
+        gsl_permutation_free(_atPermutationGSL);
+    }
+
+    gsl_matrix* _atMatrixGSL;
+    gsl_permutation* _atPermutationGSL;
+    bool _enabled{true};
+#else
+    bool _enabled{false};
+#endif
+
+    Wind3D_impl(const Wind3D_impl&) = delete;
+    Wind3D_impl& operator=(const Wind3D_impl&) = delete;
+};
+
+
+
 Wind3D::Wind3D():
-    _allBiasesNaN(false),
     _despike(false),
     _metek(false),
     _rotator(), _tilter(), _orienter(),
@@ -61,19 +99,12 @@ Wind3D::Wind3D():
     _noutVals(0),
     _numParsed(0),
     _oaCalFile(0),
-#ifdef HAVE_LIBGSL
     _atCalFile(0),
     _atMatrix(),
-#ifdef COMPUTE_ABC2UVW_INVERSE
     _atInverse(),
-#else
-    _atVectorGSL1(gsl_vector_alloc(3)),
-    _atVectorGSL2(gsl_vector_alloc(3)),
-#endif
-    _atMatrixGSL(gsl_matrix_alloc(3,3)),
-    _atPermutationGSL(gsl_permutation_alloc(3)),
-#endif
-    _shadowFactor(0.0)
+    _shadowFactor(0.0),
+    _process_started(false),
+    _impl{new Wind3D_impl{}}
 {
     for (int i = 0; i < 3; i++) {
         _bias[i] = 0.0;
@@ -83,17 +114,12 @@ Wind3D::Wind3D():
     }
 }
 
+// This must be defined here where the impl type is known completely, as
+// opposed to defaulting the destructor in the header where it is incomplete.
 Wind3D::~Wind3D()
 {
-#ifdef HAVE_LIBGSL
-#ifndef COMPUTE_ABC2UVW_INVERSE
-    gsl_vector_free(_atVectorGSL1);
-    gsl_vector_free(_atVectorGSL2);
-#endif
-    gsl_matrix_free(_atMatrixGSL);
-    gsl_permutation_free(_atPermutationGSL);
-#endif
 }
+
 void Wind3D::despike(dsm_time_t tt,
 	float* uvwt,int n,bool* spikeOrMissing) throw()
 {
@@ -123,22 +149,31 @@ void Wind3D::despike(dsm_time_t tt,
 
 void Wind3D::setBias(int b, double val)
 {
-    int nnan = 0;
-    for (int i = 0; i < 3; i++)
-    {
-        if (b == i) _bias[i] = val;
-        if (std::isnan(_bias[i])) nnan++;
-    }
-    _allBiasesNaN = (nnan == 3);
+    if (0 <= b && b < 3)
+        _bias[b] = val;
 }
 
 
 void Wind3D::readOffsetsAnglesCalFile(dsm_time_t tt) throw()
 {
+    auto handler = [this](const nidas::util::Exception& ex)
+    {
+        WLOG(("") << _oaCalFile->getCurrentFileName()
+                    << ": " << ex.what());
+        for (int i = 0; i < 3; i++)
+            setBias(i, floatNAN);
+        setLeanDegrees(floatNAN);
+        setLeanAzimuthDegrees(floatNAN);
+        setVazimuth(floatNAN);
+        _oaCalFile = 0;
+    };
+
     // Read CalFile of bias, rotation angles, and orientation.
     // u.off   v.off   w.off    theta  phi    Vazimuth  t.off  t.slope  orientation
     if (_oaCalFile) {
         while(tt >= _oaCalFile->nextTime().toUsecs()) {
+            VLOG(("sensor ") << getName() << " reading cal file "
+                 << _oaCalFile->getCurrentFileName());
             float d[8];
             try {
                 n_u::UTime calTime;
@@ -170,32 +205,19 @@ void Wind3D::readOffsetsAnglesCalFile(dsm_time_t tt) throw()
                 {
                     _orienter.setOrientation(cfields[8], getName());
                 }
+                updateAttributes();
             }
             catch(const n_u::EOFException& e)
             {
             }
             catch(const n_u::IOException& e)
             {
-                n_u::Logger::getInstance()->log(LOG_WARNING,"%s: %s",
-                    _oaCalFile->getCurrentFileName().c_str(),e.what());
-                for (int i = 0; i < 3; i++)
-                    setBias(i, floatNAN);
-                setLeanDegrees(floatNAN);
-                setLeanAzimuthDegrees(floatNAN);
-                setVazimuth(floatNAN);
-                _oaCalFile = 0;
+                handler(e);
                 break;
             }
             catch(const n_u::ParseException& e)
             {
-                n_u::Logger::getInstance()->log(LOG_WARNING,"%s: %s",
-                    _oaCalFile->getCurrentFileName().c_str(),e.what());
-                for (int i = 0; i < 3; i++)
-                    setBias(i, floatNAN);
-                setLeanDegrees(floatNAN);
-                setLeanAzimuthDegrees(floatNAN);
-                setVazimuth(floatNAN);
-                _oaCalFile = 0;
+                handler(e);
                 break;
             }
         }
@@ -229,6 +251,8 @@ void Wind3D::validate()
     parseParameters();
 
     checkSampleTags();
+
+    updateAttributes();
 }
 
 void Wind3D::parseParameters()
@@ -236,26 +260,12 @@ void Wind3D::parseParameters()
     const Parameter* parameter =
         Project::getInstance()->getParameter("wind3d_horiz_rotation");
     if (parameter) {
-        if ((parameter->getType() != Parameter::BOOL_PARAM &&
-            parameter->getType() != Parameter::INT_PARAM &&
-            parameter->getType() != Parameter::FLOAT_PARAM) ||
-            parameter->getLength() != 1)
-            throw n_u::InvalidParameterException(getName(),parameter->getName(),
-                "should be a boolean or integer (FALSE=0,TRUE=1) of length 1");
-        bool val = (bool) parameter->getNumericValue(0);
-        setDoHorizontalRotation(val);
+        setDoHorizontalRotation(parameter->getBoolValue(getName()));
     }
 
     parameter = Project::getInstance()->getParameter("wind3d_tilt_correction");
     if (parameter) {
-        if ((parameter->getType() != Parameter::BOOL_PARAM &&
-            parameter->getType() != Parameter::INT_PARAM &&
-            parameter->getType() != Parameter::FLOAT_PARAM) ||
-            parameter->getLength() != 1)
-            throw n_u::InvalidParameterException(getName(),parameter->getName(),
-                "should be a boolean or integer (FALSE=0,TRUE=1) of length 1");
-        bool val = (bool) parameter->getNumericValue(0);
-        setDoTiltCorrection(val);
+        setDoTiltCorrection(parameter->getBoolValue(getName()));
     }
 
     const list<const Parameter*>& params = getParameters();
@@ -290,22 +300,10 @@ void Wind3D::parseParameters()
             setLeanAzimuthDegrees(parameter->getNumericValue(0));
         }
         else if (parameter->getName() == "wind3d_horiz_rotation") {
-            if ((parameter->getType() != Parameter::BOOL_PARAM &&
-                parameter->getType() != Parameter::INT_PARAM &&
-                parameter->getType() != Parameter::FLOAT_PARAM) ||
-                parameter->getLength() != 1)
-                throw n_u::InvalidParameterException(getName(),parameter->getName(),
-                    "should be a boolean or integer (FALSE=0,TRUE=1) of length 1");
-            setDoHorizontalRotation((bool)parameter->getNumericValue(0));
+            setDoHorizontalRotation(parameter->getBoolValue(getName()));
         }
         else if (parameter->getName() == "wind3d_tilt_correction") {
-            if ((parameter->getType() != Parameter::BOOL_PARAM &&
-                parameter->getType() != Parameter::INT_PARAM &&
-                parameter->getType() != Parameter::FLOAT_PARAM) ||
-                parameter->getLength() != 1)
-                throw n_u::InvalidParameterException(getName(),parameter->getName(),
-                    "should be a boolean or integer (FALSE=0,TRUE=1) of length 1");
-            setDoTiltCorrection((bool)parameter->getNumericValue(0));
+            setDoTiltCorrection(parameter->getBoolValue(getName()));
         }
         else if (_orienter.handleParameter(parameter, getName())) {
             // pass
@@ -315,22 +313,14 @@ void Wind3D::parseParameters()
                     parameter->getLength() != 1)
                     throw n_u::InvalidParameterException(getName(),
                             "shadowFactor","must be one float");
-#ifdef HAVE_LIBGSL
             _shadowFactor = parameter->getNumericValue(0);
-#else
-            if (parameter->getNumericValue(0) != 0.0)
+            if (!_impl->_enabled && _shadowFactor != 0.0)
                     throw n_u::InvalidParameterException(getName(),
                         "shadowFactor",
                         "must be zero since there is no GSL support");
-#endif
         }
         else if (parameter->getName() == "metek") {
-            if ((parameter->getType() != Parameter::BOOL_PARAM &&
-                parameter->getType() != Parameter::INT_PARAM &&
-                parameter->getType() != Parameter::FLOAT_PARAM) ||
-                parameter->getLength() != 1)
-                throw n_u::InvalidParameterException(getName(),parameter->getName(), "'metek' should be a boolean or integer (FALSE=0,TRUE=1) of length 1");
-            setMetek(parameter->getNumericValue(0)); 
+            setMetek(parameter->getBoolValue(getName())); 
         }
         else if (parameter->getName() == "oversample");
         else if (parameter->getName() == "soniclog");
@@ -338,19 +328,23 @@ void Wind3D::parseParameters()
         else if (parameter->getName() == "expectedCounts");
         else if (parameter->getName() == "maxMissingFraction");
         else if (parameter->getName() == "bandwidth");
+        else if (parameter->getName() == "irgadiagmask");
         else if (parameter->getName() == "configure");
         else if (parameter->getName() == "checkCounter");
         else throw n_u::InvalidParameterException(
              getName(),"parameter",parameter->getName());
     }
 
-    _oaCalFile =  getCalFile("offsets_angles");
-    if (!_oaCalFile) _oaCalFile =  getCalFile("");
+    _oaCalFile = getCalFile("offsets_angles");
+    if (!_oaCalFile)
+    {
+        // not sure if this is worth warning about or not...
+        // WLOG(("offsets_angles cal file not specified: ") << getName());
+        _oaCalFile = getCalFile("");
+    }
 
-#ifdef HAVE_LIBGSL
     // transformation matrix from non-orthogonal axes to UVW
     _atCalFile = getCalFile("abc2uvw");
-#endif
 }
 
 void Wind3D::checkSampleTags()
@@ -416,12 +410,19 @@ void Wind3D::validateSscanfs()
     }
 }
 
-#ifdef HAVE_LIBGSL
+
+bool Wind3D::shadowCorrectionEnabled()
+{
+    return _impl->_enabled && _atCalFile && _shadowFactor != 0.0 &&
+        !std::isnan(_atMatrix[0][0]);
+}
+
 void Wind3D::transducerShadowCorrection(dsm_time_t tt,float* uvw)
 {
-    if (!_atCalFile || _shadowFactor == 0.0 || std::isnan(_atMatrix[0][0]))
+    if (!shadowCorrectionEnabled())
         return;
 
+#ifdef HAVE_LIBGSL
     double spd2 = uvw[0] * uvw[0] + uvw[1] * uvw[1] + uvw[2] * uvw[2];
 
     /* If one component is missing, do we mark all as missing?
@@ -439,25 +440,12 @@ void Wind3D::transducerShadowCorrection(dsm_time_t tt,float* uvw)
 
     double abc[3];
 
-#ifdef COMPUTE_ABC2UVW_INVERSE
     // rotate from UVW to non-orthogonal transducer coordinates, ABC
     for (int i = 0; i < 3; i++) {
         abc[i] = 0.0;
         for (int j = 0; j < 3; j++)
             abc[i] += uvw[j] * _atInverse[i][j];
     }
-#else
-    // solve the equation for abc:
-    // matrix * abc = uvw
-
-    for (int i = 0; i < 3; i++)
-        gsl_vector_set(_atVectorGSL1,i,uvw[i]);
-
-    gsl_linalg_LU_solve(_atMatrixGSL, _atPermutationGSL, _atVectorGSL1, _atVectorGSL2);
-
-    for (int i = 0; i < 3; i++)
-        abc[i] = gsl_vector_get(_atVectorGSL2,i);
-#endif
 
     // apply shadow correction to winds in transducer coordinates
     for (int i = 0; i < 3; i++) {
@@ -476,10 +464,12 @@ void Wind3D::transducerShadowCorrection(dsm_time_t tt,float* uvw)
     }
 
     // cerr << "uvw=" << uvw[0] << ' ' << uvw[1] << ' ' << uvw[2] << endl;
+#endif
 }
 
 void Wind3D::getTransducerRotation(dsm_time_t tt)
 {
+#ifdef HAVE_LIBGSL
     if (_atCalFile) {
         while(tt >= _atCalFile->nextTime().toUsecs()) {
 
@@ -497,23 +487,22 @@ void Wind3D::getTransducerRotation(dsm_time_t tt)
                 const float* dp = data;
                 for (int i = 0; i < 3; i++) {
                     for (int j = 0; j < 3; j++) {
-                        gsl_matrix_set(_atMatrixGSL,i,j,*dp);
+                        gsl_matrix_set(_impl->_atMatrixGSL, i, j, *dp);
                         _atMatrix[i][j] = *dp++;
                     }
                     // cerr << _atMatrix[i][0] << ' ' << _atMatrix[i][1] << ' ' << _atMatrix[i][2] << endl;
                 }
                 int sign;
-                gsl_linalg_LU_decomp(_atMatrixGSL,_atPermutationGSL, &sign);
-#ifdef COMPUTE_ABC2UVW_INVERSE
+                gsl_linalg_LU_decomp(_impl->_atMatrixGSL, _impl->_atPermutationGSL, &sign);
                 gsl_matrix* inverseGSL = gsl_matrix_alloc(3,3);
-                gsl_linalg_LU_invert(_atMatrixGSL,_atPermutationGSL, inverseGSL);
+                gsl_linalg_LU_invert(_impl->_atMatrixGSL, _impl->_atPermutationGSL, inverseGSL);
                 for (int i = 0; i < 3; i++) {
                     for (int j = 0; j < 3; j++) {
                         _atInverse[i][j] = gsl_matrix_get(inverseGSL,i,j);
                     }
                 }
                 gsl_matrix_free(inverseGSL);
-#endif
+                updateAttributes();
             }
             catch(const n_u::EOFException& e)
             {
@@ -534,8 +523,98 @@ void Wind3D::getTransducerRotation(dsm_time_t tt)
             }
         }
     }
-}
 #endif
+}
+
+
+void Wind3D::updateAttributes()
+{
+    // create a set of attributes which specify what kind of processing is
+    // being done to the wind variables, then update those attributes on all
+    // the variables.  this gets called after the first attempt to process
+    // data, hoping that the right cal file settings for the data time have
+    // been loaded and will be valid for the rest of this run.
+
+    // this is making some assumptions for settings which come from calfiles,
+    // such as for tilt corrections.  if the first process() call happens to
+    // be during a time when the calfile settings are nan, then the attributes
+    // will be nan.  really the tilt and rotation angles should be separate
+    // from the "invalidation" times rather than lumped together in one cal
+    // file.  and of course in general these attributes could change over a
+    // long processing run.
+
+    // maybe a future improvement could be to call this method to update the
+    // attributes whenever a calfile change happens, or whenever one of the
+    // set methods are called.
+
+    // start with all the parameters in this sensor, since those are relevant
+    // even if they might be redundant.
+    std::vector<Parameter> attributes;
+
+    for (auto& param: getParameters())
+    {
+        // do not add shadowFactor in favor of shadow_factor below
+        if (param->getName() != "shadowFactor")
+            attributes.push_back(*param);
+    }
+
+    if (_metek)
+        attributes.push_back(Parameter("metek_correction_applied", false));
+
+    // this may already be present from a parameter, but set it anyway.
+    attributes.emplace_back("despike", getDespike());
+
+    attributes.emplace_back("shadow_correction_applied",
+                            shadowCorrectionEnabled());
+    if (shadowCorrectionEnabled())
+    {
+        attributes.emplace_back("shadow_factor", _shadowFactor);
+        if (_atCalFile)
+            attributes.emplace_back("shadow_calfile",
+                                    _atCalFile->getCurrentFileName());
+    }
+
+    attributes.emplace_back("orientation", _orienter.getOrientationName());
+
+    attributes.emplace_back("tilt_correction_applied", _tiltCorrection);
+    if (_tiltCorrection)
+    {
+        attributes.emplace_back("lean_degrees", _tilter.getLeanDegrees());
+        attributes.emplace_back("lean_azimuth_degrees",
+                                _tilter.getLeanAzimuthDegrees());
+        if (_oaCalFile)
+            attributes.emplace_back("offsets_angles_calfile",
+                                    _oaCalFile->getCurrentFileName());
+    }
+
+    attributes.emplace_back("horizontal_rotation_applied",
+                            _horizontalRotation);
+
+    // probably avoids confusion to leave this out if not enabled.
+    if (_horizontalRotation)
+    {
+        attributes.emplace_back("rotate_degrees", _rotator.getAngleDegrees());
+    }
+
+    // Set the attributes on the uvw variables, always the first three.
+    for (auto& stag: getSampleTags())
+    {
+        auto& variables = stag->getVariables();
+        for (size_t i = 0; i < variables.size() && i < 3; ++i)
+        {
+            for (auto& att: attributes)
+            {
+                // preserve group order by removing and re-adding.  otherwise
+                // the first time an att like _applied is added and false, it
+                // will be further up the list than when it is enabled and the
+                // related atts are added.
+                variables[i]->removeAttribute(att.getName());
+                variables[i]->setAttribute(att);
+            }
+        }
+    }
+}
+
 
 bool Wind3D::process(const Sample* samp,
 	std::list<const Sample*>& results)
@@ -561,7 +640,7 @@ bool Wind3D::process(const Sample* samp,
         if (pdata < pend) uvwtd[i] = *pdata++;
         else uvwtd[i] = floatNAN;
     }
-    
+
     //metek has a correction before we start applying other corrections
     if (_metek) {
         nidas::dynld::isff::metek::Apply3DCorrect(uvwtd);
@@ -581,10 +660,8 @@ bool Wind3D::process(const Sample* samp,
         despike(samp->getTimeTag(),uvwtd,4,spikes);
     }
 
-#ifdef HAVE_LIBGSL
     // apply shadow correction before correcting for unusual orientation
-    transducerShadowCorrection(samp->getTimeTag(),uvwtd);
-#endif
+    transducerShadowCorrection(samp->getTimeTag(), uvwtd);
 
     applyOrientation(samp->getTimeTag(), uvwtd);
 
@@ -620,16 +697,6 @@ bool Wind3D::process(const Sample* samp,
 
     memcpy(dptr, uvwtd, sizeof(float) * nvals);
 
-#ifdef notdef
-    // This is skipped now that the output sample is first seeded with all
-    // the values from the parsed sample, otherwise it overwrites valid
-    // parsed values.
-    float* dend = dout + _noutVals;
-    dptr += nvals;
-
-    for ( ; dptr < dend; ) *dptr++ = floatNAN;
-#endif
-
     // If user asks for ldiag, use it to flag data values
     if (_ldiagIndex >= 0) {
         dout[_ldiagIndex] = (float)!diagOK;
@@ -647,8 +714,18 @@ bool Wind3D::process(const Sample* samp,
         dout[_dirIndex] = n_u::dirFromUV(dout[0], dout[1]);
     }
 
+    if (!_process_started)
+    {
+        DLOG(("updating attributes after first process call: ") << getName());
+        updateAttributes();
+        _process_started = true;
+    }
+
     results.push_back(wsamp);
     return true;
 }
 
 
+} // isff
+} // dynld
+} // nidas

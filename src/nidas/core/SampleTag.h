@@ -90,14 +90,10 @@ class SampleTag : public DOMable
 public:
 
     /**
-     * Constructor.
+     * Constructor of a sample tag for a given sensor, or a default
+     * constructor if @p sensor is null.
      */
-    SampleTag();
-
-    /**
-     * Constructor of a sample for a given sensor.
-     */
-    SampleTag(const DSMSensor* sensor);
+    SampleTag(const DSMSensor* sensor = nullptr);
 
     /**
      * Copy constructor.
@@ -112,8 +108,8 @@ public:
      * Set the sample portion of the shortId.
      */
     void setSampleId(unsigned int val) {
-	_sampleId = val;
-        _id = SET_SPS_ID(_id,_sensorId + _sampleId);
+        _sampleId = val;
+        _id = SET_SPS_ID(_id, _sensorId + _sampleId);
     }
 
     /**
@@ -167,6 +163,11 @@ public:
 
     const DSMSensor* getDSMSensor() const { return _sensor; }
 
+    /**
+     * Set the DSMSensor to which this SampleTag belongs, and also update all
+     * properties are derived from the sensor, including Sensor ID, DSM ID,
+     * DSMConfig, suffix, and station.
+     */
     void setDSMSensor(const DSMSensor* val);
 
     /**
@@ -273,8 +274,19 @@ public:
      */
     virtual void addVariable(Variable* var);
 
-    const std::vector<const Variable*>& getVariables() const;
+    /**
+     * Return a vector of const Variable pointers, suitable for iterating over
+     * to read information about the variables, but not for changing anything.
+     */
+    std::vector<const Variable*> getVariables() const;
 
+    /**
+     * Return a const reference to this SampleTag's Variable vector, but the
+     * Variable pointers are not const, allowing the Variables themselves to
+     * be modified.  This is a reference for historical reasons, presumably to
+     * avoid copies, but it should be used with care since it is a reference
+     * into the SampleTag object implementation.
+     */
     const std::vector<Variable*>& getVariables()
     {
         return _variables;
@@ -296,10 +308,7 @@ public:
      */
     void addParameter(Parameter* val);
 
-    const std::list<const Parameter*>& getParameters() const
-    {
-        return _constParameters;
-    }
+    std::list<const Parameter*> getParameters() const;
 
     const Parameter* getParameter(const std::string& name) const;
 
@@ -342,6 +351,11 @@ public:
     xercesc::DOMElement*
     toDOMElement(xercesc::DOMElement* node,bool complete) const;
 
+    /**
+     * Return a string description of this SampleTag.
+     */
+    std::string toString() const;
+
 protected:
 
     /**
@@ -379,8 +393,6 @@ private:
 
     const DSMSensor* _sensor;
 
-    std::vector<const Variable*> _constVariables;
-
     std::vector<Variable*> _variables;
 
     std::vector<std::string> _variableNames;
@@ -395,12 +407,6 @@ private:
      * List of pointers to Parameters.
      */
     std::list<Parameter*> _parameters;
-
-    /**
-     * List of const pointers to Parameters for providing via
-     * getParameters().
-     */
-    std::list<const Parameter*> _constParameters;
 
     bool _enabled;
 

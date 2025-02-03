@@ -1,0 +1,35 @@
+# To see all the config settings: coverity help config --show-all|less
+---
+capture:
+  build:
+    build-command: scons -C src -j 4
+    # Clean everything under ., not just default targets.
+    clean-command: scons -C src -c .
+  compiler-configuration:
+    # only need to analyze C++ source, not any html or js files that might be
+    # generated for docs
+    cov-configure:
+      - - "--gcc"
+
+  # not sure how this relates to the cov-configure settings...
+  languages:
+    include:
+      - c-family
+
+  # for some reason a .sconf_temp file shows up as a compiled file "outside
+  # the project".  the files: settings would not work to exclude those files
+  # explicitly, because they only apply to non-compiled captures, and coverity
+  # sees that the files are compiled when scons runs configuration checks.
+
+analyze:
+  location: local
+  jobs:
+    max: 8
+
+commit:
+  connect:
+    project: NIDAS
+    stream: nidas-m2hats
+    url: https://snoopy.eol.ucar.edu/coverity
+    # A project version for the committed snapshot.
+    ##version: <value>

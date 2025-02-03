@@ -113,7 +113,7 @@ public:
 
     virtual const std::string& getUnits() const { return _units; }
 
-    void setVariable(const Variable* val) { _variable = val; }
+    void setVariable(Variable* val);
 
     const Variable* getVariable() const { return _variable; }
 
@@ -203,7 +203,7 @@ private:
      */
     std::list<const Parameter*> _constParameters;
 
-    const Variable* _variable;
+    Variable* _variable;
 
 protected:
     

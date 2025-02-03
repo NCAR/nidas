@@ -34,10 +34,11 @@
 #include <string>
 #include <list>
 
+#include "Parameter.h"
+
 namespace nidas { namespace core {
 
 class SampleTag;
-class Parameter;
 class Site;
 
 /**
@@ -74,8 +75,6 @@ public:
     bool operator == (const Variable& x) const;
 
     bool operator != (const Variable& x) const;
-
-    bool operator < (const Variable& x) const;
 
     /**
      * A more loose check of the equivalence of two variables,
@@ -163,8 +162,7 @@ public:
     void setPrefix(const std::string& val)
     {
         _prefix = val;
-        _name = _prefix + _suffix + _siteSuffix;
-        _nameWithoutSite = _prefix + _suffix;
+        updateName();
     }
 
     const std::string& getPrefix() const { return _prefix; }
@@ -181,8 +179,7 @@ public:
     void setSuffix(const std::string& val)
     {
         _suffix = val;
-        _name = _prefix + _suffix + _siteSuffix;
-        _nameWithoutSite = _prefix + _suffix;
+        updateName();
     }
 
     /**
@@ -200,8 +197,7 @@ public:
         _suffix.clear();
         _siteSuffix.clear();
         _prefix = val;
-        _name = _prefix;
-        _nameWithoutSite = _prefix;
+        updateName();
     }
 
     const std::string& getName() const { return _name; }
@@ -243,11 +239,7 @@ public:
      * Set the VariableConverter for this Variable.
      * Variable will own the pointer and will delete it.
      */
-    void setConverter(VariableConverter* val)
-    {
-        delete _converter;
-        _converter = val;
-    }
+    void setConverter(VariableConverter* val);
 
     const VariableConverter* getConverter() const { return _converter; }
 
@@ -318,19 +310,12 @@ public:
      * will then own the pointer and will delete it
      * in its destructor.
      */
-    void addParameter(Parameter* val)
-    {
-        _parameters.push_back(val);
-        _constParameters.push_back(val);
-    }
+    void addParameter(Parameter* val);
 
     /**
      * Get full list of parameters.
      */
-    const std::list<const Parameter*>& getParameters() const
-    {
-        return _constParameters;
-    }
+    std::list<const Parameter*> getParameters() const;
 
     /**
      * Fetch a parameter by name. Returns a NULL pointer if
@@ -417,9 +402,38 @@ public:
     xercesc::DOMElement*
     toDOMElement(xercesc::DOMElement* node, bool complete) const;
 
+    /**
+     * Add Parameter @p att as an attribute to this Variable.  If an attribute
+     * already exists with the same name, it will be replaced.
+     */
+    void setAttribute(const Parameter& att);
+
+    /**
+     * Remove the attribute with the given name, if it exists.
+     */
+    void removeAttribute(const std::string& name);
+
+    /**
+     * Return the attributes attached to this Variable.
+     */
+    const std::vector<Parameter>& getAttributes() const;
+
 private:
 
     void setSiteSuffix(const std::string& val);
+
+    /**
+     * Any time _prefix, _suffix, or _siteSuffix are updated, this method
+     * must be called to update _name.
+     */
+    void updateName();
+
+    /**
+     * Expand the string in @p aval against either the containing SampleTag or
+     * else the global Project instance.  Return a reference to the same
+     * string.
+     */
+    std::string& expand(std::string& aval);
 
     std::string _name;
 
@@ -454,12 +468,6 @@ private:
      */
     std::list<Parameter*> _parameters;
 
-    /**
-     * List of const pointers to Parameters for providing via
-     * getParameters().
-     */
-    std::list<const Parameter*> _constParameters;
-
     float _missingValue;
 
     float _minValue;
@@ -470,6 +478,7 @@ private:
 
     bool _dynamic;
 
+    std::vector<Parameter> _attributes;
 };
 
 }} // namespace nidas namespace core

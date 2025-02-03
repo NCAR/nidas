@@ -10,6 +10,7 @@ core
 data_dump
 tiostream
 network
+nidsmerge
 sync_server_dump
 ck_xml
 ck_calfile

@@ -30,6 +30,7 @@ using std::string;
 
 using namespace nidas::core;
 namespace n_u = nidas::util;
+using nidas::util::ParseException;
 using nidas::util::Logger;
 using nidas::util::LogScheme;
 
@@ -79,7 +80,8 @@ NidasAppArg(const std::string& flags,
 	    const std::string& syntax,
 	    const std::string& usage,
 	    const std::string& default_,
-            bool required) :
+            bool required,
+            unsigned int atts) :
   _flags(flags),
   _syntax(syntax),
   _usage(usage),
@@ -87,7 +89,8 @@ NidasAppArg(const std::string& flags,
   _arg(),
   _value(),
   _enableShortFlag(true),
-  _required(required)
+  _required(required),
+  _omitbrief(atts & OMITBRIEF)
 {}
 
 
@@ -303,6 +306,7 @@ accept(const std::string& arg)
       {
         // The negative flag sets the value to false.
         _value = "false";
+        return true;
       }
     }
     start = comma+1;
@@ -451,25 +455,30 @@ NidasApp(const std::string& name) :
    "Specify the path to the NIDAS XML header file.\n"),
   LogShow
   ("--logshow", "",
-   "As log points are created, show information for each one that can\n"
-   "be used to enable log messages from that log point."),
+   "Show log points, as they are reached, with attributes that can\n"
+   "be used to enable or disable that log point.", "",
+   false, NidasAppArg::OMITBRIEF),
   LogConfig
-  ("-l,--log[,--logconfig,--loglevel]", "<logconfig>",
-   "Add a log config to the log scheme.  The log config settings are\n"
-   "specified as a comma-separated list of fields, using syntax\n"
-   "<field>=<value>, where fields are tag, file, function, line, enable,\n"
-   "and disable.\n"
-   "The log level can be specified as either a number or string: \n"
-   "7=debug,6=info,5=notice,4=warning,3=error,2=critical.\n"
-   "--logconfig and --loglevel are accepted but deprecated.",
+  ("-l,--log", "<config>",
+   R"(Configure log messages according to a comma-separated list of
+criteria in the form <field>=<value>, where fields are tag, file, function,
+line, enable, and disable.  The log level can be a number (2-7) or a word from
+{critical, error, warning, notice, info, debug}.  Just "debug" enables all
+messages up to debug.  "verbose,file=SampleMatcher.cc" enables messages in the
+file SampleMatcher.cc down to verbose.  Multiple log configs can be applied:
+the first config matched by a log message can enable or disable it.  A
+matching message is enabled unless the config includes the "disable" field, so
+"verbose,file=SerialSensor.cc,disable" disables all messages in one file.)",
    "info"),
   LogFields
   ("--logfields", "{thread|function|file|level|time|message},...",
    "Set the log fields to be shown in log messages, as a comma-separated list\n"
-   "of log field names: thread, function, file, level, time, and message."),
+   "of log field names: thread, function, file, level, time, and message.",
+   "", false, NidasAppArg::OMITBRIEF),
   LogParam
   ("--logparam", "<name>=<value>",
-   "Set a log scheme parameter with syntax <name>=<value>."),
+   "Set a log scheme parameter with syntax <name>=<value>.",
+   "", false, NidasAppArg::OMITBRIEF),
   Help
   ("-h,--help", "", "Print usage, --help for full."),
   ProcessData
@@ -481,25 +490,36 @@ NidasApp(const std::string& name) :
   ("-e,--end", "<end-time>",
    "End samples at end-time, in the form 'YYYY {MMM|mm} dd HH:MM[:SS]'"),
   SampleRanges
-  ("-i,--samples", "[^]{<d1>[-<d2>]|*|/}[,{<s1>[-<s2>]|*|/}]",
+  ("-i,--samples", "[^]{<d1>[-<d2>]|*|/}[,{<s1>[-<s2>]|*|/}]"
+                   ",[<t1>,<t2>],file=<pattern>",
    R"(D is a range of dsm ids 'd1-d2', or /, *, or -1 for all, or '.'.
 S is a range of sample IDs 's1-s2', or all IDs if *, /, -1, or omitted.
-Sample ids can be specified in 0x hex format with a leading 0x, in which
-case they will also be output in hex.
-A DSM ID of '.' matches the DSM of the first sample received.
-Prefix the range option with ^ to exclude that range of samples.
-Multiple range options can be specified.  Samples are either included
-or excluded according to the first option which matches their ID.
-If only exclusions are specified, then all other samples are implicitly
-included.
-Use data_stats to see DSM ids and sample ids in a data file.
-More than one sample range can be specified.
+Sample ids can be specified in 0x hex format with a leading 0x, in which case
+the output format is set to hex.  A DSM ID of '.' matches the DSM of the first
+sample received.  Prefix the range option with ^ to exclude that range of
+samples.  Multiple range options can be specified.  Samples are included or
+excluded according to the first option they match.  One inclusion implicitly
+excludes all other samples.
+
+If the time range is given, it is inclusive, and the begin or end time of the
+range can be omitted, but not both.  Times are accepted in multiple formats,
+but without any commas or spaces.  For example,
+[2023-08-10_12:00:00,2023-08-10_13:00:00] matches samples from 12:00 to 13:00
+on August 10, 2023 UTC.  The brackets are required to identify the time range.
+
+When file pattern is given, a sample matches only if the pattern is found as a
+case-sensitive substring in the input stream name, which for datafile streams
+is the filename.  The filename criteria requires the file= prefix.
+
 Examples:
- -i /         All samples.
- -i .,30-40   Samples 30-40 from only the first DSM ID in the data.
- -i ^1        All samples except those with DSM ID 1.
- -i '^5' -i 1-10,1-2
-              Sample IDs 1-2 for DSMs 1-10 except for DSM 5.)"),
+ --samples /
+     All samples.
+ --samples .,30-40
+     Samples 30-40 from only the first DSM ID found.
+ --samples ^5 --samples 1-10,1-2
+     Include sample IDs 1-2 for DSMs 1-10 except for DSM 5.
+ --samples ^2,file=isfs_,[,2023-07-21Z]
+     Exclude all DSM 2 samples in network files before 2023-07-21.)"),
   FormatHexId("-X", "", "Format sensor-plus-sample IDs in hex"),
   FormatSampleId
   ("--id-format", "auto|decimal|hex|octal",
@@ -542,8 +562,7 @@ Examples:
    "Clip the output samples to the given time range,\n"
    "and expand the input time boundaries by 5 minutes.\n"
    "The input times are expanded to catch all raw samples\n"
-   "whose processed sample times might fall within the output times.\n"
-   "This option only applies to netcdf outputs.\n"),
+   "whose processed sample times might fall within the output times.\n"),
   SorterLength("-s,--sortlen,--sorterlength", "<seconds>",
                "Sorter length for processed samples in "
                "floating point seconds (optional)", "5.0"),
@@ -763,13 +782,13 @@ nidas::util::UTime
 NidasApp::
 parseTime(const std::string& optarg)
 {
-  nidas::util::UTime ut;
+  UTime ut;
   try {
-    ut = n_u::UTime::parse(true, optarg);
+    ut = UTime::convert(optarg);
   }
-  catch (const n_u::ParseException& pe) {
+  catch (const ParseException& pe) {
     throw NidasAppException("could not parse time " + optarg +
-			    ": " + pe.what());
+                            ": " + pe.what());
   }
   return ut;
 }
@@ -855,12 +874,16 @@ parseNext()
   else if (arg == &SampleRanges)
   {
     std::string optarg = SampleRanges.getValue();
-    if (! _sampleMatcher.addCriteria(optarg))
-    {
-      throw NidasAppException("sample criteria could not be parsed: " +
-			      optarg);
+    try {
+        _sampleMatcher.addCriteria(optarg);
     }
-    if (optarg.find("0x", 0) != string::npos && _idFormat._idFormat == NOFORMAT_ID)
+    catch (nidas::util::ParseException& pe)
+    {
+      throw NidasAppException("samples criteria: " +
+                              optarg + ": " + pe.what());
+    }
+    if (optarg.find("0x", 0) != string::npos &&
+        _idFormat._idFormat == NOFORMAT_ID)
     {
       setIdFormat(HEX_ID);
     }
@@ -1244,12 +1267,14 @@ std::string
 NidasApp::
 usage(const std::string& indent, bool brief)
 {
-  // Iterate through the list this application's arguments, dumping usage
+  // Iterate through this application's arguments, dumping usage
   // info for each.
   std::ostringstream oss;
   nidas_app_arglist_t::iterator it;
   for (it = _app_arguments.begin(); it != _app_arguments.end(); ++it)
   {
+    if (brief && (*it)->omitBrief())
+      continue;
     NidasAppArg& arg = (**it);
     oss << arg.usage(indent, brief);
   }
@@ -1716,7 +1741,7 @@ setOutputClipping(const UTime& start, const UTime& end,
 {
   if (Clipping.asBool())
   {
-    ILOG(("clipping netcdf output [")
+    ILOG(("clipping output [")
           << _startTime.format(true,"%Y %m %d %H:%M:%S")
           << ","
           << _endTime.format(true,"%Y %m %d %H:%M:%S")

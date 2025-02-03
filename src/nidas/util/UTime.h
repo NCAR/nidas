@@ -164,11 +164,9 @@ public:
      */
     UTime(bool utc, int year,int yday,int hour, int min, double sec);
 
-    UTime(const UTime& u) :
-        _utime(u._utime),
-        _fmt(u._fmt),
-        _utc(u._utc)
-    { }
+    UTime(const UTime& u) = default;
+
+    UTime& operator=(const UTime& u) = default;
 
     void setFromSecs(time_t t) { _utime = fromSecs(t); }
 
@@ -203,30 +201,54 @@ public:
     void setUTC(bool val) { _utc = val; }
 
     /**
-     * Parse a character string into a UTime, using these formats until success:
+     * Parse a character string into a UTime, trying the following formats
+     * until success.  If the string is empty, or the string "now", return the
+     * current time.  If the parsing should consume the entire string, then
+     * the convert() method might be more convenient.  Otherwise, use the
+     * nparsed parameter to determine how much of the string was parsed.
      *
-     * [CC]YY [cmon|mon] day h:m[:s.f]      h,m and s are one or two digits
-     * [CC]YY [cmon|mon] day hhmmss[.f]     hh, mm and ss are two digits
-     * [CC]YY [cmon|mon] day
-     * s.f
-     * YYYY-mm-dd[THH:MM[:SS[.f]]]          ISO format
-     * YYYY-mm-dd[ HH:MM[:SS[.f]]]          ISO format with space separator
+     * ISO format with space, T, or underscore separator, and when utc is
+     * true, an optional Z suffix:
+     *
+     *     YYYY-mm-dd[{T|_| }HH:MM[:SS[.f]]][Z]
+     * 
+     * The fractional seconds in the ISO formats can be either 3 or 6 digits,
+     * ie, either milliseconds or microseconds.
+     *
+     * Other formats:
+     *
+     *     [CC]YY [cmon|mon] day h:m[:s.f]      h,m and s are one or two digits
+     *     [CC]YY [cmon|mon] day hhmmss[.f]     hh, mm and ss are two digits
+     *     [CC]YY [cmon|mon] day
+     *     s.f
      *
      * "cmon" is a character month or abbreviation.
      * "mon" is a numeric month (1-12).
      * "day" is day of month, 1-31.
      * "h" or "hh" are in the range 0-23.
      * "f" is the fractional seconds, one or more digits.
+     *
      * The last format, "s.f" is the number of non-leap seconds since
      * 1970 Jan 1 00:00 GMT. For example, 1262304000.0 is 2010 Jan 1 00:00 GMT.
      * Note: one can also use a "%s" descriptor in the format argument to
      * parse(false,str,format,nparsed) to do the same conversion.
      * If all parsing fails, throw ParseException.
+     *
      * @param nparsed: number of characters parsed.
      *
      * @throws ParseException
      */
     static UTime parse(bool utc, const std::string& string, int* nparsed=0);
+
+    /**
+     * Same as parse() except UTC is implied.
+     */
+    static UTime parse(const std::string& string, int* nparsed=0);
+
+    /**
+     * parse() the full string in UTC or else throw ParseException.
+     */
+    static UTime convert(const std::string& string);
 
     /**
      * Parse a character string into a UTime.
@@ -270,6 +292,8 @@ public:
      * if not specified.  For example:
      * ut.format(true,"time is: %Y %m %d %H:%M:%S.%2f");
      *
+     * If this UTime is MIN or MAX, the string "MIN" or "MAX" is returned.
+     *
      * The "%s" format descriptor will print the number of non-leap seconds
      * since 1970 Jan 01 00:00 UTC. This is the same number returned by toSecs().
      * Note that %s will generate the same value as strftime in the following code:
@@ -307,15 +331,6 @@ public:
      */
     std::string format() const;
 
-    UTime& operator=(const UTime& u)
-    {
-        if (this != &u) {
-            _utime = u._utime;
-            _fmt = u._fmt;
-        }
-        return *this;
-    }
-
     UTime& operator=(long long u) { _utime = u; return *this; }
 
     UTime operator+ (long long u) const { return UTime(_utime + u); }
@@ -340,7 +355,21 @@ public:
 
     bool operator!=(const UTime& u) const { return _utime != u._utime; }
 
+    /**
+     * Return the UTime on the even microseconds interval @p y at or just
+     * prior to this UTime.  If @p y is zero, return this UTime.
+     * 
+     * @param y 
+     * @return UTime 
+     */
     UTime earlier(long long y) const;
+
+    /**
+     * Like earlier(), but if this UTime is closer to one interval past
+     * earlier(), then return that UTime instead of the earlier one.  If @p y
+     * is zero, return this UTime.
+     */
+    UTime round(long long y) const;
 
     static int month(std::string monstr);
 

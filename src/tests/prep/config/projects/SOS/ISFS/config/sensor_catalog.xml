@@ -1,0 +1,1651 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Copyright 2012 UCAR, NCAR, All Rights Reserved -->
+
+<!--
+    NOTE: This sensor catalog is configured for the new nidas autoconfig
+    functionality.  If you have questions regarding this functionality, and
+    how it is set up in the sensor catalog, please scroll to the end of
+    this document.
+-->
+
+<sensorcatalog>
+
+    <serialSensor ID="CHRONY_TRACKING_LOG" class="WatchedFileSensor"
+        devicename="/var/log/chrony/tracking.log">
+        <!-- see https://chrony.tuxfamily.org/doc/2.3/manual.html#tracking-log
+              date       hms        IP         statum freq(ppm)     freqerr offset   leap
+             2012-02-23 05:40:50 158.152.1.76     3    340.529      1.606  1.046e-03 N \
+                        sources offdev  remaining offset
+                         4  6.849e-03 -4.670e-04
+             -->
+        <sample id="1" scanfFormat="%*d-%*d-%*d %*d:%*d:%*d %*s%f%*f%*f%f">
+            <variable name="Stratum" units=""
+                longname="NTP stratum" plotrange="0 10"/>
+            <variable name="Timeoffset" units="sec"
+                longname="Clock offset, system-reference" plotrange="-100 100">
+                <linear units="usec" slope="1.e6" intercept="0.0"/>
+            </variable>
+        </sample>
+        <message separator="\n" position="end" length="0"/>
+    </serialSensor>
+
+    <serialSensor ID="HEATER_LOG" class="WatchedFileSensor"
+        devicename="$ISFS/projects/$PROJECT/ISFS/logs/csat_heat.log">
+        <!-- see https://chrony.tuxfamily.org/doc/2.3/manual.html#tracking-log
+              date       hms        IP         statum freq(ppm)     freqerr offset   leap
+             2012-02-23 05:40:50 158.152.1.76     3    340.529      1.606  1.046e-03 N \
+                        sources offdev  remaining offset
+                         4  6.849e-03 -4.670e-04
+        -->
+	<!-- 2021-12-07 20:48:35,283: Relay 8 state 0 -->
+        <sample id="1" scanfFormat="%*d-%*d-%*d %*d:%*d:%*d,%*d: Relay %d state %d">
+            <variable name="RelayID" units=""
+                longname="Number of relay" plotrange="1 8"/>
+            <variable name="State" units=""
+                longname="State (on or off) of relay" plotrange="0 1"/>
+        </sample>
+        <message separator="\n" position="end" length="0"/>
+    </serialSensor>
+
+
+    <!-- GPS config which only parses GPSnsat from GGA record.
+        GPS input is tee'd to this pseudo-terminal -->
+    <serialSensor ID="Garmin_GPS_LITE" class="GPS_NMEA_Serial" devicename="usock::32947">
+        <!-- GGA record -->
+        <sample id="1" rate="1">
+            <variable name="GPSnsat" units="count" longname="Number of GPS satellites tracked" plotrange="0 14"/>
+        </sample>
+        <!-- RMC record -->
+        <sample id="2" rate="1">
+            <variable name="GPSstat" units="none" longname="GPS rcvr status: 1=OK(A), 0=warning(V)"
+                plotrange="0 2"/>
+            <variable name="GPSdiff" units="s" longname="GPS NMEA receipt time - NMEA time value"
+                plotrange="-1 2"/>
+        </sample>
+        <message separator="\n" position="end" length="0"/>
+    </serialSensor>
+
+    <!-- GPS config which parses more stuff like Lat,Lon and Alt
+         from GGA record.  GPS input is tee'd to this pseudo-terminal -->
+    <serialSensor ID="Garmin_GPS" class="GPS_NMEA_Serial" devicename="usock::32947">
+        <!-- GGA record -->
+        <sample id="1" rate="1">
+            <variable name="Lat" units="degree_N" longname="GPS Latitude" plotrange="$LAT_RANGE"/>
+            <variable name="Lon" units="degree_E" longname="GPS Longitude" plotrange="$LON_RANGE"/>
+            <variable name="GPSqual" units="none" longname="GPS Qual, 0=inval,1=GPS,2=DGPS" plotrange="0 3"/>
+            <variable name="GPSnsat" units="count" longname="Number of GPS satellites tracked" plotrange="0 14"/>
+            <variable name="GPShordil" units="none" longname="Horizontal dilution of position"/>
+            <variable name="Alt" units="m" longname="GPS Altitude (MSL)" plotrange="$ALT_RANGE"/>
+            <variable name="GPSgeoidht" units="m" longname="Height of geoid (MSL) above WGS84 ellipsoid" plotrange="-50 50"/>
+        </sample>
+        <!-- RMC record -->
+        <sample id="2" rate="1">
+            <variable name="GPSstat" units="none" longname="GPS rcvr status: 1=OK(A), 0=warning(V)" plotrange="-1 2"/>
+            <variable name="GPSdiff" units="s" longname="GPS NMEA receipt time - NMEA time value" plotrange="0 2"/>
+        </sample>
+        <message separator="\n" position="end" length="0"/>
+    </serialSensor>
+
+    <!-- Paroscientific 6000 nano-barometer -->
+    <serialSensor ID="Nano" class="DSMSerialSensor"
+        baud="9600" parity="none" databits="8" stopbits="1"
+        init_string="*0100P4\r\n" timeout="10">
+        <!--
+            format: *0001833.714083\r\n
+        -->
+        <!-- For CFACT the Nano rates are about 19.8 -->
+        <sample id="1" scanfFormat="*%*4d%f" rate="19.8">
+            <variable name="P" units="mb" longname="Barometric Pressure, Paroscientific 6000" plotrange="$P_RANGE">
+                <linear>
+                    <calfile
+			path="$ISFS/projects/$PROJECT/ISFS/cal_files/${SITE}:$ISFS/projects/$PROJECT/ISFS/cal_files"
+                        file="P${SUFFIX}.dat"/>
+                </linear>
+            </variable>
+        </sample>
+        <message separator="\n" position="end" length="0"/>
+    </serialSensor>
+    
+    <serialSensor ID="NCAR_SHT" class="isff.NCAR_TRH"
+        baud="9600" parity="none" databits="8" stopbits="1">
+        <!--
+	Autoconfig parameters for NCAR_TRH
+	==================================
+
+	Any attributes left in the serialSensor tag above will still be
+	captured, unless they are specific to the autoconfig tag.  For
+	instance, legacy classes, like SerialSensor, capture things
+	like baud, databits, and stopbits. If you put those attributes
+	in the serialSensor tag, they will be captured. If for some
+	reason you put them in both serialSensor and autoconfig tags,
+	then the value in the autoconfig tag will win - be the value
+	which is applied.  If you put attribute items into the
+	serialSensor tag, which are intended to only be put into the
+	autoconfig tag, then those items will not be picked up at
+	all. Typically these are science oriented attributes like
+	pressure units, output formats, etc.  Delete the autoconfig
+	attributes you don't care about.  Add the attributes below in
+	the autoconfig tag as needed.  Format is attributeName="value"
+	The WisardMote class has its own defaults, which are those
+	normally used by UCAR.
+
+	The class default will be used if an attribute isn't included below.
+
+	* tagged values below are the factory defaults in the device.
+
+	@ tagged values below are the UCAR normal values and are in the
+	class defaults
+
+	baud			[*@9600]
+	parity			[*@none]
+	databits		[*@8]
+	stopbits		[*@1]
+	output_mode : NEITHER || CAL || *@RAW || BOTH
+	datarate : *@1..60 seconds between samples
+         -->
+	<autoconfig/>
+        <!-- TRH004 23.35 26.76 4534.0 6301 820 3233\r\n -->
+        <!-- not currently parsing the three raw values that now are also always reported -->
+        <sample id="1" scanfFormat="TRH%*d%f%f%f%f%f" rate="1">
+            <!-- generous minValue,maxValue range to screen periods when
+                 TRH goes batty -->
+            <variable name="T" units="degC"
+		      longname="Air Temperature, NCAR hygrothermometer"
+                      plotrange="$T_RANGE" minValue="-40" maxValue="60">
+                <linear units="degC">
+                    <calfile
+                        path="$ISFS/projects/$PROJECT/ISFS/cal_files/${SITE}:$ISFS/projects/$PROJECT/ISFS/cal_files"
+                        file="T_${HEIGHT}.dat"/>
+                </linear>
+            </variable>
+            <variable name="RH" units="%"
+		      longname="Relative Humidity, NCAR hygrothermometer"
+                      plotrange="$RH_RANGE" minValue="-5" maxValue="110">
+                <linear>
+                    <calfile
+                        path="$ISFS/projects/$PROJECT/ISFS/cal_files/${SITE}:$ISFS/projects/$PROJECT/ISFS/cal_files"
+                        file="RH_${HEIGHT}.dat"/>
+                </linear>
+            </variable>
+            <variable name="Rfan" units="RPM"
+                longname="Aspiration fan speed, NCAR hygrothermometer"
+                plotrange="$RFAN_RANGE"/>
+            <variable name="Traw" units=""/>
+            <variable name="RHraw" units=""/>
+        </sample>
+        <message separator="\n" position="end" length="0"/>
+    </serialSensor>
+
+    <serialSensor class="isff.CSI_IRGA_Sonic" ID="CSAT3_IRGA_BIN"
+        baud="115200" parity="none" databits="8" stopbits="1">
+	<!-- protocol:RS422 -->
+        <!--
+	Autoconfig parameters for CSAT3 IRGA Sonic Anemometer
+	=====================================================
+	Essentially the same as the CSAT3_Sonic with the exception that it
+	communicates over RS422.
+
+	Any attributes left in the serialSensor tag above will still be
+	captured, unless they are specific to the autoconfig tag.  For
+	instance, legacy classes, like SerialSensor, capture things like
+	baud, databits, and stopbits. If you put those attributes in the
+	serialSensor tag, they will be captured. If for some reason you put
+	them in both serialSensor and autoconfig tags, then the value in
+	the autoconfig tag will win - be the value which is applied.  If
+	you put attribute items into the serialSensor tag, which are
+	intended to only be put into the autoconfig tag, then those items
+	will not be picked up at all. Typically these are science oriented
+	attributes like pressure units, output formats, etc.  Delete the
+	autoconfig attributes you don't care about.  Add the attributes
+	below in the autoconfig tag as needed.  Format is
+	attributeName="value". The WisardMote class has its own defaults,
+	which are those normally used by UCAR.
+
+	  baud			[*@9600 19200]
+	  parity		[*@none]
+	  databits		[*@8]
+	  stopbits		[*@1]
+        -->
+        <parameter name="bandwidth" type="float" value="5"/>
+        <parameter type="float" name="shadowFactor" value="$CSAT3_SHADOW_FACTOR"/>
+        <calfile name="offsets_angles"
+            path="$ISFS/projects/$PROJECT/ISFS/cal_files/$SITE/$HEIGHT:$ISFS/projects/$PROJECT/ISFS/cal_files/$SITE"
+            file="csat.dat"/>
+        <calfile name="abc2uvw"
+            path="$ISFS/projects/$PROJECT/ISFS/cal_files"
+            file="csat_abc2uvw.dat"/>
+        <sample id="1" rate="20">
+            <variable name="u" units="m/s" longname="Wind U component, CSAT3" plotrange="$UV_RANGE"/>
+             <variable name="v" units="m/s" longname="Wind V component, CSAT3" plotrange="$UV_RANGE"/>
+            <variable name="w" units="m/s" longname="Wind W component, CSAT3" plotrange="$W_RANGE"/>
+            <variable name="tc" units="degC" longname="Virtual air temperature from speed of sound, CSAT3"
+                plotrange="$T_RANGE"/>
+            <variable name="diagbits" units=""
+                longname="CSAT3 diagnostic sum, 1=low sig,2=high sig,4=no lock,8=path diff,16=skipped samp"
+                plotrange="$DIAG_RANGE"/>
+            <variable name="co2" units="mg/m^3" longname="CO2 density from CSI IRGA" plotrange="$CO2_RANGE"
+                minValue="0.00" maxValue="10.0">
+                <linear units="g/m^3">
+                    <calfile
+                        path="$ISFS/projects/$PROJECT/ISFS/cal_files/$SITE/$HEIGHT:$ISFS/projects/$PROJECT/ISFS/cal_files/$SITE"
+                        file="irga_co2.dat"/>
+                </linear>
+            </variable>
+            <variable name="h2o" units="g/m^3" longname="Water vapor density from CSI IRGA" plotrange="$H2O_RANGE"
+                        minValue="0.00" maxValue="10.0" >
+                <linear>
+                    <calfile
+                        path="$ISFS/projects/$PROJECT/ISFS/cal_files/$SITE/$HEIGHT:$ISFS/projects/$PROJECT/ISFS/cal_files/$SITE"
+                        file="irga_h2o.dat"/>
+                </linear>
+            </variable>
+            <variable name="irgadiag" units="" longname="CSI IRGA diagnostic" plotrange="$DIAG_RANGE"/>
+            <variable name="Tirga" units="degC" longname="CSI IRGA temperature" plotrange="$T_RANGE">
+	    </variable>
+	    <variable name="Pirga" units="kPa" longname="CSI IRGA pressure">
+		<linear units="mb" slope="10" intercept="0.0" plotrange="$P_RANGE"/>
+	    </variable>
+            <variable name="SSco2" units="" longname="CSI IRGA CO2 signal strength" plotrange="0 10"/>
+            <variable name="SSh2o" units="" longname="CSI IRGA H2O signal strength" plotrange="0 10"/>
+            <variable name="dPirga" units="mb" longname="CSI IRGA differential pressure" plotrange="100 300"/>
+	    <!--
+		Because Tirga_src and Tirga_det are not actually reported
+		in the binary message, they are commented out here.  They
+		are at the end of the message, so it's ok to skip them.
+		The rest of the variables are derived.
+
+		Oddly, the EC100 messages are 60 bytes long.  The last 4
+		bytes are for the 2-byte checksum and the 2-byte
+		terminator.  That leaves room for 14 4-byte floats.
+		Without Tirga_src and Tirga_det, there are only 13
+		variables listed here to be parsed from the message, so
+		it's unknown what is the 14th variable from EC100, if
+		anything.  If it is something other than noise, apparently
+		we've never needed it.
+	    -->
+            <!-- Tirga_src, Tirga_det are not in binary output of software version EC100.04.2. Results will be nan -->
+	    <!--
+            <variable name="Tirga_src" units="degC" longname="CSI IRGA source temperature" plotrange="$T_RANGE"/>
+            <variable name="Tirga_det" units="degC" longname="CSI IRGA detector temperature" plotrange="$T_RANGE"/>
+	    -->
+            <!-- derived variables ldiag, spd, dir should be at the end of the sample -->
+            <variable name="ldiag" units="" longname="CSAT3 logical diagnostic, 0=OK, 1=(diagbits!=0)" plotrange="$LDIAG_RANGE"/>
+            <variable name="spd" units="m/s" longname="CSAT3 horizontal wind speed" plotrange="$SPD_RANGE"/>
+            <variable name="dir" units="deg" longname="CSAT3 wind direction" plotrange="0 360"/>
+        </sample>
+        <message separator="\x55\xaa" position="end" length="58"/>
+    </serialSensor>
+
+    <serialSensor class="isff.Wind3D" ID="CSAT3BH"
+		  baud="115200" parity="none" databits="8" stopbits="1" porttype="RS422">
+        <!-- for now use general Wind3D class since calculating checksums in CSI_IRGA_Sonic isn't working -->
+	<!-- protocol:RS422 -->
+        <parameter name="bandwidth" type="float" value="5"/>
+        <parameter type="float" name="shadowFactor" value="$CSAT3_SHADOW_FACTOR"/>
+        <calfile name="offsets_angles"
+            path="$ISFS/projects/$PROJECT/ISFS/cal_files/$SITE/$HEIGHT:$ISFS/projects/$PROJECT/ISFS/cal_files/$SITE"
+            file="csat3bh.dat"/>
+        <calfile name="abc2uvw"
+            path="$ISFS/projects/$PROJECT/ISFS/cal_files"
+            file="csat_abc2uvw.dat"/>
+	<!-- message: 0.05009,-0.01583,0.04496,22.66019,0,78,1442 -->
+	<!-- u, v, w, tc, diagnostic, record counter (??), crc check -->
+        <sample id="1" scanfFormat="%f,%f,%f,%f,%d" rate="20">
+            <variable name="u" units="m/s" longname="Wind U component, CSAT3BH" plotrange="$UV_RANGE"/>
+            <variable name="v" units="m/s" longname="Wind V component, CSAT3BH" plotrange="$UV_RANGE"/>
+            <variable name="w" units="m/s" longname="Wind W component, CSAT3BH" plotrange="$W_RANGE"/>
+            <variable name="tc" units="degC" longname="Virtual air temperature from speed of sound, CSAT3BH"
+                plotrange="$T_RANGE"/>
+            <variable name="diag" units=""
+                longname="CSAT3BH diagnostic sum"
+                plotrange="$DIAG_RANGE"/>
+            <variable name="ldiag" units="" longname="CSAT3BH logical diagnostic, 0=OK, 1=(diagbits!=0)" plotrange="$LDIAG_RANGE"/>
+            <variable name="spd" units="m/s" longname="CSAT3BH horizontal wind speed" plotrange="$SPD_RANGE"/>
+            <variable name="dir" units="deg" longname="CSAT3BH wind direction" plotrange="0 360"/>
+        </sample>
+        <message separator="\r\n" position="end" length="0"/>
+    </serialSensor>
+
+    <!-- Gill Wind Observer 2D sonic, RS422 -->
+    <serialSensor class="isff.GILL2D" ID="GILL_WO"
+        baud="9600" parity="none" databits="8" stopbits="1"
+        timeout="10" init_string="q\r">
+        <!--
+	 AUTOCONFIG parameters for Gill Wind Observer 2D sonic
+	 =====================================================
+
+	 Any attributes left in the serialSensor tag above will still be
+	 captured, unless they are specific to the autoconfig tag.  For
+	 instance, legacy classes, like SerialSensor, capture things like
+	 baud, databits, and stopbits. If you put those attributes in the
+	 serialSensor tag, they will be captured. If for some reason you
+	 put them in both serialSensor and autoconfig tags, then the value
+	 in the autoconfig tag will win - be the value which is applied.
+	 If you put attribute items into the serialSensor tag, which are
+	 intended to only be put into the autoconfig tag, then those items
+	 will not be picked up at all. Typically these are science oriented
+	 attributes like pressure units, output formats, etc.  Delete the
+	 autoconfig attributes you don't care about.  Add the attributes
+	 below in the autoconfig tag as needed.  Format is
+	 attributeName="value" The GILL2D class has its own defaults, which
+	 are those normally used by UCAR.
+
+	 The class default will be used if an attribute isn't included below.
+	 * tagged values below are the factory defaults in the device.
+
+	 @ tagged values below are the UCAR normal values and are in the
+	 class defaults
+
+	 baud			[1200|2400|4800|*@9600|19200|38400]
+	 parity			[even|odd|*@none]
+	 databits		[*@8]
+	 stopbits		[*@1]
+	 units			[*@mps|kph|knots|mph|fpm]
+	 averagetime	[*@0...3600] in seconds.
+	 sostemp		[sos|@temp|both|*(false|no|none|na|disable|0)]
+			    report speed of sound, temp, both or none
+	 heating		[*enable|@disable]
+	 nmeastring		[*IIWMV|WIMWV] - only if msg stream is NMEA continuous
+	 msgterm		[*crlf |@lf]
+	 stream			[asc_uv_cont|asc_uv_poll|*@asc_plr_cont|asc_plr_poll|nmea]
+	 outputformat   [csv|@(fix|fixed)]
+			    output frames using ,,,, for empty fields or fill each
+			    field w/9's data when data is in error or not available
+	 outputrate		{*1,2,4,5,8,@10} Hz
+	 vertpad		[(true|yes|1)|*@(false|no|none|na|0)]
+        -->
+        <autoconfig outputrate='10'/>
+	<!-- manually set to RS422 on DSM2 HW, discovered on DSM3 HW -->
+	<!-- protocol:RS422 -->
+        <!-- enabled Tc output, turned off heater:
+             *  : enter config mode
+             A2 : sonic temp
+             H1 : no heat
+             L2 : CR output, not CR NL, 
+             Pn : output rate n=1:1Hz, 2:4Hz, 3:2Hz, 4:5Hz, 5:8Hz, 6:10Hz
+	     O2 : fixed field, not ,,, when missing data
+	     Q  : quit config mode
+
+             Use maxValue="990" to screen missing data values of 999
+             -->
+        <!-- \0x02A,157,000.08,M,+019.83,00,\0x031F\r\n -->
+        <sample id="1" scanfFormat="%*2c,%f,%f,M,%f,%f" rate="10">
+            <variable name="Dir" units="deg"
+		      longname="Gill WindObserver, wind direction"
+                      plotrange="$DIR_RANGE" maxValue="990">
+                <linear>
+                    <calfile
+                        path="$ISFS/projects/$PROJECT/ISFS/cal_files/$SITE"
+                        file="dir_gillwo_${HEIGHT}.dat"/>
+                </linear>
+            </variable>
+            <variable name="Spd" units="m/s"
+		      longname="Wind speed, Gill WindObserver"
+                      plotrange="$SPD_RANGE" maxValue="990"/>
+            <variable name="Tc" units="degC"
+		      longname="Sonic temperature, Gill WindObserver"
+                      plotrange="$T_RANGE" maxValue="990"/>
+            <variable name="Status" units="" longname="Status, Gill WindObserver"
+		      plotrange="0 60"/>
+            <variable name="U" units="m/s"
+		      longname="Wind U component, Gill WindObserver"
+		      plotrange="$UV_RANGE"/>
+            <variable name="V" units="m/s"
+		      longname="Wind V component, Gill WindObserver"
+		      plotrange="$UV_RANGE"/>
+        </sample>
+        <message separator="\r" position="end" length="0"/>
+    </serialSensor>
+
+<!-- Reading the Victron charge controller directly, using its default message.  -->
+    <serialSensor ID="PWRMONV" class="DSMSerialSensor"
+	baud="19200" parity="none" databits="8" stopbits="1">
+	<!--
+	PID\t0xA05F\r\n
+	FW\t137\r\n
+	SER#\tHQ18483TY4D\r\n
+	V\t13790\r\n
+	I\t60\r\n
+	VPV\t34660\r\n
+	PPV\t14\r\n
+	CS\t5\r\n
+	MPPT\t1\r\n
+	ERR\t0\r\n
+	LOAD\tON\r\n
+	IL\t900\r\n
+	H19\t1040\r\n
+	H20\t16\r\n
+	H21\t201\r\n
+	H22\t24\r\n
+	H23\t180\r\n
+	HSDS\t38\r\n
+	Checksum\t\0x92\r\n
+	-->
+	<sample id="1" scanfFormat="V\t%d">
+	    <variable name="Vbatt" units="mV" longname="Battery voltage" plotrange="$VIN_RANGE">
+		<linear units="V" slope="0.001" intercept="0.0"/>
+	    </variable>
+	</sample>
+	<sample id="2" scanfFormat="I\t%d">
+	    <variable name="Icharge" units="mA" longname="Input charging current" plotrange="$ICHARGE_RANGE">
+	    </variable>
+	</sample>
+	<sample id="3" scanfFormat="VPV\t%d">
+	    <variable name="Vcharge" units="mV" longname="Input charging voltage" plotrange="$VIN_RANGE">
+		<linear units="V" slope="0.001" intercept="0.0"/>
+	    </variable>
+	</sample>
+	<sample id="4" scanfFormat="IL\t%d">
+	    <variable name="Iload" units="mA" longname="Load current" plotrange="$ILOAD_RANGE">
+	    </variable>
+	</sample>
+	<sample id="5" scanfFormat="CS\t%d">
+	    <variable name="Cstate" units="" longname="Charger state"/>
+	</sample>
+	<message separator="\n" position="end" length="0"/>
+    </serialSensor>
+
+    <serialSensor ID="NR01_SOIL" class="isff.WisardMote"
+            baud="38400" parity="none" databits="8" stopbits="1" id="0x8000"
+            duplicateIdOK="true">
+	<autoconfig/>
+	<!-- NR01 -->
+        <sample id="1" rate="0.2">
+            <parameter type="hex" name="stypes" value="0x4c 0x4d 0x4e 0x4f"/>
+            <parameter type="int" name="motes" value="1"/>
+            <variable name="Rsw.in" units="W/m^2" longname="Incoming Short Wave, Hukseflux NR01"
+                plotrange="$RSWIN_RANGE">
+                <linear>
+                    <calfile
+			path="$ISFS/projects/$PROJECT/ISFS/cal_files/$SITE:$ISFS/projects/$PROJECT/ISFS/cal_files"
+                        file="Rsw_in.dat"/>
+                </linear>
+            </variable>
+            <variable name="Rsw.out" units="W/m^2" longname="Outgoing Short Wave, Hukesflux NR01"
+                plotrange="$RSWOUT_RANGE">
+                <linear>
+                    <calfile
+                        path="$ISFS/projects/$PROJECT/ISFS/cal_files/$SITE:$ISFS/projects/$PROJECT/ISFS/cal_files"
+                        file="Rsw_out.dat"/>
+                </linear>
+            </variable>
+            <variable name="Rpile.in" units="W/m^2" longname="Incoming Thermopile, Hukseflux NR01"
+                plotrange="$RPILE_RANGE">
+                <linear>
+                    <calfile
+			path="$ISFS/projects/$PROJECT/ISFS/cal_files/$SITE:$ISFS/projects/$PROJECT/ISFS/cal_files"
+                        file="Rpile_in.dat"/>
+                </linear>
+            </variable>
+            <variable name="Rpile.out" units="W/m^2" longname="Outgoing Thermopile, Hukesflux NR01"
+                plotrange="$RPILE_RANGE">
+                <linear>
+                    <calfile
+                        path="$ISFS/projects/$PROJECT/ISFS/cal_files/$SITE:$ISFS/projects/$PROJECT/ISFS/cal_files"
+                        file="Rpile_out.dat"/>
+                </linear>
+            </variable>
+            <variable name="Tcase" units="degC" longname="Case temperature, Hukesflux NR01"
+                plotrange="$T_RANGE">
+            </variable>
+            <variable name="Wetness" units="V" longname="Decagon Leaf Wetness Sensor"
+                plotrange="0 2">
+                <linear>
+                    <calfile
+                        path="$ISFS/projects/$PROJECT/ISFS/cal_files/$SITE:$ISFS/projects/$PROJECT/ISFS/cal_files"
+                        file="Wetness.dat"/>
+                </linear>
+            </variable>
+        </sample>
+	<!-- soil -->
+        <sample id="2" rate="0.2">
+            <parameter type="hex" name="stypes" value="0x20 0x21 0x22 0x23"/>
+            <parameter type="int" name="motes" value="1"/>
+            <!-- Tsoils now use a scaling factor of 500, rather than 1000 -->
+            <variable name="Tsoil.0.6cm" units="degC" longname="Soil Temperature" plotrange="$TSOIL_RANGE">
+                <linear>
+                    <calfile
+                        path="$ISFS/projects/$PROJECT/ISFS/cal_files/$SITE:$ISFS/projects/$PROJECT/ISFS/cal_files"
+                        file="Tsoil_0_6cm.dat"/>
+                </linear>
+            </variable>
+            <variable name="Tsoil.1.9cm" units="degC" longname="Soil Temperature" plotrange="$TSOIL_RANGE">
+                <linear>
+                    <calfile
+                        path="$ISFS/projects/$PROJECT/ISFS/cal_files/$SITE:$ISFS/projects/$PROJECT/ISFS/cal_files"
+                        file="Tsoil_1_9cm.dat"/>
+                </linear>
+            </variable>
+            <variable name="Tsoil.3.1cm" units="degC" longname="Soil Temperature" plotrange="$TSOIL_RANGE">
+                <linear>
+                    <calfile
+                        path="$ISFS/projects/$PROJECT/ISFS/cal_files/$SITE:$ISFS/projects/$PROJECT/ISFS/cal_files"
+                        file="Tsoil_3_1cm.dat"/>
+                </linear>
+            </variable>
+            <variable name="Tsoil.4.4cm" units="degC" longname="Soil Temperature" plotrange="$TSOIL_RANGE">
+                <linear>
+                    <calfile
+                        path="$ISFS/projects/$PROJECT/ISFS/cal_files/$SITE:$ISFS/projects/$PROJECT/ISFS/cal_files"
+                        file="Tsoil_4_4cm.dat"/>
+                </linear>
+            </variable>
+            <variable name="Tsoil.8.1cm" units="degC" longname="Soil Temperature" plotrange="$TSOIL_RANGE">
+                <linear>
+                    <calfile
+                        path="$ISFS/projects/$PROJECT/ISFS/cal_files/$SITE:$ISFS/projects/$PROJECT/ISFS/cal_files"
+                        file="Tsoil_8_1cm.dat"/>
+                </linear>
+            </variable>
+            <variable name="Tsoil.9.4cm" units="degC" longname="Soil Temperature" plotrange="$TSOIL_RANGE">
+	      <linear>
+                    <calfile
+                        path="$ISFS/projects/$PROJECT/ISFS/cal_files/$SITE:$ISFS/projects/$PROJECT/ISFS/cal_files"
+                        file="Tsoil_9_4cm.dat"/>
+              </linear>
+            </variable>
+            <variable name="Tsoil.10.6cm" units="degC" longname="Soil Temperature" plotrange="$TSOIL_RANGE">
+	      <linear>
+                    <calfile
+                        path="$ISFS/projects/$PROJECT/ISFS/cal_files/$SITE:$ISFS/projects/$PROJECT/ISFS/cal_files"
+                        file="Tsoil_10_6cm.dat"/>
+              </linear>
+            </variable>
+            <variable name="Tsoil.11.9cm" units="degC" longname="Soil Temperature" plotrange="$TSOIL_RANGE">
+	      <linear>
+                    <calfile
+                        path="$ISFS/projects/$PROJECT/ISFS/cal_files/$SITE:$ISFS/projects/$PROJECT/ISFS/cal_files"
+                        file="Tsoil_11_9cm.dat"/>
+              </linear>
+            </variable>
+            <variable name="Tsoil.18.1cm" units="degC" longname="Soil Temperature" plotrange="$TSOIL_RANGE">
+              <linear>
+                    <calfile
+                        path="$ISFS/projects/$PROJECT/ISFS/cal_files/$SITE:$ISFS/projects/$PROJECT/ISFS/cal_files"
+                        file="Tsoil_18_1cm.dat"/>
+              </linear>
+            </variable>                                                                                     
+            <variable name="Tsoil.19.4cm" units="degC" longname="Soil Temperature" plotrange="$TSOIL_RANGE">
+              <linear>
+                    <calfile
+                        path="$ISFS/projects/$PROJECT/ISFS/cal_files/$SITE:$ISFS/projects/$PROJECT/ISFS/cal_files"
+                        file="Tsoil_19_4cm.dat"/>
+              </linear>
+            </variable>
+            <variable name="Tsoil.20.6cm" units="degC" longname="Soil Temperature" plotrange="$TSOIL_RANGE">
+              <linear>
+                    <calfile
+                        path="$ISFS/projects/$PROJECT/ISFS/cal_files/$SITE:$ISFS/projects/$PROJECT/ISFS/cal_files"
+                        file="Tsoil_20_6cm.dat"/>
+              </linear>
+            </variable>
+            <variable name="Tsoil.21.9cm" units="degC" longname="Soil Temperature" plotrange="$TSOIL_RANGE">
+              <linear>
+                    <calfile
+                        path="$ISFS/projects/$PROJECT/ISFS/cal_files/$SITE:$ISFS/projects/$PROJECT/ISFS/cal_files"
+                        file="Tsoil_21_9cm.dat"/>
+              </linear>
+            </variable>                                                                                        
+             <variable name="Tsoil.28.1cm" units="degC" longname="Soil Temperature" plotrange="$TSOIL_RANGE">
+              <linear>
+                    <calfile
+                        path="$ISFS/projects/$PROJECT/ISFS/cal_files/$SITE:$ISFS/projects/$PROJECT/ISFS/cal_files"
+			file="Tsoil_28_1cm.dat"/>
+              </linear>
+             </variable>
+             <variable name="Tsoil.29.4cm" units="degC" longname="Soil Temperature" plotrange="$TSOIL_RANGE">
+              <linear>
+                    <calfile
+                        path="$ISFS/projects/$PROJECT/ISFS/cal_files/$SITE:$ISFS/projects/$PROJECT/ISFS/cal_files"
+			file="Tsoil_29_4cm.dat"/>
+              </linear>
+            </variable>
+             <variable name="Tsoil.30.6cm" units="degC" longname="Soil Temperature" plotrange="$TSOIL_RANGE">
+              <linear>
+                    <calfile
+                        path="$ISFS/projects/$PROJECT/ISFS/cal_files/$SITE:$ISFS/projects/$PROJECT/ISFS/cal_files"
+                        file="Tsoil_30_6cm.dat"/>
+              </linear>
+             </variable>
+             <variable name="Tsoil.31.9cm" units="degC" longname="Soil Temperature" plotrange="$TSOIL_RANGE">
+              <linear>
+                    <calfile
+                        path="$ISFS/projects/$PROJECT/ISFS/cal_files/$SITE:$ISFS/projects/$PROJECT/ISFS/cal_files"
+                        file="Tsoil_30_9cm.dat"/>
+              </linear>
+             </variable>
+        </sample>
+        <sample id="3" rate="0.2">
+	    <parameter type="hex" name="stypes" value="0x24 0x25 0x26 0x27"/>
+            <parameter type="int" name="motes" value="1"/>
+            <variable name="Gsoil.5cm" units="W/m^2" longname="Soil Heat Flux" plotrange="$GSOIL_RANGE">
+                <linear>
+                    <calfile
+			path="$ISFS/projects/$PROJECT/ISFS/cal_files/${SITE}:$ISFS/projects/$PROJECT/ISFS/cal_files"
+                        file="Gsoil.dat"/>
+                </linear>
+	    </variable>
+	</sample>
+<!-- Added minvalue for SAVANT to remove two (critter?) failures -->
+	<sample id="4" rate="0.2">
+	    <parameter type="hex" name="stypes" value="0x28 0x29 0x2a 0x2b"/>
+            <parameter type="int" name="motes" value="1"/>
+	    <variable name="Qsoil" units="vol%" longname="Soil Moisture" plotrange="$QSOIL_RANGE">
+                <linear>
+                    <calfile
+			path="$ISFS/projects/$PROJECT/ISFS/cal_files/${SITE}:$ISFS/projects/$PROJECT/ISFS/cal_files"
+                        file="Qsoil.dat"/>
+                </linear>
+	    </variable>
+	</sample>
+	<sample id="5" rate="0.2">
+	    <parameter type="hex" name="stypes" value="0x2c 0x2d 0x2e 0x2f"/>
+            <parameter type="int" name="motes" value="1"/>
+	    <variable name="Vheat" units="V" longname="TP01 heater voltage"
+		plotrange="$VHEAT_RANGE" minValue="1.18" maxValue="1.3">
+	    </variable>
+	    <!--
+		 Vpile.on = Elambda * Q / lambda
+		 Elambda is between 1.0e-4 and 1.5e-4 (V/K) from the specs of our TP01s.
+		 Q of 1.6 W/m , which calculated from a heater resistance of 15 ohm,
+		 and a Vheat of 1.2 V. Note that this Q exceeds the recommended
+		 maximum heating of 0.8 W/m.
+		 Used lambda between 0.3 and 4.0 W/m/K.
+		 This results in a range for Vpile.on between 40 to 800 uV.
+	    -->
+	    <variable name="Vpile.on" units="uV" longname="TP01 thermopile after heating"
+		plotrange="$VPILE_RANGE" minValue="20.0" maxValue="1800.0"/>
+	    <variable name="Vpile.off" units="uV" longname="TP01 thermopile before heating"
+		plotrange="$VPILE_RANGE" minValue="-50.0" maxValue="50.0"/>
+	    <!-- TP01 manual suggests limits of 0.05e-6 and 1.0 e-6 for soil heat
+		 diffusivity, aka asoil. Using the agar gel values of
+		 a.ref=1.4e-7 and dt.ref=19
+		 in dat.asoil, these become limits of 2.66 and 53 seconds for Tau63.
+		 The maximum of 1.0e-6 on asoil (minimum of 2.66 sec on Tau63)
+		 results in discarding some data during freezing periods during PCAPS.
+		 During these times the soil heat storage contributions to the
+		 flux are small, and in the current code, setting Tau63 or asoil
+		 to NaN, results in NaN for Gsfc.  Rather than discarding data
+		 during these periods, we are using a max value of 1.5e-6 for
+		 asoil, or a min value of 1.77 seconds Tau63.  Some spikes of
+		 Tau63 up to 40 seconds were seen in PCAPS.
+		 -->
+	    <variable name="Tau63" units="sec" longname="TP01 time to decay to 37% of Vpile.on-Vpile.off"
+		plotrange="$TAU63_RANGE" minValue="1.77" maxValue="53.0">
+                <linear>
+                    <calfile
+                        path="$ISFS/projects/$PROJECT/ISFS/cal_files/$SITE:$ISFS/projects/$PROJECT/ISFS/cal_files"
+                        file="Tau63.dat"/>
+                </linear>
+	    </variable>
+	    <!-- TP01 manual suggests limits of 0.3 and 4.0 W/(m*degK) for Lambda.
+		 Initial guess of 0.1-5.0 for METCRAX -->
+	    <variable name="Lambda" units="W/m/DegK" longname="TP01 derived thermal conductivity"
+		plotrange="$LAMBDA_RANGE" minValue="0.1" maxValue="5.0">
+                <linear>
+                    <calfile
+                        path="$ISFS/projects/$PROJECT/ISFS/cal_files/$SITE:$ISFS/projects/$PROJECT/ISFS/cal_files"
+                        file="Lambdasoil.dat"/>
+                </linear>
+	    </variable>
+	</sample>
+	<sample id="6">
+	    <parameter type="hex" name="stypes" value="0x49"/>
+            <parameter type="int" name="motes" value="1"/>
+            <variable name="Vmote" units="V" longname="Soil Mote Voltage"
+                plotrange="$VIN_RANGE"/>
+	</sample>
+        <message separator="\x03\x04\r" position="end" length="0"/>
+    </serialSensor>
+
+<!-- Definition of OTT Parsivel2 with default message.
+     Note that we will configure the Ott to output the full, raw, histogram,
+     which NIDAS will archive, but it is not parsed here. -->
+    <serialSensor ID="PARSIVEL2" class="DSMSerialSensor"
+	baud="19200" parity="none" databits="8" stopbits="1" porttype="RS485_HALF">
+	<sample id="1" scanfFormat="%*[^;];%f;%f;%d;%f;%d;%f;%d;%d;%d;%d"
+		rate="0.0167">
+	    <!-- <variable name="ID" units="" longname="ID"/> -->
+	    <variable name="Rainr" units="mm/h" longname="Rain rate">
+              <linear>
+                <calfile
+                    path="$ISFS/projects/$PROJECT/ISFS/cal_files/$SITE:$ISFS/projects/$PROJECT/ISFS/cal_files"
+                    file="Rainr.dat"/>
+	      </linear>
+            </variable>
+	    <variable name="Raina" units="mm" longname="Rain amount"/>
+	    <variable name="WX" units="" longname="Present weather code"/>
+	    <variable name="Z" units="dBz" longname="Radar reflectivity"/>
+	    <variable name="Vis" units="m" longname="MOR visibility"/>
+	    <variable name="KE" units="J/m^2h" longname="Particle kinetic energy"/>
+	    <variable name="Tcell" units="degC" longname="Sensor temperature"/>
+	    <variable name="Sig" units="" longname="Signal amplitude"/>
+	    <variable name="N" units="" longname="Number of particles"/>
+	    <variable name="Stat" units="" longname="Sensor status"/>
+	    <!-- ***** NOTE: Entire size/speed histogram follows. Not parsed here. *****  --> 
+	</sample>
+	<message separator="\r\n" position="end" length="0"/>
+    </serialSensor>
+
+<!-- CS125 visibility sensor, configured for format "Generic SYNOP Present Weather Full format" (11)
+     11 0 0 12 21342 M 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.00 0 0 NSW 24.3 -99 9AD6 (Example message)
+     Default is a message every minute.
+
+    Lots of alarms, etc. are skipped but saved.
+
+     -->
+    <serialSensor ID="CS125" class="DSMSerialSensor"
+	baud="38400" parity="none" databits="8" stopbits="1">
+        <sample id="1" scanfFormat="\x0211 %*d %d %*d %d %*c %*d %*d %*d %*d %*d %*d %*d %*d %*d %*d %*d %*d %*d %*d %*d %d %f %d %d %*s %f %*d" rate="0.0167">
+	    <variable name="Status" units="" longname="System status"/>
+	    <variable name="Vis" units="m" longname="Visibility"/>
+	    <variable name="Part" units="count/min" longname="Particle counts"/>
+	    <variable name="Rainr" units="mm/h" longname="Precipitation intensity"/>
+	    <variable name="Generic" units="" longname="Generic code"/>
+	    <variable name="SYNOP" units="" longname="SYNOP code"/>
+            <!-- ignoring the METAR code, since dont know what to do with signed ASCII!
+	    <variable name="METAR" units="" longname="METAR code"/>
+            -->
+	    <variable name="T" units="degC" longname="Temperature"/>
+            <!--
+            The versions deployed in CFACT didn't have RH sensors.
+	    <variable name="RH" units="%" longname="Relative humidity"/>
+            -->
+	</sample>
+	<message separator="\r\n" position="end" length="0"/>
+    </serialSensor>
+
+<!-- lufft WS800 weather station -->
+    <serialSensor ID="LUFFT" class="isff.Wind2D" baud="19200"
+		      parity="none" databits="8" stopbits="1" rts485="-1" porttype="RS485_HALF">
+	<!-- protocol:RS422-Half -->
+      <!--M0;+028.2;+003.0;+030.6;+019.8;+0839.1;+001.4;+066.9;+00000.01;+000;+000.0;\r\n
+	  Temperature in deg C
+	  Dew point temperature in deg C
+	  Wind chill temperature in deg C
+	  Relative humidity in %
+	  Relative air pressure in hPa
+	  Wind speed in m/s
+	  Wind direction in degrees
+	  Precipitation quantity in mm
+	  Precipitation type
+	  Precipitation intensity in mm/h
+      -->
+      <parameter name="speed" value="Spd" type="string"></parameter>
+      <parameter name="dir" value="Dir" type="string"></parameter>
+      <parameter name="u" value="U" type="string"></parameter>
+      <parameter name="v" value="V" type="string"></parameter>
+	    
+      <sample id="1" scanfFormat="M0;%f;%f;%f;%f;%f;%f;%f;%f;%f;%f;" rate='0.05'>
+	<variable name="T" units="degC" longname="Air Temperature" 
+		  plotrange="$T_RANGE" minValue="-40" maxValue="50"></variable>
+	<variable name="Td" units="degC" longname="Dewpoint Temperature" 
+		  plotrange="$T_RANGE" minValue="-40" maxValue="50"></variable>
+	<variable name="Tchill" units="degC" longname="Wind Chill Temperature" 
+		  plotrange="$T_RANGE" minValue="-40" maxValue="50"></variable>
+	<variable name="RH" units="%" longname="Relative Humidity" 
+		  plotrange="$RH_RANGE" minValue="-5" maxValue="105"></variable>
+	<variable name="P" units="mb" longname="Relative Air Pressure" 
+		  plotrange="$P_RANGE"></variable>
+	<variable name="Spd" longname="Wind Speed" units="m/s"></variable>
+	<variable name="Dir" longname="Wind Direction" units="deg">
+	  <linear>
+	    <calfile path="$ISFS/projects/$PROJECT/ISFS/cal_files/$SITE:$ISFS/projects/$PROJECT/ISFS/cal_files"
+		     file="lufft_dir.dat"/>
+	  </linear>
+	</variable>
+	<variable name="raina" units="mm" 
+		  longname="Precipitation quantity"></variable>
+	<variable name="preciptype" units="1" 
+		  longname="Precipitation type"></variable>
+	<variable name="rainr" units="mm/hr" longname="Precipitation intensity" 
+		  plotrange="$RAINR_RANGE"></variable>
+	<variable name="U" units="m/s" longname="Wind U component" 
+		  plotrange="$UV_RANGE"/>
+	<variable name="V" units="m/s" longname="Wind V component" 
+		  plotrange="$UV_RANGE"/>
+	<prompt rate="0.05" string="M0\r" offset="0"/>
+      </sample>
+      <!--M2;+001.0;+000.0;+002.7;+001.2;+001.2;+068.9;+000.0;+049.5;+063.0;\r\n
+	Act. wind speed in m/s (channel 400 already in message M0)
+	Min. wind speed in m/s
+	Max. wind speed in m/s
+	Avg. wind speed in m/s
+	Vct. wind speed in m/s
+	Act. wind direction in deg (channel 500 already in message M0)
+	Min. wind direction in deg
+	Max. wind direction in deg
+	Vct. wind direction in deg
+      -->
+      <sample id="2" scanfFormat="M2;%*f;%f;%f;%f;%f;%*f;%f;%f;%f" rate='0.05'>
+	<variable name="Sn" units="m/s" longname="Min. wind speed"></variable>
+	<variable name="Sx" units="m/s" longname="Max. wind speed"></variable>
+	<variable name="Sg" units="m/s" longname="Avg. wind speed"></variable>
+	<variable name="Sv" units="m/s" longname="Vct. wind speed"></variable>
+	<variable name="Da" units="deg" 
+		  longname="Act. wind direction"></variable>
+	<variable name="Dn" units="deg" 
+		  longname="Min. wind direction"></variable>
+	<variable name="Dx" units="deg" 
+		  longname="Max. wind direction"></variable>
+	<variable name="Dv" units="deg" 
+		  longname="Vct. wind direction"></variable>
+	<prompt rate="0.05" string="M2\r" offset="5"/>
+      </sample>
+      <!--M4;+339.0;+275.2;+101.6;+288.8;+150.7;+042.8;+013.6;+056.6;+001.0;\r\n
+	Act. Compass heading in deg
+	Act. Global Radiation in W/m2
+	Min. Global Radiation in W/m2
+	Max. Global Radiation in W/m2
+	Avg. Global Radiation in W/m2
+	Act. Specific Enthalpy in KJ/Kg
+	Act. Wet Bulb Temperature in degC
+	Act. Wet Bulb Temperature in degF
+	Act. Air Density in kg/m
+      -->
+      <sample id="3" scanfFormat="M4;%f;%f;%f;%f;%f;%f;%f;%*f;%f" rate='0.05'>
+	<variable name="Ca" units="deg" 
+		  longname="Act. compass heading"></variable>
+	<variable name="Ga" units="W/m" 
+		  longname="Act. global radiation"></variable>
+	<variable name="Gn" units="W/m" 
+		  longname="Min. global radiation"></variable>
+	<variable name="Gx" units="W/m" 
+		  longname="Max. global radiation"></variable>
+	<variable name="Gg" units="W/m" 
+		  longname="Avg. global radiation"></variable>
+	<variable name="Ea" units="KJ/kg" 
+		  longname="Act. specific enthalpy"></variable>
+	<variable name="Ba" units="degC" 
+		  longname="Act. Web Bulb Temperature"></variable>
+	<variable name="Ad" units="kg/m" longname="Act. Air Density"></variable>
+	<prompt rate="0.05" string="M4\r" offset="10"/>
+      </sample>
+      <!--
+	M5;+000.0;+000.0;-273.2;-459.7;+000.0;+000.0;+000.0;+000.0;+000.0;\r\n
+	act. Leaf Wetness mV
+	act. Leaf Wetness State (0=dry, 1=wet)
+	external temperature (act) degC
+	external temperature (act) degF
+	lightning events (min)
+	lightning events (interval)
+      -->
+      <sample id="4" scanfFormat="M5;%f;%f;%*f;%*f;%f;%f" rate='0.05'>
+	<variable name="La" units="mV" longname="Leaf Wetness"></variable>
+	<variable name="Lb" units="1" 
+		  longname="Leaf Wetness State (0=dry, 1=wet)"></variable>
+        <variable name="Lm" units="" longname="Lightning events (minute)"></variable>
+        <variable name="Li" units="" longname="Lightning events (interval)"></variable>
+	<prompt rate="0.05" string="M5\r" offset="15"/>
+      </sample>
+
+      <message separator="\n" position="end" length="0"></message>
+    </serialSensor>
+
+    <serialSensor ID="V28MT" class="DSMSerialSensor"
+        baud="38400" parity="none" databits="8" stopbits="1">
+        <!--
+	Autoconfig parameters for V28
+	==================================
+	Any attributes left in the serialSensor tag above will still be
+	captured, unless they are specific to the autoconfig tag.  For
+	instance, legacy classes, like SerialSensor, capture things
+	like baud, databits, and stopbits. If you put those attributes
+	in the serialSensor tag, they will be captured. If for some
+	reason you put them in both serialSensor and autoconfig tags,
+	then the value in the autoconfig tag will win - be the value
+	which is applied.  If you put attribute items into the
+	serialSensor tag, which are intended to only be put into the
+	autoconfig tag, then those items will not be picked up at
+	all. Typically these are science oriented attributes like
+	pressure units, output formats, etc.  Delete the autoconfig
+	attributes you don't care about.  Add the attributes below in
+	the autoconfig tag as needed.  Format is attributeName="value"
+	The WisardMote class has its own defaults, which are those
+	normally used by UCAR.
+	The class default will be used if an attribute isn't included below.
+	* tagged values below are the factory defaults in the device.
+	@ tagged values below are the UCAR normal values and are in the
+	class defaults
+	baud			[*@38400]
+	parity			[*@none]
+	databits		[*@8]
+	stopbits		[*@1]
+	output_mode : NEITHER || CAL || *@RAW || BOTH
+	datarate : *@1..60 seconds between samples
+         -->
+	<autoconfig/>
+        <!-- A V28 mote with several types of sensors connected to it, all with ASCII parsing -->
+	<!-- The mote itself health parameters -->
+        <sample id="1" scanfFormat="MOT%*d%f%f%f%f" rate="0.2">
+            <variable name="Tmote" units="degC"
+		      longname="Mote board Temperature"
+                      plotrange="$T_RANGE">
+            </variable>
+            <variable name="Vbatt.mote" units="V"
+		      longname="Battery voltage"
+                      plotrange="$VBATT_RANGE">
+            </variable>
+            <variable name="Iload.mote" units="mA"
+                longname="Mote load current"
+                plotrange="$ILOAD_RANGE">
+            </variable>
+            <variable name="I3load.mote" units="mA"
+                longname="Mote 3.3V current"
+                plotrange="$ILOAD_RANGE">
+            </variable>
+        </sample>
+	<!-- Gsoil, ignore raw counts and board temperature -->
+        <sample id="3" scanfFormat="GS%*d%f%*d%*f" rate="0.2">
+            <variable name="Gsoil" units="W/m^2"
+		      longname="Soil heat flux"
+                      plotrange="$GSOIL_RANGE">
+            </variable>
+        </sample>
+	<!-- TP01, ignore board temperature -->
+        <sample id="4" scanfFormat="TP%*d%f%f%f%f%f%*f" rate="0.2">
+            <variable name="Vheat" units="V"
+		      longname="Heater voltage"
+                      plotrange="$VHEAT_RANGE">
+            </variable>
+            <variable name="Vpile_On" units="V"
+		      longname="Pile voltage when on"
+                      plotrange="0.0 0.002">
+            </variable>
+            <variable name="Vpile_Off" units="V"
+		      longname="Pile voltage when off"
+                      plotrange="0.0 0.002">
+            </variable>
+            <variable name="Tau63" units="s"
+		      longname="Decay time constant"
+                      plotrange="$TAU63_RANGE">
+                <linear>
+                    <calfile
+                        path="$ISFS/projects/$PROJECT/ISFS/cal_files/$SITE:$ISFS/projects/$PROJECT/ISFS/cal_files"
+                        file="Tau63.dat"/>
+                </linear>
+            </variable>
+            <variable name="Lambda" units="W/m"
+		      longname="Soil thermal conductivity"
+                      plotrange="$LAMBDA_RANGE">
+                <linear>
+                    <calfile
+                        path="$ISFS/projects/$PROJECT/ISFS/cal_files/$SITE:$ISFS/projects/$PROJECT/ISFS/cal_files"
+                        file="Lambdasoil.dat"/>
+                </linear>
+            </variable>
+        </sample>
+	<!-- Qsoil, ignore raw counts and board temperature; assuming COF = -0.401 1.19 for volume fraction -->
+        <sample id="5" scanfFormat="QS%*d%f%*d%*f" rate="0.2">
+            <variable name="Qsoil" units="m^3/m^3"
+		      longname="Soil moisture"
+                      plotrange="$QSOIL_RANGE">
+                <linear>
+                    <calfile
+                        path="$ISFS/projects/$PROJECT/ISFS/cal_files/${SITE}:$ISFS/projects/$PROJECT/ISFS/cal_files"
+                        file="Qsoil.dat"/>
+                </linear>
+            </variable>
+        </sample>
+	<!-- NR01 -->
+        <sample id="6" scanfFormat="NR%*d%f%*d%f%*d%f%*d%f%*d%f%*d%f%*d%*f" rate="0.2">
+            <variable name="Rsw.in" units="W/m^2" longname="Incoming Short Wave, Hukseflux NR01"
+                plotrange="$RSWIN_RANGE">
+                <linear>
+                    <calfile
+                        path="$ISFS/projects/$PROJECT/ISFS/cal_files/$SITE:$ISFS/projects/$PROJECT/ISFS/cal_files"
+                        file="Rsw_in.dat"/>
+                </linear>
+            </variable>
+            <variable name="Rsw.out" units="W/m^2" longname="Outgoing Short Wave, Hukesflux NR01"
+                plotrange="$RSWOUT_RANGE">
+                <linear>
+                    <calfile
+                        path="$ISFS/projects/$PROJECT/ISFS/cal_files/$SITE:$ISFS/projects/$PROJECT/ISFS/cal_files"
+                        file="Rsw_out.dat"/>
+                </linear>
+            </variable>
+            <variable name="Rpile.in" units="W/m^2" longname="Incoming Thermopile, Hukseflux NR01"
+                plotrange="$RPILE_RANGE">
+                <linear>
+                    <calfile
+                        path="$ISFS/projects/$PROJECT/ISFS/cal_files/$SITE:$ISFS/projects/$PROJECT/ISFS/cal_files"
+                        file="Rpile_in.dat"/>
+                </linear>
+            </variable>
+            <variable name="Rpile.out" units="W/m^2" longname="Outgoing Thermopile, Hukesflux NR01"
+                plotrange="$RPILE_RANGE">
+                <linear>
+                    <calfile
+                        path="$ISFS/projects/$PROJECT/ISFS/cal_files/$SITE:$ISFS/projects/$PROJECT/ISFS/cal_files"
+                        file="Rpile_out.dat"/>
+                </linear>
+            </variable>
+            <variable name="Tcase" units="degC" longname="Case temperature, Hukesflux NR01"
+                plotrange="$T_RANGE">
+            </variable>
+            <variable name="Wetness" units="V" longname="Decagon Leaf Wetness Sensor"
+                plotrange="0 2">
+                <linear>
+                    <calfile
+                        path="$ISFS/projects/$PROJECT/ISFS/cal_files/$SITE:$ISFS/projects/$PROJECT/ISFS/cal_files"
+                        file="Wetness.dat"/>
+                </linear>
+            </variable>
+        </sample>
+        <message separator="\n" position="end" length="0"/>
+    </serialSensor>
+
+<!-- Our K&Z radiometers have PICs that only support V2.7 code, so we'll still use this for CFACT and SOS -->
+<!-- Full set of K&Z radiometers through a V2.7 mote --> 
+    <serialSensor ID="4comp" class="isff.WisardMote"
+          baud="38400" parity="none" databits="8" stopbits="1" id="0x8000" duplicateIdOK="true">
+                <sample id="1">
+                    <parameter type="hex" name="stypes" value="0x54 0x55 0x56 0x57"/>
+                    <variable name="Rsw.in" units="W/m^2" longname="Incoming Short Wave"
+                        plotrange="$RSWIN_RANGE">
+                        <linear>
+                            <calfile file="Rsw_in.dat"
+                                path="$ISFS/projects/$PROJECT/ISFS/cal_files/$SITE:$ISFS/projects/$PROJECT/ISFS/cal_files"/>
+                        </linear>
+                    </variable>
+                </sample>
+                <sample id="2">
+                    <parameter type="hex" name="stypes" value="0x58 0x59 0x5A 0x5B"/>
+                    <variable name="Rsw.out" units="W/m^2" longname="Outgoing Short Wave"
+                        plotrange="$RSWOUT_RANGE">
+                        <linear>
+                            <calfile file="Rsw_out.dat"
+                                path="$ISFS/projects/$PROJECT/ISFS/cal_files/$SITE:$ISFS/projects/$PROJECT/ISFS/cal_files"/>
+                        </linear>
+                    </variable>
+                </sample>
+                <sample id="3">
+                    <parameter type="hex" name="stypes" value="0x64 0x65 0x66 0x67"/>
+                    <variable name="Rpile.in" units="W/m^2" longname="Pyrgeometer thermopile, incoming"
+                        plotrange="$RPILE_RANGE">
+                        <linear>
+                            <calfile file="Rpile_in.dat"
+                                path="$ISFS/projects/$PROJECT/ISFS/cal_files/$SITE:$ISFS/projects/$PROJECT/ISFS/cal_files"/>
+                        </linear>
+                    </variable>
+                    <variable name="Tcase.in" units="degC" longname="Pyrgeometer case temperature, incoming"
+                        plotrange="$TCASE_RANGE"/>
+                </sample>
+                <sample id="4">
+                    <parameter type="hex" name="stypes" value="0x68 0x69 0x6A 0x6B"/>
+                    <variable name="Rpile.out" units="W/m^2" longname="Pyrgeometer thermopile, outgoing"
+                        plotrange="$RPILE_RANGE">
+                        <linear>
+                            <calfile file="Rpile_out.dat"
+                                path="$ISFS/projects/$PROJECT/ISFS/cal_files/$SITE:$ISFS/projects/$PROJECT/ISFS/cal_files"/>
+                        </linear>
+                    </variable>
+                    <variable name="Tcase.out" units="degC" longname="Pyrgeometer case temperature, outgoing"
+                        plotrange="$TCASE_RANGE"/>
+                </sample>
+                <sample id="5">
+                    <parameter type="hex" name="stypes" value="0x49"/>
+                    <variable name="Vmote.rad" units="V" longname="Radiation Mote voltage"
+                        plotrange="$VIN_RANGE"/>
+                </sample>
+         <message separator="\x03\x04\r" position="end" length="0"/>
+    </serialSensor>
+
+    <!-- Apogee SIF-111-ss IR sensor: 2 chan analog -->
+    <serialSensor ID="APOGEE_IR" class="DSMSerialSensor" 
+        baud="9600" parity="none" databits="8" stopbits="1">
+        <sample id="1" scanfFormat="IR%d%f%*d%f%*d" rate="0.195">
+            <variable name="IDir" units=""
+                      longname="Apogee serial number">
+            </variable>
+            <variable name="Vpile" units="V"
+                      longname="Thermopile voltage"
+                      plotrange="$T_RANGE">
+                        <linear>
+                            <calfile file="Apogee.dat"
+                                path="$ISFS/projects/$PROJECT/ISFS/cal_files/$SITE:$ISFS/projects/$PROJECT/ISFS/cal_files"/>
+                        </linear>
+            </variable>
+            <variable name="Vtherm" units="V"
+                      longname="Thermistor voltage"
+                      plotrange="$T_RANGE" minValue="0" maxValue="2.5">
+                        <linear>
+                            <calfile file="Apogee.dat"
+                                path="$ISFS/projects/$PROJECT/ISFS/cal_files/$SITE:$ISFS/projects/$PROJECT/ISFS/cal_files"/>
+                        </linear>
+            </variable>
+        </sample>
+        <message separator="\n" position="end" length="0"/>
+    </serialSensor>
+
+    <!-- Fast-response thermocouple through NCAR PIC -->
+    <serialSensor ID="TCT" class="DSMSerialSensor" 
+        baud="38400" parity="none" databits="8" stopbits="1">
+        <sample id="1" scanfFormat="%*cC%*d %f %f" rate="23.7">
+            <variable name="t" units="degC"
+                      longname="Thermocouple Temperature"
+                      plotrange="$T_RANGE">
+                <linear>
+                    <calfile file="tct.dat"
+                        path="$ISFS/projects/$PROJECT/ISFS/cal_files/$SITE:$ISFS/projects/$PROJECT/ISFS/cal_files"/>
+                </linear>
+            </variable>
+            <variable name="tref" units="degC"
+                      longname="Thermocouple Reference Temperature"
+                      plotrange="$T_RANGE">
+            </variable>
+        </sample>
+        <message separator="\n" position="end" length="0"/>
+    </serialSensor>
+
+    <!-- Thermistors through NCAR Tsoil PIC and mote -->
+    <serialSensor ID="SNOWS" class="DSMSerialSensor"
+        baud="38400" parity="none" databits="8" stopbits="1">
+        <!--
+	Autoconfig parameters for V28
+	==================================
+	Any attributes left in the serialSensor tag above will still be
+	captured, unless they are specific to the autoconfig tag.  For
+	instance, legacy classes, like SerialSensor, capture things
+	like baud, databits, and stopbits. If you put those attributes
+	in the serialSensor tag, they will be captured. If for some
+	reason you put them in both serialSensor and autoconfig tags,
+	then the value in the autoconfig tag will win - be the value
+	which is applied.  If you put attribute items into the
+	serialSensor tag, which are intended to only be put into the
+	autoconfig tag, then those items will not be picked up at
+	all. Typically these are science oriented attributes like
+	pressure units, output formats, etc.  Delete the autoconfig
+	attributes you don't care about.  Add the attributes below in
+	the autoconfig tag as needed.  Format is attributeName="value"
+	The WisardMote class has its own defaults, which are those
+	normally used by UCAR.
+	The class default will be used if an attribute isn't included below.
+	* tagged values below are the factory defaults in the device.
+	@ tagged values below are the UCAR normal values and are in the
+	class defaults
+	baud			[*@38400]
+	parity			[*@none]
+	databits		[*@8]
+	stopbits		[*@1]
+	output_mode : NEITHER || CAL || *@RAW || BOTH
+	datarate : *@1..60 seconds between samples
+         -->
+	<autoconfig/>
+        <!-- A V28 mote with several types of sensors connected to it, all with ASCII parsing -->
+	<!-- The mote itself health parameters -->
+        <sample id="1" scanfFormat="MOT%*d%f%f%f%f" rate="0.2">
+            <variable name="Tmote.snow" units="degC"
+		      longname="Mote board Temperature"
+                      plotrange="$T_RANGE">
+            </variable>
+            <variable name="Vbatt.mote.snow" units="V"
+		      longname="Battery voltage"
+                      plotrange="$VBATT_RANGE">
+            </variable>
+            <variable name="Iload.mote.snow" units="mA"
+                longname="Mote load current"
+                plotrange="$ILOAD_RANGE">
+            </variable>
+            <variable name="I3load.mote.snow" units="mA"
+                longname="Mote 3.3V current"
+                plotrange="$ILOAD_RANGE">
+            </variable>
+        </sample>
+	<!-- First group of thermistors -->
+        <sample id="2" scanfFormat="TS3%*c1%f%*d%f%*d%f%*d%f%*d%*f" rate="0.2">
+            <variable name="Tsnow.0.4m" units="degC"
+		      longname="Snow Temperature 0.4m"
+                      plotrange="$T_RANGE" minValue="-40" maxValue="50">
+                <linear>
+                    <calfile file="Tsnow_0_4m.dat"
+                        path="$ISFS/projects/$PROJECT/ISFS/cal_files/$SITE:$ISFS/projects/$PROJECT/ISFS/cal_files"/>
+                </linear>
+            </variable>
+            <variable name="Tsnow.0.5m" units="degC"
+		      longname="Snow Temperature 0.5m"
+                      plotrange="$T_RANGE" minValue="-40" maxValue="50">
+                <linear>
+                    <calfile file="Tsnow_0_5m.dat"
+                        path="$ISFS/projects/$PROJECT/ISFS/cal_files/$SITE:$ISFS/projects/$PROJECT/ISFS/cal_files"/>
+                </linear>
+            </variable>
+            <variable name="Tsnow.0.6m" units="degC"
+		      longname="Snow Temperature 0.6m"
+                      plotrange="$T_RANGE" minValue="-40" maxValue="50">
+                <linear>
+                    <calfile file="Tsnow_0_6m.dat"
+                        path="$ISFS/projects/$PROJECT/ISFS/cal_files/$SITE:$ISFS/projects/$PROJECT/ISFS/cal_files"/>
+                </linear>
+            </variable>
+            <variable name="Tsnow.0.7m" units="degC"
+		      longname="Snow Temperature 0.7m"
+                      plotrange="$T_RANGE" minValue="-40" maxValue="50">
+                <linear>
+                    <calfile file="Tsnow_0_7m.dat"
+                        path="$ISFS/projects/$PROJECT/ISFS/cal_files/$SITE:$ISFS/projects/$PROJECT/ISFS/cal_files"/>
+                </linear>
+            </variable>
+        </sample>
+	<!-- Second group of thermistors -->
+        <sample id="3" scanfFormat="TS3%*c2%f%*d%f%*d%f%*d%f%*d%*f" rate="0.2">
+            <variable name="Tsnow.0.8m" units="degC"
+		      longname="Snow Temperature 0.8m"
+                      plotrange="$T_RANGE" minValue="-40" maxValue="50">
+                <linear>
+                    <calfile file="Tsnow_0_8m.dat"
+                        path="$ISFS/projects/$PROJECT/ISFS/cal_files/$SITE:$ISFS/projects/$PROJECT/ISFS/cal_files"/>
+                </linear>
+            </variable>
+            <variable name="Tsnow.0.9m" units="degC"
+		      longname="Snow Temperature 0.9m"
+                      plotrange="$T_RANGE" minValue="-40" maxValue="50">
+                <linear>
+                    <calfile file="Tsnow_0_9m.dat"
+                        path="$ISFS/projects/$PROJECT/ISFS/cal_files/$SITE:$ISFS/projects/$PROJECT/ISFS/cal_files"/>
+                </linear>
+            </variable>
+            <variable name="Tsnow.1.0m" units="degC"
+		      longname="Snow Temperature 1.0m"
+                      plotrange="$T_RANGE" minValue="-40" maxValue="50">
+                <linear>
+                    <calfile file="Tsnow_1_0m.dat"
+                        path="$ISFS/projects/$PROJECT/ISFS/cal_files/$SITE:$ISFS/projects/$PROJECT/ISFS/cal_files"/>
+                </linear>
+            </variable>
+            <variable name="Tsnow.1.1m" units="degC"
+		      longname="Snow Temperature 1.1m"
+                      plotrange="$T_RANGE" minValue="-40" maxValue="50">
+                <linear>
+                    <calfile file="Tsnow_1_1m.dat"
+                        path="$ISFS/projects/$PROJECT/ISFS/cal_files/$SITE:$ISFS/projects/$PROJECT/ISFS/cal_files"/>
+                </linear>
+            </variable>
+        </sample>
+	<!-- Third group of thermistors -->
+        <sample id="4" scanfFormat="TS3%*c3%f%*d%f%*d%f%*d%f%*d%*f" rate="0.2">
+            <variable name="Tsnow.1.2m" units="degC"
+		      longname="Snow Temperature 1.2m"
+                      plotrange="$T_RANGE" minValue="-40" maxValue="50">
+                <linear>
+                    <calfile file="Tsnow_1_2m.dat"
+                        path="$ISFS/projects/$PROJECT/ISFS/cal_files/$SITE:$ISFS/projects/$PROJECT/ISFS/cal_files"/>
+                </linear>
+            </variable>
+            <variable name="Tsnow.1.3m" units="degC"
+		      longname="Snow Temperature 1.3m"
+                      plotrange="$T_RANGE" minValue="-40" maxValue="50">
+                <linear>
+                    <calfile file="Tsnow_1_3m.dat"
+                        path="$ISFS/projects/$PROJECT/ISFS/cal_files/$SITE:$ISFS/projects/$PROJECT/ISFS/cal_files"/>
+                </linear>
+            </variable>
+            <variable name="Tsnow.1.4m" units="degC"
+		      longname="Snow Temperature 1.4m"
+                      plotrange="$T_RANGE" minValue="-40" maxValue="50">
+                <linear>
+                    <calfile file="Tsnow_1_4m.dat"
+                        path="$ISFS/projects/$PROJECT/ISFS/cal_files/$SITE:$ISFS/projects/$PROJECT/ISFS/cal_files"/>
+                </linear>
+            </variable>
+            <variable name="Tsnow.1.5m" units="degC"
+		      longname="Snow Temperature 1.5m"
+                      plotrange="$T_RANGE" minValue="-40" maxValue="50">
+                <linear>
+                    <calfile file="Tsnow_1_5m.dat"
+                        path="$ISFS/projects/$PROJECT/ISFS/cal_files/$SITE:$ISFS/projects/$PROJECT/ISFS/cal_files"/>
+                </linear>
+            </variable>
+        </sample>
+        <message separator="\n" position="end" length="0"/>
+    </serialSensor>
+
+    <!-- FlowCapt FC4 snow flux sensor -->
+    <serialSensor ID="FLOWCAPT_FC4" class="DSMSerialSensor" 
+        baud="115200" parity="none" databits="8" stopbits="1">
+        <sample id="1" scanfFormat="FLUX;%*d;g/m2/s;%f;%f;%f;%f;g/m2;%f" rate="0.05">
+<!--  FLUX;987;g/m2/s;247.24;262.41;288.12;4.80;g/m2;98652.94 -->
+            <variable name="SF_min" units="g/m^2/s"
+		      longname="Minimum snow flux"
+                      plotrange="0 10000" minValue="0">
+            </variable>
+            <variable name="SF_avg" units="g/m^2/s"
+		      longname="Average snow flux"
+                      plotrange="0 10000" minValue="0">
+            </variable>
+            <variable name="SF_max" units="g/m^2/s"
+		      longname="Maximum snow flux"
+                      plotrange="0 10000" minValue="0">
+            </variable>
+            <variable name="SF_std" units="g/m^2/s"
+		      longname="Standard deviation of snow flux"
+                      plotrange="0 10000" minValue="0">
+            </variable>
+            <variable name="SF_cum" units="g/m^2"
+		      longname="Cumulative snow flux"
+                      plotrange="0 1000000">
+            </variable>
+        </sample>
+        <sample id="2" scanfFormat="WIND;%*d;km/h;%f;%f;%f" rate="0.05">
+<!--  WIND;987;km/h;57.63;68.74;89.32 -->
+            <variable name="Spd_min" units="km/h"
+		      longname="Minimum wind speed"
+                      plotrange="$SPD_RANGE" minValue="0">
+                <linear units="m/s" slope="0.2778" intercept="0.0"/>
+            </variable>
+            <variable name="Spd_avg" units="km/h"
+		      longname="Average wind speed"
+                      plotrange="$SPD_RANGE" minValue="0">
+                <linear units="m/s" slope="0.2778" intercept="0.0"/>
+            </variable>
+            <variable name="Spd_max" units="km/h"
+		      longname="Maximum wind speed"
+                      plotrange="$SPD_RANGE" minValue="0">
+                <linear units="m/s" slope="0.2778" intercept="0.0"/>
+            </variable>
+        </sample>
+        <message separator="\n" position="end" length="0"/>
+    </serialSensor>
+
+    <!-- 4x Snow pillows (Alpine Hydromet FSP5) all through SDI-12 to RS232 converter -->
+    <!-- A lot of people have put a lot of work - especially Gary - to get this to be functional! -->
+    <!-- Despite the documentation saying cm, SWE appears to be reported in mm (a more standard unit) -->
+    <serialSensor ID="PILLOWS" class="DSMSerialSensor"
+                  baud="9600" parity="none" databits="8" stopbits="1">
+        <!-- set the rate which all sample prompts will inherit, so it only needs
+             to be set in one place, which is especially useful since they usually
+             all need to be the same anyway -->
+         <prompt rate='0.001'/>
+         <!-- The snow pillow responses contain the SDI-12 address ID, but
+              they do not contain enough to differentiate responses to
+              different prompts for different measurements.  so use a prompt
+              prefix to insert into the front of each response message a
+              string which identifies the measurement that was prompted.
+              There are four measurements: Load, SWE, Excitation current,
+              Status.  The first character of the prefix identifies the
+              particular measurement being made: L, W, E, S.  Each measurement
+              requires one prompt to start the measurement, S, and a second to
+              get the measurement, M.  For good measure, the prefix includes
+              the specific pillow ID, just to help idenfity if anything is
+              getting out of sync, eg, a prompt gets a response from a
+              different pillow.
+              -->
+             <!-- first logger fields are date, time stamp all ignored -->
+        <prompt string="1M1!" offset="0" rate='0' prefix="LS1:"/>
+        <prompt string="1D0!" offset="3" rate='0' prefix="LM1:"/>
+        <sample id="2" scanfFormat="LM1:1%f%f%f%f">
+            <variable name="Load.1.p1" units="kg" longname="Load cell 1" plotrange="0 500" minValue="0.1"></variable>
+            <variable name="Load.2.p1" units="kg" longname="Load cell 2" plotrange="0 500" minValue="0.1"></variable>
+            <variable name="Load.3.p1" units="kg" longname="Load cell 3" plotrange="0 500" minValue="0.1"></variable>
+            <variable name="Load.4.p1" units="kg" longname="Load cell 4" plotrange="0 500" minValue="0.1"></variable>
+        </sample>
+        <prompt string="1M!" offset="4" rate='0' prefix="WS1:"/>
+        <prompt string="1D0!" offset="7" rate='0' prefix="WM1:"/>
+        <sample id="12" scanfFormat="WM1:1%f%f%f">
+            <variable name="SWE.p1" units="mm" longname="Snow Water Equivalent" plotrange="0 50"></variable>
+            <variable name="Text.p1" units="degC" longname="External temperature" plotrange="$T_RANGE"></variable>
+            <variable name="Tint.p1" units="degC" longname="Internal temperature" plotrange="$T_RANGE"></variable>
+        </sample>
+        <prompt string="1M2!" offset="8" rate='0' prefix="ES1:"/>
+        <prompt string="1D0!" offset="11" rate='0' prefix="EM1:"/>
+        <sample id="22" scanfFormat="EM1:1%f%f%f%f">
+            <variable name="Iexc.1.p1" units="mA" longname="Cell 1 excitation current" plotrange="0 50"></variable>
+            <variable name="Iexc.2.p1" units="mA" longname="Cell 2 excitation current" plotrange="0 50"></variable>
+            <variable name="Iexc.3.p1" units="mA" longname="Cell 3 excitation current" plotrange="0 50"></variable>
+            <variable name="Iexc.4.p1" units="mA" longname="Cell 4 excitation current" plotrange="0 50"></variable>
+        </sample>
+        <prompt string="1M3!" offset="12" rate='0' prefix="SS1:"/>
+        <prompt string="1D0!" offset="15" rate='0' prefix="SM1:"/>
+        <sample id="32" scanfFormat="SM1:1%f%f%f%f%f%f">
+            <variable name="Status.1.p1" units="" longname="Status cell 1" plotrange="0 10"></variable>
+            <variable name="Status.2.p1" units="" longname="Status cell 2" plotrange="0 10"></variable>
+            <variable name="Status.3.p1" units="" longname="Status cell 3" plotrange="0 10"></variable>
+            <variable name="Status.4.p1" units="" longname="Status cell 4" plotrange="0 10"></variable>
+            <variable name="Status.Text.p1" units="" longname="Status Text" plotrange="0 10"></variable>
+            <variable name="Status.Tint.p1" units="" longname="Status Tint" plotrange="0 10"></variable>
+        </sample>
+        <prompt string="2M1!" offset="16" rate='0' prefix="LS2:"/>
+        <prompt string="2D0!" offset="19" rate='0' prefix="LM2:"/>
+        <sample id="4" scanfFormat="LM2:2%f%f%f%f">
+            <variable name="Load.1.p2" units="kg" longname="Load cell 1" plotrange="0 500" minValue="0.1"></variable>
+            <variable name="Load.2.p2" units="kg" longname="Load cell 2" plotrange="0 500" minValue="0.1"></variable>
+            <variable name="Load.3.p2" units="kg" longname="Load cell 3" plotrange="0 500" minValue="0.1"></variable>
+            <variable name="Load.4.p2" units="kg" longname="Load cell 4" plotrange="0 500" minValue="0.1"></variable>
+        </sample>
+        <prompt string="2M!" offset="20" rate='0' prefix="WS2:"/>
+        <prompt string="2D0!" offset="23" rate='0' prefix="WM2:"/>
+        <sample id="14" scanfFormat="WM2:2%f%f%f">
+            <variable name="SWE.p2" units="mm" longname="Snow Water Equivalent" plotrange="0 50"></variable>
+            <variable name="Text.p2" units="degC" longname="External temperature" plotrange="$T_RANGE"></variable>
+            <variable name="Tint.p2" units="degC" longname="Internal temperature" plotrange="$T_RANGE"></variable>
+        </sample>
+        <prompt string="2M2!" offset="24" rate='0' prefix="ES2:"/>
+        <prompt string="2D0!" offset="27" rate='0' prefix="EM2:"/>
+        <sample id="24" scanfFormat="EM2:2%f%f%f%f">
+            <variable name="Iexc.1.p2" units="mA" longname="Cell 1 excitation current" plotrange="0 50"></variable>
+            <variable name="Iexc.2.p2" units="mA" longname="Cell 2 excitation current" plotrange="0 50"></variable>
+            <variable name="Iexc.3.p2" units="mA" longname="Cell 3 excitation current" plotrange="0 50"></variable>
+            <variable name="Iexc.4.p2" units="mA" longname="Cell 4 excitation current" plotrange="0 50"></variable>
+        </sample>
+        <prompt string="2M3!" offset="28" rate='0' prefix="SS2:"/>
+        <prompt string="2D0!" offset="31" rate='0' prefix="SM2:"/>
+        <sample id="34" scanfFormat="SM2:2%f%f%f%f%f%f">
+            <variable name="Status.1.p2" units="" longname="Status cell 1" plotrange="0 10"></variable>
+            <variable name="Status.2.p2" units="" longname="Status cell 2" plotrange="0 10"></variable>
+            <variable name="Status.3.p2" units="" longname="Status cell 3" plotrange="0 10"></variable>
+            <variable name="Status.4.p2" units="" longname="Status cell 4" plotrange="0 10"></variable>
+            <variable name="Status.Text.p2" units="" longname="Status Text" plotrange="0 10"></variable>
+            <variable name="Status.Tint.p2" units="" longname="Status Tint" plotrange="0 10"></variable>
+        </sample>
+        <prompt string="3M1!" offset="32" rate='0' prefix="LS3:"/>
+        <prompt string="3D0!" offset="35" rate='0' prefix="LM3:"/>
+        <sample id="6" scanfFormat="LM3:3%f%f%f%f">
+            <variable name="Load.1.p3" units="kg" longname="Load cell 1" plotrange="0 500" minValue="0.1"></variable>
+            <variable name="Load.2.p3" units="kg" longname="Load cell 2" plotrange="0 500" minValue="0.1"></variable>
+            <variable name="Load.3.p3" units="kg" longname="Load cell 3" plotrange="0 500" minValue="0.1"></variable>
+            <variable name="Load.4.p3" units="kg" longname="Load cell 4" plotrange="0 500" minValue="0.1"></variable>
+        </sample>
+        <prompt string="3M!" offset="36" rate='0' prefix="WS3:"/>
+        <prompt string="3D0!" offset="39" rate='0' prefix="WM3:"/>
+        <sample id="16" scanfFormat="WM3:3%f%f%f">
+            <variable name="SWE.p3" units="mm" longname="Snow Water Equivalent" plotrange="0 50"></variable>
+            <variable name="Text.p3" units="degC" longname="External temperature" plotrange="$T_RANGE"></variable>
+            <variable name="Tint.p3" units="degC" longname="Internal temperature" plotrange="$T_RANGE"></variable>
+        </sample>
+        <prompt string="3M2!" offset="40" rate='0' prefix="ES3:"/>
+        <prompt string="3D0!" offset="43" rate='0' prefix="EM3:"/>
+        <sample id="26" scanfFormat="EM3:3%f%f%f%f">
+            <variable name="Iexc.1.p3" units="mA" longname="Cell 1 excitation current" plotrange="0 50"></variable>
+            <variable name="Iexc.2.p3" units="mA" longname="Cell 2 excitation current" plotrange="0 50"></variable>
+            <variable name="Iexc.3.p3" units="mA" longname="Cell 3 excitation current" plotrange="0 50"></variable>
+            <variable name="Iexc.4.p3" units="mA" longname="Cell 4 excitation current" plotrange="0 50"></variable>
+        </sample>
+        <prompt string="3M3!" offset="44" rate='0' prefix="SS3:"/>
+        <prompt string="3D0!" offset="47" rate='0' prefix="SM3:"/>
+        <sample id="36" scanfFormat="SM3:3%f%f%f%f%f%f">
+            <variable name="Status.1.p3" units="" longname="Status cell 1" plotrange="0 10"></variable>
+            <variable name="Status.2.p3" units="" longname="Status cell 2" plotrange="0 10"></variable>
+            <variable name="Status.3.p3" units="" longname="Status cell 3" plotrange="0 10"></variable>
+            <variable name="Status.4.p3" units="" longname="Status cell 4" plotrange="0 10"></variable>
+            <variable name="Status.Text.p3" units="" longname="Status Text" plotrange="0 10"></variable>
+            <variable name="Status.Tint.p3" units="" longname="Status Tint" plotrange="0 10"></variable>
+        </sample>
+        <prompt string="4M1!" offset="48" rate='0' prefix="LS4:"/>
+        <prompt string="4D0!" offset="51" rate='0' prefix="LM4:"/>
+        <sample id="8" scanfFormat="LM4:4%f%f%f%f">
+            <variable name="Load.1.p4" units="kg" longname="Load cell 1" plotrange="0 500" minValue="0.1"></variable>
+            <variable name="Load.2.p4" units="kg" longname="Load cell 2" plotrange="0 500" minValue="0.1"></variable>
+            <variable name="Load.3.p4" units="kg" longname="Load cell 3" plotrange="0 500" minValue="0.1"></variable>
+            <variable name="Load.4.p4" units="kg" longname="Load cell 4" plotrange="0 500" minValue="0.1"></variable>
+        </sample>
+        <prompt string="4M!" offset="52" rate='0' prefix="WS4:"/>
+        <prompt string="4D0!" offset="55" rate='0' prefix="WM4:"/>
+        <sample id="18" scanfFormat="WM4:4%f%f%f">
+            <variable name="SWE.p4" units="mm" longname="Snow Water Equivalent" plotrange="0 50"></variable>
+            <variable name="Text.p4" units="degC" longname="External temperature" plotrange="$T_RANGE"></variable>
+            <variable name="Tint.p4" units="degC" longname="Internal temperature" plotrange="$T_RANGE"></variable>
+        </sample>
+        <prompt string="4M2!" offset="56" rate='0' prefix="ES4:"/>
+        <prompt string="4D0!" offset="59" rate='0' prefix="EM4:"/>
+        <sample id="28" scanfFormat="EM4:4%f%f%f%f">
+            <variable name="Iexc.1.p4" units="mA" longname="Cell 1 excitation current" plotrange="0 50"></variable>
+            <variable name="Iexc.2.p4" units="mA" longname="Cell 2 excitation current" plotrange="0 50"></variable>
+            <variable name="Iexc.3.p4" units="mA" longname="Cell 3 excitation current" plotrange="0 50"></variable>
+            <variable name="Iexc.4.p4" units="mA" longname="Cell 4 excitation current" plotrange="0 50"></variable>
+        </sample>
+        <prompt string="4M3!" offset="60" rate='0' prefix="SS4:"/>
+        <prompt string="4D0!" offset="63" rate='0' prefix="SM4:"/>
+        <sample id="38" scanfFormat="SM4:4%f%f%f%f%f%f">
+            <variable name="Status.1.p4" units="" longname="Status cell 1" plotrange="0 10"></variable>
+            <variable name="Status.2.p4" units="" longname="Status cell 2" plotrange="0 10"></variable>
+            <variable name="Status.3.p4" units="" longname="Status cell 3" plotrange="0 10"></variable>
+            <variable name="Status.4.p4" units="" longname="Status cell 4" plotrange="0 10"></variable>
+            <variable name="Status.Text.p4" units="" longname="Status Text" plotrange="0 10"></variable>
+            <variable name="Status.Tint.p4" units="" longname="Status Tint" plotrange="0 10"></variable>
+        </sample>
+        <message separator="\n" position="end" length="0"/>
+    </serialSensor>
+
+</sensorcatalog>
+
+<!-- Notes on AutoConfig Functionality
+
+    This discussion assumes the reader has some familiarity with the XML
+    specification of UCAR DSM/NIDAS dsm and sensor catalogs.
+
+    AutoConfig is a feature which enables the DSM software to do the
+    following:
+
+        1) Read the science and comm operational parameters for a sensor in the sensor catalog
+
+        2) Determine the communication parameters that the sensor is currently using.
+
+        3) If the discovered comm parameters are different from default
+        values for that sensor, or have been changed in item 1, change the
+        sensor communication parameters and port communication parameters
+        to match.
+
+        4) Modify the sensor science parameters to default values or any
+        custom values from item 1.
+
+        5) Output sensor metadata to the DSM system logs.
+
+    AutoConfig is available on DSMs with RPis with the current production
+    FTDI serial boards, and the DSMs with the new FTDI serial boards
+    (delayed until CHEESEHEAD is deployed). It is also available in a
+    limited form on the PC104 Titan/Vulcan boards. All platforms are
+    capable of searching for the sensor device communication parameters,
+    adjusting them to the desired communication parameters, and then
+    adjusting the sensor science parameters as specified in the sensor
+    catalog.
+
+    All DSMs which are based upon the RPi can control sensor power either
+    through the new FTDI board, or using the RPi GPIO.
+
+    The difference between the hardware platforms is that the new FTDI
+    serial boards include the capability to programmatically control serial
+    transceiver modes: LOOPBACK, RS232, RS422/RS485, and RS485 Half
+    Duplex. On all DSMs that do not have new FTDI serial board, the user
+    must set the transceiver mode using the jumpers on the board.
+
+    Step 2 above involves
+
+        1) Modifying the serial transceiver mode (if possible), baud rate,
+        databits, parity and stopbits incrementally over all the
+        combinations available to the sensor
+
+        2) At each step, the sensor is queried
+
+        3) The sensor response is tested to see if it is intelligible
+
+    AutoConfig functionality is available for the following sensor classes:
+
+        isff.CSAT3_Sonic
+        isff.GILL2D
+        isff.NCAR_TRH
+        isff.PTB210
+        isff.PTB220
+        isff.WisardMote
+
+    AutoConfig still requires that the device port and class be defined in
+    order to operate.  This means that AutoConfig is *NOT* true plug'n
+    play. You can't put any sensor in any port and just expect it to
+    work. You must still plug the sensor described in the dsm catalog into
+    the serial port that is also described in the dsm catalog.
+
+    All sensors still work with the isff.DSMSerialSensor class as before,
+    but AutoConfig will not be available. In this case, the sensor must be
+    set up with the communication and/or science parameters described in
+    the sensor catalog before attempting to use it with the dsm software.
+
+        <serialSensor ID="PTB220" class="isff.DSMSerialSensor"
+            baud="19200" parity="even" databits="7" stopbits="1" >
+            :
+            :
+        </serialSensor>
+
+    In order to make AutoConfig active, the <autoconfig> tag must be
+    present *AND* an AutoConfig class must be specified. The AutoConfig
+    classes check the <serialSensor> tag attributes before checking the
+    <autoconfig> tag attributes. Any <serialSensor> tag attributes which
+    are duplicated in the <autoconfig> tag attributes are overridden by the
+    <autoconfig> tag attributes.
+
+        <serialSensor ID="PTB220_AC" class="isff.PTB220" >
+            <autoconfig baud="19200" databits="7" parity="even" stopbits="1" />
+            :
+            :
+        </serialSensor>
+
+        <serialSensor ID="PTB220_AC", class="isff.PTB220",
+            baud="9600" databits="8" parity="none" stopbits="1" >
+            <autoconfig baud="19200" databits="7" parity="even" stopbits="1" />
+            :
+            :
+        </serialSensor>
+
+    If the <autoconfig> tag is left empty, then the class defaults are used
+    automatically, unless overridden in the <serialSensor> tag.
+
+        <serialSensor ID="PTB220_AC" class="isff.PTB220" >
+            <autoconfig />
+            :
+            :
+        </serialSensor>
+
+        <serialSensor ID="PTB220_AC" class="isff.PTB220",
+            baud="9600" databits="8" parity="none" stopbits="1" >
+            <autoconfig />
+            :
+            :
+        </serialSensor>
+
+        <serialSensor class="isff.PTB220" ID="PTB220_AC" >
+            <autoconfig baud="19200" databits="7" parity="even" stopbits="1" />
+            :
+            :
+        </serialSensor>
+
+    Any attributes left in the <serialSensor> tag will still be captured,
+    if they were captured using class isff.DSMSerialSensor. Any
+    <serialSensor> attributes may also be specified in the <autoconfig>
+    tag. So, it is not necessary to include science and comm attributes in
+    both <serialSensor> and <autoconfig> tags.
+
+    In fact, it is best practice to only include class and ID attributes in
+    the <serialSensor> tag, and put all the other autoconfig attributes in
+    the <autoconfig> tag. Additionally, the ID of the sensor should be
+    something slightly different from the DSMSerialSensor version of the
+    sensor. For instance, the PTB220 ID should be changed to something like
+    PTB220_AC.
+
+    Each of the AutoConfig classes are called out below. In each
+    <serialSensor> tag for each class, the attributes which may be modified
+    and the values which they may assume are called out. These attributes
+    may be decorated with an * and/or an @.  * denotes a factory default. @
+    denotes a class default. They are not necessarily the same.
+
+    NOTE: enable/turn on types of attributes often accept true, yes, 1
+    disable/turn off type of attributes often accept false, no, none, na, 0
+-->

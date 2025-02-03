@@ -52,11 +52,12 @@ Variable::Variable():
     _A2dChannel(-1),_units(),
     _type(CONTINUOUS),
     _length(1),
-    _converter(0),_parameters(),_constParameters(),
+    _converter(0),_parameters(),
     _missingValue(1.e37),
     _minValue(-numeric_limits<float>::max()),
     _maxValue(numeric_limits<float>::max()),
-    _dynamic(false)
+    _dynamic(false),
+    _attributes()
 {
     _plotRange[0] = floatNAN;
     _plotRange[1] = floatNAN;
@@ -78,19 +79,17 @@ Variable::Variable(const Variable& x):
     _units(x._units),
     _type(x._type),
     _length(x._length),
-    _converter(0),_parameters(),_constParameters(),
+    _converter(0),_parameters(),
     _missingValue(x._missingValue),
     _minValue(x._minValue),
     _maxValue(x._maxValue),
-    _dynamic(x._dynamic)
+    _dynamic(x._dynamic),
+    _attributes(x._attributes)
 {
-    if (x._converter) _converter = x._converter->clone();
-    const list<const Parameter*>& params = x.getParameters();
-    list<const Parameter*>::const_iterator pi;
-    for (pi = params.begin(); pi != params.end(); ++pi) {
-        const Parameter* parm = *pi;
-	Parameter* newp = parm->clone();
-	addParameter(newp);
+    if (x._converter)
+        _converter = x._converter->clone();
+    for (auto parm: x.getParameters()) {
+        addParameter(parm->clone());
     }
     _plotRange[0] = x._plotRange[0];
     _plotRange[1] = x._plotRange[1];
@@ -120,6 +119,7 @@ Variable& Variable::operator=(const Variable& rhs)
         _plotRange[0] = rhs._plotRange[0];
         _plotRange[1] = rhs._plotRange[1];
         _dynamic = rhs._dynamic;
+        _attributes = rhs._attributes;
 
         // this invalidates the previous pointer to the converter, hmm.
         // don't want to create a virtual assignment op for converters.
@@ -135,13 +135,14 @@ Variable& Variable::operator=(const Variable& rhs)
         // has done a getParameters() on this variable.
         const list<const Parameter*>& xparams = rhs.getParameters();
         list<const Parameter*>::const_iterator xpi;
-        for (xpi = xparams.begin(); xpi != xparams.end(); ++xpi) {
-            const Parameter* xparm = *xpi;
+        for (auto& xparm: xparams) {
             ParameterNameTypeComparator comp(xparm);
             list<Parameter*>::iterator pi =
-                    std::find_if(_parameters.begin(),_parameters.end(),comp);
-            if (pi != _parameters.end()) (*pi)->assign(*xparm);
-            else addParameter(xparm->clone());
+                std::find_if(_parameters.begin(), _parameters.end(), comp);
+            if (pi != _parameters.end())
+                (*pi)->setValue(*xparm);
+            else
+                addParameter(xparm->clone());
         }
     }
     return *this;
@@ -155,22 +156,120 @@ Variable::~Variable()
     	delete *pi;
 }
 
+
+void Variable::setAttribute(const Parameter& att)
+{
+    DLOG(("setting attribute on ") << getName() << ": "
+         << att.getName() << "='" << att.getStringValue() << "'");
+    for (auto& ap: _attributes)
+    {
+        if (ap.getName() == att.getName())
+        {
+            ap = att;
+            return;
+        }
+    }
+    _attributes.push_back(att);
+}
+
+
+void Variable::removeAttribute(const std::string& name)
+{
+    auto match_name = [name](const Parameter& p) -> bool
+    {
+        return p.getName() == name;
+    };
+    auto it = std::find_if(_attributes.begin(), _attributes.end(),
+                           match_name);
+    if (it != _attributes.end())
+        _attributes.erase(it);
+}
+
+
+const std::vector<Parameter>& Variable::getAttributes() const
+{
+    return _attributes;
+}
+
+
 void Variable::setSiteSuffix(const string& val)
 {
     // don't repeat site suffix, in case
     // user has only set full name with setName().
     if (_siteSuffix.length() == 0 && _suffix.length() == 0) {
-	unsigned nl = _name.length();
-	unsigned vl = val.length();
-	if (vl > 0 && nl > vl && _name.substr(nl-vl,vl) == val)
-	    _prefix = _name.substr(0,nl-vl);
+        unsigned nl = _name.length();
+        unsigned vl = val.length();
+        if (vl > 0 && nl > vl && _name.substr(nl-vl,vl) == val)
+            _prefix = _name.substr(0,nl-vl);
     }
     _siteSuffix = val;
-    _name = _prefix + _suffix + _siteSuffix;
+    updateName();
 }
 
+
+void Variable::updateName()
+{
+    string site = _siteSuffix;
+    string suffix = _suffix;
+    // If the suffix starts with !, then it overrides any suffix that might be
+    // contributed from the site.  Since the full variable name is always
+    // assembled from prefix + suffix + site, then suffix can force the site
+    // to be omitted if it starts with !.  This is useful for sensors which
+    // must add their own suffix to be unique within the site and across all
+    // sites and thus don't also need a site suffix.  The site will still be
+    // included as an attribute though, if it has been specified.
+    if (suffix.length() && suffix[0] == '!') {
+        site = "";
+        suffix = suffix.substr(1);
+    }
+    _name = _prefix + suffix + site;
+    _nameWithoutSite = _prefix + suffix;
+    VLOG(("") << "prefix=" << _prefix << ", suffix=" << _suffix
+              << ", site=" << _siteSuffix << ": name => " << _name);
+
+    // if name needs to be updated, then likely the attributes inherited from
+    // the tag and sensor need to be updated also.
+    const DSMSensor* sensor{_sampleTag ? _sampleTag->getDSMSensor() : nullptr};
+    if (sensor)
+    {
+        const std::string& depth = sensor->getDepthString();
+        if (!depth.empty())
+            setAttribute(Parameter("height", depth));
+        const std::string& height = sensor->getHeightString();
+        if (!height.empty())
+            setAttribute(Parameter("height", height));
+        // The only way to identify (ie, uniquely distinguish) sensors in
+        // nidas is by the dsm and device path, as returned by
+        // DSMSensor::getName(). However, since the catalog name is a kind of
+        // proxy for sensor model, include that if set.
+        std::string sensor_device{ sensor->getCatalogName() };
+        if (sensor_device.length())
+            sensor_device += ":";
+        sensor_device += sensor->getName();
+        setAttribute(Parameter("sensor_device", sensor_device));
+    }
+    const Site* sitep = getSite();
+    if (sitep && sitep->getName().length())
+    {
+        setAttribute(Parameter("site", sitep->getName()));
+    }
+}
+
+
+void Variable::setConverter(VariableConverter* val)
+{
+    delete _converter;
+    _converter = val;
+    // presumably the converter has been fully specified by now, in particular
+    // it has been loaded from a dom element, so this is a good time to add
+    // the converter spec as an attribute.
+    if (_converter)
+        setAttribute(Parameter{"converter", _converter->toString()});
+}
+
+
 void Variable::setSampleTag(const SampleTag* val)
-{ 
+{
     _sampleTag = val;
     // if the Variable's site is undefined, set it from the sample
     if (!getSite()) setSite(_sampleTag->getSite());
@@ -204,29 +303,6 @@ bool Variable::operator == (const Variable& x) const
 bool Variable::operator != (const Variable& x) const
 {
     return !operator == (x);
-}
-
-bool Variable::operator < (const Variable& x) const
-{
-    if (operator == (x)) return false;
-
-    if (getLength() != x.getLength()) return getLength() < x.getLength();
-
-    int ic =  getNameWithoutSite().compare(x.getNameWithoutSite());
-    if (ic != 0) return ic < 0;
-
-    // names are equal, but variables aren't. Must be a site difference
-    
-    const Site* s1 = getSite();
-    const Site* s2 = x.getSite();
-    if (!s1) {
-        if (s2) return true;
-    }
-    else if (!s2) return false;
-
-    // either both sites are unknown, or equal
-    assert(false);
-    return false;
 }
 
 bool Variable::closeMatch(const Variable& x) const
@@ -263,101 +339,86 @@ float Variable::getSampleRate() const {
     else return _sampleTag->getRate();
 }
 
+
+void Variable::addParameter(Parameter* val)
+{
+    _parameters.push_back(val);
+}
+
+/**
+ * Get full list of parameters.
+ */
+std::list<const Parameter*> Variable::getParameters() const
+{
+    return {_parameters.begin(), _parameters.end()};
+}
+
+
 const Parameter* Variable::getParameter(const std::string& name) const
 {
-    std::list<const Parameter*>::const_iterator pi;
-    for (pi = _constParameters.begin(); pi != _constParameters.end(); ++pi)
-      if ((*pi)->getName().compare(name) == 0)
-        return *pi;
+    for (auto param: _parameters)
+      if (param->getName() == name)
+        return param;
     return 0;
 }
 
+std::string& Variable::expand(std::string& aval)
+{
+    if (_sampleTag && _sampleTag->getDSMSensor())
+        aval = _sampleTag->getDSMSensor()->expandString(aval);
+    else
+        aval = Project::getInstance()->expandString(aval);
+    return aval;
+}
+
+
 void Variable::fromDOMElement(const xercesc::DOMElement* node)
 {
-    XDOMElement xnode(node);
-    if(node->hasAttributes()) {
-        // get all the attributes of the node
-        xercesc::DOMNamedNodeMap *pAttributes = node->getAttributes();
-        int nSize = pAttributes->getLength();
-        for(int i=0;i<nSize;++i) {
-            XDOMAttr attr((xercesc::DOMAttr*) pAttributes->item(i));
-            const string& aname = attr.getName();
-            string aval;
-            if (_sampleTag && _sampleTag->getDSMSensor())
-                aval = _sampleTag->getDSMSensor()->expandString(attr.getValue());
-            else
-                aval = Project::getInstance()->expandString(attr.getValue());
-            // get attribute name
-            if (aname == "name")
-                setPrefix(aval);
-            else if (aname == "longname")
-                setLongName(aval);
-            else if (aname == "units")
-                setUnits(aval);
-            else if (aname == "length") {
-                istringstream ist(aval);
-                unsigned int val;
-                ist >> val;
-                if (ist.fail())
-                    throw n_u::InvalidParameterException
-                        (string("variable ") + getName(),aname,aval);
-                setLength(val);
+    DOMableContext dc(this, "Variable: ", node);
+
+    string aval;
+    if (getAttribute(node, "name", aval)) {
+        setPrefix(expand(aval));
+        addContext(getPrefix());
+    }
+    if (getAttribute(node, "longname", aval))
+        setLongName(expand(aval));
+    if (getAttribute(node, "units", aval))
+        setUnits(expand(aval));
+    if (getAttribute(node, "length", aval))
+        setLength(asInt(expand(aval)));
+    if (getAttribute(node, "missingValue", aval))
+        setMissingValue(asFloat(expand(aval)));
+    if (getAttribute(node, "minValue", aval))
+        setMinValue(asFloat(expand(aval)));
+    if (getAttribute(node, "maxValue", aval))
+        setMaxValue(asFloat(expand(aval)));
+    if (getAttribute(node, "count", aval) && asBool(expand(aval)))
+        setType(Variable::COUNTER);
+    if (getAttribute(node, "dynamic", aval))
+        setDynamic(asBool(expand(aval)));
+    if (getAttribute(node, "plotrange", aval)) {
+        std::istringstream ist(expand(aval));
+        float prange[2] = { -10.0,10.0 };
+        // if plotrange value starts with '$' ignore error.
+        if (aval.length() < 1 || aval[0] != '$') {
+            int i;
+            for (i = 0; i < 2 ; i++) {
+                if (ist.eof()) break;
+                ist >> prange[i];
+                if (ist.fail()) break;
             }
-            else if (aname == "missingValue" ||
-                     aname == "minValue" ||
-                     aname == "maxValue") {
-                istringstream ist(aval);
-                float val;
-                ist >> val;
-                if (ist.fail())
-                    throw n_u::InvalidParameterException
-                        (string("variable") + getName(),aname,aval);
-                string sname = aname.substr(0,3);
-                if (sname == "mis") setMissingValue(val);
-                else if (sname == "min") setMinValue(val);
-                else if (sname == "max") setMaxValue(val);
-            }
-            else if (aname == "count") {
-                if (aval == "true")
-                    setType(Variable::COUNTER);
-            }
-            else if (aname == "plotrange") {
-                // environment variables are expanded above.
-                std::istringstream ist(aval);
-                float prange[2] = { -10.0,10.0 };
-                // if plotrange value starts with '$' ignore error.
-                if (aval.length() < 1 || aval[0] != '$') {
-                    int i;
-                    for (i = 0; i < 2 ; i++) {
-                        if (ist.eof()) break;
-                        ist >> prange[i];
-                        if (ist.fail()) break;
-                    }
-                    // Don't throw exception on poorly formatted plotranges
-                    if (i < 2)  {
-                        n_u::InvalidParameterException e(string("variable ") +
-                                                         getName(),aname,aval);
-                        WLOG(("%s",e.what()));
-                    }
-                }
-                setPlotRange(prange[0],prange[1]);
-            }
-            else if (aname == "dynamic") {
-                istringstream ist(aval);
-                bool val;
-                ist >> boolalpha >> val;
-                if (ist.fail()) {
-                    ist.clear();
-                    ist >> noboolalpha >> val;
-                    if (ist.fail())
-                        throw n_u::InvalidParameterException
-                            (string("variable ") + getName(),aname,aval);
-                }
-                setDynamic(val);
+            // Don't throw exception on poorly formatted plotranges
+            if (i < 2)  {
+                n_u::InvalidParameterException e(
+                    string("variable ") + getName(), "plotrange", aval);
+                WLOG(("%s",e.what()));
             }
         }
+        setPlotRange(prange[0],prange[1]);
     }
 
+    handledElements({"parameter", "linear", "poly", "converter"});
     int nconverters = 0;
     xercesc::DOMNode* child;
     for (child = node->getFirstChild(); child != 0;
@@ -386,15 +447,14 @@ void Variable::fromDOMElement(const xercesc::DOMElement* node)
                 VariableConverter::createVariableConverter(xchild);
             if (!cvtr) throw n_u::InvalidParameterException
                            (getName(), "unsupported child element", elname);
+            // set Variable on this converter now so it can get to the DSM
             cvtr->setVariable(this);
             cvtr->setUnits(getUnits());
             cvtr->fromDOMElement((xercesc::DOMElement*)child);
+            // this will set it again to update the converter attributes.
             setConverter(cvtr);
             nconverters++;
         }
-        else throw n_u::InvalidParameterException
-                 (string("variable ") + getName(),
-                  "unsupported child element", elname);
     }
 }
 

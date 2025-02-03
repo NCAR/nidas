@@ -80,6 +80,9 @@ public:
     void
     setOrientation(const std::string& orientation, const std::string& name="");
 
+    std::string
+    getOrientationName();
+
     /**
      * If the given @p parameter is "orientation", call setOrientation()
      * with the value.  Throws InvalidParameterException if the parameter
@@ -93,6 +96,9 @@ public:
                     const std::string& name);
 
 protected:
+
+    /// Keep the name associated with this orientation.
+    std::string _name;
 
     /**
      * Is the sonic oriented in a unusual way, e.g. upside-down, etc?

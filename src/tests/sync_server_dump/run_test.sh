@@ -35,9 +35,9 @@ echo "Using port=$SYNC_REC_PORT_TCP"
 echo "running sync_server in the background"
 valgrind --leak-check=full --suppressions=suppressions.txt --gen-suppressions=all \
     sync_server -p $SYNC_REC_PORT_TCP \
-    --logconfig enable,level=verbose,function=SyncRecordSource::receive \
+    --log enable,level=verbose,function=SyncRecordSource::receive \
     --logfields level,message \
-    --logparam trace_samples=4,4072 --logconfig enable,level=info \
+    --logparam trace_samples=4,4072 --log enable,level=info \
     data/dsm_20060908_200303.ads > sync_server.log 2>&1 &
 
 echo "waiting for port $SYNC_REC_PORT_TCP to open, then run sync_dump"

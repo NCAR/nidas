@@ -213,3 +213,25 @@ FileSet* FileSet::getFileSet(const list<string>& filenames)
     return fset;
 }
 
+
+/* static */
+FileSet* 
+FileSet::createFileSet(const std::string& filename)
+{
+    FileSet* fset = 0;
+    if (filename.find(".bz2") != string::npos)
+    {
+#ifdef HAVE_BZLIB_H
+        fset = new nidas::core::Bzip2FileSet();
+#else
+        throw n_u::InvalidParameterException(filename, "open",
+            "bzip2 compression/uncompression not available.");
+#endif
+    }
+    else
+    {
+        fset = new nidas::core::FileSet();
+    }
+    fset->setFileName(filename);
+    return fset;
+}

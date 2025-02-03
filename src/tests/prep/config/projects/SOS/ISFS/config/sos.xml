@@ -1,0 +1,594 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Copyright 2021 UCAR, NCAR, All Rights Reserved -->
+
+<project
+    xmlns="http://www.eol.ucar.edu/nidas"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns:xi="http://www.w3.org/2001/XInclude"
+    name="SOS"
+    system="ISFS"
+    maxStation="1"
+    version="$Revision: 4555 $">
+
+<!--
+    xsi:schemaLocation="http://www.eol.ucar.edu/nidas nidas.xsd"
+-->
+
+    <parameter name="wind3d_horiz_coordinates" type="string" value="geographic"/>
+    <parameter name="wind3d_horiz_rotation" type="bool" value="true"/>
+    <parameter name="wind3d_tilt_correction" type="bool" value="true"/>
+
+    <xi:include href="sensor_catalog.xml" parse="xml"/>
+
+    <dsmcatalog>
+<!-- Core configuration for all DSMs -->
+        <dsm ID="CORE" rserialPort="30002">
+
+            <serialSensor IDREF="Garmin_GPS" id="2">
+            </serialSensor>
+
+            <serialSensor IDREF="CHRONY_TRACKING_LOG" id="8">
+            </serialSensor>
+
+            <output class="RawSampleOutputStream">
+                <socket type="server" port="30000" maxIdle="60" block="false"/>
+            </output>
+
+	    <!-- At least for now, disable datagram samples to wstar...
+            <output class="RawSampleOutputStream">
+                <socket type="dgrequest" maxIdle="60" block="false"
+                    address="wstar"/>
+            </output>
+            -->
+
+            <output class="RawSampleOutputStream">
+                <socket type="udp" address="eol-rt-data.eol.ucar.edu"
+                    port="30010" block="false"/>
+            </output>
+	    
+            <output class="RawSampleOutputStream">
+                <fileset dir="$DATAMNT/projects/${PROJECT}/raw_data"
+                        file="${DSM}_%Y%m%d_%H%M%S.dat"
+                        length="43200">
+                <mount dir="$DATAMNT"/>
+                </fileset>
+            </output>
+        </dsm>
+
+<!-- Core configuration for all DSMs with Victrons -->
+        <dsm ID="COREV" IDREF="CORE">
+            <serialSensor IDREF="PWRMONV" devicename="/dev/ttyPWRMONV" id="1000">
+            </serialSensor>
+        </dsm>
+
+<!-- 10m towers -->
+        <dsm ID="TEN" IDREF="COREV">
+            <serialSensor IDREF="CSAT3_IRGA_BIN" devicename="/dev/ttyDSM0" height="$CSAT_HEIGHT" id="10">
+            </serialSensor>
+            <serialSensor IDREF="CSAT3_IRGA_BIN" devicename="/dev/ttyDSM1" height="3m" id="30">
+            </serialSensor>
+            <serialSensor IDREF="CSAT3_IRGA_BIN" devicename="/dev/ttyDSM2" height="10m" id="100">
+            </serialSensor>
+            <serialSensor IDREF="Nano" devicename="/dev/ttyDSM3" height="10m" id="104">
+            </serialSensor>
+<!-- PI Apogee SIF-111-ss IR sensor: 2 chan analog through TP01 popsicle stick  -->
+            <serialSensor IDREF="APOGEE_IR" devicename="/dev/ttyDSM4" id="1030">
+            </serialSensor>
+         </dsm>
+    </dsmcatalog>
+
+<!-- Keeping track of odd IDs:
+1000-1 - Victron
+1030-1 - APOGEE_IR
+1040-3 - SNOWS
+1050-1088 - PILLOWS
+1280-5 - V2.8 mote
+0xB700-5 - V2.7 mote
+-->
+
+<!-- all towers have a PI-supplied lidar and camera at 4m that will require networking -->
+
+<!-- downwind 10m tower -->
+    <site name="d" class="isff.GroundStation" suffix=".$SITE">
+      <dsm IDREF="TEN" name="d" id="10">
+<!-- soil sensors -->
+            <serialSensor IDREF="V28MT" devicename="/dev/ttyDSM6" id="1280">
+<!-- plus additional Tsoil levels -->
+            <!-- Tsoil, need to distiguish with Tsoil ID numbers (hard coded here, need to change once installed) --> 
+                <sample id="8" scanfFormat="TS047%f%*d%f%*d%f%*d%f%*d%*f" rate="0.2">
+                   <variable name="Tsoil.0.6cm" units="degC"
+                      longname="Soil temperature 0.6cm" 
+                      plotrange="$TSOIL_RANGE"> 
+                      <linear>
+                         <calfile
+                             path="$ISFS/projects/$PROJECT/ISFS/cal_files/$SITE:$ISFS/projects/$PROJECT/ISFS/cal_files"
+                             file="Tsoil_0_6cm.dat"/>
+                      </linear>
+                   </variable> 
+                   <variable name="Tsoil.1.9cm" units="degC" 
+                      longname="Soil temperature 1.9cm" 
+                      plotrange="$TSOIL_RANGE"> 
+                      <linear>
+                         <calfile
+                             path="$ISFS/projects/$PROJECT/ISFS/cal_files/$SITE:$ISFS/projects/$PROJECT/ISFS/cal_files"
+                             file="Tsoil_1_9cm.dat"/>
+                      </linear>
+                   </variable> 
+                   <variable name="Tsoil.3.1cm" units="degC" 
+                      longname="Soil temperature 3.1cm" 
+                      plotrange="$TSOIL_RANGE">
+                      <linear>
+                         <calfile
+                             path="$ISFS/projects/$PROJECT/ISFS/cal_files/$SITE:$ISFS/projects/$PROJECT/ISFS/cal_files"
+                             file="Tsoil_3_1cm.dat"/>
+                      </linear> 
+                   </variable> 
+                   <variable name="Tsoil.4.4cm" units="degC" 
+                      longname="Soil temperature 4.4cm" 
+                      plotrange="$TSOIL_RANGE">
+                      <linear>
+                         <calfile
+                             path="$ISFS/projects/$PROJECT/ISFS/cal_files/$SITE:$ISFS/projects/$PROJECT/ISFS/cal_files"
+                             file="Tsoil_4_4cm.dat"/>
+                      </linear> 
+                   </variable> 
+               </sample> 
+                <sample id="9" scanfFormat="TS036%f%*d%f%*d%f%*d%f%*d%*f" rate="0.2"> 
+                   <variable name="Tsoil.8.1cm" units="degC"
+                      longname="Soil temperature 8.1cm" 
+                      plotrange="$TSOIL_RANGE">
+                      <linear>
+                         <calfile
+                             path="$ISFS/projects/$PROJECT/ISFS/cal_files/$SITE:$ISFS/projects/$PROJECT/ISFS/cal_files"
+                             file="Tsoil_8_1cm.dat"/>
+                      </linear>
+                    </variable> 
+                   <variable name="Tsoil.9.4cm" units="degC" 
+                      longname="Soil temperature 9.4cm" 
+                      plotrange="$TSOIL_RANGE">
+                      <linear>
+                         <calfile
+                             path="$ISFS/projects/$PROJECT/ISFS/cal_files/$SITE:$ISFS/projects/$PROJECT/ISFS/cal_files"
+                             file="Tsoil_9_4cm.dat"/>
+                      </linear> 
+                   </variable> 
+                   <variable name="Tsoil.10.6cm" units="degC" 
+                      longname="Soil temperature 10.6cm" 
+                      plotrange="$TSOIL_RANGE">
+                      <linear>
+                         <calfile
+                             path="$ISFS/projects/$PROJECT/ISFS/cal_files/$SITE:$ISFS/projects/$PROJECT/ISFS/cal_files"
+                             file="Tsoil_10_6cm.dat"/>
+                      </linear> 
+                   </variable> 
+                   <variable name="Tsoil.11.9cm" units="degC" 
+                      longname="Soil temperature 11.9cm" 
+                      plotrange="$TSOIL_RANGE">
+                      <linear>
+                         <calfile
+                             path="$ISFS/projects/$PROJECT/ISFS/cal_files/$SITE:$ISFS/projects/$PROJECT/ISFS/cal_files"
+                             file="Tsoil_11_9cm.dat"/>
+                      </linear> 
+                   </variable> 
+               </sample> 
+            </serialSensor>
+
+<!-- PI thermistors: 3 Tsoil popsicle sticks through (another) V2.8 mote, plus additional soil sensors  -->
+            <serialSensor IDREF="SNOWS" devicename="/dev/ttyDSM5" id="1040">
+                <sample id="8" scanfFormat="TS042%f%*d%f%*d%f%*d%f%*d%*f" rate="0.2"> 
+                   <variable name="Tsoil.18.1cm" units="degC" 
+                      longname="Soil temperature 18.1cm" 
+                      plotrange="$TSOIL_RANGE">
+                      <linear>
+                         <calfile
+                             path="$ISFS/projects/$PROJECT/ISFS/cal_files/$SITE:$ISFS/projects/$PROJECT/ISFS/cal_files"
+                             file="Tsoil_18_1cm.dat"/>
+                      </linear> 
+                   </variable> 
+                   <variable name="Tsoil.19.4cm" units="degC" 
+                      longname="Soil temperature 19.4cm" 
+                      plotrange="$TSOIL_RANGE">
+                      <linear>
+                         <calfile
+                             path="$ISFS/projects/$PROJECT/ISFS/cal_files/$SITE:$ISFS/projects/$PROJECT/ISFS/cal_files"
+                             file="Tsoil_19_4cm.dat"/>
+                      </linear> 
+                   </variable> 
+                   <variable name="Tsoil.20.6cm" units="degC" 
+                      longname="Soil temperature 20.6cm" 
+                      plotrange="$TSOIL_RANGE">
+                      <linear>
+                         <calfile
+                             path="$ISFS/projects/$PROJECT/ISFS/cal_files/$SITE:$ISFS/projects/$PROJECT/ISFS/cal_files"
+                             file="Tsoil_20_6cm.dat"/>
+                      </linear> 
+                   </variable> 
+                   <variable name="Tsoil.21.9cm" units="degC" 
+                      longname="Soil temperature 21.9cm" 
+                      plotrange="$TSOIL_RANGE">
+                      <linear>
+                         <calfile
+                             path="$ISFS/projects/$PROJECT/ISFS/cal_files/$SITE:$ISFS/projects/$PROJECT/ISFS/cal_files"
+                             file="Tsoil_21_9cm.dat"/>
+                      </linear> 
+                   </variable> 
+               </sample> 
+                <sample id="9" scanfFormat="TS044%f%*d%f%*d%f%*d%f%*d%*f" rate="0.2"> 
+                   <variable name="Tsoil.28.1cm" units="degC" 
+                      longname="Soil temperature 28.1cm" 
+                      plotrange="$TSOIL_RANGE"> 
+                      <linear>
+                         <calfile
+                             path="$ISFS/projects/$PROJECT/ISFS/cal_files/$SITE:$ISFS/projects/$PROJECT/ISFS/cal_files"
+                             file="Tsoil_28_1cm.dat"/>
+                      </linear>
+                   </variable> 
+                   <variable name="Tsoil.29.4cm" units="degC" 
+                      longname="Soil temperature 29.4cm" 
+                      plotrange="$TSOIL_RANGE">
+                      <linear>
+                         <calfile
+                             path="$ISFS/projects/$PROJECT/ISFS/cal_files/$SITE:$ISFS/projects/$PROJECT/ISFS/cal_files"
+                             file="Tsoil_29_4cm.dat"/>
+                      </linear> 
+                   </variable> 
+                   <variable name="Tsoil.30.6cm" units="degC" 
+                      longname="Soil temperature 30.6cm" 
+                      plotrange="$TSOIL_RANGE">
+                      <linear>
+                         <calfile
+                             path="$ISFS/projects/$PROJECT/ISFS/cal_files/$SITE:$ISFS/projects/$PROJECT/ISFS/cal_files"
+                             file="Tsoil_30_6cm.dat"/>
+                      </linear>
+                   </variable> 
+                   <variable name="Tsoil.31.9cm" units="degC" 
+                      longname="Soil temperature 31.9cm" 
+                      plotrange="$TSOIL_RANGE">
+                      <linear>
+                         <calfile
+                             path="$ISFS/projects/$PROJECT/ISFS/cal_files/$SITE:$ISFS/projects/$PROJECT/ISFS/cal_files"
+                             file="Tsoil_31_9cm.dat"/>
+                      </linear> 
+                   </variable> 
+               </sample> 
+            </serialSensor>
+
+<!-- Kipp&Zonen radiometers  -->
+            <!--
+                This is a V2.7 mote, so it reports wisard format messages
+                which must be decoded, and the mote ID (id<<8) will be added
+                automatically to the raw ID to get the processed IDs.  The raw
+                ID must be distinct between the two ports to know which samples
+                come from which port, and the processed IDs will be unique if
+                the mote IDs are both 1.
+            -->
+            <serialSensor IDREF="4comp" devicename="/dev/ttyDSM7" height="9m" id="0xC700">
+                 <parameter type="int" name="motes" value="71"/>
+            </serialSensor>
+      </dsm>
+    </site>
+
+<!-- upwind, east 10m tower -->
+    <site name="ue" class="isff.GroundStation" suffix=".$SITE">
+      <dsm IDREF="TEN" name="ue" id="20">
+	<!-- PI thermistors: 3 Tsoil popsicle sticks through (another) V2.8 mote  -->
+<!-- DECIDED NOT TO INSTALL HERE
+        <serialSensor IDREF="SNOWS" devicename="/dev/ttyDSM5" id="1040">
+        </serialSensor>
+-->
+	<!-- PI FlowCap SNOW sensor: through USB -->
+	<!-- The FlowCapt sensors have their own usb-serial adapters, and
+	     since we have two attached to one dsm, we need to distinguish
+	     them.  We could use the serial number of the particular
+	     adapters, using ATTR{serial}, either to match them in a udev
+	     rule or to identify them specifically by their serial/by-id
+	     device path.  However, rather than depend on the serial number
+	     of each adapter, distinguish them by their bus address in the
+	     udev rules.  So this config depends on the udev rules, which
+	     also allows for using rserial with the much simpler device
+	     alias of /dev/ttyFC0.  (I'm too lazy to modify rs.) The lower
+	     1m sensor is plugged into port 5 of the serial card, and the 2m
+	     sensor is plugged into port 6.  The commented devices are
+	     examples of using the by-id path which includes the serial
+	     number.
+          -->
+        <serialSensor IDREF="FLOWCAPT_FC4" devicename="/dev/ttyFC0" height="1m" id="16"/>
+        <!-- <serialSensor IDREF="FLOWCAPT_FC4" devicename="/dev/serial/by-id/usb-FTDI_FT232R_USB_UART_AB0NGP3M-if00-port0" height="1m" id="16"/> -->
+        <serialSensor IDREF="FLOWCAPT_FC4" devicename="/dev/ttyFC1" height="2m" id="26"/>
+        <!-- <serialSensor IDREF="FLOWCAPT_FC4" devicename="/dev/serial/by-id/usb-FTDI_FT232R_USB_UART_AB0NGP3T-if00-port0" height="2m" id="26"/> -->
+      </dsm>
+    </site>
+
+<!-- upwind, west 10m tower -->
+    <site name="uw" class="isff.GroundStation" suffix=".$SITE">
+      <dsm IDREF="TEN" name="uw" id="30">
+            <serialSensor IDREF="CSAT3_IRGA_BIN" devicename="/dev/ttyDSM0" height="$CSATUW_HEIGHT" id="10">
+            </serialSensor>
+<!-- PI thermistors: 3 Tsoil popsicle sticks through (another) V2.8 mote  -->
+            <serialSensor IDREF="SNOWS" devicename="/dev/ttyDSM5" id="1040">
+	      <!-- NR01 (last minute addition) -->
+              <sample id="6" scanfFormat="NR%*d%f%*d%f%*d%f%*d%f%*d%f%*d%f%*d%*f" rate="0.2">
+                  <variable name="Rsw.in" units="W/m^2" longname="Incoming Short Wave, Hukseflux NR01"
+                      plotrange="$RSWIN_RANGE">
+                  </variable>
+                  <variable name="Rsw.out" units="W/m^2" longname="Outgoing Short Wave, Hukesflux NR01"
+                      plotrange="$RSWOUT_RANGE">
+                  </variable>
+                  <variable name="Rpile.in" units="W/m^2" longname="Incoming Thermopile, Hukseflux NR01"
+                      plotrange="$RPILE_RANGE">
+                  </variable>
+                  <variable name="Rpile.out" units="W/m^2" longname="Outgoing Thermopile, Hukesflux NR01"
+                      plotrange="$RPILE_RANGE">
+                  </variable>
+                  <variable name="Tcase" units="degC" longname="Case temperature, Hukesflux NR01"
+                      plotrange="$T_RANGE">
+                  </variable>
+                  <variable name="Wetness" units="V" longname="Decagon Leaf Wetness Sensor"
+                      plotrange="0 2">
+                  </variable>
+              </sample>
+            </serialSensor>
+	    <serialSensor IDREF="CSAT3BH" devicename="/dev/ttyDSM7" id="32" height="3m" suffix=".3bh">
+	    </serialSensor>
+<!--  NOTE: we will add the CSAT3BH at 3m to this tower when it is available, assume on port 7 -->
+      </dsm>
+    </site>
+
+<!-- 20m central tower (bottom, lower, upper, top -->
+    <site name="c" class="isff.GroundStation" suffix=".$SITE">
+      <dsm name="cb" IDREF="COREV" id="40">
+	    <!-- override suffix for multiple sensors (GPS and chrony tracking) at a site -->
+            <serialSensor devicename="usock::32947" suffix=".cb"/>
+            <serialSensor devicename="/var/log/chrony/tracking.log" suffix=".cb"/>
+
+            <!-- 0m -->
+<!-- no PI thermistors on 20m tower -->
+<!-- 4 snow pillows via SDI-12 to USB interface; assume all 4 through one converter -->
+            <serialSensor IDREF="PILLOWS" devicename="/dev/ttySPIUSB" id="1050" suffix="">
+            </serialSensor>
+            <!-- 1m -->
+            <serialSensor IDREF="CSAT3_IRGA_BIN" devicename="/dev/ttyDSM1" height="1m" id="10">
+            </serialSensor>
+            <serialSensor IDREF="NCAR_SHT" devicename="/dev/ttyDSM2" height="1m" id="12">
+            </serialSensor>
+<!-- nanobarometers with inlets in the snowpack -->
+    <!-- nano in 1m EC100 -->
+            <serialSensor IDREF="Nano" devicename="/dev/ttyDSM3" suffix="_a" id="880">
+            </serialSensor>
+    <!-- nano in 1.5m EC100 -->
+            <serialSensor IDREF="Nano" devicename="/dev/ttyDSM4" suffix="_b" id="890">
+            </serialSensor>
+    <!-- nano in 2m EC100 -->
+            <serialSensor IDREF="Nano" devicename="/dev/ttyDSM5" suffix="_c" id="900">
+            </serialSensor>
+    <!-- nano in 3m EC100 -->
+            <serialSensor IDREF="Nano" devicename="/dev/ttyDSM6" suffix="_d" id="910">
+            </serialSensor>
+      </dsm>
+
+      <dsm name="cl" IDREF="CORE" id="41">
+<!-- two Victrons on c, this is the second one -->
+            <serialSensor IDREF="PWRMONV" devicename="/dev/ttyPWRMONV" id="1000" suffix=".cl">
+            </serialSensor>
+
+	    <!-- override suffix for multiple sensors (GPS and chrony tracking) at a site -->
+            <serialSensor devicename="usock::32947" suffix=".cl"/>
+            <serialSensor devicename="/var/log/chrony/tracking.log" suffix=".cl"/>
+<!-- movable EC150 to be 10cm above snowpack, no sonic attached: need different sensor_catalog entry? -->
+<!-- remove for now
+            <serialSensor IDREF="CSAT3_IRGA_BIN" devicename="/dev/ttyDSM0" height="1.5m" id="18">
+            </serialSensor>
+-->
+            <!-- 2m -->
+            <serialSensor IDREF="CSAT3_IRGA_BIN" devicename="/dev/ttyDSM1" height="2m" id="20">
+            </serialSensor>
+            <serialSensor IDREF="NCAR_SHT" devicename="/dev/ttyDSM2" height="2m" id="22">
+            </serialSensor>
+            <!-- 3m -->
+            <serialSensor IDREF="CSAT3_IRGA_BIN" devicename="/dev/ttyDSM4" height="3m" id="30">
+            </serialSensor>
+            <serialSensor IDREF="NCAR_SHT" devicename="/dev/ttyDSM5" height="3m" id="32">
+            </serialSensor>
+<!-- PI Apogee SIF-111-ss IR sensor: 2 chan analog through TP01 popsicle stick  -->
+            <serialSensor IDREF="APOGEE_IR" devicename="/dev/ttyDSM6" id="1030">
+            </serialSensor>
+            <!-- 4m -->
+            <serialSensor IDREF="NCAR_SHT" devicename="/dev/ttyDSM7" height="4m" id="42">
+            </serialSensor>
+      </dsm>
+
+      <dsm name="cm" IDREF="CORE" id="42">
+	    <!-- override suffix for multiple sensors (GPS and chrony tracking) at a site -->
+            <serialSensor devicename="usock::32947" suffix=".cm"/>
+            <serialSensor devicename="/var/log/chrony/tracking.log" suffix=".cm"/>
+
+            <!-- 5m -->
+            <serialSensor IDREF="CSAT3_IRGA_BIN" devicename="/dev/ttyDSM0" height="5m" id="50">
+            </serialSensor>
+            <serialSensor IDREF="NCAR_SHT" devicename="/dev/ttyDSM1" height="5m" id="52">
+            </serialSensor>
+            <!-- 6m -->
+            <serialSensor IDREF="NCAR_SHT" devicename="/dev/ttyDSM2" height="6m" id="62">
+            </serialSensor>
+            <!-- 7m -->
+            <serialSensor IDREF="NCAR_SHT" devicename="/dev/ttyDSM4" height="7m" id="72">
+            </serialSensor>
+            <!-- 8m -->
+            <serialSensor IDREF="NCAR_SHT" devicename="/dev/ttyDSM5" height="8m" id="82">
+            </serialSensor>
+            <!-- 9m -->
+            <serialSensor IDREF="NCAR_SHT" devicename="/dev/ttyDSM6" height="9m" id="92">
+            </serialSensor>
+      </dsm>
+
+      <dsm name="cu" IDREF="CORE" id="43">
+	    <!-- override suffix for multiple sensors (GPS and chrony tracking) at a site -->
+            <serialSensor devicename="usock::32947" suffix=".cu"/>
+            <serialSensor devicename="/var/log/chrony/tracking.log" suffix=".cu"/>
+
+            <!-- 10m -->
+            <serialSensor IDREF="CSAT3_IRGA_BIN" devicename="/dev/ttyDSM0" height="10m" id="100">
+            </serialSensor>
+            <serialSensor IDREF="Nano" devicename="/dev/ttyDSM1" height="10m" id="104">
+            </serialSensor>
+            <serialSensor IDREF="NCAR_SHT" devicename="/dev/ttyDSM2" height="10m" id="102">
+            </serialSensor>
+            <!-- 11m -->
+            <serialSensor IDREF="NCAR_SHT" devicename="/dev/ttyDSM3" height="11m" id="112">
+            </serialSensor>
+            <!-- 12m -->
+            <serialSensor IDREF="NCAR_SHT" devicename="/dev/ttyDSM4" height="12m" id="122">
+            </serialSensor>
+            <!-- 13m -->
+            <serialSensor IDREF="NCAR_SHT" devicename="/dev/ttyDSM5" height="13m" id="132">
+            </serialSensor>
+            <!-- 14m -->
+            <serialSensor IDREF="NCAR_SHT" devicename="/dev/ttyDSM6" height="14m" id="142">
+            </serialSensor>
+            <!-- 15m -->
+            <!-- This is the CSAT3_IRGA_BIN from the sensor catalog, copied
+                 here so the h2o minValue can be adjusted according to the
+                 bias in this specific sensor.
+            -->
+            <serialSensor class="isff.CSI_IRGA_Sonic" ID="CSAT3_IRGA_BIN_15M_C"
+                          devicename="/dev/ttyDSM7" height="15m" id="150"
+                          baud="115200" parity="none" databits="8" stopbits="1">
+                <parameter name="bandwidth" type="float" value="5"/>
+                <parameter type="float" name="shadowFactor" value="$CSAT3_SHADOW_FACTOR"/>
+                <calfile name="offsets_angles"
+                    path="$ISFS/projects/$PROJECT/ISFS/cal_files/$SITE/$HEIGHT:$ISFS/projects/$PROJECT/ISFS/cal_files/$SITE"
+                    file="csat.dat"/>
+                <calfile name="abc2uvw"
+                    path="$ISFS/projects/$PROJECT/ISFS/cal_files"
+                    file="csat_abc2uvw.dat"/>
+                <sample id="1" rate="20">
+                    <variable name="u" units="m/s" longname="Wind U component, CSAT3" plotrange="$UV_RANGE"/>
+                    <variable name="v" units="m/s" longname="Wind V component, CSAT3" plotrange="$UV_RANGE"/>
+                    <variable name="w" units="m/s" longname="Wind W component, CSAT3" plotrange="$W_RANGE"/>
+                    <variable name="tc" units="degC" longname="Virtual air temperature from speed of sound, CSAT3"
+                        plotrange="$T_RANGE"/>
+                    <variable name="diagbits" units=""
+                        longname="CSAT3 diagnostic sum, 1=low sig,2=high sig,4=no lock,8=path diff,16=skipped samp"
+                        plotrange="$DIAG_RANGE"/>
+                    <variable name="co2" units="mg/m^3" longname="CO2 density from CSI IRGA" plotrange="$CO2_RANGE"
+                           minValue="0.0" maxValue="10.0">
+                        <linear units="g/m^3">
+                            <calfile
+                                path="$ISFS/projects/$PROJECT/ISFS/cal_files/$SITE/$HEIGHT:$ISFS/projects/$PROJECT/ISFS/cal_files/$SITE"
+                                file="irga_co2.dat"/>
+                        </linear>
+                    </variable>
+                    <variable name="h2o" units="g/m^3" longname="Water vapor density from CSI IRGA"
+                              maxValue="15.0"
+                              plotrange="$H2O_RANGE">
+                        <linear>
+                            <calfile
+                                path="$ISFS/projects/$PROJECT/ISFS/cal_files/$SITE/$HEIGHT:$ISFS/projects/$PROJECT/ISFS/cal_files/$SITE"
+                                file="irga_h2o.dat"/>
+                        </linear>
+                    </variable>
+                    <variable name="irgadiag" units="" longname="CSI IRGA diagnostic" plotrange="$DIAG_RANGE"/>
+                    <variable name="Tirga" units="degC" longname="CSI IRGA temperature" plotrange="$T_RANGE">
+                </variable>
+                <variable name="Pirga" units="kPa" longname="CSI IRGA pressure">
+                <linear units="mb" slope="10" intercept="0.0" plotrange="$P_RANGE"/>
+                </variable>
+                    <variable name="SSco2" units="" longname="CSI IRGA CO2 signal strength" plotrange="0 10"/>
+                    <variable name="SSh2o" units="" longname="CSI IRGA H2O signal strength" plotrange="0 10"/>
+                    <variable name="dPirga" units="mb" longname="CSI IRGA differential pressure" plotrange="100 300"/>
+                    <!-- derived variables ldiag, spd, dir should be at the end of the sample -->
+                    <variable name="ldiag" units="" longname="CSAT3 logical diagnostic, 0=OK, 1=(diagbits!=0)" plotrange="$LDIAG_RANGE"/>
+                    <variable name="spd" units="m/s" longname="CSAT3 horizontal wind speed" plotrange="$SPD_RANGE"/>
+                    <variable name="dir" units="deg" longname="CSAT3 wind direction" plotrange="0 360"/>
+                </sample>
+                <message separator="\x55\xaa" position="end" length="58"/>
+            </serialSensor>
+      </dsm>
+
+      <dsm name="ct" IDREF="CORE" id="44">
+        <!-- override suffix for multiple sensors (GPS and chrony tracking) at a site -->
+            <serialSensor devicename="usock::32947" suffix=".ct"/>
+            <serialSensor devicename="/var/log/chrony/tracking.log" suffix=".ct"/>
+
+            <serialSensor IDREF="NCAR_SHT" devicename="/dev/ttyDSM0" height="15m" id="152">
+            </serialSensor>
+            <!-- 16m -->
+            <serialSensor IDREF="NCAR_SHT" devicename="/dev/ttyDSM1" height="16m" id="162">
+            </serialSensor>
+            <!-- 17m -->
+            <serialSensor IDREF="NCAR_SHT" devicename="/dev/ttyDSM2" height="17m" id="172">
+            </serialSensor>
+            <!-- 18m -->
+            <serialSensor IDREF="NCAR_SHT" devicename="/dev/ttyDSM3" height="18m" id="182">
+            </serialSensor>
+            <!-- 19m -->
+            <serialSensor IDREF="NCAR_SHT" devicename="/dev/ttyDSM4" height="19m" id="192">
+            </serialSensor>
+            <!-- 20m -->
+            <serialSensor IDREF="CSAT3_IRGA_BIN" devicename="/dev/ttyDSM5" height="20m" id="200">
+            </serialSensor>
+            <serialSensor IDREF="NCAR_SHT" devicename="/dev/ttyDSM6" height="20m" id="202">
+            </serialSensor>
+            <serialSensor IDREF="Nano" devicename="/dev/ttyDSM7" height="20m" id="204">
+            </serialSensor>
+      </dsm>
+    </site>
+
+   <server name='wstar'>
+      <!--
+	   wstar pulls data from the relay on eol-rt-data, but it does not
+	   record the real-time network stream, since that is being done on
+	   barolo, and two network stream archives seems excessive and
+	   redundant and unwieldy.
+      -->
+      <service class="RawSampleService" rawSorterLength="0"
+	       procSorterLength="0" priority="RT_RR:50">
+          <input class="RawSampleInputStream">
+	      <socket type="client"
+		      address="eol-rt-data.eol.ucar.edu" port="30010"/>
+	  </input>
+          <processor class="SampleArchiver">
+              <output class="RawSampleOutputStream">
+                  <socket type="server" port="30000" block="false" maxIdle="120"/>
+              </output>
+              <output class="RawSampleOutputStream">
+                  <socket type="server" path="/tmp/nidas_socket"
+			  block="false" maxIdle="120"/>
+              </output>
+          </processor>
+          <!-- <xi:include href="stats_5min.xml" parse="xml"/> -->
+      </service>
+   </server>
+
+   <server name=''>
+       <!--
+	   barolo pulls data from the relay on eol-rt-data and archives the
+	   real-time network stream in the usual place.  Also, don't sort
+	   raw samples before archiving them.
+      -->
+      <service class="RawSampleService" rawSorterLength="0"
+	       procSorterLength="0" priority="RT_RR:50">
+          <input class="RawSampleInputStream">
+	      <socket type="client"
+		      address="eol-rt-data.eol.ucar.edu" port="30010"/>
+	  </input>
+          <processor class="SampleArchiver">
+              <output class="RawSampleOutputStream">
+                  <socket type="server" port="30000" block="false" maxIdle="120"/>
+              </output>
+              <output class="RawSampleOutputStream">
+                  <socket type="server" path="/tmp/nidas_socket"
+			  block="false" maxIdle="120"/>
+              </output>
+              <output class="RawSampleOutputStream">
+                  <fileset dir="$DATAMNT/projects/${PROJECT}/$DATADIR"
+                           file="isfs_%Y%m%d_%H%M%S.dat.bz2"
+                           length="14400">
+                  </fileset>
+              </output>
+          </processor>
+          <!-- <xi:include href="stats_5min.xml" parse="xml"/> -->
+      </service>
+   </server>
+
+</project>

@@ -2,96 +2,147 @@
     "version": "2.0.0",
     "tasks": [
         {
-            "label": "scons",
-            "type": "process",
-            "command": "scons",
-            "args": [
-                "-C",
-                "${workspaceFolder}/src",
-                "-u",
-                "BUILDS=host",
-                "-j",
-                "4"
-            ],
-            "group": "build",
-            "problemMatcher": [
-                {
-                    "base": "$gcc",
-                    "fileLocation": [
-                        "relative",
-                        "${workspaceFolder}/src"
-                    ]
-                }
-            ]
+                "label": "scons",
+                "type": "process",
+                "command": "scons",
+                "args": [
+                        "-C",
+                        "${workspaceFolder}/src",
+                        "-u",
+                        "-j",
+                        "4"
+                ],
+                "group": {
+                        "kind": "build",
+                        "isDefault": false
+                },
+                "problemMatcher": [
+                        {
+                                "base": "$gcc",
+                                "fileLocation": [
+                                        "relative",
+                                        "${workspaceFolder}/src"
+                                ]
+                        }
+                ]
         },
         {
-            "label": "scons install",
-            "type": "process",
-            "command": "scons",
-            "args": [
-                "-C",
-                "${workspaceFolder}/src",
-                "-u",
-                "BUILDS=host",
-                "install"
-            ],
-            "group": {
-                "kind": "build",
-                "isDefault": true
-            },
-            "problemMatcher": [
-                {
-                    "base": "$gcc",
-                    "fileLocation": [
-                        "relative",
-                        "${workspaceFolder}/src"
-                    ]
-                }
-            ]
+                "label": "scons install",
+                "type": "process",
+                "command": "scons",
+                "args": [
+                        "-C",
+                        "${workspaceFolder}/src",
+                        "-u",
+                        "-j",
+                        "4",
+                        "install"
+                ],
+                "group": {
+                        "kind": "build",
+                        "isDefault": true
+                },
+                "problemMatcher": [
+                        {
+                                "base": "$gcc",
+                                "fileLocation": [
+                                        "relative",
+                                        "${workspaceFolder}/src"
+                                ]
+                        }
+                ]
         },
         {
-            "label": "scons test",
+                "label": "scons test",
+                "type": "process",
+                "command": "scons",
+                "args": [
+                        "-C",
+                        "${workspaceFolder}/src",
+                        "-u",
+                        "BUILDS=host",
+                        "test"
+                ],
+                "group": {
+                        "kind": "build",
+                        "isDefault": true
+                },
+                "presentation": {
+                        "reveal": "always",
+                        "panel": "dedicated",
+                        "clear": true
+                },
+                "problemMatcher": [
+                        {
+                                "base": "$gcc",
+                                "fileLocation": [
+                                        "relative",
+                                        "${workspaceFolder}/src"
+                                ]
+                        }
+                ]
+        },
+        {
+                "label": "test core",
+                "type": "process",
+                "command": "scons",
+                "args": [
+                        "-C",
+                        "${workspaceFolder}/src",
+                        "-j",
+                        "4",
+                        "-u",
+                        "tests/core/xtest"
+                ],
+                "group": {
+                        "kind": "test",
+                        "isDefault": true
+                },
+                "presentation": {
+                        "reveal": "always",
+                        "panel": "dedicated",
+                        "clear": true
+                },
+                "problemMatcher": [
+                        {
+                                "base": "$gcc",
+                                "fileLocation": [
+                                        "relative",
+                                        "${workspaceFolder}/src"
+                                ]
+                        }
+                ]
+        },
+        {
+            "label": "test utime",
             "type": "process",
             "command": "scons",
             "args": [
-                "-C",
-                "${workspaceFolder}/src",
-                "-u",
-                "BUILDS=host",
-                "test"
+                    "-C",
+                    "${workspaceFolder}/src",
+                    "-j",
+                    "4",
+                    "-u",
+                    "tests/UTime/xtest"
             ],
             "group": {
-                "kind": "test",
-                "isDefault": true
+                    "kind": "test",
+                    "isDefault": true
             },
             "presentation": {
-                "reveal": "always",
-                "panel": "dedicated",
-                "clear": true
+                    "reveal": "always",
+                    "panel": "dedicated",
+                    "clear": true
             },
             "problemMatcher": [
-                {
-                    "base": "$gcc",
-                    "fileLocation": [
-                        "relative",
-                        "${workspaceFolder}/src"
-                    ]
-                }
+                    {
+                            "base": "$gcc",
+                            "fileLocation": [
+                                    "relative",
+                                    "${workspaceFolder}/src"
+                            ]
+                    }
             ]
-        },
-        {
-            "type": "shell",
-            "label": "g++ build active file",
-            "command": "/usr/bin/g++",
-            "args": [
-                "-g",
-                "${file}",
-                "-o",
-                "${fileDirname}/${fileBasenameNoExtension}"
-            ],
-            "options": {
-                "cwd": "/usr/bin"
-            }
-        }
-    ]
+    }
+]
 }

@@ -47,8 +47,8 @@ using namespace nidas::core;
 using namespace nidas::dynld;
 using namespace std;
 
-namespace n_u = nidas::util;
-
+using nidas::util::IOException;
+using nidas::util::EOFException;
 using nidas::util::UTime;
 
 class NidsMerge: public HeaderSource
@@ -57,25 +57,20 @@ public:
 
     NidsMerge();
 
-    int parseRunstring(int argc, char** argv) throw();
+    int parseRunstring(int argc, char** argv);
 
-    int run() throw();
+    int run();
 
-    static int main(int argc, char** argv) throw();
+    int main(int argc, char** argv);
 
     int usage(const char* argv0);
 
     void sendHeader(dsm_time_t thead,SampleOutput* out);
 
-    /**
-     * for debugging.
-     */
-    void printHeader();
-
 private:
 
-    // Write sample if allowed
-    bool receiveAllowedDsm(SampleOutputStream &, const Sample *);
+    void addInputStream(vector<SampleInputStream*>& inputs,
+                        const list<string>& inputFiles);
 
     void flushSorter(dsm_time_t tcur, SampleOutputStream& outStream);
 
@@ -84,6 +79,7 @@ private:
     string outputFileName;
 
     vector<dsm_time_t> lastTimes;
+    unsigned int neof;
 
     long long readAheadUsecs;
 
@@ -125,11 +121,13 @@ private:
 
     BadSampleFilterArg FilterArg;
     NidasAppArg KeepOpening;
+    NidasAppArg PrintHeader;
 };
 
 int main(int argc, char** argv)
 {
-    return NidsMerge::main(argc,argv);
+    NidsMerge merge;
+    return merge.main(argc, argv);
 }
 
 /* static */
@@ -150,23 +148,33 @@ int NidsMerge::usage(const char* argv0)
     return 1;
 }
 
-/* static */
-int NidsMerge::main(int argc, char** argv) throw()
+
+int NidsMerge::main(int argc, char** argv)
 {
     NidasApp::setupSignals();
 
-    NidsMerge merge;
-
-    int res = merge.parseRunstring(argc, argv);
-
-    if (res != 0)
-        return res;
-    return merge.run();
+    try {
+        int res = parseRunstring(argc, argv);
+        if (res != 0)
+            return res;
+        run();
+    }
+    catch (NidasAppException& ex)
+    {
+        cerr << ex.what() << endl;
+        cerr << "Use -h to see usage info." << endl;
+        return 1;
+    }
+    catch (IOException& ioe) {
+        cerr << ioe.what() << endl;
+        return 1;
+    }
+    return 0;
 }
 
 
 NidsMerge::NidsMerge():
-    inputFileNames(),outputFileName(),lastTimes(),
+    inputFileNames(),outputFileName(),lastTimes(),neof(0),
     readAheadUsecs(30*USECS_PER_SEC),startTime(UTime::MIN),
     endTime(UTime::MAX), outputFileLength(0),header(),
     configName(), allowed_dsms(),
@@ -179,7 +187,9 @@ NidsMerge::NidsMerge():
     KeepOpening
     ("--keep-opening", "",
      "Open the next file when an error occurs instead of stopping.",
-     "true")
+     "true"),
+    PrintHeader("--print-header", "",
+                "Print the header whenever written to the output.")
 {
 }
 
@@ -208,7 +218,7 @@ check_fileset(list<string>& filenames, bool& requiretimes)
 }
 
 
-int NidsMerge::parseRunstring(int argc, char** argv) throw()
+int NidsMerge::parseRunstring(int argc, char** argv)
 {
     // Use LogConfig instead of the older LogLevel option to avoid -l
     // conflict with the output file length option.  Also the -i input
@@ -252,119 +262,116 @@ int NidsMerge::parseRunstring(int argc, char** argv) throw()
          "the output file length. The @ specifier takes precedence.\n"
          "Output file length is required if the output filename contains\n"
          "time specifiers.");
-    NidasAppArg DSMid
-        ("-d,--dsm", "id",
-         "DSM id to accept from the input data. By default,\n"
-         "all input samples are passed to the merge.  If any DSM IDs are\n"
-         "specified with -d, then only input samples from those DSMs\n"
-         "will be included in the merge. Multiple -d options are allowed.\n");
 
     app.enableArguments(app.LogConfig | app.LogShow | app.LogFields |
                         app.LogParam | app.StartTime | app.EndTime |
-                        app.Version | app.OutputFiles | KeepOpening |
+                        app.OutputFiles | app.Clipping | KeepOpening |
                         FilterArg | InputFileSet | InputFileSetFile |
-                        ReadAhead | ConfigName | OutputFileLength | DSMid |
-                        app.Help);
+                        ReadAhead | ConfigName | OutputFileLength |
+                        app.SampleRanges | PrintHeader |
+                        app.Version | app.Help);
+    // -i conflicts with input specifiers, so require --samples
+    app.SampleRanges.acceptShortFlag(false);
     app.InputFiles.allowFiles = true;
     app.InputFiles.allowSockets = false;
     // -l conflicts with output file length.
     app.LogConfig.acceptShortFlag(false);
 
     bool requiretimes = false;
-    try {
-        app.startArgs(argc, argv);
-        std::ostringstream xmsg;
-        NidasAppArg* arg;
-        while ((arg = app.parseNext()))
+    app.startArgs(argc, argv);
+    std::ostringstream xmsg;
+    NidasAppArg* arg;
+    // handle just the arguments which must be accumulated in the order
+    // they occur on the command-line.
+    while ((arg = app.parseNext()))
+    {
+        if (arg == &OutputFileLength)
+            outputFileLength = OutputFileLength.asInt();
+        else if (arg == &app.OutputFiles)
         {
-            if (arg == &OutputFileLength)
+            // Use the length suffix if given with the output,
+            // otherwise revert to the last length option.
+            if (app.outputFileLength() == 0 && OutputFileLength.specified())
                 outputFileLength = OutputFileLength.asInt();
-            else if (arg == &app.OutputFiles)
+            else
+                outputFileLength = app.outputFileLength();
+        }
+        else if (arg == &InputFileSet)
+        {
+            // First argument has already been retrieved.
+            list<string> fileNames;
+            string filespec = InputFileSet.getValue();
+            // Collect any additional filenames in the file set up
+            // until the next option specified.
+            do {
+                fileNames.push_back(filespec);
+            } while (app.nextArg(filespec));
+            check_fileset(fileNames, requiretimes);
+            inputFileNames.push_back(fileNames);
+        }
+        else if (arg == &InputFileSetFile)
+        {
+            // filepath is the argument
+            string path = arg->getValue();
+            std::ifstream files(path.c_str());
+            string line;
+            while (!files.eof())
             {
-                // Use the length suffix if given with the output,
-                // otherwise revert to the last length option.
-                if (app.outputFileLength() == 0 && OutputFileLength.specified())
-                    outputFileLength = OutputFileLength.asInt();
-                else
-                    outputFileLength = app.outputFileLength();
-            }
-            else if (arg == &DSMid)
-                allowed_dsms.push_back(DSMid.asInt());
-            else if (arg == &InputFileSet)
-            {
-                // First argument has already been retrieved.
-                list<string> fileNames;
-                string filespec = InputFileSet.getValue();
-                // Collect any additional filenames in the file set up
-                // until the next option specified.
-                do {
-                    fileNames.push_back(filespec);
-                } while (app.nextArg(filespec));
-                check_fileset(fileNames, requiretimes);
-                inputFileNames.push_back(fileNames);
-            }
-            else if (arg == &InputFileSetFile)
-            {
-                // filepath is the argument
-                string path = arg->getValue();
-                std::ifstream files(path.c_str());
-                string line;
-                while (!files.eof())
+                list<string> filenames;
+                std::getline(files, line);
+                DLOG(("Inputs line: ") << line);
+                std::istringstream fileset(line);
+                string filespec;
+                while (fileset >> filespec)
                 {
-                    list<string> filenames;
-                    std::getline(files, line);
-                    DLOG(("Inputs line: ") << line);
-                    std::istringstream fileset(line);
-                    string filespec;
-                    while (fileset >> filespec)
-                    {
-                        // skip lines whose first non-ws character is '#'
-                        if (filespec[0] == '#')
-                            break;
-                        filenames.push_back(filespec);
-                    }
-                    // ignore empty lines
-                    if (filenames.size())
-                    {
-                        check_fileset(filenames, requiretimes);
-                        inputFileNames.push_back(filenames);
-                    }
+                    // skip lines whose first non-ws character is '#'
+                    if (filespec[0] == '#')
+                        break;
+                    filenames.push_back(filespec);
+                }
+                // ignore empty lines
+                if (filenames.size())
+                {
+                    check_fileset(filenames, requiretimes);
+                    inputFileNames.push_back(filenames);
                 }
             }
         }
-        readAheadUsecs = ReadAhead.asInt() * (long long)USECS_PER_SEC;
-        configName = ConfigName.getValue();
-        if (app.helpRequested())
-        {
-            return usage(argv[0]);
-        }
-        startTime = app.getStartTime();
-        endTime = app.getEndTime();
-        outputFileName = app.outputFileName();
-        if (outputFileName.length() == 0)
-        {
-            xmsg << "Output file name is required.";
-            throw NidasAppException(xmsg.str());
-        }
-        if (outputFileLength == 0 &&
-            outputFileName.find('%') != string::npos)
-        {
-            xmsg << "Output file length is required for "
-                    "output filenames with time specifiers.";
-            throw NidasAppException(xmsg.str());
-        }
-        if (requiretimes && (startTime.isMin() || endTime.isMax()))
-        {
-            xmsg << "Start and end times must be set when a fileset uses "
-                 << "a % time specifier.";
-            throw NidasAppException(xmsg.str());
-        }
     }
-    catch (NidasAppException& ex)
+    if (app.helpRequested())
     {
-        std::cerr << ex.what() << std::endl;
-        std::cerr << "Use -h to see usage info." << std::endl;
-        return 1;
+        return usage(argv[0]);
+    }
+    ArgVector unparsed = app.unparsedArgs();
+    if (unparsed.size() > 0)
+    {
+        xmsg << "Unrecognized arguments:";
+        for (auto& arg: unparsed)
+            xmsg << " " << arg;
+        throw NidasAppException(xmsg.str());
+    }
+    readAheadUsecs = ReadAhead.asInt() * (long long)USECS_PER_SEC;
+    configName = ConfigName.getValue();
+    startTime = app.getStartTime();
+    endTime = app.getEndTime();
+    outputFileName = app.outputFileName();
+    if (outputFileName.length() == 0)
+    {
+        xmsg << "Output file name is required.";
+        throw NidasAppException(xmsg.str());
+    }
+    if (outputFileLength == 0 &&
+        outputFileName.find('%') != string::npos)
+    {
+        xmsg << "Output file length is required for "
+                "output filenames with time specifiers.";
+        throw NidasAppException(xmsg.str());
+    }
+    if (requiretimes && (startTime.isMin() || endTime.isMax()))
+    {
+        xmsg << "Start and end times must be set when a fileset uses "
+                << "a % time specifier.";
+        throw NidasAppException(xmsg.str());
     }
 
     static nidas::util::LogContext configlog(LOG_DEBUG);
@@ -396,47 +403,18 @@ void NidsMerge::sendHeader(dsm_time_t,SampleOutput* out)
 {
     if (configName.length() > 0)
         header.setConfigName(configName);
-    printHeader();
+    if (PrintHeader.asBool())
+    {
+            std::cout << header.toString() << std::endl;
+    }
     header.write(out);
 }
 
-void NidsMerge::printHeader()
-{
-    cerr << "ArchiveVersion:" << header.getArchiveVersion() << endl;
-    cerr << "SoftwareVersion:" << header.getSoftwareVersion() << endl;
-    cerr << "ProjectName:" << header.getProjectName() << endl;
-    cerr << "SystemName:" << header.getSystemName() << endl;
-    cerr << "ConfigName:" << header.getConfigName() << endl;
-    cerr << "ConfigVersion:" << header.getConfigVersion() << endl;
-}
-
-/**
- * receiveAllowedDsm writes the passed sample to the stream if the DSM id of
- * the sample is in allowed_dsms.  If allowed_dsms is empty, the sample is
- * written to the stream.  Returns whatever stream.receive(sample) returns,
- * or else true, so a return of false means the write to the output stream
- * failed.
- **/
-bool NidsMerge::receiveAllowedDsm(SampleOutputStream &stream, const Sample * sample)
-{
-    if (allowed_dsms.size() == 0)
-    {
-        return stream.receive(sample);
-    }
-    unsigned int want = sample->getDSMId();
-    for (list<unsigned int>::const_iterator i = allowed_dsms.begin();
-         i !=  allowed_dsms.end(); i++)
-    {
-        if (*i == want) 
-            return stream.receive(sample);
-    }
-    return true;
-}
 
 inline std::string
 tformat(dsm_time_t dt)
 {
-    return UTime(dt).format(true, "%Y %b %d %H:%M:%S");
+    return UTime(dt).format(true, "%Y-%b-%d_%H:%M:%S.%f");
 }
 
 
@@ -452,12 +430,15 @@ NidsMerge::flushSorter(dsm_time_t tcur,
     dummy.setTimeTag(tcur);
     SortedSampleSet3::const_iterator rsi = sorter.lower_bound(&dummy);
 
-    for (SortedSampleSet3::const_iterator si = rsb; si != rsi; ++si) {
-        const Sample *s = *si;
-        bool ok = receiveAllowedDsm(outStream, s);
-        s->freeReference();
+    for (SortedSampleSet3::const_iterator si = rsb; si != rsi; ++si)
+    {
+        const Sample *sample = *si;
+        bool ok{ true };
+        if (!endTime.isSet() || (sample->getTimeTag() < endTime.toUsecs()))
+            ok = outStream.receive(sample);
+        sample->freeReference();
         if (!ok)
-            throw n_u::IOException("send sample",
+            throw IOException("send sample",
                 "Send failed, output disconnected.");
     }
 
@@ -476,176 +457,203 @@ NidsMerge::flushSorter(dsm_time_t tcur,
 }
 
 
-int NidsMerge::run() throw()
+void
+NidsMerge::addInputStream(vector<SampleInputStream*>& inputs,
+                          const list<string>& inputFiles)
 {
+    nidas::core::FileSet* fset{nullptr};
+
+    list<string>::const_iterator fi = inputFiles.begin();
+    if (inputFiles.size() == 1 && fi->find('%') != string::npos)
+    {
+        fset = FileSet::createFileSet(*fi);
+        // If a time range has been given, then presumably the intent is to
+        // merge all samples within that time range, even if they appear in
+        // the data files just outside the time range, so those need to be
+        // included those also.  The Clipping argument enables the expansion.
+        _app.setFileSetTimes(startTime, endTime, fset);
+    }
+    else
+    {
+        fset = nidas::core::FileSet::getFileSet(inputFiles);
+    }
+    fset->setKeepOpening(KeepOpening.asBool());
+
+    DLOG(("getName=") << fset->getName());
+    DLOG(("start time=") << startTime.format(true, "%c"));
+    DLOG(("end time=") << endTime.format(true, "%c"));
+
+    // SampleInputStream owns the iochan ptr.
+    SampleInputStream* input = new SampleInputStream(fset);
+    inputs.push_back(input);
+
+    // Set the input stream filter in case other options were set
+    // from the command-line that do not filter samples, like
+    // skipping nidas input headers.
+    BadSampleFilter& bsf = FilterArg.getFilter();
+    bsf.setDefaultTimeRange(startTime, endTime);
+    input->setBadSampleFilter(bsf);
+
+    lastTimes.push_back(LONG_LONG_MIN);
+
     try {
-        nidas::core::FileSet* outSet = 0;
-#ifdef HAVE_BZLIB_H
-        if (outputFileName.find(".bz2") != string::npos)
-            outSet = new nidas::core::Bzip2FileSet();
-        else
-#endif
+        input->readInputHeader();
+        // save header for later writing to output
+        header = input->getInputHeader();
+    }
+    catch (const EOFException& e) {
+        cerr << e.what() << endl;
+        lastTimes.back() = LONG_LONG_MAX;
+        neof++;
+    }
+    // IOException propagates to here only on an io read error or if
+    // keep-opening is false and a file cannot be opened.  either are good
+    // reasons to exit with an error, so let the exception propagate.
+}
+
+
+int NidsMerge::run()
+{
+    nidas::core::FileSet* outSet = FileSet::createFileSet(outputFileName);
+    outSet->setFileLengthSecs(outputFileLength);
+
+    SampleOutputStream outStream(outSet);
+    outStream.setHeaderSource(this);
+
+    vector<SampleInputStream*> inputs;
+    for (unsigned int ii = 0; ii < inputFileNames.size(); ii++)
+    {
+        addInputStream(inputs, inputFileNames[ii]);
+    }
+
+    samplesRead = vector<size_t>(inputs.size(), 0);
+    samplesUnique = vector<size_t>(inputs.size(), 0);
+    SampleMatcher& matcher = _app.sampleMatcher();
+
+    cout << "     date(GMT)      ";
+    for (unsigned int ii = 0; ii < inputs.size(); ii++) {
+        cout << "  input" << ii;
+        cout << " unique" << ii;
+    }
+    cout << "    before   after  output" << endl;
+
+    // Keep reading as long as there is at least one input stream that has not
+    // reached EOF and until we've read at least one whole readahead period
+    // past the end.  We want to avoid quitting exactly when tcur == endTime,
+    // because then the loop hasn't had a chance to read past endTime to catch
+    // any more samples that might also precede endTime.  The flushSorter()
+    // method makes sure to never write samples outside the time range.
+    dsm_time_t tcur;
+    for (tcur = startTime.toUsecs();
+         neof < inputs.size() &&
+         (!endTime.isSet() || (tcur < endTime.toUsecs() + readAheadUsecs)) &&
+         !_app.interrupted();
+         tcur += readAheadUsecs)
+    {
+        DLOG(("") << inputs.size() << " inputs left, "
+                  << "merge loop at step: " << tformat(tcur));
+        for (unsigned int ii = 0;
+             ii < inputs.size() && !_app.interrupted();
+             ii++)
         {
-            outSet = new nidas::core::FileSet();
-        }
-        outSet->setFileName(outputFileName);
-        outSet->setFileLengthSecs(outputFileLength);
+            SampleInputStream* input = inputs[ii];
+            dsm_time_t lastTime = lastTimes[ii];
+            size_t nread = 0;
+            size_t nunique = 0;
 
-        SampleOutputStream outStream(outSet);
-        outStream.setHeaderSource(this);
-
-        vector<SampleInputStream*> inputs;
-
-        unsigned int neof = 0;
-
-        for (unsigned int ii = 0; ii < inputFileNames.size(); ii++) {
-
-            const list<string>& inputFiles = inputFileNames[ii];
-
-            nidas::core::FileSet* fset;
-
-            list<string>::const_iterator fi = inputFiles.begin();
-            if (inputFiles.size() == 1 && fi->find('%') != string::npos)
+            while (lastTime < tcur + readAheadUsecs && !_app.interrupted())
             {
-#ifdef HAVE_BZLIB_H
-                if (fi->find(".bz2") != string::npos)
-                    fset = new nidas::core::Bzip2FileSet();
-                else
-#endif
-                    fset = new nidas::core::FileSet();
-                fset->setFileName(*fi);
-                fset->setStartTime(startTime);
-                fset->setEndTime(endTime);
-            }
-            else
-            {
-                fset = nidas::core::FileSet::getFileSet(inputFiles);
-            }
-            fset->setKeepOpening(KeepOpening.asBool());
-
-            DLOG(("getName=") << fset->getName());
-            DLOG(("start time=") << startTime.format(true, "%c"));
-            DLOG(("end time=") << endTime.format(true, "%c"));
-
-            // SampleInputStream owns the iochan ptr.
-            SampleInputStream* input = new SampleInputStream(fset);
-            inputs.push_back(input);
-
-            // Set the input stream filter in case other options were set
-            // from the command-line that do not filter samples, like
-            // skipping nidas input headers.
-            BadSampleFilter& bsf = FilterArg.getFilter();
-            bsf.setDefaultTimeRange(startTime, endTime);
-            input->setBadSampleFilter(bsf);
-
-            lastTimes.push_back(LONG_LONG_MIN);
-
-            try {
-                input->readInputHeader();
-                // save header for later writing to output
-                header = input->getInputHeader();
-            }
-            catch (const n_u::EOFException& e) {
-                cerr << e.what() << endl;
-                lastTimes[ii] = LONG_LONG_MAX;
-                neof++;
-            }
-            catch (const n_u::IOException& e) {
-                if (e.getErrno() != ENOENT) throw e;
-                cerr << e.what() << endl;
-                lastTimes[ii] = LONG_LONG_MAX;
-                neof++;
-            }
-        }
-
-        samplesRead = vector<size_t>(inputs.size(), 0);
-        samplesUnique = vector<size_t>(inputs.size(), 0);
-
-        cout << "     date(GMT)      ";
-        for (unsigned int ii = 0; ii < inputs.size(); ii++) {
-            cout << "  input" << ii;
-            cout << " unique" << ii;
-        }
-        cout << "    before   after  output" << endl;
-
-        dsm_time_t tcur;
-        for (tcur = startTime.toUsecs();
-             neof < inputs.size() && tcur < endTime.toUsecs() &&
-             !_app.interrupted();
-             tcur += readAheadUsecs)
-        {
-            DLOG(("merge loop at step: ") << tformat(tcur));
-            for (unsigned int ii = 0; ii < inputs.size(); ii++) {
-                SampleInputStream* input = inputs[ii];
-                size_t nread = 0;
-                size_t nunique = 0;
-
+                Sample* samp{ nullptr };
                 try {
-                    dsm_time_t lastTime = lastTimes[ii];
-                    while (!_app.interrupted() && lastTime < tcur + readAheadUsecs) {
-                        Sample* samp = input->readSample();
-                        lastTime = samp->getTimeTag();
-                        // set startTime to the first time read if user
-                        // did not specify it in the runstring.
-                        if (startTime.isMin()) {
-                            startTime = lastTime;
-                            tcur = startTime.toUsecs();
-                        }
-                        if (lastTime < startTime.toUsecs())
-                        {
-                            ndropped += 1;
-                            DLOG(("dropping sample ") << ndropped << ", precedes start: "
-                                  << "(" << samp->getDSMId() << "," << samp->getSpSId() << ")"
-                                  << " at " << tformat(lastTime));
-                            samp->freeReference();
-                        }
-                        else if (!sorter.insert(samp).second)
-                        {
-                            // duplicate of sample already in the sorter set.
-                            samp->freeReference();
-                        }
-                        else
-                            nunique++;
-                        nread++;
-                    }
-                    lastTimes[ii] = lastTime;
+                    samp = input->readSample();
                 }
-                catch (const n_u::EOFException& e) {
+                catch (const EOFException& e) {
                     cerr << e.what() << endl;
-                    lastTimes[ii] = LONG_LONG_MAX;
-                    neof++;
+                    lastTime = LONG_LONG_MAX;
+                    ++neof;
+                    break;
                 }
-                catch (const n_u::IOException& e) {
-                    if (e.getErrno() != ENOENT) throw e;
-                    cerr << e.what() << endl;
-                    lastTimes[ii] = LONG_LONG_MAX;
-                    neof++;
+                lastTime = samp->getTimeTag();
+
+                // maybe we should "bind" a matcher instance to each
+                // stream, so the filename matching does not need to be
+                // done each time since it shouldn't change within the
+                // same input stream...
+                if (!matcher.match(samp, input->getName()))
+                {
+                    samp->freeReference();
+                    continue;
                 }
-                samplesRead[ii] = nread;
-                samplesUnique[ii] = nunique;
-                if (_app.interrupted()) break;
+
+                // until startTime has been set, no samples can be
+                // dropped.
+                if (lastTime < startTime.toUsecs())
+                {
+                    ndropped += 1;
+                    DLOG(("dropping sample ") << ndropped
+                            << " precedes start "
+                            << tformat(startTime.toUsecs()) << ": "
+                            << "(" << samp->getDSMId() << ","
+                            << samp->getSpSId() << ")"
+                            << " at " << tformat(lastTime));
+                    samp->freeReference();
+                }
+                else if (!sorter.insert(samp).second)
+                {
+                    // duplicate of sample already in the sorter set.
+                    samp->freeReference();
+                }
+                else
+                    nunique++;
+                nread++;
             }
-            if (!_app.interrupted())
+            lastTimes[ii] = lastTime;
+
+            // set startTime to the first time read across all inputs if user
+            // did not specify it in the runstring.
+            if (startTime.isMin())
             {
-                flushSorter(tcur, outStream);
+                auto minmax =
+                    std::minmax_element(lastTimes.begin(), lastTimes.end());
+                tcur = *minmax.first;
+                startTime = tcur;
+                DLOG(("set start time: ") << tformat(tcur));
             }
+
+            samplesRead[ii] = nread;
+            samplesUnique[ii] = nunique;
         }
+        // all the inputs have been read up to the first sample past the
+        // read-ahead time, so flush only up until the beginning of the
+        // read-ahead period (tcur).  the samples in the individual input
+        // streams are likely not in time order, so there will be more samples
+        // which fall into the current read-ahead period.
         if (!_app.interrupted())
         {
             flushSorter(tcur, outStream);
         }
-        outStream.flush();
-        outStream.close();
-        for (unsigned int ii = 0; ii < inputs.size(); ii++) {
-            SampleInputStream* input = inputs[ii];
-            input->close();
-            delete input;
-        }
     }
-    catch (n_u::IOException& ioe) {
-        cerr << ioe.what() << endl;
-        return 1;
+    // All the samples have been read which need to be read, so flush all the
+    // remaining samples.  Make it explicit by passing UTime::MAX as the
+    // cutoff time.  If an end time was set, then flushSorter() will clip
+    // samples at the end time.
+    if (!_app.interrupted())
+    {
+        flushSorter(UTime::MAX.toUsecs(), outStream);
     }
-    std::cout << "Merge discarded " << ndropped << " samples.";
+    outStream.flush();
+    outStream.close();
+    for (unsigned int ii = 0; ii < inputs.size(); ii++) {
+        SampleInputStream* input = inputs[ii];
+        input->close();
+        delete input;
+    }
+
+    cout << "Excluded " << matcher.numSamplesExcluded() << " samples "
+         << "(out of " << matcher.numSamplesChecked() << ") "
+         << "due to filter matching." << endl;
+    cout << "Discarded " << ndropped << " samples whose times "
+         << "were earlier than the merge window when read." << endl;
+
     return 0;
 }

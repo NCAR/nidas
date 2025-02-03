@@ -1,0 +1,7 @@
+#
+# Used by CalFile parser
+# dateFormat = "%Y %b %d %H:%M:%S"
+# timeZone = "US/Mountain"
+# RH = Ha0 + Ha1*RHraw + Ha2*RHraw*RHraw + Ha3*T + Ha4*T*RHraw
+# DateTime     	    	   Ha0          Ha1          Ha2           Ha3           Ha4 
+2022 Jun 01 00:00:00  raw -1.672382e+00 1.477174e-03 2.118041e-09 -5.950449e-03 -5.374085e-07

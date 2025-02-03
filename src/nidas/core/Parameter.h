@@ -23,11 +23,6 @@
  **
  ********************************************************************
 */
-/*
-
-    A fairly generic parameter.
-
-*/
 
 #ifndef NIDAS_CORE_PARAMETER_H
 #define NIDAS_CORE_PARAMETER_H
@@ -36,13 +31,19 @@
 
 #include <string>
 #include <vector>
-#include <sstream>
-#include <iostream>
 
 namespace nidas { namespace core {
 
 class Dictionary;
 
+/**
+ * A fairly generic parameter.
+ *
+ * A Parameter has a name and a list of values of the same type, either
+ * strings, floats, integers, or booleans.  Once the type is set, the value
+ * can be changed with setValue(), whereas the assignment operator replaces
+ * the current Parameter type and values.
+ */
 class Parameter
 {
 public:
@@ -51,23 +52,124 @@ public:
 
     typedef enum parType parType;
 
-    virtual void assign(const Parameter&) = 0;
+    /**
+     * Create a Parameter with a name and a type.  Defaults to an empty name
+     * and string type.
+     */
+    Parameter(const std::string& name="", parType ptype=STRING_PARAM);
+
+    /**
+     * Create a Parameter with a name and value, with a type according to the
+     * type of the value.
+     */
+    explicit Parameter(const std::string& name, const std::string& value);
+    explicit Parameter(const std::string& name, float value);
+    explicit Parameter(const std::string& name, int value);
+    explicit Parameter(const std::string& name, bool value);
+
+    /**
+     * Parameter with a double value is implicitly converted to FLOAT_PARAM.
+     */
+    explicit Parameter(const std::string& name, double value);
 
     virtual ~Parameter() {}
 
-    virtual Parameter* clone() const = 0;
+    /**
+     * This allows a Parameter instance to be cloned if it was not already a
+     * ParameterT subclass.  Of course, such a cloned instance cannot be
+     * downcast to get the typed interface, but it could be copied or assigned
+     * into a typed subclass as long as the subclass type and the type of this
+     * Parameter agree.
+     */
+    virtual Parameter* clone() const;
 
-    const std::string& getName() const { return _name; }
+    /**
+     * Use default assignment and copy, so any Parameter can be replaced, and
+     * things like vectors of Parameter work as expected.  If only the value
+     * should change and not the name or type, then use the setValue()
+     * methods.
+     */
+    Parameter(const Parameter&) = default;
+    Parameter& operator=(const Parameter&) = default;
 
-    void setName(const std::string& val) { _name = val; }
+    const std::string& getName() const
+    {
+        return _name;
+    }
+
+    void setName(const std::string& val)
+    {
+        _name = val;
+    }
+
+    /**
+     * Replace this value with the value of the Parameter @p param only if the
+     * types are the same.  The name does not change.
+     */
+    void setValue(const Parameter& param);
+
+    /**
+     * Set ith value.
+     */
+    void setValue(unsigned int i, const std::string& val);
+    void setValue(unsigned int i, const float& val);
+    void setValue(unsigned int i, const int& val);
+    void setValue(unsigned int i, const bool& val);
+
+    /**
+     * For parameters of length one, set its value.
+     */
+    void setValue(const std::string& val);
+    void setValue(const float& val);
+    void setValue(const int& val);
+    void setValue(const bool& val);
+
+    std::string getString(int i) const;
+    float getFloat(int i) const;
+    int getInt(int i) const;
+    bool getBool(int i) const;
 
     parType getType() const { return _type; }
 
-    virtual int getLength() const = 0;
+    int getLength() const;
 
-    virtual double getNumericValue(int i) const;
+    /**
+     * Return true if this Parameter has the given type and length, otherwise
+     * false.
+     */
+    bool check(parType ptype, int len) const;
 
-    virtual std::string getStringValue(int i) const;
+    /**
+     * Return a FLOAT, INT, or BOOL parameter as a double.  Return NAN if type
+     * is a STRING.
+     */
+    double getNumericValue(int i) const;
+
+    /**
+     * If this Parameter has float, int, or bool type and length 1, return the
+     * value cast to bool.  Otherwise, if the context name is not empty, raise
+     * an InvalidParameterException using the given context name, else return
+     * false.
+     */
+    bool getBoolValue(const std::string& name = "") const;
+
+    std::string getStringValue(int i) const;
+
+    /**
+     * A special case to get a string value which includes all the values,
+     * concatenated as strings separated with spaces, and cache that string
+     * value in the object so that c_str() is valid as long as the Parameter
+     * exists.
+     */
+    const std::string& getStringValue() const;
+
+    /**
+     * Return true if this Parameter contains one FLOAT, and set @p value to
+     * the value.  Otherwise return false. 
+     */
+    bool get(float& value) const;
+
+    bool get(int& value) const;
 
     /**
      * @throws nidas::util::InvalidParameterException
@@ -76,103 +178,82 @@ public:
     createParameter(const xercesc::DOMElement*, const Dictionary* d = 0);
 
     /**
-     * @throws nidas::util::InvalidParameterException
+     * @throws nidas::util::InvalidParameterException;
      **/
-    virtual void
-    fromDOMElement(const xercesc::DOMElement*, const Dictionary* dict) = 0;
-                                                                                
-protected:
+    void fromDOMElement(const xercesc::DOMElement*, const Dictionary* dict = 0);
 
-    Parameter(parType t): _name(),_type(t) {}
+    /**
+     * If @p name matches the recognized names for parType, then set @p ptype
+     * and return true.  Otherwise return false.
+     */
+    static bool string_to_type(const std::string& name, parType& ptype);
+
+    /**
+     * Two Parameters are equal if their name, type, and values are equal.
+     */
+    bool operator==(const Parameter& rhs) const;
+
+protected:
 
     std::string _name;
 
+    // this would take less memory as a union, but then we have to make sure
+    // the underlying type is correctly intialized and destroyed.  a variant
+    // might be nice, but not until C++14.  only one of these will ever have
+    // any values, so the same dynamic allocation as with a variant.
+    std::vector<std::string> _strings{};
+    std::vector<float> _floats{};
+    std::vector<int> _ints{};
+    std::vector<bool> _bools{};
+
     parType _type;
+
+    mutable std::string _cached_value{};
+
+    template <typename T>
+    std::vector<T>& get_vector();
+
+    template <typename T>
+    void set_value(int i, const T& val);
+
+    template <typename T>
+    T get_value(int i) const;
+
+    // If type must change, all the values have to be reset.
+    void set_type(parType etype);
+
+    template <typename T>
+    void
+    set_from_string(const std::string& ptype, const std::string& aval);
 };
 
 /**
- * Overloaded function to return a enumerated value
- * corresponding to the type pointed to by the argument.
- */
-inline Parameter::parType getParamType(std::string)
-{
-    return Parameter::STRING_PARAM;
-}
-
-inline Parameter::parType getParamType(float)
-{
-    return Parameter::FLOAT_PARAM;
-}
-
-inline Parameter::parType getParamType(int)
-{
-    return Parameter::INT_PARAM;
-}
-
-inline Parameter::parType getParamType(bool)
-{
-    return Parameter::BOOL_PARAM;
-}
-
-/**
- * A typed Parameter, with data of type T.
+ * A typed Parameter, with data of type T.  This is a typed interface to
+ * Parameter, where all the setValue() and setValues() methods are shadowed
+ * except for the specific storage type of this subclass.  Likewise there is a
+ * getValue() method which returns the storage type.
  */
 template <class T>
 class ParameterT : public Parameter {
 public:
 
-    ParameterT(): Parameter(getParamType(T())),_values() {}
+    ParameterT();
 
     ParameterT* clone() const;
 
     /**
-     * A virtual assignment operator.
-     */
-    void assign(const Parameter& x);
-
-    int getLength() const { return _values.size(); }
-
-    const std::vector<T> getValues() const { return _values; }
-
-    void setValues(const std::vector<T>& vals) { _values = vals; }
-
-    /**
      * Set ith value.
      */
-    void setValue(unsigned int i, const T& val)
-    {
-	for (unsigned int j = _values.size(); j < i; j++) _values.push_back(T());
-	if (_values.size() > i) _values[i] = val;
-	else _values.push_back(val);
-    }
+    void setValue(unsigned int i, const T& val);
 
     /**
      * For parameters of length one, set its value.
      */
-    void setValue(const T& val) {
-	_values.clear();
-        _values.push_back(val);
-    }
+    void setValue(const T& val);
 
-    T getValue(int i) const { return _values[i]; }
+    void setValue(const Parameter& param);
 
-    /**
-     * @throws nidas::util::InvalidParameterException
-     **/
-    void fromDOMElement(const xercesc::DOMElement*);
-
-    /**
-     * @throws nidas::util::InvalidParameterException;
-     **/
-    void fromDOMElement(const xercesc::DOMElement*, const Dictionary* dict);
-                                                                                
-protected:
-
-    /**
-     * Vector of values.
-     */
-    std::vector<T> _values;
-
+    T getValue(int i) const;
 };
 
 /**
@@ -190,6 +271,7 @@ private:
     const Parameter* p;
 };
 
-}}	// namespace nidas namespace core
+
+}} // namespace nidas namespace core
 
 #endif

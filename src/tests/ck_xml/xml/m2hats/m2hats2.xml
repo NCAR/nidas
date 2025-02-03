@@ -1,0 +1,512 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Copyright 2021 UCAR, NCAR, All Rights Reserved -->
+
+<project
+    xmlns="http://www.eol.ucar.edu/nidas"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns:xi="http://www.w3.org/2001/XInclude"
+    name="M2HATS"
+    system="ISFS"
+    maxStation="1"
+    version="$Revision: 4555 $">
+
+<!--
+    xsi:schemaLocation="http://www.eol.ucar.edu/nidas nidas.xsd"
+-->
+
+    <parameter name="wind3d_horiz_coordinates" type="string" value="$WIND3D_HORIZ_COORDINATES"/>
+    <parameter name="wind3d_horiz_rotation" type="bool" value="$WIND3D_HORIZ_ROTATION"/>
+    <parameter name="wind3d_tilt_correction" type="bool" value="$WIND3D_TILT_CORRECTION"/>
+
+    <xi:include href="sensor_catalog.xml" parse="xml"/>
+
+    <dsmcatalog>
+<!-- Core configuration for all DSMs -->
+        <dsm ID="CORE" rserialPort="30002">
+
+            <serialSensor IDREF="Garmin_GPS" id="2">
+            </serialSensor>
+
+            <serialSensor IDREF="CHRONY_TRACKING_LOG" id="8">
+            </serialSensor>
+
+            <output class="RawSampleOutputStream">
+                <socket type="server" port="30000" maxIdle="60" block="false"/>
+            </output>
+
+            <output class="RawSampleOutputStream">
+                <socket type="udp" address="localhost"
+                    port="30012" block="false"/>
+                </output>
+            
+            <output class="RawSampleOutputStream">
+                <fileset dir="$DATAMNT/projects/${PROJECT}/raw_data"
+                        file="${DSM}_%Y%m%d_%H%M%S.dat"
+                        length="43200">
+                <mount dir="$DATAMNT"/>
+                </fileset>
+            </output>
+        </dsm>
+
+<!-- Core configuration for all DSMs with Victrons -->
+        <dsm ID="COREV" IDREF="CORE">
+            <serialSensor IDREF="PWRMONV" devicename="/dev/ttyPWRMONV" id="1000">
+            </serialSensor>
+        </dsm>
+    </dsmcatalog>
+
+<!-- profile towers -->
+    <site name="t0" class="isff.GroundStation" suffix=".${SITE}">
+
+        <dsm IDREF="COREV" name="t0b" id="110">
+            <!-- override suffix for multiple chrony + gps entries at site t0 -->
+            <serialSensor devicename="usock::32947" suffix="!.${DSM}"/>
+            <serialSensor devicename="/var/log/chrony/tracking.log" suffix="!.${DSM}"/>
+            <serialSensor devicename="/dev/ttyPWRMONV"/>
+
+            <serialSensor IDREF="CSAT3_IRGA_BIN" devicename="/dev/ttyDSM0" height="1m" id="1010"/>
+            <serialSensor IDREF="NCAR_SHT" devicename="/dev/ttyDSM1" height="1m" id="1012"/>
+            <serialSensor IDREF="Nano" devicename="/dev/ttyDSM2" id="1014" height="1m"/>
+            <serialSensor IDREF="CSAT3_IRGA_BIN" devicename="/dev/ttyDSM3" height="2m" id="1020"/>
+            <!-- 2m TRH moved to t0t, port 4 is bad 
+            <serialSensor IDREF="NCAR_SHT" devicename="/dev/ttyDSM4" height="" id="1022" suffix=".2m.t0">
+            </serialSensor> -->
+            <serialSensor IDREF="Nano" devicename="/dev/ttyDSM5" id="1024" height="2m"/>
+            <serialSensor IDREF="CSAT3_IRGA_BIN" devicename="/dev/ttyDSM6" height="0.5m" id="1050"/>
+            <serialSensor IDREF="Nano" devicename="/dev/ttyDSM7" id="1054" height="0.5m"/>
+      </dsm>
+
+      <dsm IDREF="CORE" name="t0t" id="120">
+            <!-- override suffix for multiple chrony + gps entries at site t0 -->
+            <serialSensor devicename="usock::32947" suffix="!.${DSM}"/>
+            <serialSensor devicename="/var/log/chrony/tracking.log" suffix="!.${DSM}"/>
+
+            <serialSensor IDREF="CSAT3_IRGA_BIN" devicename="/dev/ttyDSM0" height="3m" id="1030"/>
+            <serialSensor IDREF="NCAR_SHT" devicename="/dev/ttyDSM1" height="3m" id="1032"/>
+            <serialSensor IDREF="Nano" devicename="/dev/ttyDSM2" id="1034" height="3m"/>
+            <serialSensor IDREF="CSAT3_IRGA_BIN" devicename="/dev/ttyDSM3" height="4m" id="1040"/>
+            <serialSensor IDREF="NCAR_SHT" devicename="/dev/ttyDSM4" height="4m" id="1042"/>
+            <serialSensor IDREF="Nano" devicename="/dev/ttyDSM5" id="1044" height="4m"/>
+            <serialSensor IDREF="NCAR_SHT" devicename="/dev/ttyDSM6" height="0.5m" id="1052"/>
+            <!-- 2m TRH moved from t0b port 4 which is bad -->
+            <serialSensor IDREF="NCAR_SHT" devicename="/dev/ttyDSM7" height="2m" id="1022"/>
+      </dsm>
+
+      <dsm IDREF="COREV" name="ttb" id="130">
+            <!-- override suffix for multiple chrony + gps entries at site tt -->
+            <serialSensor devicename="usock::32947" suffix="!.${DSM}"/>
+            <serialSensor devicename="/var/log/chrony/tracking.log" suffix="!.${DSM}"/>
+            <serialSensor devicename="/dev/ttyPWRMONV" suffix="!.tt"/>
+
+            <serialSensor IDREF="CSAT3_IRGA_BIN" devicename="/dev/ttyDSM0" height="7m" id="1070"/>
+            <serialSensor IDREF="NCAR_SHT" devicename="/dev/ttyDSM1" height="7m" id="1072"/>
+            <serialSensor IDREF="Nano" devicename="/dev/ttyDSM2" id="1074" height="7m"/>
+            <serialSensor IDREF="CSAT3_IRGA_BIN" devicename="/dev/ttyDSM3" height="15m" id="1170"/>
+            <serialSensor IDREF="NCAR_SHT" devicename="/dev/ttyDSM4" height="15m" id="1172"/>
+            <serialSensor IDREF="Nano" devicename="/dev/ttyDSM5" id="1174" height="15m"/>
+      </dsm>
+
+      <dsm IDREF="CORE" name="ttt" id="140">
+            <!-- override suffix for multiple chrony + gps entries at site tt -->
+            <serialSensor devicename="usock::32947" suffix="!.${DSM}"/>
+            <serialSensor devicename="/var/log/chrony/tracking.log" suffix="!.${DSM}"/>
+
+            <serialSensor IDREF="CSAT3_IRGA_BIN" devicename="/dev/ttyDSM0" height="28m" id="1320"/>
+            <serialSensor IDREF="NCAR_SHT" devicename="/dev/ttyDSM1" height="28m" id="1322"/>
+            <serialSensor IDREF="Nano" devicename="/dev/ttyDSM2" id="1324" height="28m"/>
+            <serialSensor IDREF="PARSIVEL2" devicename="/dev/ttyDSM7" id="2000">
+            </serialSensor>
+      </dsm>
+    </site>
+
+
+<!-- tower horizontal line -->
+    <site name="t0p" class="isff.GroundStation" suffix=".${SITE}">
+    </site>
+
+    <site name="t1" class="isff.GroundStation" suffix=".${SITE}">
+    </site>
+
+    <site name="t3" class="isff.GroundStation" suffix=".${SITE}">
+    </site>
+
+    <site name="t2" class="isff.GroundStation" suffix=".${SITE}">
+        <dsm IDREF="COREV" name="${SITE}" id="2">
+            <serialSensor devicename="usock::32947"/>
+            <serialSensor devicename="/var/log/chrony/tracking.log"/>
+            <serialSensor devicename="/dev/ttyPWRMONV"/>
+
+            <serialSensor IDREF="CSAT3" devicename="/dev/ttyDSM0" height="4m" id="10" site="t1"/>
+            <serialSensor IDREF="CSAT3_IRGA_BIN" devicename="/dev/ttyDSM2" height="4m" id="20"/>
+            <serialSensor IDREF="NCAR_SHT" devicename="/dev/ttyDSM3" height="4m" id="22"/>
+            <serialSensor IDREF="Nano" devicename="/dev/ttyDSM4" id="24" height="4m"/>
+            <serialSensor IDREF="CSAT3" devicename="/dev/ttyDSM5" height="4m" id="30" site="t3"/>
+<!-- 4m sonic in original t0 location. -->
+            <serialSensor IDREF="CSAT3A_BIN" devicename="/dev/ttyDSM6" height="4m" id="500" site="t0p"/>
+<!-- Soils and NR01 at the start of the line -->
+            <serialSensor IDREF="V28" devicename="/dev/ttyDSM7" height="" id="1020"/>
+        </dsm>
+    </site>
+
+    <site name="t4" class="isff.GroundStation" suffix=".${SITE}">
+    </site>
+
+    <site name="t6" class="isff.GroundStation" suffix=".${SITE}">
+    </site>
+
+    <site name="t5" class="isff.GroundStation" suffix=".${SITE}">
+      <dsm IDREF="COREV" name="${SITE}" id="5">
+            <serialSensor devicename="usock::32947"/>
+            <serialSensor devicename="/var/log/chrony/tracking.log"/>
+            <serialSensor devicename="/dev/ttyPWRMONV"/>
+
+            <serialSensor IDREF="CSAT3" devicename="/dev/ttyDSM0" height="4m" id="40" site="t4"/>
+            <serialSensor IDREF="CSAT3_IRGA_BIN" devicename="/dev/ttyDSM2" height="4m" id="50"/>
+            <serialSensor IDREF="NCAR_SHT" devicename="/dev/ttyDSM3" height="4m" id="52"/>
+            <serialSensor IDREF="Nano" devicename="/dev/ttyDSM4" id="54" height="4m"/>
+            <serialSensor IDREF="CSAT3B" devicename="/dev/ttyDSM5" height="4m" id="60" site="t6"/>
+      </dsm>
+    </site>
+
+    <site name="t7" class="isff.GroundStation" suffix=".${SITE}">
+    </site>
+
+    <site name="t9" class="isff.GroundStation" suffix=".${SITE}">
+    </site>
+
+    <site name="t8" class="isff.GroundStation" suffix=".${SITE}">
+      <dsm IDREF="COREV" name="${SITE}" id="8">
+            <serialSensor devicename="usock::32947"/>
+            <serialSensor devicename="/var/log/chrony/tracking.log"/>
+            <serialSensor devicename="/dev/ttyPWRMONV"/>
+
+            <serialSensor IDREF="CSAT3B" devicename="/dev/ttyDSM0" height="4m" id="70" site="t7"/>
+            <serialSensor IDREF="CSAT3_IRGA_BIN" devicename="/dev/ttyDSM2" height="4m" id="80"/>
+            <serialSensor IDREF="NCAR_SHT" devicename="/dev/ttyDSM3" height="4m" id="82"/>
+            <serialSensor IDREF="Nano" devicename="/dev/ttyDSM4" id="84" height="4m"/>
+            <serialSensor IDREF="CSAT3A_BIN" devicename="/dev/ttyDSM5" height="4m" id="90" site="t9"/>
+      </dsm>
+    </site>
+
+    <site name="t10" class="isff.GroundStation" suffix=".${SITE}">
+    </site>
+
+    <site name="t12" class="isff.GroundStation" suffix=".${SITE}">
+    </site>
+
+    <site name="t11" class="isff.GroundStation" suffix=".${SITE}">
+      <dsm IDREF="COREV" name="${SITE}" id="11">
+            <serialSensor devicename="usock::32947"/>
+            <serialSensor devicename="/var/log/chrony/tracking.log"/>
+            <serialSensor devicename="/dev/ttyPWRMONV"/>
+
+            <serialSensor IDREF="CSAT3" devicename="/dev/ttyDSM6" height="4m" id="100" site="t10"/>
+            <serialSensor IDREF="CSAT3_IRGA_BIN" devicename="/dev/ttyDSM2" height="4m" id="110"/>
+            <serialSensor IDREF="NCAR_SHT" devicename="/dev/ttyDSM3" height="4m" id="112"/>
+            <serialSensor IDREF="Nano" devicename="/dev/ttyDSM4" id="114" height="4m"/>
+            <serialSensor IDREF="CSAT3B" devicename="/dev/ttyDSM5" height="4m" id="120" site="t12"/>
+      </dsm>
+    </site>
+
+    <site name="t13" class="isff.GroundStation" suffix=".${SITE}">
+    </site>
+
+    <site name="t15" class="isff.GroundStation" suffix=".${SITE}">
+    </site>
+
+    <site name="t14" class="isff.GroundStation" suffix=".${SITE}">
+      <dsm IDREF="COREV" name="${SITE}" id="14">
+            <serialSensor devicename="usock::32947"/>
+            <serialSensor devicename="/var/log/chrony/tracking.log"/>
+            <serialSensor devicename="/dev/ttyPWRMONV"/>
+
+            <serialSensor IDREF="CSAT3" devicename="/dev/ttyDSM0" height="4m" id="130" site="t13"/>
+            <serialSensor IDREF="CSAT3_IRGA_BIN" devicename="/dev/ttyDSM2" height="4m" id="140"/>
+            <serialSensor IDREF="NCAR_SHT" devicename="/dev/ttyDSM3" height="4m" id="142"/>
+            <serialSensor IDREF="Nano" devicename="/dev/ttyDSM4" id="144" height="4m"/>
+            <serialSensor IDREF="CSAT3A_BIN_20" devicename="/dev/ttyDSM5" height="4m" id="150" site="t15"/>
+      </dsm>
+    </site>
+
+    <site name="t16" class="isff.GroundStation" suffix=".${SITE}">
+    </site>
+
+    <site name="t18" class="isff.GroundStation" suffix=".${SITE}">
+    </site>
+
+    <site name="t17" class="isff.GroundStation" suffix=".${SITE}">
+      <dsm IDREF="COREV" name="${SITE}" id="17">
+            <serialSensor devicename="usock::32947"/>
+            <serialSensor devicename="/var/log/chrony/tracking.log"/>
+            <serialSensor devicename="/dev/ttyPWRMONV"/>
+
+            <serialSensor IDREF="CSAT3" devicename="/dev/ttyDSM0" height="4m" id="160" site="t16"/>
+            <serialSensor IDREF="CSAT3_IRGA_BIN" devicename="/dev/ttyDSM2" height="4m" id="170"/>
+            <serialSensor IDREF="NCAR_SHT" devicename="/dev/ttyDSM3" height="4m" id="172"/>
+            <serialSensor IDREF="Nano" devicename="/dev/ttyDSM4" id="174" height="4m"/>
+            <serialSensor IDREF="CSAT3B" devicename="/dev/ttyDSM5" height="4m" id="180" site="t18"/>
+      </dsm>
+    </site>
+
+    <site name="t19" class="isff.GroundStation" suffix=".${SITE}">
+    </site>
+
+    <site name="t21" class="isff.GroundStation" suffix=".${SITE}">
+    </site>
+
+    <site name="t20" class="isff.GroundStation" suffix=".${SITE}">
+      <dsm IDREF="COREV" name="${SITE}" id="20">
+            <serialSensor devicename="usock::32947"/>
+            <serialSensor devicename="/var/log/chrony/tracking.log"/>
+            <serialSensor devicename="/dev/ttyPWRMONV"/>
+
+            <serialSensor IDREF="CSAT3" devicename="/dev/ttyDSM0" height="4m" id="190" site="t19"/>
+            <serialSensor IDREF="CSAT3_IRGA_BIN" devicename="/dev/ttyDSM2" height="4m" id="200"/>
+            <serialSensor IDREF="NCAR_SHT" devicename="/dev/ttyDSM3" height="4m" id="202"/>
+            <serialSensor IDREF="Nano" devicename="/dev/ttyDSM4" height="4m" id="204"/>
+            <serialSensor IDREF="CSAT3A_BIN_20" devicename="/dev/ttyDSM5" height="4m" id="210" site="t21"/>
+      </dsm>
+    </site>
+
+    <site name="t22" class="isff.GroundStation" suffix=".${SITE}">
+    </site>
+
+    <site name="t24" class="isff.GroundStation" suffix=".${SITE}">
+    </site>
+
+    <site name="t23" class="isff.GroundStation" suffix=".${SITE}">
+      <dsm IDREF="COREV" name="${SITE}" id="23">
+            <serialSensor devicename="usock::32947"/>
+            <serialSensor devicename="/var/log/chrony/tracking.log"/>
+            <serialSensor devicename="/dev/ttyPWRMONV"/>
+
+            <serialSensor IDREF="CSAT3" devicename="/dev/ttyDSM0" height="4m" id="220" site="t22"/>
+            <serialSensor IDREF="CSAT3_IRGA_BIN" devicename="/dev/ttyDSM2" height="4m" id="230"/>
+            <serialSensor IDREF="NCAR_SHT" devicename="/dev/ttyDSM3" height="4m" id="232"/>
+            <serialSensor IDREF="Nano" devicename="/dev/ttyDSM4" height="4m" id="234"/>
+            <serialSensor IDREF="CSAT3B" devicename="/dev/ttyDSM5" height="4m" id="240" site="t24"/>
+<!-- Soils in the middle of the line -->
+            <serialSensor IDREF="V28soils" devicename="/dev/ttyDSM7" id="1230"/>
+      </dsm>
+    </site>
+
+    <site name="t25" class="isff.GroundStation" suffix=".${SITE}">
+    </site>
+
+    <site name="t27" class="isff.GroundStation" suffix=".${SITE}">
+    </site>
+
+    <site name="t26" class="isff.GroundStation" suffix=".${SITE}">
+      <dsm IDREF="COREV" name="${SITE}" id="26">
+            <serialSensor devicename="usock::32947"/>
+            <serialSensor devicename="/var/log/chrony/tracking.log"/>
+            <serialSensor devicename="/dev/ttyPWRMONV"/>
+
+            <serialSensor IDREF="CSAT3" devicename="/dev/ttyDSM0" height="4m" id="250" site="t25"/>
+            <serialSensor IDREF="CSAT3_IRGA_BIN" devicename="/dev/ttyDSM2" height="4m" id="260"/>
+            <serialSensor IDREF="NCAR_SHT" devicename="/dev/ttyDSM3" height="4m" id="262"/>
+            <serialSensor IDREF="Nano" devicename="/dev/ttyDSM4" id="264" height="4m"/>
+            <serialSensor IDREF="CSAT3A_BIN" devicename="/dev/ttyDSM5" height="4m" id="270" site="t27"/>
+      </dsm>
+    </site>
+
+    <site name="t28" class="isff.GroundStation" suffix=".${SITE}">
+    </site>
+
+    <site name="t30" class="isff.GroundStation" suffix=".${SITE}">
+    </site>
+
+    <site name="t29" class="isff.GroundStation" suffix=".${SITE}">
+      <dsm IDREF="COREV" name="${SITE}" id="29">
+            <serialSensor devicename="usock::32947"/>
+            <serialSensor devicename="/var/log/chrony/tracking.log"/>
+            <serialSensor devicename="/dev/ttyPWRMONV"/>
+
+            <serialSensor IDREF="CSAT3" devicename="/dev/ttyDSM0" height="4m" id="280" site="t28"/>
+            <serialSensor IDREF="CSAT3_IRGA_BIN" devicename="/dev/ttyDSM2" height="4m" id="290"/>
+            <serialSensor IDREF="NCAR_SHT" devicename="/dev/ttyDSM3" height="4m" id="292"/>
+            <serialSensor IDREF="Nano" devicename="/dev/ttyDSM4" id="294" height="4m"/>
+            <serialSensor IDREF="CSAT3B" devicename="/dev/ttyDSM5" height="4m" id="300" site="t30"/>
+      </dsm>
+    </site>
+
+    <site name="t31" class="isff.GroundStation" suffix=".${SITE}">
+    </site>
+
+    <site name="t33" class="isff.GroundStation" suffix=".${SITE}">
+    </site>
+
+    <site name="t32" class="isff.GroundStation" suffix=".${SITE}">
+      <dsm IDREF="COREV" name="${SITE}" id="32">
+            <serialSensor devicename="usock::32947"/>
+            <serialSensor devicename="/var/log/chrony/tracking.log"/>
+            <serialSensor devicename="/dev/ttyPWRMONV"/>
+
+            <serialSensor IDREF="CSAT3" devicename="/dev/ttyDSM0" height="4m" id="310" site="t31"/>
+            <serialSensor IDREF="CSAT3_IRGA_BIN" devicename="/dev/ttyDSM2" height="4m" id="320"/>
+            <serialSensor IDREF="NCAR_SHT" devicename="/dev/ttyDSM3" height="4m" id="322"/>
+            <serialSensor IDREF="Nano" devicename="/dev/ttyDSM4" height="4m" id="324"/>
+            <serialSensor IDREF="CSAT3" devicename="/dev/ttyDSM5" height="4m" id="330" site="t33"/>
+      </dsm>
+    </site>
+
+    <site name="t34" class="isff.GroundStation" suffix=".${SITE}">
+    </site>
+
+    <site name="t36" class="isff.GroundStation" suffix=".${SITE}">
+    </site>
+
+    <site name="t35" class="isff.GroundStation" suffix=".${SITE}">
+      <dsm IDREF="COREV" name="${SITE}" id="35">
+            <serialSensor devicename="usock::32947"/>
+            <serialSensor devicename="/var/log/chrony/tracking.log"/>
+            <serialSensor devicename="/dev/ttyPWRMONV"/>
+
+            <serialSensor IDREF="CSAT3" devicename="/dev/ttyDSM0" height="4m" id="340" site="t34"/>
+            <serialSensor IDREF="CSAT3_IRGA_BIN" devicename="/dev/ttyDSM2" height="4m" id="350"/>
+            <serialSensor IDREF="NCAR_SHT" devicename="/dev/ttyDSM3" height="4m" id="352"/>
+            <serialSensor IDREF="Nano" devicename="/dev/ttyDSM4" height="4m" id="354"/>
+            <serialSensor IDREF="CSAT3B" devicename="/dev/ttyDSM5" height="4m" id="360" site="t36"/>
+      </dsm>
+    </site>
+
+    <site name="t37" class="isff.GroundStation" suffix=".${SITE}">
+    </site>
+
+    <site name="t39" class="isff.GroundStation" suffix=".${SITE}">
+    </site>
+
+    <site name="t38" class="isff.GroundStation" suffix=".${SITE}">
+      <dsm IDREF="COREV" name="${SITE}" id="38">
+            <serialSensor devicename="usock::32947"/>
+            <serialSensor devicename="/var/log/chrony/tracking.log"/>
+            <serialSensor devicename="/dev/ttyPWRMONV"/>
+
+            <serialSensor IDREF="CSAT3" devicename="/dev/ttyDSM0" height="4m" id="370" site="t37"/>
+            <serialSensor IDREF="CSAT3_IRGA_BIN" devicename="/dev/ttyDSM2" height="4m" id="380"/>
+            <serialSensor IDREF="NCAR_SHT" devicename="/dev/ttyDSM3" height="4m" id="382"/>
+            <serialSensor IDREF="Nano" devicename="/dev/ttyDSM4" height="4m" id="384"/>
+            <serialSensor IDREF="CSAT3" devicename="/dev/ttyDSM5" height="4m" id="390" site="t39"/>
+      </dsm>
+    </site>
+
+    <site name="t40" class="isff.GroundStation" suffix=".${SITE}">
+    </site>
+
+    <site name="t42" class="isff.GroundStation" suffix=".${SITE}">
+    </site>
+
+    <site name="t41" class="isff.GroundStation" suffix=".${SITE}">
+      <dsm IDREF="COREV" name="${SITE}" id="41">
+            <serialSensor devicename="usock::32947"/>
+            <serialSensor devicename="/var/log/chrony/tracking.log"/>
+            <serialSensor devicename="/dev/ttyPWRMONV"/>
+
+            <serialSensor IDREF="CSAT3" devicename="/dev/ttyDSM0" height="4m" id="400" site="t40"/>
+            <serialSensor IDREF="CSAT3_IRGA_BIN" devicename="/dev/ttyDSM2" height="4m" id="410"/>
+            <serialSensor IDREF="NCAR_SHT" devicename="/dev/ttyDSM3" height="4m" id="412"/>
+            <serialSensor IDREF="Nano" devicename="/dev/ttyDSM4" height="4m" id="414"/>
+            <serialSensor IDREF="CSAT3B" devicename="/dev/ttyDSM5" height="4m" id="420" site="t42"/>
+      </dsm>
+    </site>
+
+    <site name="t43" class="isff.GroundStation" suffix=".${SITE}">
+    </site>
+
+    <site name="t45" class="isff.GroundStation" suffix=".${SITE}">
+    </site>
+
+    <site name="t44" class="isff.GroundStation" suffix=".${SITE}">
+      <dsm IDREF="COREV" name="${SITE}" id="44">
+            <serialSensor devicename="usock::32947"/>
+            <serialSensor devicename="/var/log/chrony/tracking.log"/>
+            <serialSensor devicename="/dev/ttyPWRMONV"/>
+
+            <serialSensor IDREF="CSAT3" devicename="/dev/ttyDSM0" height="4m" id="430" site="t43"/>
+            <serialSensor IDREF="CSAT3_IRGA_BIN" devicename="/dev/ttyDSM2" height="4m" id="440"/>
+            <serialSensor IDREF="NCAR_SHT" devicename="/dev/ttyDSM3" height="4m" id="442"/>
+            <serialSensor IDREF="Nano" devicename="/dev/ttyDSM4" height="4m" id="444"/>
+            <serialSensor IDREF="CSAT3" devicename="/dev/ttyDSM5" height="4m" id="450" site="t45"/>
+      </dsm>
+    </site>
+
+    <site name="t46" class="isff.GroundStation" suffix=".${SITE}">
+    </site>
+
+    <site name="t48" class="isff.GroundStation" suffix=".${SITE}">
+    </site>
+
+    <site name="t49" class="isff.GroundStation" suffix=".${SITE}">
+    </site>
+
+    <site name="t47" class="isff.GroundStation" suffix=".${SITE}">
+      <dsm IDREF="COREV" name="${SITE}" id="47">
+            <serialSensor devicename="usock::32947"/>
+            <serialSensor devicename="/var/log/chrony/tracking.log"/>
+            <serialSensor devicename="/dev/ttyPWRMONV"/>
+
+            <serialSensor IDREF="CSAT3" devicename="/dev/ttyDSM0" height="4m" id="460" site="t46"/>
+            <serialSensor IDREF="CSAT3_IRGA_BIN" devicename="/dev/ttyDSM2" height="4m" id="470"/>
+            <serialSensor IDREF="NCAR_SHT" devicename="/dev/ttyDSM3" height="4m" id="472"/>
+            <serialSensor IDREF="Nano" devicename="/dev/ttyDSM4" height="4m" id="474"/>
+            <serialSensor IDREF="CSAT3B" devicename="/dev/ttyDSM5" height="4m" id="480" site="t48"/>
+            <serialSensor IDREF="CSAT3" devicename="/dev/ttyDSM6" height="4m" id="490" site="t49"/>
+            <!-- Soils/NR01 at the very end of the line -->
+            <serialSensor IDREF="V28" devicename="/dev/ttyDSM7" id="1490" site="t49"/>
+      </dsm>
+    </site>
+
+   <server name='localhost'>
+      <service class="RawSampleService" rawSorterLength="0"
+               procSorterLength="0" priority="RT_RR:50">
+          <input class="RawSampleInputStream">
+              <socket type="udp" port="30012"/>
+          </input>
+          <processor class="SampleArchiver">
+              <output class="RawSampleOutputStream">
+                  <socket type="server" port="30000" block="false" maxIdle="120"/>
+              </output>
+              <output class="RawSampleOutputStream">
+                  <socket type="server" path="/tmp/nidas_socket"
+                          block="false" maxIdle="120"/>
+              </output>
+              <output class="RawSampleOutputStream">
+                  <fileset dir="$DATAMNT/projects/${PROJECT}/$DATADIR"
+                           file="isfs_%Y%m%d_%H%M%S.dat.bz2"
+                           length="14400">
+                  </fileset>
+              </output>
+
+          </processor>
+
+      </service>
+   </server>
+
+   <server name='barolo'>
+      <service class="RawSampleService" rawSorterLength="0"
+               procSorterLength="0" priority="RT_RR:50">
+          <input class="RawSampleInputStream">
+              <socket type="udp" port="30012"/>
+          </input>
+          <processor class="SampleArchiver">
+              <output class="RawSampleOutputStream">
+                  <socket type="server" port="30000" block="false" maxIdle="120"/>
+              </output>
+              <output class="RawSampleOutputStream">
+                  <socket type="server" path="/tmp/nidas_socket"
+                          block="false" maxIdle="120"/>
+              </output>
+              <output class="RawSampleOutputStream">
+                  <fileset dir="$DATAMNT/projects/${PROJECT}/$DATADIR"
+                           file="isfs_%Y%m%d_%H%M%S.dat.bz2"
+                           length="14400">
+                  </fileset>
+              </output>
+
+          </processor>
+          <!-- <xi:include href="stats_5min.xml" parse="xml"/> -->
+
+      </service>
+   </server>
+
+</project>

@@ -89,9 +89,35 @@ vfind(V& v, typename V::value_type target)
 
 BOOST_AUTO_TEST_CASE(test_sample_match_all)
 {
+  {
+    RangeMatcher rm;
+    BOOST_CHECK(rm.dsm1 == 0);
+    BOOST_CHECK(rm.dsm2 == 0);
+    BOOST_CHECK(rm.sid1 == RangeMatcher::MATCH_ALL);
+    BOOST_CHECK(rm.sid2 == RangeMatcher::MATCH_ALL);
+    BOOST_CHECK(rm.time1 == UTime::MIN.toUsecs());
+    BOOST_CHECK(rm.time2 == UTime::MAX.toUsecs());
+    BOOST_CHECK(rm.file_pattern == "");
+  }
+  {
+    SampleMatcher sm;
+    BOOST_CHECK(sm.numRanges() == 0);
+    BOOST_CHECK(sm.getStartTime() == UTime::MIN);
+    BOOST_CHECK(sm.getEndTime() == UTime::MAX);
+    BOOST_TEST(sm.match(SampleId(1, 1)));
+  }
+
   SampleMatcher sm;
 
-  BOOST_REQUIRE(sm.addCriteria("-1,*"));
+  try {
+    sm.addCriteria("-1,*");
+  }
+  catch (std::exception& e) {
+    std::cerr << e.what() << std::endl;
+    BOOST_FAIL(e.what());
+  }
+
+  BOOST_REQUIRE(sm.numRanges() == 1);
   for (int dsm = 1; dsm < 5; ++dsm)
   {
     for (int sid = 1; sid < 10; ++sid)
@@ -99,11 +125,6 @@ BOOST_AUTO_TEST_CASE(test_sample_match_all)
       BOOST_TEST(sm.match(SampleId(dsm, sid)));
     }
   }
-
-  sm = SampleMatcher();
-  // match everything, same as *,* or -1,-1
-  BOOST_REQUIRE(sm.addCriteria("/"));
-  BOOST_TEST(sm.match(SampleId(1, 1)));
 }
 
 
@@ -124,15 +145,15 @@ BOOST_AUTO_TEST_CASE(test_sample_match_null)
 BOOST_AUTO_TEST_CASE(test_sample_match_ranges)
 {
   SampleMatcher sm;
-  BOOST_REQUIRE(sm.addCriteria("10-20,1-5"));
-  BOOST_REQUIRE(sm.addCriteria("5-8,1-5"));
+  BOOST_REQUIRE_NO_THROW(sm.addCriteria("10-20,1-5"));
+  BOOST_REQUIRE_NO_THROW(sm.addCriteria("5-8,1-5"));
 
   for (int dsm = 1; dsm < 30; ++dsm)
   {
     for (int sid = 1; sid < 10; ++sid)
     {
       bool match = (((10 <= dsm && dsm <= 20) || (5 <= dsm && dsm <= 8)) &&
-		    (1 <= sid) && (sid <= 5));
+                    (1 <= sid) && (sid <= 5));
       BOOST_CHECK_EQUAL(sm.match(SampleId(dsm, sid)), match);
     }
   }
@@ -142,9 +163,9 @@ BOOST_AUTO_TEST_CASE(test_sample_match_exclusive)
 {
   SampleMatcher sm;
   BOOST_CHECK_EQUAL(sm.exclusiveMatch(), false);
-  BOOST_REQUIRE(sm.addCriteria("2,3"));
+  BOOST_REQUIRE_NO_THROW(sm.addCriteria("2,3"));
   BOOST_CHECK_EQUAL(sm.exclusiveMatch(), true);
-  BOOST_REQUIRE(sm.addCriteria("2,4"));
+  BOOST_REQUIRE_NO_THROW(sm.addCriteria("2,4"));
   BOOST_CHECK_EQUAL(sm.exclusiveMatch(), false);
 }
 
@@ -153,14 +174,15 @@ BOOST_AUTO_TEST_CASE(test_sample_match_fail)
 {
   SampleMatcher sm;
 
-  BOOST_CHECK_EQUAL(sm.addCriteria("1,x1"), false);
-  BOOST_CHECK_EQUAL(sm.addCriteria(",1"), false);
-  BOOST_CHECK_EQUAL(sm.addCriteria("!,1"), false);
-  BOOST_CHECK_EQUAL(sm.addCriteria("-,1"), false);
-  BOOST_CHECK_EQUAL(sm.addCriteria("1,-"), false);
-  BOOST_CHECK_EQUAL(sm.addCriteria("1:1"), false);
-  BOOST_CHECK_EQUAL(sm.addCriteria("^1:1"), false);
-  BOOST_CHECK_EQUAL(sm.addCriteria("^1,1^"), false);
+
+  BOOST_CHECK_THROW(sm.addCriteria("1,x1"), ParseException);
+  BOOST_CHECK_THROW(sm.addCriteria(",1"), ParseException);
+  BOOST_CHECK_THROW(sm.addCriteria("!,1"), ParseException);
+  BOOST_CHECK_THROW(sm.addCriteria("-,1"), ParseException);
+  BOOST_CHECK_THROW(sm.addCriteria("1,-"), ParseException);
+  BOOST_CHECK_THROW(sm.addCriteria("1:1"), ParseException);
+  BOOST_CHECK_THROW(sm.addCriteria("^1:1"), ParseException);
+  BOOST_CHECK_THROW(sm.addCriteria("^1,1^"), ParseException);
   BOOST_CHECK_EQUAL(sm.numRanges(), 0);
 }
 
@@ -171,7 +193,7 @@ BOOST_AUTO_TEST_CASE(test_sample_match_one)
 
   // Make sure a single match works, and the returns the same result more
   // than once.
-  BOOST_REQUIRE(sm.addCriteria("1,1"));
+  BOOST_REQUIRE_NO_THROW(sm.addCriteria("1,1"));
   BOOST_CHECK_EQUAL(sm.match(SampleId(1, 1)), true);
   BOOST_CHECK_EQUAL(sm.match(SampleId(1, 2)), false);
   BOOST_CHECK_EQUAL(sm.match(SampleId(2, 2)), false);
@@ -188,10 +210,10 @@ BOOST_AUTO_TEST_CASE(test_sample_match_first)
   SampleMatcher sm;
 
   // not allowed to match . in sample id
-  BOOST_TEST(!sm.addCriteria("1,."), ". not allowed in sid");
-  BOOST_TEST(!sm.addCriteria("-2,1"), "-1 only negative allowed in spec");
-  BOOST_TEST(!sm.addCriteria("1,-2"), "-1 only negative allowed in spec");
-  BOOST_TEST(sm.addCriteria("."));
+  BOOST_CHECK_THROW(sm.addCriteria("1,."), ParseException);
+  BOOST_CHECK_THROW(sm.addCriteria("-2,1"), ParseException);
+  BOOST_CHECK_THROW(sm.addCriteria("1,-2"), ParseException);
+  BOOST_REQUIRE_NO_THROW(sm.addCriteria("."));
 
   // after setting first dsm on match, that's the only one that matches.
   BOOST_TEST(sm.match(SampleId(10, 20)));
@@ -207,8 +229,8 @@ BOOST_AUTO_TEST_CASE(test_sample_match_excluded)
 {
   SampleMatcher sm;
 
-  BOOST_REQUIRE(sm.addCriteria("^1,1"));
-  BOOST_REQUIRE(sm.addCriteria("-1,-1"));
+  BOOST_REQUIRE_NO_THROW(sm.addCriteria("^1,1"));
+  BOOST_REQUIRE_NO_THROW(sm.addCriteria("-1,-1"));
   BOOST_CHECK_EQUAL(sm.match(SampleId(1, 1)), false);
   BOOST_CHECK_EQUAL(sm.match(SampleId(1, 2)), true);
   BOOST_CHECK_EQUAL(sm.match(SampleId(2, 2)), true);
@@ -226,9 +248,9 @@ BOOST_AUTO_TEST_CASE(test_match_cache_invalid)
 
   // The cache should be flushed if the criteria change.
   BOOST_CHECK_EQUAL(sm.match(SampleId(1, 1)), true);
-  BOOST_REQUIRE(sm.addCriteria("^1,1"));
+  BOOST_REQUIRE_NO_THROW(sm.addCriteria("^1,1"));
   BOOST_CHECK_EQUAL(sm.match(SampleId(1, 1)), false);
-  BOOST_REQUIRE(sm.addCriteria("2,3"));
+  BOOST_REQUIRE_NO_THROW(sm.addCriteria("2,3"));
   BOOST_CHECK_EQUAL(sm.match(SampleId(2, 3)), true);
 }
 
@@ -238,17 +260,225 @@ BOOST_AUTO_TEST_CASE(test_match_implicit_include)
   SampleMatcher sm;
 
   // Samples are accepted if they are not explicitly excluded.
-  BOOST_REQUIRE(sm.addCriteria("^1,1"));
-  BOOST_REQUIRE(sm.addCriteria("^2,3"));
+  BOOST_REQUIRE_NO_THROW(sm.addCriteria("^1,1"));
+  BOOST_REQUIRE_NO_THROW(sm.addCriteria("^2,3"));
   BOOST_CHECK_EQUAL(sm.match(SampleId(1, 1)), false);
   BOOST_CHECK_EQUAL(sm.match(SampleId(2, 3)), false);
   BOOST_CHECK_EQUAL(sm.match(SampleId(1, 1)), false);
   BOOST_CHECK_EQUAL(sm.match(SampleId(3, 3)), true);
   BOOST_CHECK_EQUAL(sm.match(SampleId(4, 5)), true);
   // But as soon as one inclusion is added they are excluded.
-  BOOST_REQUIRE(sm.addCriteria("9,9"));
+  BOOST_REQUIRE_NO_THROW(sm.addCriteria("9,9"));
   BOOST_CHECK_EQUAL(sm.match(SampleId(3, 3)), false);
   BOOST_CHECK_EQUAL(sm.match(SampleId(4, 5)), false);
+}
+
+
+BOOST_AUTO_TEST_CASE(test_filename_match)
+{
+  RangeMatcher rm;
+  // The default is to match any filename.
+  BOOST_CHECK_EQUAL(rm.match_file("t35_20230810.dat"), true);
+  BOOST_CHECK_EQUAL(rm.match_file(""), true);
+  rm.set_file("t35_");
+  BOOST_CHECK_EQUAL(rm.match_file("t35_20230810.dat"), true);
+  BOOST_CHECK_EQUAL(rm.match_file("t32_20230810.dat"), false);
+  BOOST_CHECK_EQUAL(rm.match_file("t35.dat"), false);
+  BOOST_CHECK_EQUAL(rm.match_file("20230810_t35_dat"), true);
+  // an empty filename does not match an explicit file pattern,
+  // but it does match the default.
+  BOOST_CHECK_EQUAL(rm.match_file(""), false);
+}
+
+BOOST_AUTO_TEST_CASE(test_time_match)
+{
+  RangeMatcher rm;
+
+  UTime begin(true, 2023, 8, 10, 12, 0, 0);
+  UTime end(true, 2023, 8, 10, 13, 0, 0);
+
+  BOOST_CHECK_EQUAL(rm.match_time(begin.toUsecs()), true);
+  BOOST_CHECK_EQUAL(rm.match_time(end.toUsecs()), true);
+  BOOST_CHECK_EQUAL(rm.match_time(end.toUsecs() + 1), true);
+  BOOST_CHECK_EQUAL(rm.match_time(begin.toUsecs() - 1), true);
+
+  rm.set_time(begin.toUsecs(), end.toUsecs());
+  BOOST_CHECK_EQUAL(rm.time1, begin.toUsecs());
+  BOOST_CHECK_EQUAL(rm.time2, end.toUsecs());
+
+  BOOST_CHECK_EQUAL(rm.match_time(begin.toUsecs()), true);
+  BOOST_CHECK_EQUAL(rm.match_time(end.toUsecs()), true);
+  BOOST_CHECK_EQUAL(rm.match_time(end.toUsecs() + 1), false);
+  BOOST_CHECK_EQUAL(rm.match_time(begin.toUsecs() - 1), false);
+}
+
+
+static void
+expect_parse_exception(const std::string& spec, const std::string& msg)
+{
+  RangeMatcher rm;
+  try {
+    rm.parse_specifier(spec);
+    BOOST_FAIL("expected exception: " + msg + ": " + spec);
+  }
+  catch (ParseException& e) {
+    BOOST_CHECK_EQUAL(e.what(), msg);
+  }
+}
+
+
+BOOST_AUTO_TEST_CASE(test_time_parsing)
+{
+  // test RangeMatcher::parse_specifier with time ranges
+  RangeMatcher rm;
+  UTime begin(true, 2023, 8, 10, 12, 0, 0);
+  UTime end(true, 2023, 8, 10, 13, 0, 0);
+  rm.parse_specifier("/,[2023-08-10T12:00:00,2023-08-10T13:00:00]");
+  BOOST_CHECK_EQUAL(UTime(rm.time1), begin);
+  BOOST_CHECK_EQUAL(UTime(rm.time2), end);
+  rm = RangeMatcher();
+  BOOST_CHECK_EQUAL(UTime(rm.time1), UTime::MIN);
+  BOOST_CHECK_EQUAL(UTime(rm.time2), UTime::MAX);
+  rm.parse_specifier("/,[2023-08-10_12:00:00,2023-08-10_13:00:00]");
+  BOOST_CHECK_EQUAL(UTime(rm.time1), begin);
+  BOOST_CHECK_EQUAL(UTime(rm.time2), end);
+
+  // exception when whole time not parsed
+  expect_parse_exception("/,[2023-08-10x,2023-08-10y]",
+                         "unexpected characters in time string");
+
+  // catch extra text after time brackets
+  expect_parse_exception("/,[2023-08-10,2023-08-10]z",
+                         "missing comma after ]");
+
+  expect_parse_exception("/,[2023-08-10:2023-08-10]",
+                         "missing comma in time range");
+}
+
+
+BOOST_AUTO_TEST_CASE(test_filename_parsing)
+{
+  // test RangeMatcher::parse_specifier with file patterns
+  RangeMatcher rm;
+  BOOST_REQUIRE_NO_THROW(rm.parse_specifier("/,file=t35_"));
+  BOOST_CHECK_EQUAL(rm.file_pattern, "t35_");
+  BOOST_CHECK_EQUAL(rm.include, true);
+  BOOST_REQUIRE_NO_THROW(rm.parse_specifier("^/,file=t35_"));
+  BOOST_CHECK_EQUAL(rm.file_pattern, "t35_");
+  BOOST_CHECK_EQUAL(rm.include, false);
+}
+
+
+BOOST_AUTO_TEST_CASE(test_samples_all_fields_parsing)
+{
+  RangeMatcher rm;
+  std::string spec = ".,/,file=t35_,[2023-08-10_12:00,]";
+  BOOST_REQUIRE_NO_THROW(rm.parse_specifier(spec));
+  BOOST_CHECK_EQUAL(rm.dsm1, RangeMatcher::MATCH_FIRST);
+  BOOST_CHECK_EQUAL(rm.dsm2, RangeMatcher::MATCH_FIRST);
+  BOOST_CHECK_EQUAL(rm.sid1, RangeMatcher::MATCH_ALL);
+  BOOST_CHECK_EQUAL(rm.sid2, RangeMatcher::MATCH_ALL);
+  UTime begin(true, 2023, 8, 10, 12, 0, 0);
+  BOOST_CHECK_EQUAL(UTime(rm.time1), begin);
+  // time2 is left unchanged
+  BOOST_CHECK_EQUAL(UTime(rm.time2), UTime::MAX);
+  BOOST_CHECK_EQUAL(rm.file_pattern, "t35_");
+  BOOST_CHECK_EQUAL(rm.include, true);
+
+  BOOST_CHECK_EQUAL(rm.match(1, 1), true);
+  BOOST_CHECK_EQUAL(rm.match_file("t35_20230810.dat"), true);
+  BOOST_CHECK_EQUAL(rm.match_time(begin.toUsecs()), true);
+  BOOST_CHECK_EQUAL(rm.match_time(begin.toUsecs() + 10), true);
+  BOOST_CHECK_EQUAL(rm.match_time(UTime::MAX.toUsecs()), true);
+  BOOST_CHECK_EQUAL(rm.match_time(begin.toUsecs() - 10), false);
+}
+
+
+BOOST_AUTO_TEST_CASE(test_empty_field_parsing)
+{
+  expect_parse_exception("", "empty field not allowed");
+  expect_parse_exception("^", "empty field not allowed");
+  expect_parse_exception("^2,10,file=isfs_,,", "empty field not allowed");
+  expect_parse_exception("^2,10,file=isfs_," , "empty field not allowed");
+  expect_parse_exception("1,2,x", "unrecognized field: x");
+  expect_parse_exception("1,2,3", "unrecognized field: 3");
+  expect_parse_exception("1,2,,file=isfs_", "empty field not allowed");
+}
+
+
+BOOST_AUTO_TEST_CASE(test_exclude_network_samples)
+{
+  // test that specific samples can be excluded from a specific time range for
+  // a network file stream.
+  SampleMatcher sm;
+  std::string spec = "^2,10,file=isfs_,[2023-07-27,2023-08-02]";
+  BOOST_REQUIRE_NO_THROW(sm.addCriteria(spec));
+
+  // so 2,10 is included inside the time range if file is not isfs_, and
+  // 2,10 is included outside the time range if file is isfs_.
+  // BOOST_FAIL("not implemented");
+}
+
+
+BOOST_AUTO_TEST_CASE(test_samples_cache)
+{
+    // call match() repeatedly and make sure that cache is used as expected
+    // and especially doesn't change the answer.
+    SampleMatcher sm;
+    UTime stime{true, 2023, 7, 20, 12, 0, 0};
+
+    sm.addCriteria("^2,10,file=isfs_,[2023-07-27,2023-08-02]");
+    unsigned int ncached = 0;
+    unsigned int nsamples = 0;
+    unsigned int nexcluded = 0;
+    BOOST_CHECK_EQUAL(ncached, sm.numCacheHits());
+    BOOST_CHECK_EQUAL(nsamples, sm.numSamplesChecked());
+    BOOST_CHECK_EQUAL(nexcluded, sm.numSamplesExcluded());
+
+    std::string netfile_fmt = "isfs_%Y%m%d_%H%M%S.dat";
+    std::string dsmfile_fmt = "t2_%Y%m%d_%H%M%S.dat";
+    SampleT<float> sample;
+    for (int day = 0; day < 20; ++day)
+    {
+      std::string netfile{ stime.format(true, netfile_fmt) };
+      std::string dsmfile{ stime.format(dsmfile_fmt) };
+      // first write 10 network samples with different SIDs, then the one
+      // sample id which should be excluded, alternating between inputs.
+      bool matched;
+      sample.setTimeTag(stime.toUsecs());
+
+      BOOST_TEST_MESSAGE("time: " << stime << "; netfile: " << netfile
+                          << "; dsmfile: " << dsmfile);
+      for (int i = 0; i < 20; ++i)
+      {
+        sample.setRawId(SampleId(1, i/2));
+        matched = sm.match(&sample, (i % 2) ? dsmfile : netfile);
+        BOOST_CHECK_EQUAL(matched, true);
+        ++nsamples;
+        // after first day or if second file, the sample id has been cached.
+        ncached += (day > 0) || (i % 2);
+      }
+      BOOST_CHECK_EQUAL(ncached, sm.numCacheHits());
+      BOOST_CHECK_EQUAL(nsamples, sm.numSamplesChecked());
+      BOOST_CHECK_EQUAL(nexcluded, sm.numSamplesExcluded());
+
+      for (int i = 0; i < 2; ++i)
+      {
+        sample.setRawId(SampleId(2, 10));
+        matched = sm.match(&sample, i ? dsmfile : netfile);
+        // if day is 27-32 and netfile, then this should be excluded.
+        bool excluded = (7 <= day && day < 13) && (i == 0);
+        BOOST_CHECK_EQUAL(matched, !excluded);
+        ++nsamples;
+        nexcluded += excluded;
+        // for these, the cache hit count should not change.
+      }
+
+      BOOST_CHECK_EQUAL(ncached, sm.numCacheHits());
+      BOOST_CHECK_EQUAL(nsamples, sm.numSamplesChecked());
+      BOOST_CHECK_EQUAL(nexcluded, sm.numSamplesExcluded());
+      stime += USECS_PER_DAY;
+    }
 }
 
 
@@ -372,17 +602,17 @@ BOOST_AUTO_TEST_CASE(test_nidas_app_long_args)
     BOOST_CHECK_EQUAL(args.empty(), true);
   }
   {
-    // Make sure deprecated options still accepted but not in usage.
+    // Deprecated options have been removed.
     NidasApp app("test");
     BOOST_CHECK_EQUAL(app.LogConfig.accept("-l"), true);
     BOOST_CHECK_EQUAL(app.LogConfig.accept("--log"), true);
-    BOOST_CHECK_EQUAL(app.LogConfig.accept("--logconfig"), true);
-    BOOST_CHECK_EQUAL(app.LogConfig.accept("--loglevel"), true);
+    BOOST_CHECK_EQUAL(app.LogConfig.accept("--logconfig"), false);
+    BOOST_CHECK_EQUAL(app.LogConfig.accept("--loglevel"), false);
   }
   {
     NidasApp app("test");
     app.enableArguments(app.LogConfig);
-    const char* argv[] = { "--loglevel", "debug" };
+    const char* argv[] = { "--log", "debug" };
     args = array_vector(argv);
     app.resetLogging();
     args = app.parseArgs(args);

@@ -1,0 +1,10 @@
+#
+# Used by CalFile parser
+# dateFormat = "%Y %b %d %H:%M:%S"
+# timeZone = "US/Mountain"
+#
+# DateTime     		 offset	 gain
+2021 Jul 01 00:00:00     NA      NA
+# cable replaced
+2022 Nov 17 14:15:00     0.00    1.00
+

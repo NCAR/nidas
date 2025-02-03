@@ -9,3 +9,4 @@ doxygen.log
 *.so.*
 # The linux module build directories
 *_
+/idir/

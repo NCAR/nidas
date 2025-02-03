@@ -35,8 +35,9 @@
 
 using namespace nidas::core;
 using namespace std;
+using nidas::util::LogContext;
+using nidas::util::UTime;
 
-namespace n_u = nidas::util;
 
 NearestResamplerAtRate::
 NearestResamplerAtRate(const std::vector<const Variable*>& vars,
@@ -138,10 +139,9 @@ void NearestResamplerAtRate::setRate(double val)
     // deltatUsec is pretty close to an integer.
     _exactDeltatUsec = _rate <= 1.0 || fabs(dtusec - rint(dtusec)) < 1.e-2;
 
-#ifdef DEBUG
-    cerr << "rate=" << setprecision(7) << _rate <<
-        ",fabs(dtusec - rint(dtusec))=" << fabs(dtusec - rint(dtusec)) << ",exact=" << _exactDeltatUsec << endl;
-#endif
+    VLOG(("rate=") << setprecision(7) << _rate
+         << ",fabs(dtusec - rint(dtusec))=" << fabs(dtusec - rint(dtusec))
+         << ",exact=" << _exactDeltatUsec);
 
     _deltatUsecD10 = _deltatUsec / 10;
     _deltatUsecD2 = _deltatUsec / 2;
@@ -149,35 +149,36 @@ void NearestResamplerAtRate::setRate(double val)
 
 void NearestResamplerAtRate::connect(SampleSource* source)
 {
-
     vector<bool> matched(_reqVars.size());
 
     list<const SampleTag*> intags = source->getSampleTags();
 
     list<const SampleTag*>::const_iterator inti = intags.begin();
-    for ( ; inti != intags.end(); ++inti ) {
-	const SampleTag* intag = *inti;
+    for ( ; inti != intags.end(); ++inti )
+    {
+        const SampleTag* intag = *inti;
         dsm_sample_id_t sampid = intag->getId();
 
-	// loop over variables in this input sample, checking
-	// for a match against one of my variable names.
-	VariableIterator vi = intag->getVariableIterator();
+        // loop over variables in this input sample, checking
+        // for a match against one of my variable names.
         bool varMatch = false;
-	for ( ; vi.hasNext(); ) {
-	    const Variable* var = vi.next();
-
+        for (auto& var: intag->getVariables())
+        {
             // index of 0th value of variable in its sample data array.
             unsigned int vindex = intag->getDataIndex(var);
 
-	    for (unsigned int rvi = 0; rvi < _reqVars.size(); rvi++) {
+            for (unsigned int rvi = 0; rvi < _reqVars.size(); rvi++)
+            {
                 Variable* myvar = _reqVars[rvi];
 
-#ifdef DEBUG
-                cerr << "var=" << var->getName() << '(' << GET_DSM_ID(sampid) << ',' << GET_SPS_ID(sampid) << ')' << endl;
-                cerr << "myvar=" << myvar->getName() << '(' << myvar->getSampleTag()->getDSMId() << ',' << myvar->getSampleTag()->getSpSId() << ')' << ", match=" << (*var == *myvar) << endl;
-#endif
+                VLOG(("var=") << var->getName() << "(" << GET_DSM_ID(sampid)
+                     << "," << GET_SPS_ID(sampid) << "); "
+                     << "myvar=" << myvar->getName()
+                     << "(" << myvar->getSampleTag()->getDSMId() << ","
+                     << myvar->getSampleTag()->getSpSId() << ")"
+                     << ", match=" << (*var == *myvar));
 
-		if (*var == *myvar) {
+                if (*var == *myvar) {
                     unsigned int vlen = var->getLength();
                     // index of the 0th value of this variable in the
                     // output array.
@@ -215,9 +216,9 @@ void NearestResamplerAtRate::connect(SampleSource* source)
 
                     varMatch = true;
                     matched[rvi] = true;
-		}
-	    }
-	}
+                }
+            }
+        }
         if (varMatch) source->addSampleClientForTag(this,intag);
     }
 
@@ -263,24 +264,27 @@ bool NearestResamplerAtRate::receive(const Sample* samp) throw()
 
     dsm_time_t tt = samp->getTimeTag();
 
-#ifdef DEBUG
-    static dsm_time_t lastTT;
-    static dsm_sample_id_t lastId;
-    if (tt < lastTT) {
-        cerr << "tt=" << n_u::UTime(tt).format(true,"%c") <<
-            " id=" << GET_DSM_ID(sampid) << "," << GET_SHORT_ID(sampid) << endl;
-        cerr << "lasttt=" << n_u::UTime(lastTT).format(true,"%c") <<
-            " id=" << GET_DSM_ID(lastId) << "," << GET_SHORT_ID(lastId) << endl;
+    static LogContext lp(LOG_VERBOSE);
+    if (lp.active())
+    {
+        static dsm_time_t lastTT{0};
+        static dsm_sample_id_t lastId{0};
+        if (tt < lastTT) {
+            lp.log() << "tt=" << UTime(tt).format(true, "%c") << " id="
+                     << GET_DSM_ID(sampid) << "," << GET_SHORT_ID(sampid);
+            lp.log() << "lasttt=" << UTime(lastTT).format(true, "%c")
+                     << " id="
+                     << GET_DSM_ID(lastId) << "," << GET_SHORT_ID(lastId);
+        }
+        lastTT = tt;
+        lastId = sampid;
     }
-    lastTT = tt;
-    lastId = sampid;
-#endif
 
     if (tt > _nextOutputTT) sendSample(tt);
 
     for (unsigned int iv = 0; iv < invec.size(); iv++) {
-	unsigned int ii = invec[iv];
-	unsigned int oi = outvec[iv];
+        unsigned int ii = invec[iv];
+        unsigned int oi = outvec[iv];
 
         for (unsigned int iv2 = 0; iv2 < lenvec[iv] && ii < samp->getDataLength();
             iv2++,ii++,oi++) {
@@ -293,7 +297,7 @@ bool NearestResamplerAtRate::receive(const Sample* samp) throw()
                     WLOG(("NearestResamplerAtRate: sample id ") <<
                         GET_DSM_ID(sampid) << ',' << GET_SPS_ID(sampid) << " backwards by " <<
                         (double(_prevTT[oi] - tt) / USECS_PER_SEC) << " sec at " <<
-                        n_u::UTime(tt).format(true,"%Y %m %d %H:%M:%S.%6f"));
+                        UTime(tt).format(true,"%Y %m %d %H:%M:%S.%6f"));
                 }
                 switch (_samplesSinceOutput[oi]) {
                 case 0:

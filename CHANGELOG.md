@@ -12,6 +12,70 @@ the [buster] branch for the changes on that branch.
 
 ## [master] - Unreleased on master branch
 
+- The deprecated logging arguments `--logconfig` and `--loglevel` have been
+  removed.  The rarely used arguments `--logshow`, `--logfields`, and
+  `--logparam` are now omitted from brief help usage (`-h`) and instead only
+  included in the full usage (`--help`).
+
+### Changes related to M2HATS
+
+- Add `irgadiagmask` parameter to `CSI_IRGA_Sonic` class to prevent selected
+  IRGA diagnostic bits from causing H2O and CO2 to be set to NANs.
+
+- `nidsmerge` now supports `--clip`: clipping expands the time range for
+  filename pattern inputs to catch samples within the requested time range but
+  which were recorded in preceding or succeeding files.  The time bounds
+  arguments `--start` and `--end` are always applied to the output, so no
+  samples are ever written outside those bounds.
+
+- Fix a bug where an output file started within 1 second of the next output
+  period would include the next period instead of starting a new file.
+
+- UTime formats the MIN and MAX times as "MIN" and "MAX", since they are
+  indecipherable and indistinguishable when formatted as time strings.  Also,
+  when parsing a time string with the default ISO-based formats, a "Z" suffix
+  will be accepted and parsed for UTC times.
+
+- The `-i/--samples` sample filter criteria have been expanded to include a
+  time range and an input name, and the argument has been added to
+  `nidsmerge`.  As an example, this filter specifier excludes samples 2,10
+  from a network file stream over 5 days:
+  `^2,10,file=isfs_,[2023-07-27,2023-08-02]`.
+
+- Much more metadata from the XML and from processing is now attached to
+  variables at run time as attributes.  The netcdf output uses them to set the
+  netcdf variable attributes.
+
+- NIDAS XML configurations can now associate a different site with a sensor
+  than the DSM which acquires that sensor.  If the site has been defined, the
+  name of that site can be added as an attribute to the sensor:
+
+  ```xml
+  <site name="t6" class="isff.GroundStation" suffix=".${SITE}"/>
+  <site name="t5" class="isff.GroundStation" suffix=".${SITE}">
+    <dsm IDREF="COREV" name="${SITE}" id="5">
+      ...
+      <serialSensor IDREF="CSAT3B" devicename="/dev/ttyDSM5" height="4m" id="60" site="t6"/>
+    </dsm>
+  </site>
+  ```
+
+  The sensor's variable names then contain the right site suffix as well as
+  important metadata like `height`.
+
+- The sensor suffix can override the site suffix if prepended with `!`.  This
+  can be used, for example, to omit the site name for DSM-specific GPS
+  variables even when the site element sets `suffix=".${SITE}"`.
+
+  ```xml
+  <serialSensor devicename="usock::32947" suffix="!.${DSM}"/>
+  ```
+
+- `svnStatus()` has been removed.  It was only used by the NetCDF RPC outputs,
+  and it has been a while since the project configurations were under
+  subversion control.  See notes in `nc-server` about using the
+  `ISFS_CONFIG_VERSION` environment variable instead.
+
 ## [1.2.4] - 2025-01-28
 
 - Fix bug in `StatisticsCruncher`: an empty data period would be written when
@@ -40,9 +104,9 @@ the [buster] branch for the changes on that branch.
 
 ### data_stats and related improvements
 
-- `data_stats` JSON output includes problems detected in the statistics, so far
-  just sample rate mismatches and missing values.  The schema is still likely
-  to change.
+- `data_stats` JSON output includes problems detected in the statistics, so
+  far sample rate mismatches, missing values, and no samples.  The schema is
+  still likely to change.
 - The `-i` argument to programs like `data_dump` and `data_stats` now accepts
   '.' to select the DSM ID in the first sample in the data, and '/' to accept
   all IDs.  So this works to report on all of the samples from a single DSM:

@@ -76,7 +76,7 @@ dsm_time_t TimetagAdjuster::adjust(dsm_time_t tt)
     /*
      * To enable the SampleTracer for a given sample id, add these arguments
      * to data_dump or any program that processes samples:
-     *  --logconfig enable,level=verbose,function=TimetagAdjuster::adjust
+     *  --log enable,level=verbose,function=TimetagAdjuster::adjust
      *  --logparam trace_samples=20,141
      *  --logfields level,message
      */
