@@ -12,6 +12,11 @@ the [buster] branch for the changes on that branch.
 
 ## [master] - Unreleased on master branch
 
+- Ignore XML attributes like "xmlns" in `DOMable::checkUnhandledAttributes()`,
+  since they are added by `XMLConfigWriter` to XML configs written through
+  `XMLConfigService`.  This fixes a bug where XML parsing would fail on `dsm`
+  clients with an error message like `unknown attribute xmlns`.
+
 ## [1.2.5] - 2025-02-03
 
 - The deprecated logging arguments `--logconfig` and `--loglevel` have been

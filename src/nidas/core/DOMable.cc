@@ -138,6 +138,16 @@ std::string& DOMable::context()
     return DEFAULT_CONTEXT;
 }
 
+
+bool
+DOMable::ignoredAttribute(const std::string& name)
+{
+    // XMLConfigWriter seems to add xmlns attributes to other nodes besides
+    // project, so ignore them.
+    return name == "xmlns" || name == "xmlns:xsi" || name == "xml:base";
+}
+
+
 void
 DOMable::handledAttributes(const std::vector<std::string>& names)
 {
@@ -254,7 +264,8 @@ void DOMable::checkUnhandledAttributes(const xercesc::DOMElement* node)
         for (int i = 0; i < nSize; ++i) {
             XDOMAttr attr((xercesc::DOMAttr*) pAttributes->item(i));
             const string& aname = attr.getName();
-            if (std::find(begin, end, aname) == end)
+            if (std::find(begin, end, aname) == end &&
+                !ignoredAttribute(aname))
             {
                 throw InvalidParameterException(context() +
                                                 ": unknown attribute " + aname);

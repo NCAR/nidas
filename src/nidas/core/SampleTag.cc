@@ -367,15 +367,14 @@ void SampleTag::fromDOMElement(const xercesc::DOMElement* node)
                     throw n_u::InvalidParameterException(ost.str(),aname,sval);
                 }
                 setTimetagAdjust(val);
-	    }
-            else if (aname != "xmlns") {
-                // XMLConfigWriter seems to add xmlns attributes
+            }
+            else if (!ignoredAttribute(aname)) {
                 ostringstream ost;
                 ost << "sample id=" << getDSMId() << ',' << getSpSId();
-                throw n_u::InvalidParameterException(ost.str(),
-		    	"unknown attribute",aname);
+                throw n_u::InvalidParameterException(
+                    ost.str(), "unknown attribute", aname);
             }
-	}
+        }
     }
     unsigned int nvars = 0;
     xercesc::DOMNode* child;

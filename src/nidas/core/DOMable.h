@@ -127,6 +127,12 @@ public:
 
     static const XMLCh* getNamespaceURI();
 
+    /**
+     * Attributes related to namespaces and such are ignored by default, such
+     * as "xmlns" and "xmlns:xsi".
+     */
+    static bool ignoredAttribute(const std::string& name);
+
 protected:
 
     /**

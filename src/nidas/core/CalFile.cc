@@ -806,11 +806,11 @@ void CalFile::fromDOMElement(const xercesc::DOMElement* node)
             if (aname == "path") setPath(aval);
             else if (aname == "file") setFile(aval);
             else if (aname == "name") setName(aval);
-            else if (aname != "xmlns")
-                // XMLConfigWriter seems to add xmlns attributes
+            else if (!ignoredAttribute(aname)) {
                 throw n_u::InvalidParameterException(xnode.getNodeName(),
-                                                      "unrecognized attribute",
-                                                      aname);
+                                                     "unrecognized attribute",
+                                                     aname);
+            }
         }
     }
 }

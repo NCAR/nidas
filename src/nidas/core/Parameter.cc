@@ -605,10 +605,9 @@ void Parameter::fromDOMElement(const xercesc::DOMElement* node,
                     break;
             }
         }
-        else if (aname != "type" && aname != "xmlns")
-            // XMLConfigWriter seems to add xmlns attributes
-            throw InvalidParameterException(
-                "parameter",aname,aval);
+        else if (aname != "type" && !DOMable::ignoredAttribute(aname)) {
+            throw InvalidParameterException("parameter", aname, aval);
+        }
     }
 }
 

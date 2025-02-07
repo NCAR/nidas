@@ -136,12 +136,13 @@ void DSMServer::fromDOMElement(const xercesc::DOMElement* node)
                 }
                 if (!valOK) throw n_u::InvalidParameterException(
                         string("server: ") + getName(), aname,aval);
-	    }
-            else if (aname == "xml:base" || aname == "xmlns") {}
-	    else throw n_u::InvalidParameterException(
-		string("server") + ": " + getName(),
-		"unrecognized attribute",aname);
-	}
+            }
+            else if (!ignoredAttribute(aname)) {
+                throw n_u::InvalidParameterException(
+                    string("server") + ": " + getName(),
+                    "unrecognized attribute", aname);
+            }
+        }
     }
     xercesc::DOMNode* child;
     for (child = node->getFirstChild(); child != 0;
