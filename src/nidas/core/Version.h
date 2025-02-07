@@ -39,7 +39,7 @@ class Version
 public:
     static const char* getSoftwareVersion();
     static const char* getArchiveVersion();
-
+    static const char* getChangelogURL();
     /**
      * Return a multi-line string listing the compiler version and conditional
      * compile definitions.

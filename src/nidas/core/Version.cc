@@ -55,6 +55,10 @@ const char* Version::getArchiveVersion()
     return "1";
 }
 
+const char* Version::getChangelogURL()
+{
+    return "https://ncar.github.io/nidas/CHANGELOG.html";
+}
 
 std::string
 Version::

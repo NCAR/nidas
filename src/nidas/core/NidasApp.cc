@@ -958,7 +958,10 @@ parseNext()
   {
     std::cout << "Version: " << Version::getSoftwareVersion() << std::endl;
     if (arg->getFlag() == "--version")
+    {
+        std::cout << "Changelog: " << Version::getChangelogURL() << std::endl;
         std::cout << Version::getCompilerDefinitions();
+    }
     exit(0);
   }
   else if (arg == &Hostname)

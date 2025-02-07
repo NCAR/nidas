@@ -1,14 +1,20 @@
 # Changelog
 
-This file summarizes notable changes to NIDAS source.  The format is based on
-[Keep a Changelog], the versions should follow [semantic versioning].
+The release version in each header below is a link to that tag on GitHub.  The
+NIDAS source code is hosted here:
 
-## [2.0] - Unreleased
+- [https://github.com/NCAR/nidas](https://github.com/NCAR/nidas)
+
+## 2.0 - Planned merge of master and buster
 
 The 2.0 version of NIDAS will be a merge of the [master] and [buster]
-branches.  The refactor-builds branch has already been merged into [master].
-Following are the significant changes on each branch.  See the Changelog on
-the [buster] branch for the changes on that branch.
+branches.  Currently only the ISFS DSM3 platform runs the [buster] branch.
+See the [Changelog](https://github.com/NCAR/nidas/blob/buster/CHANGELOG.md) on
+the [buster] branch for the changes on that branch.  Until the merge, all
+releases from the master branch start with `v1.2`.  All versions starting with
+`v1.3` and `v1.4` are only installed on the DSM3.  The DSM3 runs NIDAS on a
+Raspberry Pi3 running the Buster release of Raspbian OS, so that branch is
+known as [buster].
 
 ## [master] - Unreleased on master branch
 
@@ -274,34 +280,11 @@ This branch includes all the changes done on the branches
 
 - Lots of obsolete code, executables, and scripts have been removed.
 
-## [1.3] - 2019-06-03
-
-This is a version tag on the auto-config branch that was not meant for
-release.  All versions relative to v1.3 (`v1.3-316-gfaba0065d` as of
-2023-06-01) are on the auto-config branch, and those versions are only built
-and installed on the DSM3.  The DSM3 runs NIDAS on a Raspberry Pi3 running the
-Buster release of Raspbian OS, so that branch is now known as [buster].  See
-the changes on that branch in the section above.
-
-## [1.2] - 2015-10-18
-
-This version tag is on the main development branch.  All NIDAS package
-versions since then have been generated relative to that tag, except for the
-DSM3 packages which use `v1.3`.  As of 2023-06-21 the generated version is up
-to `v1.2-1721-g1ebc8bcd4`.
-
-<!-- Links -->
-[keep a changelog]: https://keepachangelog.com/en/1.0.0/
-[semantic versioning]: https://semver.org/spec/v2.0.0.html
-
 <!-- Versions -->
 [master]: https://github.com/NCAR/nidas
 [buster]: https://github.com/NCAR/nidas/tree/buster
-[2.0]: https://github.com/NCAR/nidas/compare/master
-[1.3]: https://github.com/NCAR/nidas/compare/master...v1.3
 [1.2.5]: https://github.com/NCAR/nidas/releases/tag/v1.2.5
 [1.2.4]: https://github.com/NCAR/nidas/releases/tag/v1.2.4
 [1.2.3]: https://github.com/NCAR/nidas/releases/tag/v1.2.3
 [1.2.2]: https://github.com/NCAR/nidas/releases/tag/v1.2.2
 [1.2.1]: https://github.com/NCAR/nidas/releases/tag/v1.2.1
-[1.2]: https://github.com/NCAR/nidas/releases/tag/v1.2

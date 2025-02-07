@@ -7,7 +7,7 @@ original author, Gordon Maclean.
 
 ## Changelog
 
-Recent changes are noted in the [Changelog](CHANGELOG.md).
+See the [Changelog](CHANGELOG.md) for recent changes.
 
 ## Building
 
@@ -15,7 +15,7 @@ See [BUILDING.md](BUILDING.md) for notes on building and developing NIDAS.
 
 ## Packages
 
-See [PACKAGES.md](PACKAGES.md) for installing NIDAS from RPM or Debian
+See [Packages.md](doc/Packages.md) for installing NIDAS from RPM or Debian
 packages.
 
 ## API Documentation
