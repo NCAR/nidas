@@ -265,8 +265,6 @@ private:
 
     mutable nidas::util::Cond _sampleBufCond;
 
-    nidas::util::Cond _flushCond;
-
     /**
      * Limit on the maximum size of memory to use while buffering
      * samples.
@@ -309,10 +307,6 @@ private:
      * How often to log warnings about discardedSamples.
      */
     int _discardWarningCount;
-
-    bool _doFlush;
-
-    bool _flushed;
 
     /**
      * Is this sorter running in real-time?  If so then we can

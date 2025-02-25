@@ -41,11 +41,10 @@ namespace n_u = nidas::util;
 SampleBuffer::SampleBuffer(const std::string& name,bool raw) :
     SampleThread(name),
     _sampleBufs(),_inserterBuf(),_consumerBuf(),
-    _source(raw),_sampleBufCond(),_flushCond(),
+    _source(raw),_sampleBufCond(),
     _heapMax(50000000),
     _heapSize(0),_heapBlock(false),_heapCond(),
     _discardedSamples(0),_realTimeFutureSamples(0),_discardWarningCount(1000),
-    _doFlush(false),_flushed(true),
     _realTime(false)
 {
     _inserterBuf = &_sampleBufs[0];
@@ -218,13 +217,6 @@ int SampleBuffer::run()
         size_t nsamp = _inserterBuf->size();
 
 	if (nsamp == 0) {	// no samples, wait
-            _flushed = true;
-            if (_doFlush ) {
-                _flushCond.lock();
-                _flushCond.unlock();
-                _flushCond.broadcast();
-                _doFlush = false;
-            }
             _sampleBufCond.wait();
             continue;
 	}
@@ -281,12 +273,7 @@ int SampleBuffer::run()
         }
         _sampleBufs[i].clear();
     }
-    _flushed = true;
     _sampleBufCond.unlock();
-
-    _flushCond.lock();
-    _flushCond.unlock();
-    _flushCond.broadcast();
 
     return RUN_OK;
 }
@@ -345,6 +332,7 @@ bool SampleBuffer::receive(const Sample *s) throw()
     _sampleBufCond.unlock();
     return true;
 }
+
 void SampleBuffer::flush() throw()
 {
     return;
