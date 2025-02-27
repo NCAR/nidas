@@ -568,7 +568,7 @@ std::string UTime::format(bool utc, const std::string& fmt) const
         int modusecs = (_utime - ute) + div / 2;
         // cerr << "modusecs=" << modusecs <<
         // 	" div=" << div << " mult=" << mult << endl;
-        if (modusecs > USECS_PER_SEC) {
+        if (modusecs >= USECS_PER_SEC) {
             ut++;		// round up
             modusecs = 0;
         }
