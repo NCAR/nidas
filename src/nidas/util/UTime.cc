@@ -555,28 +555,15 @@ std::string UTime::format(bool utc, const std::string& fmt) const
             newfmt.push_back('%');
             continue;
         }
-            
-        int div = USECS_PER_SEC;
-        int mult = 1;
-        for (int j=0; j < n; j++)
-            if (div > 1) div /= 10;
-            else mult *= 10;
 
-        /*
-         * Round printed value.
-         */
-        int modusecs = (_utime - ute) + div / 2;
-        // cerr << "modusecs=" << modusecs <<
-        // 	" div=" << div << " mult=" << mult << endl;
-        if (modusecs >= USECS_PER_SEC) {
-            ut++;		// round up
-            modusecs = 0;
-        }
-        modusecs = modusecs / div * mult;
+        double frac = (double) (_utime % USECS_PER_SEC) / USECS_PER_SEC;
+
         ostringstream ost;
-        ost << setw(n) << setfill('0') << modusecs;
-        // cerr << "n=" << n << " modusecs=" << modusecs << " ost=" << ost.str() << endl;
-        newfmt.append(ost.str());
+        ost << fixed << setw(n+2) << setprecision(n) << frac;
+        const string fracstr = ost.str();
+
+        if (fracstr[0] == '1') ut++;
+        newfmt.append(fracstr.substr(2));
     }
     if (i0 < flen) newfmt.append(fmt.substr(i0));
 
