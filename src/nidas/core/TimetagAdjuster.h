@@ -59,6 +59,12 @@ public:
     dsm_time_t adjust(dsm_time_t tt);
 
     /**
+     * Check a delta-T against expected limits.
+     * Return whether to use the delta-T or not.
+     */
+    bool screenDt(dsm_time_t tt, double dtUsec);
+
+    /**
      * Log various statistics of the TimetagAdjuster, used by sensors classes
      * on shutdown.
      */
@@ -66,21 +72,21 @@ public:
 
     /**
      * Log message for a traced sample. Used for high-rate messages containing
-     * each time tag and tdiff.
+     * each time tag and latency.
      */
     void slog(SampleTracer& stracer, const std::string& msg, dsm_time_t tt,
-        long long toff, int tdiff, int tdiffUncorr);
+        int dtAdj, int latency);
 
     /**
      * Log message for a traced sample. Used for lower-rate messages every
-     * _npts.
+     * N_AVG.
      */
-    void slog(SampleTracer& stracer, const std::string& msg, dsm_time_t tt);
+    void slog(SampleTracer& stracer, const std::string& msg, dsm_time_t tt, double dt);
 
     /**
      * Return the configured sample rate, as passed to constructor.
      */
-    float getRate() const { return USECS_PER_SEC / (float) _dtUsec; }
+    float getRate() const { return USECS_PER_SEC / _dtUsecConfig; }
 
     /**
      * Return the maximum dt in the adjusted time tags. This is the
@@ -94,33 +100,24 @@ public:
     float getMinResultDt() const { return (float)_dtResultMin / USECS_PER_SEC; }
 
     /**
-     * Return the current average input delta-T so far.
-     * 1.0 / getDtAvg() is the observed sample rate.
+     * Return the overall average input delta-T.
      */
-    double getDtAvg() const { return _dtUsecCorrSum / _nCorrSum / USECS_PER_SEC; }
+    double getDtAvg() const { return _dtUsecAvgSum / _nDtAvgSum / USECS_PER_SEC; }
 
     /**
-     * Return the minimum calculated delta-T so far.  The observed delta-T
-     * of the input raw time tags is averaged to get a better estimate
-     * of the actual dt , because it will not typically be exactly the
-     * inverse of the configured rate.
+     * Return the observed average sample rate.
      */
-    float getDtMin() const { return (float)_dtUsecCorrMin / USECS_PER_SEC; }
+    float getAvgRate() const { return  1.0 / getDtAvg(); }
 
     /**
-     * Return the maximum calculated delta-T so far.
+     * Return the minimum averaged delta-T so far.
      */
-    float getDtMax() const { return (float)_dtUsecCorrMax / USECS_PER_SEC; }
+    float getDtMin() const { return _dtUsecAvgMin / USECS_PER_SEC; }
 
     /**
-     * Return the maximum adjustment to the measured time tags.
+     * Return the maximum averaged delta-T so far.
      */
-    float getAdjMax() const { return (float)_tadjMaxUsec / USECS_PER_SEC; }
-
-    /**
-     * Return the minimum adjustment to the measured time tags.
-     */
-    float getAdjMin() const { return (float)_tadjMinUsec / USECS_PER_SEC; }
+    float getDtMax() const { return _dtUsecAvgMax / USECS_PER_SEC; }
 
     /**
      * Maximum data gap in the non-adjusted, raw, time tags, in seconds.
@@ -137,51 +134,113 @@ public:
      */
     unsigned int getNumBackwards() const { return _nBack; }
 
-    static const int BIG_GAP_SECONDS = 10;
+    /**
+     * Return the maximum adjustment applied to the time tags.
+     */
+    float getLatencyMax() const { return (float)_latencyMaxUsec / USECS_PER_SEC; }
+
+    /**
+     * Return the minimum adjustment to the measured time tags.
+     */
+    float getLatencyMin() const { return (float)_latencyMinUsec / USECS_PER_SEC; }
 
 private:
-   
+
     /**
-     * Result time tags will have a integral number of delta-Ts
-     * from this base time. This base time is slowly adjusted
-     * by computing the minimum difference between
-     * the result time tags and the input time tags.
+     * Parameters for TimetagAdjuster.
+     * The values are currently set in the Parameters constructor.
+     * If they need to be tuned for a given project or sensor, the
+     * could be added to the XML configuration.
      */
-    dsm_time_t _tt0;
+    class Parameters {
+    public:
+
+        Parameters(double rate);
+
+        /**
+         * On encounter of a gap of this size, reset the TimetagAdjuster.
+         */
+        unsigned int BIG_GAP_USEC;
+
+        /**
+         * Adjust _tt0 every N_ADJ samples.
+         */
+        unsigned int N_ADJ;
+
+        /**
+         * Average period for _dtUsecAvg, in number of samples.
+         */
+        unsigned int N_AVG;
+
+        /**
+         * Screen observed delta-Ts to be within this fraction of
+         * the configured delta-T = 1/rate.
+         */
+        float DT_LIMIT_FRACTION;
+
+        /**
+         * If more than this number of consecutive delta-T's fail
+         * the limit test, then reset the limits.
+         */
+        int MAX_CONSEQ_BAD_DT;
+
+        /**
+         * Warn if the minimum latency over N_ADJ samples
+         * is larger than LATENCY_LIMIT times the delta-T.
+         */
+        float LATENCY_WARN_DT;
+
+        /**
+         * If the estimated latency worsens consecutive for
+         * this number of samples, reset the adjustment.
+         */
+        int LATENCY_WORSEN_MAX;
+
+    } _params;
 
     /**
-     * Previous time tag.
-     */
-    dsm_time_t _tlast;
-
-    /**
-     *
-     */
-    dsm_time_t _ttnDt0;
-
-    dsm_time_t _ttAdjLast;
-
-    long long _maxGap;
-
-    /**
-     * Sum for average of dt.
-     */
-    double _dtUsecCorrSum;
-
-    /**
-     * ID of samples that are adjusted, used in log messages.
+     * ID of samples to be adjusted, used in log messages.
      */
     dsm_sample_id_t _id;
 
     /**
-     * Expected delta-T in microseconds, 1/rate.
+     * Configured delta-T in usecs:  USECS_PER_SEC / rate,
+     * where rate is the configured attribute of <sample>.
      */
-    unsigned int _dtUsec;
+    double _dtUsecConfig;
 
     /**
-     * Corrected delta-T in microseconds.
+     * Number of samples processed.
      */
-    unsigned int _dtUsecCorr;
+    unsigned int _ntotalPts;
+
+    /**
+     * Previous time tag.
+     */
+    dsm_time_t _ttlast;
+
+    /**
+     * Number of backwards sample times.
+     */
+    unsigned int _nBack;
+
+    /**
+     * Number of gaps encountered.
+     */
+    unsigned int _ngap;
+
+    /**
+     * Maximum data gap found.
+     */
+    long long _maxGap;
+
+    /**
+     * Compute result time tags as an integral number of delta-Ts
+     * from this zero time. This zero time is reset every N_ADJ
+     * samples using the minimum difference found between
+     * the result time tags and the input time tags.
+     */
+    dsm_time_t _tt0;
 
     /**
      * Current number of delta-Ts from tt0.
@@ -189,51 +248,84 @@ private:
     unsigned int _nDt;
 
     /**
-     * Minimum number of points to compute minimum time difference.
+     * First time tag in N_ADJ samples.
      */
-    unsigned int _npts;
+    dsm_time_t _ttnDt0;
 
     /**
-     * Minimum diffence between actual time tags and expected, over _npts.
+     * Corrected delta-T in microseconds.
      */
-    int _tdiffminUsec;
+    double _dtUsecAvg;
+
+    /**
+     * Sum for average of dt.
+     */
+    double _dtUsecAvgSum;
+
+    unsigned int _nDtAvgSum;
+
+    /**
+     * Low value for screening observed delta-T.
+     */
+    double _dtUsecLowLimit;
+
+    /**
+     * High value for screening observed delta-T.
+     */
+    double _dtUsecHighLimit;
+
+    unsigned int _nDtLow;
+
+    unsigned int _nDtHigh;
+
+    /**
+     * Number of consecutive low delta-Ts.
+     */
+    int _maxConsecLow;
+
+    /**
+     * Number of consecutive high delta-Ts.
+     */
+    int _maxConsecHigh;
 
     /**
      * Minimum averaged dt so far.
      */
-    int _dtUsecCorrMin;
+    double _dtUsecAvgMin;
 
     /**
      * Maximum averaged dt so far.
      */
-    unsigned int _dtUsecCorrMax;
-
-    unsigned int _nCorrSum;
-
-    unsigned int _nBack;
-
-    int _tadjMinUsec;
-    unsigned int _tadjMaxUsec;
-
-    unsigned int _ntotalPts;
-
+    double _dtUsecAvgMax;
 
     int _dtResultMin;
+
     int _dtResultMax;
 
-    int _tdiffLast;
-
-    unsigned int _nNegTdiff;
-
-    unsigned int _nBigTdiff;
-
-    int _nworsen;
-    int _nimprove;
+    /**
+     * Minimum diffence between actual time tags and expected, over N_ADJ
+     * number of samples.
+     */
+    int _latencyAdjUsec;
 
     /**
-     * Number of samples in 5 minutes, used for running average.
+     * Number of applied latencies larger than LATENCY_FILTER * deltaT.
      */
-    unsigned int _nSamp5Min;
+    unsigned int _nLargeLatency;
+
+    /**
+     * Latency of previous sample.
+     */
+    int _latencyLast;
+
+    unsigned int _nNegLatency;
+
+    dsm_time_t _ttAdjLast;
+
+    int _latencyMinUsec;
+
+    int _latencyMaxUsec;
+
 };
 
 }}	// namespace nidas namespace core
