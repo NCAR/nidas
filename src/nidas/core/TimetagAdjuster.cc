@@ -40,9 +40,10 @@ TimetagAdjuster::Parameters::Parameters(double rate):
     N_ADJ(std::max(5, (int)(1.0 * rate))),
     N_AVG((int) (1 * 60 * rate)),
     DT_LIMIT_FRACTION(0.3),
-    MAX_CONSEQ_BAD_DT(5),
+    MAX_CONSEC_BAD_DT(5),
     LATENCY_WARN_DT(0.5),
-    LATENCY_WORSEN_MAX(3)
+    LATENCY_WORSEN_MAX(3),
+    MAX_CONSEC_NEG_LATENCY(5)
 {
 }
 
@@ -72,7 +73,9 @@ TimetagAdjuster::TimetagAdjuster(dsm_sample_id_t id, double rate):
     _latencyLast(0),
     _nNegLatency(0),
     _ttAdjLast(LONG_LONG_MIN),
-    _latencyMinUsec(INT_MAX), _latencyMaxUsec(0)
+    _latencyMinUsec(INT_MAX),
+    _latencyMaxUsec(0),
+    _nConsecNegLatency(0)
 {
 }
 
@@ -91,7 +94,7 @@ dsm_time_t TimetagAdjuster::adjust(dsm_time_t tt)
 
     if (_ntotalPts == 1) {
         _ttnDt0 = _tt0 = _ttlast = _ttAdjLast = tt;
-        slog(stracer, "HR ", tt, 0, 0);
+        sloghr(stracer, "HR ", tt, 0, 0);
         return tt;
     }
 
@@ -108,7 +111,7 @@ dsm_time_t TimetagAdjuster::adjust(dsm_time_t tt)
             _dtResultMax = std::max(_dtResultMax, dt);
         }
         _ttAdjLast = tt;
-        slog(stracer, "HR ", tt, 0, 0);
+        sloghr(stracer, "HR ", tt, 0, 0);
         return tt;
 #endif
     }
@@ -138,7 +141,7 @@ dsm_time_t TimetagAdjuster::adjust(dsm_time_t tt)
             _dtResultMax = std::max(_dtResultMax, dt);
         }
         _ttAdjLast = tt;
-        slog(stracer, "HR ", tt, 0, 0);
+        sloghr(stracer, "HR ", tt, 0, 0);
         return tt;  // no correction
     }
     _nDt++;
@@ -164,9 +167,28 @@ dsm_time_t TimetagAdjuster::adjust(dsm_time_t tt)
      *  _dtUsecAvg, and _latencyAdjUsec, or
      * 2.  if the system is responding more quickly in this set of
      *  N_ADJ samples that it was in the previous set, or
-     * 3. if the actual sample dt is less than _dtUsecAvg.
+     * 3. if the actual sample dt is less than _dtUsecAvg,
+     *    which can happen due to skipped samples.
+     *    
      */
     if (latency < 0) {
+        _nNegLatency++;
+        _nConsecNegLatency++;
+        if (_nConsecNegLatency > _params.MAX_CONSEC_NEG_LATENCY) {
+            WLOG(("ttadjust neg latency %s, id=%d,%d: latency=%8.4f, dt=%8.4f, #consec=%u, resetting",
+                nidas::util::UTime(tt).format(true, "%Y %m %d %H:%M:%S.%3f").c_str(),
+                GET_DSM_ID(_id), GET_SPS_ID(_id),
+                (double)latency/USECS_PER_SEC,
+                (double)_dtUsecAvg/USECS_PER_SEC, _nConsecNegLatency));
+            _ttnDt0 = _tt0 = tt;
+            _nDt = 0;
+            _dtUsecAvg = _dtUsecConfig;
+            _latencyAdjUsec = INT_MAX;
+            _ttAdjLast = tt;
+            sloghr(stracer, "HR ", tt, 0, latency);
+            return tt;  // no correction
+        }
+
         // report if it is more than 0.5 dt negative
         if (_ntotalPts > _params.N_ADJ &&
             -latency > _dtUsecAvg * _params.LATENCY_WARN_DT) {
@@ -176,7 +198,6 @@ dsm_time_t TimetagAdjuster::adjust(dsm_time_t tt)
                 (double)latency/USECS_PER_SEC,
                 (double)_dtUsecAvg/USECS_PER_SEC, _nNegLatency));
         }
-        _nNegLatency++;
         _tt0 += latency;      // shift backwards
         ttAdj += latency;
         // slight chance of adjusted time being backwards
@@ -192,9 +213,11 @@ dsm_time_t TimetagAdjuster::adjust(dsm_time_t tt)
         _latencyLast = latency;
         _ttAdjLast = ttAdj;
         _latencyAdjUsec = std::min(latency, _latencyAdjUsec);
-        slog(stracer, "HR ", tt, tt - ttAdj, latency);
+        sloghr(stracer, "HR neg latency ", tt, tt - ttAdj, latency);
         return ttAdj;
     }
+
+    _nConsecNegLatency = 0;
 
     int latencyDiff = latency - _latencyLast;
     _latencyLast = latency;
@@ -203,13 +226,13 @@ dsm_time_t TimetagAdjuster::adjust(dsm_time_t tt)
     _latencyAdjUsec = std::min(latency, _latencyAdjUsec);
 
     // end of adjustment window and latency has ceased improving.
-    if ( _nDt >= _params.N_ADJ && latencyDiff >= 0) {
+    if ( _nDt >= _params.N_ADJ && (latencyDiff >= 0 || _nDt > _params.N_ADJ * 2)) {
 
         // average delta-T of last _params.N_ADJ samples
         int dtUsec = (tt - _ttnDt0 + _nDt/2 ) / _nDt;
 
         // low rate debug msg
-        slog(stracer, "LR ", ttAdj, dtUsec);
+        sloglr(stracer, "LR ", tt, tt-ttAdj, dtUsec);
 
         // screen it
         bool skipdt = screenDt(tt, dtUsec);
@@ -223,7 +246,7 @@ dsm_time_t TimetagAdjuster::adjust(dsm_time_t tt)
         _ttnDt0 = tt;
         _nDt = 0;
 
-        // Warn about large latency, but soldier on
+        // Screen large latency
         if (_latencyAdjUsec > _dtUsecAvg * _params.LATENCY_WARN_DT) {
             _nLargeLatency++;
             if (_nLargeLatency < 5) 
@@ -233,9 +256,10 @@ dsm_time_t TimetagAdjuster::adjust(dsm_time_t tt)
                     _params.LATENCY_WARN_DT,
                     (double)_latencyAdjUsec / USECS_PER_SEC,
                     _dtUsecAvg/USECS_PER_SEC, _nLargeLatency));
+            _tt0 = tt;
         }
-
-        _tt0 = ttAdj + _latencyAdjUsec;
+        else
+            _tt0 = ttAdj + _latencyAdjUsec;
 
         /* maintain some statistics on the correction */
         _latencyMinUsec = std::min(_latencyAdjUsec, _latencyMinUsec);
@@ -260,7 +284,7 @@ dsm_time_t TimetagAdjuster::adjust(dsm_time_t tt)
     _ttAdjLast = ttAdj;
 
     // high rate debug msg
-    slog(stracer, "HR ", tt, tt - ttAdj, latency);
+    sloghr(stracer, "HR ", tt, tt - ttAdj, latency);
     return ttAdj;
 }
 
@@ -269,7 +293,7 @@ bool TimetagAdjuster::screenDt(dsm_time_t tt, double dtUsec)
     bool skipdt = false;
     if (dtUsec < _dtUsecLowLimit) {
         _maxConsecHigh = 0;
-        if (++_maxConsecLow > _params.MAX_CONSEQ_BAD_DT) {
+        if (++_maxConsecLow > _params.MAX_CONSEC_BAD_DT) {
             WLOG(("ttadjust: %s, id=%d,%d, avg dt=%8.4f sec is below %8.4f for %d consecutive times, might as well use it",
             nidas::util::UTime(tt).format(true, "%Y %m %d %H:%M:%S.%3f").c_str(),
             GET_DSM_ID(_id), GET_SPS_ID(_id),
@@ -293,11 +317,13 @@ bool TimetagAdjuster::screenDt(dsm_time_t tt, double dtUsec)
     }
     else if (dtUsec > _dtUsecHighLimit) {
         _maxConsecLow = 0;
-        if (++_maxConsecHigh > _params.MAX_CONSEQ_BAD_DT) {
-            WLOG(("ttadjust: %s, id=%d,%d, avg dt=%8.4f sec is above %8.4f for %d consecutive times, might as well use it",
+        if (++_maxConsecHigh > _params.MAX_CONSEC_BAD_DT) {
+            WLOG(("ttadjust: %s, id=%d,%d, avg dt=%8.4f sec is above %8.4f, _nDt=%d, _ttnDt0=%s, for %d consecutive times, might as well use it",
             nidas::util::UTime(tt).format(true, "%Y %m %d %H:%M:%S.%3f").c_str(),
             GET_DSM_ID(_id), GET_SPS_ID(_id),
             dtUsec / USECS_PER_SEC, _dtUsecHighLimit / USECS_PER_SEC,
+            _nDt,
+            nidas::util::UTime(_ttnDt0).format(true, "%H:%M:%S.%3f").c_str(),
             _maxConsecHigh));
             skipdt = false;
             // adjust limits
@@ -307,10 +333,12 @@ bool TimetagAdjuster::screenDt(dsm_time_t tt, double dtUsec)
             _maxConsecHigh = 0;
         }
         else if (!(_nDtHigh % 100)) {
-            WLOG(("ttadjust: %s, id=%d,%d, avg dt=%8.4f sec is above %8.4f, skipping",
+            WLOG(("ttadjust: %s, id=%d,%d, avg dt=%8.4f sec is above %8.4f, _nDt=%d, _ttnDt0=%s, skipping",
             nidas::util::UTime(tt).format(true, "%Y %m %d %H:%M:%S.%3f").c_str(),
             GET_DSM_ID(_id), GET_SPS_ID(_id),
-            dtUsec / USECS_PER_SEC, _dtUsecHighLimit / USECS_PER_SEC));
+            dtUsec / USECS_PER_SEC, _dtUsecHighLimit / USECS_PER_SEC,
+            _nDt,
+            nidas::util::UTime(_ttnDt0).format(true, "%H:%M:%S.%3f").c_str()));
             skipdt = true;
         }
         _nDtHigh++;
@@ -322,7 +350,7 @@ bool TimetagAdjuster::screenDt(dsm_time_t tt, double dtUsec)
     return skipdt;
 }
 
-void TimetagAdjuster::slog(SampleTracer& stracer,
+void TimetagAdjuster::sloghr(SampleTracer& stracer,
     const string& msg, dsm_time_t tt, int dtAdj, int latency)
 {
     if (stracer.active(_id))
@@ -330,17 +358,20 @@ void TimetagAdjuster::slog(SampleTracer& stracer,
         stracer.msg(tt, _id, msg) <<
             " " << setw(8) << 
             (double)dtAdj / USECS_PER_SEC << " " <<
-            (double)latency / USECS_PER_SEC <<
+            (double)latency / USECS_PER_SEC << ' ' <<
+            _nDt <<
             nidas::util::endlog;
     }
 }
 
-void TimetagAdjuster::slog(SampleTracer& stracer,
-    const string& msg, dsm_time_t tt, double dtUsec)
+void TimetagAdjuster::sloglr(SampleTracer& stracer,
+    const string& msg, dsm_time_t tt, int dtAdj, double dtUsec)
 {
     if (stracer.active(_id))
     {
         stracer.msg(tt, _id, msg) <<
+            ", dtAdj=" << setw(8) << 
+            (double)dtAdj / USECS_PER_SEC << " " <<
             ", _ttnDt0=" <<
             stracer.format_time(_ttnDt0,"%H:%M:%S.%4f") <<
             ", latencyAdj=" << (double) _latencyAdjUsec / USECS_PER_SEC <<
@@ -370,7 +401,7 @@ void TimetagAdjuster::log(int level, const DSMSensor* sensor,
         ost << ')';
         nidas::util::Logger::getInstance()->log(level,
             __FILE__, __PRETTY_FUNCTION__, __LINE__,
-            "%s: #back=%u, #gap=%u. maxgap=%8.4f sec, mingap=%8.5f, \
+            "%s: #back=%u, #gap=%u. maxgap=%8.4f sec, \
 rate cfg,obs,diff:%6.2f,%9.5f,%8.4f, \
 avgDt min,max:%8.4f, %8.4f, #lowDt=%u, #highDt=%u, \
 outDt min,max:%8.4f,%8.4f, \

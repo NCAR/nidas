@@ -74,14 +74,15 @@ public:
      * Log message for a traced sample. Used for high-rate messages containing
      * each time tag and latency.
      */
-    void slog(SampleTracer& stracer, const std::string& msg, dsm_time_t tt,
+    void sloghr(SampleTracer& stracer, const std::string& msg, dsm_time_t tt,
         int dtAdj, int latency);
 
     /**
      * Log message for a traced sample. Used for lower-rate messages every
      * N_AVG.
      */
-    void slog(SampleTracer& stracer, const std::string& msg, dsm_time_t tt, double dt);
+    void sloglr(SampleTracer& stracer, const std::string& msg, dsm_time_t tt,
+            int dtAdj, double dt);
 
     /**
      * Return the configured sample rate, as passed to constructor.
@@ -173,7 +174,7 @@ private:
         unsigned int N_AVG;
 
         /**
-         * Screen observed delta-Ts to be within this fraction of
+         * Screen averaged delta-Ts to be within this fraction of
          * the configured delta-T = 1/rate.
          */
         float DT_LIMIT_FRACTION;
@@ -182,7 +183,7 @@ private:
          * If more than this number of consecutive delta-T's fail
          * the limit test, then reset the limits.
          */
-        int MAX_CONSEQ_BAD_DT;
+        int MAX_CONSEC_BAD_DT;
 
         /**
          * Warn if the minimum latency over N_ADJ samples
@@ -195,6 +196,13 @@ private:
          * this number of samples, reset the adjustment.
          */
         int LATENCY_WORSEN_MAX;
+
+        /**
+         * If the number of consecutive negative latencies exceeds
+         * MAX_CONSEC_NEG_LATENCY, then reset.
+         */
+        int MAX_CONSEC_NEG_LATENCY;
+
 
     } _params;
 
@@ -325,6 +333,8 @@ private:
     int _latencyMinUsec;
 
     int _latencyMaxUsec;
+
+    int _nConsecNegLatency;
 
 };
 
