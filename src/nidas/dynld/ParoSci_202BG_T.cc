@@ -38,7 +38,7 @@ namespace n_u = nidas::util;
 NIDAS_CREATOR_FUNCTION(ParoSci_202BG_T)
 
 ParoSci_202BG_T::ParoSci_202BG_T() : DSC_FreqCounter(),
-    _periodUsec(floatNAN),_lastSampleTime(0),
+    _periodUsec(floatNAN),_sampleTime(0),
     _presSensorId(0),_presSensor(0),_calibrator(),
     _calfile(0)
 {
@@ -82,7 +82,7 @@ void ParoSci_202BG_T::init()
 
 float ParoSci_202BG_T::getPeriodUsec(dsm_time_t tt)
 {
-    if (::abs((int)((tt - _lastSampleTime)/USECS_PER_MSEC)) <
+    if (::abs((int)((tt - _sampleTime)/USECS_PER_MSEC)) <
         getSamplePeriodMsec() / 2) return _periodUsec;
     return floatNAN;
 }
@@ -90,18 +90,25 @@ float ParoSci_202BG_T::getPeriodUsec(dsm_time_t tt)
 bool ParoSci_202BG_T::process(const Sample* insamp,list<const Sample*>& results)
     throw()
 {   
-    dsm_time_t tt = insamp->getTimeTag();
+    _sampleTime = insamp->getTimeTag() - getLagUsecs();
+    TimetagAdjuster* ttadj = _ttadjusters[_stag];
+    if (ttadj)
+    {
+        _sampleTime = ttadj->adjust(_sampleTime);
+    }
+
     // Read CalFile of calibration parameters.
     try {
-        if (_calfile) _calibrator.readCalFile(_calfile,tt);
+        if (_calfile) _calibrator.readCalFile(_calfile,_sampleTime);
     }
     catch(const n_u::Exception& e) {
         _calfile = 0;
     }
 
     SampleT<float>* osamp = getSample<float>(3);
-    osamp->setTimeTag(tt);
+    osamp->setTimeTag(_sampleTime);
     osamp->setId(_sampleId);
+
     float *fp = osamp->getDataPtr();
 
     _periodUsec = calculatePeriodUsec(insamp);
@@ -112,7 +119,6 @@ bool ParoSci_202BG_T::process(const Sample* insamp,list<const Sample*>& results)
       //   " usec cor=" << _periodUsec - _calibrator.getU0() << endl;
 
     _periodUsec -= _calibrator.getU0();
-    _lastSampleTime = tt;
 
     float temp = _calibrator.computeTemperature(_periodUsec);
     // cerr << "_periodUsec=" << _periodUsec << " temp=" << temp << endl;
@@ -120,9 +126,15 @@ bool ParoSci_202BG_T::process(const Sample* insamp,list<const Sample*>& results)
     *fp++ = _periodUsec;
     *fp++ = freq;
     *fp++ = temp;
+
     results.push_back(osamp);
 
-    _presSensor->createPressureSample(results);
+    // Originally _presSensor->createPressureSample(results)
+    // was called here.  I now don't think it's necessary, it
+    // is called by the pressure sensor on receipt of a pressure
+    // sample, which then calls getPeriodUsec(_sampleTime) on 
+    // this temperature sensor.
+    // _presSensor->createPressureSample(results);
 
     return true;
 }

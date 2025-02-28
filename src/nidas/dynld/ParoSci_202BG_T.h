@@ -75,7 +75,7 @@ private:
 
     float _periodUsec;
 
-    dsm_time_t _lastSampleTime;
+    dsm_time_t _sampleTime;
 
     dsm_sample_id_t _presSensorId;
 

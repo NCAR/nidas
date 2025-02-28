@@ -44,16 +44,25 @@ namespace n_u = nidas::util;
 NIDAS_CREATOR_FUNCTION(DSC_FreqCounter)
 
 DSC_FreqCounter::DSC_FreqCounter() :
-    DSMSensor(),_sampleId(0),_nvars(0),
+    DSMSensor(),_stag(0),_sampleId(0),_nvars(0),
     _msecPeriod(MSECS_PER_SEC),_numPulses(0),
     _clockRate(GPIO_MM_CT_CLOCK_HZ),
-    _cvtr(0)
+    _cvtr(0), _ttadjusters()
 {
     setLatency(0.1);
 }
 
 DSC_FreqCounter::~DSC_FreqCounter()
 {
+    for (map<const SampleTag*, TimetagAdjuster*>::const_iterator tti =
+            _ttadjusters.begin();
+        tti != _ttadjusters.end(); ++tti) {
+        TimetagAdjuster* tta = tti->second;
+        if (tta) {
+            tta->log(nidas::util::LOGGER_INFO, this);
+        }
+        delete tta;
+    }
 }
 
 IODevice* DSC_FreqCounter::buildIODevice()
@@ -88,10 +97,9 @@ void DSC_FreqCounter::validate()
     if (tags.size() != 1)
         throw n_u::InvalidParameterException(getName(),"sample",
             "must have exactly one sample");
-    const SampleTag* stag = *tags.begin();
-
-    _sampleId = stag->getId();
-    _nvars = stag->getVariables().size();
+    _stag = *tags.begin();
+    _sampleId = _stag->getId();
+    _nvars = _stag->getVariables().size();
     switch (_nvars) {
     case 3:
     case 2:
@@ -102,10 +110,10 @@ void DSC_FreqCounter::validate()
             "sample must contain one or two variables");
     }
 
-    _msecPeriod =  (int)rint(MSECS_PER_SEC / stag->getRate());
+    _msecPeriod =  (int)rint(MSECS_PER_SEC / _stag->getRate());
 
     readParams(getParameters());
-    readParams(stag->getParameters());
+    readParams(_stag->getParameters());
 }
 
 void DSC_FreqCounter::init()
@@ -113,6 +121,11 @@ void DSC_FreqCounter::init()
     DSMSensor::init();
     _cvtr = n_u::EndianConverter::getConverter(
         n_u::EndianConverter::EC_LITTLE_ENDIAN);
+
+    assert(_stag);  // set in validate()
+    if (_stag->getTimetagAdjust() > 0.0 && _stag->getRate() > 0.0) {
+        _ttadjusters[_stag] = new TimetagAdjuster(_stag->getId(), _stag->getRate());
+    }
 }
 
 void DSC_FreqCounter::readParams(const list<const Parameter*>& params)
@@ -215,3 +228,4 @@ bool DSC_FreqCounter::process(const Sample* insamp,list<const Sample*>& results)
 
     return true;
 }
+

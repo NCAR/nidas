@@ -39,7 +39,7 @@ namespace n_u = nidas::util;
 NIDAS_CREATOR_FUNCTION(ParoSci_202BG_P)
 
 ParoSci_202BG_P::ParoSci_202BG_P() : DSC_FreqCounter(),
-    _periodUsec(floatNAN),_lastSampleTime(0),
+    _periodUsec(floatNAN),_sampleTime(0),
     _tempSensorId(0),_tempSensor(0),_calibrator(),
     _calfile(0)
 {
@@ -83,7 +83,13 @@ void ParoSci_202BG_P::init()
 bool ParoSci_202BG_P::process(const Sample* insamp,list<const Sample*>& results)
     throw()
 {   
-    _lastSampleTime = insamp->getTimeTag();
+    _sampleTime = insamp->getTimeTag() - getLagUsecs();
+    TimetagAdjuster* ttadj = _ttadjusters[_stag];
+    if (ttadj)
+    {
+        _sampleTime = ttadj->adjust(_sampleTime);
+    }
+
     _periodUsec = calculatePeriodUsec(insamp);
 
     createPressureSample(results);
@@ -93,30 +99,33 @@ bool ParoSci_202BG_P::process(const Sample* insamp,list<const Sample*>& results)
 void ParoSci_202BG_P::createPressureSample(list<const Sample*>& results)
 {
     if (isnan(_periodUsec)) return;
-    float tper = _tempSensor->getPeriodUsec(_lastSampleTime);
+
+    float tper = _tempSensor->getPeriodUsec(_sampleTime);
     if (isnan(tper)) return;
+
     float pper = _periodUsec;
 
     // Read CalFile of calibration parameters.
     try {
-        if (_calfile) _calibrator.readCalFile(_calfile,_lastSampleTime);
+        if (_calfile) _calibrator.readCalFile(_calfile,_sampleTime);
     }
     catch(const n_u::Exception& e) {
         _calfile = 0;
     }
 
-
     float p = _calibrator.computePressure(tper,pper);
 
     SampleT<float>* osamp = getSample<float>(3);
-    osamp->setTimeTag(_lastSampleTime);
+    osamp->setTimeTag(_sampleTime);
     osamp->setId(_sampleId);
+
     float *fp = osamp->getDataPtr();
 
     *fp++ = pper;
     if (pper == 0.0) *fp++ = floatNAN;
     else *fp++ = USECS_PER_SEC / pper;
     *fp++ = p;
+
     results.push_back(osamp);
 
     _periodUsec = floatNAN;     // use it once

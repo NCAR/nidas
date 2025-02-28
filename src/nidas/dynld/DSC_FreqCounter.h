@@ -29,6 +29,7 @@
 #include <nidas/core/DSMSensor.h>
 #include <nidas/core/Parameter.h>
 #include <nidas/util/EndianConverter.h>
+#include <nidas/core/TimetagAdjuster.h>
 
 namespace nidas { namespace dynld {
 
@@ -119,6 +120,8 @@ protected:
      **/
     virtual void readParams(const std::list<const Parameter*>& params);
 
+    const SampleTag* _stag;
+
     dsm_sample_id_t _sampleId;
 
     int _nvars;
@@ -137,6 +140,11 @@ protected:
     double _clockRate;
 
     const nidas::util::EndianConverter* _cvtr;
+
+    /**
+     * TimetagAdjusters for my sample.
+     **/
+    std::map<const SampleTag*, TimetagAdjuster*> _ttadjusters;
 
 private:
 
