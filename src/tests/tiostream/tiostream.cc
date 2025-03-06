@@ -35,6 +35,7 @@ using boost::unit_test_framework::test_suite;
 #include "nidas/core/IOStream.h"
 #include "nidas/core/UnixIOChannel.h"
 #include "nidas/util/Logger.h"
+#include <nidas/core/SampleInputHeader.h>
 #include <sstream>
 #include <errno.h>
 
@@ -45,6 +46,7 @@ static std::ostringstream oss;
 
 using nidas::core::IOStream;
 using nidas::core::UnixIOChannel;
+using nidas::core::SampleInputHeader;
 
 class DummyChannel : public nidas::core::UnixIOChannel
 {
@@ -81,6 +83,20 @@ public:
     ++_nwrites;
     return len;
   }
+
+  virtual size_t read(void* buf, size_t len) override
+  {
+    if (_buflen > 0)
+    {
+      size_t rlen = std::min(static_cast<unsigned int>(len), _buflen);
+      memcpy(buf, _buffer, rlen);
+      _buflen -= rlen;
+      if (_buflen > 0)
+        memmove(_buffer, _buffer + rlen, _buflen);
+      return rlen;
+    }
+    return 0;
+  };
 
   void
   clear()
@@ -258,3 +274,33 @@ BOOST_AUTO_TEST_CASE(test_steady_writes)
   BOOST_CHECK_EQUAL(iostream.available(), 0u);
 }
 
+
+const char* _header =
+R"(NIDAS (ncar.ucar.edu)
+archive version: 1
+software version: v1.2.5-2
+project name: TI3GER-2
+system name: GV_N677F
+config name: $PROJ_DIR/TI3GER-2/GV_N677F/nidas/default.xml
+config version: 
+
+end header
+)";
+
+
+BOOST_AUTO_TEST_CASE(test_header_input)
+{
+    DummyChannel channel("null");
+    IOStream iostream(channel, 4096);
+    iostream.write(_header, strlen(_header), true);
+    SampleInputHeader header;
+    header.read(&iostream);
+    BOOST_CHECK_EQUAL(header.getArchiveVersion(), "1");
+    BOOST_CHECK_EQUAL(header.getSoftwareVersion(), "v1.2.5-2");
+    BOOST_CHECK_EQUAL(header.getProjectName(), "TI3GER-2");
+    BOOST_CHECK_EQUAL(header.getSystemName(), "GV_N677F");
+    BOOST_CHECK_EQUAL(header.getConfigName(),
+                      "$PROJ_DIR/TI3GER-2/GV_N677F/nidas/default.xml");
+    BOOST_CHECK_EQUAL(header.getConfigVersion(), "");
+    BOOST_CHECK_EQUAL(iostream.available(), 0u);
+}
