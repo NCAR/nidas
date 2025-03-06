@@ -85,6 +85,14 @@ UTime::UTime(bool utc, int year, int mon, int day, int hour, int minute,
     _utime = fromTm(utc,&tms) + fromSecs(dsec);
 }
 
+UTime::UTime(bool utc, int year, int mon, int day, int hour, int min, int sec,
+             int usec):
+    _utime(0), _fmt(), _utc(true)
+{
+    *this = UTime(utc, year, mon, day, hour, min, 0);
+    _utime += static_cast<long long>(sec) * USECS_PER_SEC + usec;
+}
+
 UTime::UTime(bool utc, int year, int yday, int hour, int minute, double dsec):
     _utime(0),_fmt(),_utc(utc)
 {

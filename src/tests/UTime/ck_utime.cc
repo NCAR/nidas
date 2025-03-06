@@ -41,8 +41,6 @@ using nidas::util::LogScheme;
 
 #include <cstdio>
 #include <time.h>
-#include <stdlib.h> // rand
-
 #include <vector>
 
 using namespace nidas::util;
@@ -99,13 +97,15 @@ BOOST_AUTO_TEST_CASE(test_utime_constants)
     BOOST_TEST(!max.isMin());
     BOOST_TEST(!min.isSet());
     BOOST_TEST(!max.isSet());
+
+    BOOST_CHECK_EQUAL(UTime::MIN.format(), "MIN");
+    BOOST_CHECK_EQUAL(UTime::MAX.format(), "MAX");
 }
 
 
 BOOST_AUTO_TEST_CASE(test_utime)
 {
     time_t now = ::time(0);       // current time
-    unsigned int randseed = now % 0xffffffff;
 
     struct tm tm;
     char timestr[64];
@@ -137,7 +137,7 @@ BOOST_AUTO_TEST_CASE(test_utime)
         BOOST_TEST_MESSAGE("Checking UTime::format, localtime,'"
                            << format << "' of time=now against "
                            << "localtime_r, strftime ... ");
-        
+
         utstr = ut.format(false,format);
 
         localtime_r(&now,&tm);
@@ -224,35 +224,137 @@ BOOST_AUTO_TEST_CASE(test_utime)
     utstr2 = ut.format(false,fmt);
     utstr = "1969 12 31 19:00:00.000";
     BOOST_TEST(utstr == utstr2);
+}
 
-    fmt = "%Y %m %d %H:%M:%S.%6f";
 
-    BOOST_TEST_MESSAGE("Checking formatting and parsing of random "
+BOOST_AUTO_TEST_CASE(test_near_epoch)
+{
+    UTime ut{ UTime::ZERO };
+    string fmt = "%Y %m %d %H:%M:%S.%6f";
+
+    BOOST_TEST_MESSAGE("Checking formatting and parsing of "
                        "times around 1970 Jan 1 UTC ... ");
     int ncheck = 0;
 
-    for (int sec = -86400 * 3 / 2; sec <= 86400 * 3 / 2; ) {
+    vector<int> useconds { 0, 1, 9, 499, 499999, 500001, 999000, 999999 };
+    for (long long sec = -86400 * 3 / 2; sec <= 86400 * 3 / 2; sec += 3599) {
 
-        for (int usec = -USECS_PER_SEC * 3 / 2; usec <= USECS_PER_SEC * 3 / 2; ) {
+        for (auto usec: useconds) {
 
-            UTime utx = ut + sec * USECS_PER_SEC + usec;
-            utstr2 = utx.format(true,fmt);
+            UTime utx = ut + sec * USECS_PER_SEC + usec * signbit(sec);
+            string utstr2 = utx.format(true,fmt);
+            BOOST_TEST_MESSAGE("Secs=" << sec << ", usec=" << usec << ": "
+                               << utx << " as '" << fmt << "':" << utstr2);
             UTime utx2 = UTime::parse(true,utstr2,fmt);
             utx.setFormat("%Y-%m-%d,%H:%M:%S.%f");
             utx2.setFormat("%Y-%m-%d,%H:%M:%S.%f");
             BOOST_TEST(utx == utx2, "checking " << utx << "==" << utx2);
 
-            int usecdt = (int)((double)rand_r(&randseed) / RAND_MAX * USECS_PER_SEC / 10);
-            // cerr << "usecdt=" << usecdt << endl;
-            usec += usecdt;
             ncheck++;
         }
-        int secdt = (int)((double)rand_r(&randseed) / RAND_MAX * 3600);
-        // cerr << "secdt=" << secdt << endl;
-        sec += secdt;
     }
+}
 
-    BOOST_TEST_MESSAGE("Checking default parsing formats... ");
+
+BOOST_AUTO_TEST_CASE(test_parse_trailing_separator)
+{
+    // make sure a trailing separator is not parsed
+    int nparsed{0};
+    UTime when = UTime::parse("2019-11-07T", &nparsed);
+    BOOST_CHECK_EQUAL(nparsed, 10);
+    BOOST_CHECK_EQUAL(when, UTime(true, 2019, 11, 7, 0, 0, 0));
+
+    when = UTime::parse("2019-11-07 ", &nparsed);
+    BOOST_CHECK_EQUAL(nparsed, 10);
+    BOOST_CHECK_EQUAL(when, UTime(true, 2019, 11, 7, 0, 0, 0));
+
+    // a Z suffix should not be parsed if utc is false, but it won't throw an
+    // exception.
+    when = UTime::parse(false, "2019-11-08Z", &nparsed);
+    BOOST_CHECK_EQUAL(nparsed, 10);
+    BOOST_CHECK_EQUAL(when, UTime(false, 2019, 11, 8, 0, 0, 0));
+}
+
+
+BOOST_AUTO_TEST_CASE(test_format_fractions)
+{
+    UTime ut(true, 2025, 3, 5, 8, 18, 59, 456789);
+    string fmt6{ "%Y-%m-%d,%H:%M:%S.%6f" };
+    string fmt5{ "%Y-%m-%d,%H:%M:%S.%5f" };
+    string fmt4{ "%Y-%m-%d,%H:%M:%S.%4f" };
+    string fmt3{ "%Y-%m-%d,%H:%M:%S.%3f" };
+    string fmt1{ "%Y-%m-%d,%H:%M:%S.%1f" };
+    string fmt0{ "%Y-%m-%d,%H:%M:%S" };
+    BOOST_TEST(ut.format(true, fmt6) == "2025-03-05,08:18:59.456789");
+    BOOST_TEST(ut.format(true, fmt5) == "2025-03-05,08:18:59.45679");
+    BOOST_TEST(ut.format(true, fmt4) == "2025-03-05,08:18:59.4568");
+    BOOST_TEST(ut.format(true, fmt3) == "2025-03-05,08:18:59.457");
+    BOOST_TEST(ut.format(true, fmt0) == "2025-03-05,08:18:59");
+
+    ut = UTime(true, 2025, 3, 5, 8, 18, 59, 999999);
+    BOOST_TEST(ut.format(true, fmt6) == "2025-03-05,08:18:59.999999");
+    BOOST_TEST(ut.format(true, fmt5) == "2025-03-05,08:19:00.00000");
+    BOOST_TEST(ut.format(true, fmt4) == "2025-03-05,08:19:00.0000");
+    BOOST_TEST(ut.format(true, fmt3) == "2025-03-05,08:19:00.000");
+    BOOST_TEST(ut.format(true, fmt0) == "2025-03-05,08:19:00");
+
+    ut = UTime(true, 2025, 3, 5, 8, 18, 59, 555500);
+    BOOST_TEST(ut.format(true, fmt6) == "2025-03-05,08:18:59.555500");
+    BOOST_TEST(ut.format(true, fmt5) == "2025-03-05,08:18:59.55550");
+    BOOST_TEST(ut.format(true, fmt4) == "2025-03-05,08:18:59.5555");
+    BOOST_TEST(ut.format(true, fmt3) == "2025-03-05,08:18:59.556");
+    BOOST_TEST(ut.format(true, fmt0) == "2025-03-05,08:19:00");
+
+    ut = UTime(true, 2025, 3, 5, 8, 18, 59, 500);
+    BOOST_TEST(ut.format(true, fmt6) == "2025-03-05,08:18:59.000500");
+    BOOST_TEST(ut.format(true, fmt5) == "2025-03-05,08:18:59.00050");
+    BOOST_TEST(ut.format(true, fmt4) == "2025-03-05,08:18:59.0005");
+    BOOST_TEST(ut.format(true, fmt3) == "2025-03-05,08:18:59.001");
+    BOOST_TEST(ut.format(true, fmt0) == "2025-03-05,08:18:59");
+
+    ut = UTime(true, 2025, 3, 5, 8, 18, 59, 499999);
+    BOOST_TEST(ut.format(true, fmt6) == "2025-03-05,08:18:59.499999");
+    BOOST_TEST(ut.format(true, fmt5) == "2025-03-05,08:18:59.50000");
+    BOOST_TEST(ut.format(true, fmt4) == "2025-03-05,08:18:59.5000");
+    BOOST_TEST(ut.format(true, fmt3) == "2025-03-05,08:18:59.500");
+    BOOST_TEST(ut.format(true, fmt0) == "2025-03-05,08:18:59");
+
+    ut = UTime(true, 2025, 3, 5, 8, 18, 59, 500000);
+    BOOST_TEST(ut.format(true, fmt6) == "2025-03-05,08:18:59.500000");
+    BOOST_TEST(ut.format(true, fmt5) == "2025-03-05,08:18:59.50000");
+    BOOST_TEST(ut.format(true, fmt4) == "2025-03-05,08:18:59.5000");
+    BOOST_TEST(ut.format(true, fmt3) == "2025-03-05,08:18:59.500");
+    BOOST_TEST(ut.format(true, fmt1) == "2025-03-05,08:18:59.5");
+    BOOST_TEST(ut.format(true, fmt0) == "2025-03-05,08:19:00");
+
+    ut = UTime(true, 1969, 12, 31, 8, 18, 59, 500000);
+    BOOST_TEST(ut.format(true, fmt6) == "1969-12-31,08:18:59.500000");
+    BOOST_TEST(ut.format(true, fmt5) == "1969-12-31,08:18:59.50000");
+    BOOST_TEST(ut.format(true, fmt4) == "1969-12-31,08:18:59.5000");
+    BOOST_TEST(ut.format(true, fmt3) == "1969-12-31,08:18:59.500");
+    BOOST_TEST(ut.format(true, fmt1) == "1969-12-31,08:18:59.5");
+    BOOST_TEST(ut.format(true, fmt0) == "1969-12-31,08:18:59");
+}
+
+
+BOOST_AUTO_TEST_CASE(test_negatives)
+{
+    UTime epoch = UTime::parse(true, "1970 01 01 00:00:00.000");
+    BOOST_TEST(epoch.isZero());
+
+    string fmt{ "%Y-%m-%d %H:%M:%S" };
+    long long seconds = -86400;
+    UTime ut = epoch + seconds * USECS_PER_SEC;
+    BOOST_TEST(ut.format(true, fmt) == "1969-12-31 00:00:00");
+
+    ut = epoch + -1 * USECS_PER_SEC + 999999;
+    BOOST_TEST(ut.format(true, fmt) == "1969-12-31 23:59:59");
+    BOOST_TEST(ut.format(true, fmt+".%6f") == "1969-12-31 23:59:59.999999");
+}
+
+
+BOOST_AUTO_TEST_CASE(test_default_parsing_formats)
+{
     typedef std::pair<std::string, UTime> format_pair_t;
     typedef std::vector<format_pair_t> cases_t;
     cases_t cases;
@@ -280,59 +382,46 @@ BOOST_AUTO_TEST_CASE(test_utime)
     cases.push_back(make_pair("2019-11-07Z",
                               UTime(true, 2019, 11, 7, 0, 0, 0)));
 
+    string fmt{ "%Y-%m-%d %H:%M:%S.%6f" };
     for (cases_t::iterator cit = cases.begin(); cit != cases.end(); ++cit)
     {
         // use convert() because the whole string should be parsed
         BOOST_TEST_CHECKPOINT("Checking " << cit->first << " ... ");
         UTime ut = UTime::convert(cit->first);
-        BOOST_TEST(ut == cit->second);
+        BOOST_TEST(ut == cit->second,
+                   "parsing " << cit->first << " expects "
+                   << cit->second.format(true, fmt)
+                   << ": got " << ut.format(true, fmt));
     }
+}
 
-    {
-        UTime ut = UTime::parse(true, "2019-11-07T16:10:55.001");
-        UTime rounded{UTime::ZERO};
-        rounded = ut.earlier(USECS_PER_SEC);
-        BOOST_TEST(rounded == UTime::parse(true, "2019-11-07T16:10:55"));
-        rounded = ut.earlier(5*USECS_PER_SEC);
-        BOOST_TEST(rounded == UTime::parse(true, "2019-11-07T16:10:55"));
-        rounded = ut.earlier(10*USECS_PER_SEC);
-        BOOST_TEST(rounded == UTime::parse(true, "2019-11-07T16:10:50"));
-        rounded = ut.round(5*USECS_PER_SEC);
-        BOOST_TEST(rounded == UTime::parse(true, "2019-11-07T16:10:55"));
-        rounded = ut.round(10*USECS_PER_SEC);
-        BOOST_TEST(rounded == UTime::parse(true, "2019-11-07T16:11:00"));
 
-        ut = UTime::parse(true, "2019-11-07T16:10:59.567");
-        rounded = ut.round(USECS_PER_SEC);
-        BOOST_TEST(rounded == UTime::parse(true, "2019-11-07T16:11:00"));
-        rounded = ut.round(5*USECS_PER_SEC);
-        BOOST_TEST(rounded == UTime::parse(true, "2019-11-07T16:11:00"));
-        rounded = ut.round(10*USECS_PER_SEC);
-        BOOST_TEST(rounded == UTime::parse(true, "2019-11-07T16:11:00"));
-        rounded = ut.round(5*60*USECS_PER_SEC);
-        BOOST_TEST(rounded == UTime::parse(true, "2019-11-07T16:10:00"));
+BOOST_AUTO_TEST_CASE(test_rounding)
+{
+    UTime ut = UTime::parse(true, "2019-11-07T16:10:55.001");
+    UTime rounded{UTime::ZERO};
+    rounded = ut.earlier(USECS_PER_SEC);
+    BOOST_TEST(rounded == UTime::parse(true, "2019-11-07T16:10:55"));
+    rounded = ut.earlier(5*USECS_PER_SEC);
+    BOOST_TEST(rounded == UTime::parse(true, "2019-11-07T16:10:55"));
+    rounded = ut.earlier(10*USECS_PER_SEC);
+    BOOST_TEST(rounded == UTime::parse(true, "2019-11-07T16:10:50"));
+    rounded = ut.round(5*USECS_PER_SEC);
+    BOOST_TEST(rounded == UTime::parse(true, "2019-11-07T16:10:55"));
+    rounded = ut.round(10*USECS_PER_SEC);
+    BOOST_TEST(rounded == UTime::parse(true, "2019-11-07T16:11:00"));
 
-        // check the trivial case
-        BOOST_TEST(ut.round(0) == ut);
-        BOOST_TEST(ut.earlier(0) == ut);
-    }
+    ut = UTime::parse(true, "2019-11-07T16:10:59.567");
+    rounded = ut.round(USECS_PER_SEC);
+    BOOST_TEST(rounded == UTime::parse(true, "2019-11-07T16:11:00"));
+    rounded = ut.round(5*USECS_PER_SEC);
+    BOOST_TEST(rounded == UTime::parse(true, "2019-11-07T16:11:00"));
+    rounded = ut.round(10*USECS_PER_SEC);
+    BOOST_TEST(rounded == UTime::parse(true, "2019-11-07T16:11:00"));
+    rounded = ut.round(5*60*USECS_PER_SEC);
+    BOOST_TEST(rounded == UTime::parse(true, "2019-11-07T16:10:00"));
 
-    // make sure a trailing separator is not parsed
-    int nparsed{0};
-    UTime when = UTime::parse("2019-11-07T", &nparsed);
-    BOOST_CHECK_EQUAL(nparsed, 10);
-    BOOST_CHECK_EQUAL(when, UTime(true, 2019, 11, 7, 0, 0, 0));
-
-    when = UTime::parse("2019-11-07 ", &nparsed);
-    BOOST_CHECK_EQUAL(nparsed, 10);
-    BOOST_CHECK_EQUAL(when, UTime(true, 2019, 11, 7, 0, 0, 0));
-
-    // a Z suffix should not be parsed if utc is false, but it won't throw an
-    // exception.
-    when = UTime::parse(false, "2019-11-08Z", &nparsed);
-    BOOST_CHECK_EQUAL(nparsed, 10);
-    BOOST_CHECK_EQUAL(when, UTime(false, 2019, 11, 8, 0, 0, 0));
-
-    BOOST_CHECK_EQUAL(UTime::MIN.format(), "MIN");
-    BOOST_CHECK_EQUAL(UTime::MAX.format(), "MAX");
+    // check the trivial case
+    BOOST_TEST(ut.round(0) == ut);
+    BOOST_TEST(ut.earlier(0) == ut);
 }

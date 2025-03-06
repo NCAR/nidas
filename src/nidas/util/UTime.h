@@ -155,7 +155,12 @@ public:
      * Note that mon differs from the definition of tm_mon in struct tm
      * which is in the range 0-11.
      */
-    UTime(bool utc, int year,int mon, int day,int hour, int min, double sec);
+    UTime(bool utc, int year, int mon, int day, int hour, int min, double sec);
+
+    /**
+     * Construct UTime with integer seconds and microseconds.
+     */
+    UTime(bool utc, int year, int mon, int day, int hour, int min, int sec, int usec);
 
     /**
      * Constructor. yday is day of year, 1-366.

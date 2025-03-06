@@ -14,7 +14,9 @@ check_executable ck_utime
 # pipefail: status returned is value of rightmost command to exit with non-zero status
 set -o pipefail
 
-valgrind --suppressions=suppressions.txt --leak-check=full --gen-suppressions=all ck_utime 2>&1 | tee tmp/utime.log
+ck_utime="ck_utime --log_level=all"
+ck_utime="ck_utime"
+valgrind --suppressions=suppressions.txt --leak-check=full --gen-suppressions=all $ck_utime 2>&1 | tee tmp/utime.log
 stat=$?
 
 errs=`valgrind_errors tmp/utime.log`
