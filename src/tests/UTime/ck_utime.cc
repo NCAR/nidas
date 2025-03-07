@@ -241,7 +241,7 @@ BOOST_AUTO_TEST_CASE(test_near_epoch)
 
         for (auto usec: useconds) {
 
-            UTime utx = ut + sec * USECS_PER_SEC + usec * signbit(sec);
+            UTime utx = ut + sec * USECS_PER_SEC + usec;
             string utstr2 = utx.format(true,fmt);
             BOOST_TEST_MESSAGE("Secs=" << sec << ", usec=" << usec << ": "
                                << utx << " as '" << fmt << "':" << utstr2);
