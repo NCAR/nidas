@@ -138,25 +138,33 @@ invalidSampleHeader(const SampleHeader& sheader)
     // invalid.
     if (bad && lp.active())
     {
-        LogMessage msg;
-
-        if (_sampleType != UNKNOWN_ST && sheader.getType() != _sampleType)
-            msg << "header type not accepted: " << (int)sheader.getType() << "; ";
-        if (sheader.getType() >= UNKNOWN_ST)
-            msg << "header type invalid: " << (int)sheader.getType() << "; ";
-        if (GET_DSM_ID(sheader.getId()) < _minDsmId || GET_DSM_ID(sheader.getId()) > _maxDsmId)
-            msg << "dsmid out of range: " << GET_DSM_ID(sheader.getId()) << "; ";
-        if (sheader.getDataByteLength() < _minSampleLength || sheader.getDataByteLength() > _maxSampleLength)
-            msg << "datalen out of range: " << sheader.getDataByteLength() << "; ";
-        if (sheader.getTimeTag() < _minSampleTime || sheader.getTimeTag() > _maxSampleTime)
-        {
-            UTime tt(sheader.getTimeTag());
-            msg << "time out of range: "
-                << tt.format(true, "%Y-%m-%dT%H:%M:%S.%f") << ";";
-        }
-        lp.log(msg);
+        lp.log() << explainFilter(sheader);
     }
     return bad;
+}
+
+
+std::string
+BadSampleFilter::
+explainFilter(const SampleHeader& sheader)
+{
+    std::ostringstream msg;
+    msg << "invalid sample header fields: ";
+    if (_sampleType != UNKNOWN_ST && sheader.getType() != _sampleType)
+        msg << "header type not accepted: " << (int)sheader.getType() << "; ";
+    if (sheader.getType() >= UNKNOWN_ST)
+        msg << "header type invalid: " << (int)sheader.getType() << "; ";
+    if (GET_DSM_ID(sheader.getId()) < _minDsmId || GET_DSM_ID(sheader.getId()) > _maxDsmId)
+        msg << "dsmid out of range: " << GET_DSM_ID(sheader.getId()) << "; ";
+    if (sheader.getDataByteLength() < _minSampleLength || sheader.getDataByteLength() > _maxSampleLength)
+        msg << "datalen out of range: " << sheader.getDataByteLength() << "; ";
+    if (sheader.getTimeTag() < _minSampleTime || sheader.getTimeTag() > _maxSampleTime)
+    {
+        UTime tt(sheader.getTimeTag());
+        msg << "time out of range: "
+            << tt.format(true, "%Y-%m-%dT%H:%M:%S.%f") << ";";
+    }
+    return msg.str();
 }
 
 

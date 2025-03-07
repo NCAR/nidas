@@ -18,6 +18,9 @@ known as [buster].
 
 ## [master] - Unreleased on master branch
 
+- `SampleInputStream` logs a warning on the first sample filtered to help
+  diagnose unexpected effects from filtering rules.
+
 - Ignore XML attributes like "xmlns" in `DOMable::checkUnhandledAttributes()`,
   since they are added by `XMLConfigWriter` to XML configs written through
   `XMLConfigService`.  This fixes a bug where XML parsing would fail on `dsm`

@@ -973,7 +973,16 @@ sampleFromHeader() throw()
         // more likely someone notices the input stream has bad samples.
         _skipSample = false;
         ++_badSamples;
-        if (log_count && !((_badSamples-1) % log_count))
+        if (_badSamples == 1)
+        {
+            // always log the first filtered sample, in case it's unexpected
+            // and to let someone know filtering is happening.
+            WLOG(CNAME << "filtering is enabled: " << _bsf);
+            WLOG(CNAME << "first filtered sample: "
+                 << "filepos=" << offset << "," << _sheader
+                 << "; " << _bsf.explainFilter(_sheader));
+        }
+        else if (log_count && !((_badSamples-1) % log_count))
         {
             WLOG(CNAME << "bad sample header: "
                  << "#bad=" << _badSamples << ","

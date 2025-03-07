@@ -192,6 +192,13 @@ public:
     bool
     operator==(const BadSampleFilter& right) const;
 
+    /**
+     * Return a string listing which fields in @p sheader are invalid
+     * according to the current filter rules.
+     */
+    std::string
+    explainFilter(const SampleHeader& sheader);
+
 private:
     
     /**
