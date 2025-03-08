@@ -18,6 +18,11 @@ known as [buster].
 
 ## [master] - Unreleased on master branch
 
+- `UTime::format()` specifier `%[n]f` now truncates to the number of digits
+  instead of rounding.  This makes it more consistent with the other time
+  fields which are never rounded, and times by default show the second which
+  contains them, regardless of specified precision.
+
 - Ignore XML attributes like "xmlns" in `DOMable::checkUnhandledAttributes()`,
   since they are added by `XMLConfigWriter` to XML configs written through
   `XMLConfigService`.  This fixes a bug where XML parsing would fail on `dsm`

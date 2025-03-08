@@ -246,8 +246,8 @@ BOOST_AUTO_TEST_CASE(test_near_epoch)
             BOOST_TEST_MESSAGE("Secs=" << sec << ", usec=" << usec << ": "
                                << utx << " as '" << fmt << "':" << utstr2);
             UTime utx2 = UTime::parse(true,utstr2,fmt);
-            utx.setFormat("%Y-%m-%d,%H:%M:%S.%f");
-            utx2.setFormat("%Y-%m-%d,%H:%M:%S.%f");
+            utx.setFormat("%Y-%m-%d,%H:%M:%S.%6f");
+            utx2.setFormat("%Y-%m-%d,%H:%M:%S.%6f");
             BOOST_TEST(utx == utx2, "checking " << utx << "==" << utx2);
 
             ncheck++;
@@ -276,64 +276,43 @@ BOOST_AUTO_TEST_CASE(test_parse_trailing_separator)
 }
 
 
+void test_precisions(const UTime& ut, const string& expected)
+{
+    for (int i = 0; i < 10; ++i) {
+        string fmt = "%Y-%m-%d,%H:%M:%S.%" + to_string(i) + "f";
+        // make sure precision is capped at 6.  if n is zero, then expect no
+        // digits for fractional seconds.
+        size_t len = expected.size() - std::max((6 - i), 0);
+        string subx = expected.substr(0, len);
+        BOOST_TEST(ut.format(true, fmt) == subx, 
+                   expected << " with precision " << i << ": " << subx);
+    }
+}
+
+
+
 BOOST_AUTO_TEST_CASE(test_format_fractions)
 {
     UTime ut(true, 2025, 3, 5, 8, 18, 59, 456789);
-    string fmt6{ "%Y-%m-%d,%H:%M:%S.%6f" };
-    string fmt5{ "%Y-%m-%d,%H:%M:%S.%5f" };
-    string fmt4{ "%Y-%m-%d,%H:%M:%S.%4f" };
-    string fmt3{ "%Y-%m-%d,%H:%M:%S.%3f" };
-    string fmt1{ "%Y-%m-%d,%H:%M:%S.%1f" };
-    string fmt0{ "%Y-%m-%d,%H:%M:%S" };
-    BOOST_TEST(ut.format(true, fmt6) == "2025-03-05,08:18:59.456789");
-    BOOST_TEST(ut.format(true, fmt5) == "2025-03-05,08:18:59.45679");
-    BOOST_TEST(ut.format(true, fmt4) == "2025-03-05,08:18:59.4568");
-    BOOST_TEST(ut.format(true, fmt3) == "2025-03-05,08:18:59.457");
-    BOOST_TEST(ut.format(true, fmt0) == "2025-03-05,08:18:59");
+    test_precisions(ut, "2025-03-05,08:18:59.456789");
 
     ut = UTime(true, 2025, 3, 5, 8, 18, 59, 999999);
-    BOOST_TEST(ut.format(true, fmt6) == "2025-03-05,08:18:59.999999");
-    BOOST_TEST(ut.format(true, fmt5) == "2025-03-05,08:19:00.00000");
-    BOOST_TEST(ut.format(true, fmt4) == "2025-03-05,08:19:00.0000");
-    BOOST_TEST(ut.format(true, fmt3) == "2025-03-05,08:19:00.000");
-    BOOST_TEST(ut.format(true, fmt0) == "2025-03-05,08:19:00");
+    test_precisions(ut, "2025-03-05,08:18:59.999999");
 
     ut = UTime(true, 2025, 3, 5, 8, 18, 59, 555500);
-    BOOST_TEST(ut.format(true, fmt6) == "2025-03-05,08:18:59.555500");
-    BOOST_TEST(ut.format(true, fmt5) == "2025-03-05,08:18:59.55550");
-    BOOST_TEST(ut.format(true, fmt4) == "2025-03-05,08:18:59.5555");
-    BOOST_TEST(ut.format(true, fmt3) == "2025-03-05,08:18:59.556");
-    BOOST_TEST(ut.format(true, fmt0) == "2025-03-05,08:19:00");
+    test_precisions(ut, "2025-03-05,08:18:59.555500");
 
     ut = UTime(true, 2025, 3, 5, 8, 18, 59, 500);
-    BOOST_TEST(ut.format(true, fmt6) == "2025-03-05,08:18:59.000500");
-    BOOST_TEST(ut.format(true, fmt5) == "2025-03-05,08:18:59.00050");
-    BOOST_TEST(ut.format(true, fmt4) == "2025-03-05,08:18:59.0005");
-    BOOST_TEST(ut.format(true, fmt3) == "2025-03-05,08:18:59.001");
-    BOOST_TEST(ut.format(true, fmt0) == "2025-03-05,08:18:59");
+    test_precisions(ut, "2025-03-05,08:18:59.000500");
 
     ut = UTime(true, 2025, 3, 5, 8, 18, 59, 499999);
-    BOOST_TEST(ut.format(true, fmt6) == "2025-03-05,08:18:59.499999");
-    BOOST_TEST(ut.format(true, fmt5) == "2025-03-05,08:18:59.50000");
-    BOOST_TEST(ut.format(true, fmt4) == "2025-03-05,08:18:59.5000");
-    BOOST_TEST(ut.format(true, fmt3) == "2025-03-05,08:18:59.500");
-    BOOST_TEST(ut.format(true, fmt0) == "2025-03-05,08:18:59");
+    test_precisions(ut, "2025-03-05,08:18:59.499999");
 
     ut = UTime(true, 2025, 3, 5, 8, 18, 59, 500000);
-    BOOST_TEST(ut.format(true, fmt6) == "2025-03-05,08:18:59.500000");
-    BOOST_TEST(ut.format(true, fmt5) == "2025-03-05,08:18:59.50000");
-    BOOST_TEST(ut.format(true, fmt4) == "2025-03-05,08:18:59.5000");
-    BOOST_TEST(ut.format(true, fmt3) == "2025-03-05,08:18:59.500");
-    BOOST_TEST(ut.format(true, fmt1) == "2025-03-05,08:18:59.5");
-    BOOST_TEST(ut.format(true, fmt0) == "2025-03-05,08:19:00");
+    test_precisions(ut, "2025-03-05,08:18:59.500000");
 
     ut = UTime(true, 1969, 12, 31, 8, 18, 59, 500000);
-    BOOST_TEST(ut.format(true, fmt6) == "1969-12-31,08:18:59.500000");
-    BOOST_TEST(ut.format(true, fmt5) == "1969-12-31,08:18:59.50000");
-    BOOST_TEST(ut.format(true, fmt4) == "1969-12-31,08:18:59.5000");
-    BOOST_TEST(ut.format(true, fmt3) == "1969-12-31,08:18:59.500");
-    BOOST_TEST(ut.format(true, fmt1) == "1969-12-31,08:18:59.5");
-    BOOST_TEST(ut.format(true, fmt0) == "1969-12-31,08:18:59");
+    test_precisions(ut, "1969-12-31,08:18:59.500000");
 }
 
 
@@ -420,6 +399,17 @@ BOOST_AUTO_TEST_CASE(test_rounding)
     BOOST_TEST(rounded == UTime::parse(true, "2019-11-07T16:11:00"));
     rounded = ut.round(5*60*USECS_PER_SEC);
     BOOST_TEST(rounded == UTime::parse(true, "2019-11-07T16:10:00"));
+
+    // test before epoch also
+    ut = UTime::parse(true, "1960-11-07T16:10:59.567");
+    rounded = ut.round(USECS_PER_SEC);
+    BOOST_TEST(rounded == UTime::parse(true, "1960-11-07T16:11:00"));
+    rounded = ut.round(5*USECS_PER_SEC);
+    BOOST_TEST(rounded == UTime::parse(true, "1960-11-07T16:11:00"));
+    rounded = ut.round(10*USECS_PER_SEC);
+    BOOST_TEST(rounded == UTime::parse(true, "1960-11-07T16:11:00"));
+    rounded = ut.round(5*60*USECS_PER_SEC);
+    BOOST_TEST(rounded == UTime::parse(true, "1960-11-07T16:10:00"));
 
     // check the trivial case
     BOOST_TEST(ut.round(0) == ut);
