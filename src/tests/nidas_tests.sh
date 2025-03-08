@@ -30,10 +30,19 @@ valgrind_errors() {
         sed -n 's/^==[0-9]*== ERROR SUMMARY: \([0-9]*\).*/\1/p' $1 || echo 1
 }
 
+sed_times()
+{
+    # truncate the last two digits anything that looks like a timestamp with
+    # fractional seconds.
+    sed -E -e 's/([0-9][0-9]:[0-9][0-9]:[0-9][0-9]\.[0-9]+)[0-9][0-9] /\1 /'
+}
 
 compare() # reffile
 {
     reffile="$1"
+    if [ ! -f "$reffile" ]; then
+        reffile="baseline/$reffile"
+    fi
     outfile=outputs/`basename "$reffile"`
     shift
     test -d outputs || mkdir outputs
@@ -44,7 +53,9 @@ compare() # reffile
         cat "${outfile}.stderr"
         exit 1
     fi
-    diff --side-by-side --width=200 --suppress-common-lines "$reffile" "$outfile"
+    sed_times < "$reffile" > "${reffile}.tmp"
+    sed_times < "$outfile" > "${outfile}.tmp"
+    diff --side-by-side --width=200 --suppress-common-lines "${reffile}.tmp" "${outfile}.tmp"
     if [ $? -ne 0 ]; then
         echo "*** Output differs: $*"
         exit 1

@@ -39,8 +39,8 @@ diff_warn() {
 
     echo "Repeating diff with fewer significant digits"
 
-    zcat $3 | awk -f $awkcom > $tmpout1
-    cat $4 | awk -f $awkcom > $tmpout2
+    cat $3 | sed_times | awk -f $awkcom > $tmpout1
+    cat $4 | sed_times | awk -f $awkcom > $tmpout2
 
     if ! diff -w $tmpout1 $tmpout2; then
         echo "Second diff failed also"
@@ -72,10 +72,10 @@ test_csat3() {
     local data_file=data/centnet_20120601_000000.dat.bz2
     echo "Testing CSAT3: $msg"
     data_dump -l 7 -i 6,11 -p -x config/test.xml \
-        $data_file 2> "${out}.log" > $out
+        $data_file | sed_times 2> "${out}.log" > $out
     # cat $tmperr
     cp -fp "$out" "$tmpout"
-    gunzip -c $compare_to | diff -w - $out > $tmperr || diff_warn "WARNING: differences in CSAT3 test of $msg, diff=" $tmperr $compare_to $tmpout
+    cat $compare_to | sed_times | diff -w - $out > $tmperr || diff_warn "WARNING: differences in CSAT3 test of $msg, diff=" $tmperr $compare_to $tmpout
     echo "Test successful"
 }
 
@@ -88,15 +88,15 @@ export ATIK_ORIENTATION=normal
 # primarily a check that results don't change.
 
 #          shadow orient   tilt  rotate truth-file
-test_csat3 0.00 normal     false false data/no_cors.txt.gz
-test_csat3 0.00 normal     false true  data/horiz_rot.txt.gz
-test_csat3 0.00 normal     true  true  data/tilt_cor.txt.gz
-test_csat3 0.16 normal     true  true  data/shadow_cor.txt.gz
-test_csat3 0.16 normal     false false data/shadow_cor_only.txt.gz
-test_csat3 0.00 down       false false data/down.txt.gz
-test_csat3 0.00 flipped    false false data/flipped.txt.gz
-test_csat3 0.00 horizontal false false data/horizontal.txt.gz
-test_csat3 0.16 horizontal true  true  data/horizontal_all_cors.txt.gz
+test_csat3 0.00 normal     false false baseline/no_cors.txt
+test_csat3 0.00 normal     false true  baseline/horiz_rot.txt
+test_csat3 0.00 normal     true  true  baseline/tilt_cor.txt
+test_csat3 0.16 normal     true  true  baseline/shadow_cor.txt
+test_csat3 0.16 normal     false false baseline/shadow_cor_only.txt
+test_csat3 0.00 down       false false baseline/down.txt
+test_csat3 0.00 flipped    false false baseline/flipped.txt
+test_csat3 0.00 horizontal false false baseline/horizontal.txt
+test_csat3 0.16 horizontal true  true  baseline/horizontal_all_cors.txt
 
 test_csi_irga() {
     export CSAT3_SHADOW_FACTOR=$1
@@ -108,19 +108,19 @@ test_csi_irga() {
     echo "Testing CSI_IRGA: $msg"
     local data_file=data/centnet_20151104_120000.dat.bz2 
     data_dump -l 6 -i 1,41 -p -x config/test.xml \
-        $data_file 2> $tmperr > $tmpout || error_exit
+        $data_file | sed_times 2> $tmperr > $tmpout || error_exit
 
-    gunzip -c $compare_to | diff -w - $tmpout > $tmperr || diff_warn "WARNING: differences in CSI_IRGA test of $msg, diff=" $tmperr $compare_to $tmpout
+    cat $compare_to | diff -w - $tmpout > $tmperr || diff_warn "WARNING: differences in CSI_IRGA test of $msg, diff=" $tmperr $compare_to $tmpout
     echo "Test successful"
 }
 
 #             shadow orient    tilt  rotate truth-file
-test_csi_irga 0.00 normal      false false data/csi_irga_no_cors.txt.gz
-test_csi_irga 0.00 normal      false true  data/csi_irga_horiz_rot.txt.gz
-test_csi_irga 0.00 normal      true  true  data/csi_irga_tilt_cor.txt.gz
+test_csi_irga 0.00 normal      false false baseline/csi_irga_no_cors.txt
+test_csi_irga 0.00 normal      false true  baseline/csi_irga_horiz_rot.txt
+test_csi_irga 0.00 normal      true  true  baseline/csi_irga_tilt_cor.txt
 # shadow correction not supported yet for CSI_IRGA
-test_csi_irga 0.16 normal      true  true  data/csi_irga_shadow_cor.txt.gz
-test_csi_irga 0.16 normal      false false data/csi_irga_shadow_cor_only.txt.gz
+test_csi_irga 0.16 normal      true  true  baseline/csi_irga_shadow_cor.txt
+test_csi_irga 0.16 normal      false false baseline/csi_irga_shadow_cor_only.txt
 
 test_atik() {
     export ATIK_SHADOW_FACTOR=$1
@@ -133,20 +133,20 @@ test_atik() {
     local data_file=data/centnet_20120601_000000.dat.bz2
     echo "Testing ATIK: $msg"
     data_dump -l 6 -i 6,81 -p -x config/test.xml \
-        $data_file 2> $tmperr > $tmpout || error_exit
+        $data_file | sed_times 2> $tmperr > $tmpout || error_exit
 
-    gunzip -c $compare_to | diff -w - $tmpout > $tmperr || diff_warn "WARNING: differences in ATIK test of $msg, diff=" $tmperr $compare_to $tmpout
+    cat $compare_to | sed_times | diff -w - $tmpout > $tmperr || diff_warn "WARNING: differences in ATIK test of $msg, diff=" $tmperr $compare_to $tmpout
     echo "Test successful"
 }
 
 #          shadow orient   tilt  rotate truth-file
-test_atik 0.00 normal     false false data/atik_no_cors.txt.gz
-test_atik 0.00 normal     false true  data/atik_horiz_rot.txt.gz
-test_atik 0.00 normal     true  true  data/atik_tilt_cor.txt.gz
-test_atik 0.16 normal     true  true  data/atik_shadow_cor.txt.gz
-test_atik 0.16 normal     false false data/atik_shadow_cor_only.txt.gz
-test_atik 0.00 flipped    false false data/atik_flipped.txt.gz
-test_atik 0.16 flipped    true  true  data/atik_flipped_all_cors.txt.gz
+test_atik 0.00 normal     false false baseline/atik_no_cors.txt
+test_atik 0.00 normal     false true  baseline/atik_horiz_rot.txt
+test_atik 0.00 normal     true  true  baseline/atik_tilt_cor.txt
+test_atik 0.16 normal     true  true  baseline/atik_shadow_cor.txt
+test_atik 0.16 normal     false false baseline/atik_shadow_cor_only.txt
+test_atik 0.00 flipped    false false baseline/atik_flipped.txt
+test_atik 0.16 flipped    true  true  baseline/atik_flipped_all_cors.txt
 
 echo "Sonic tests succeeded"
 exit 0
