@@ -57,6 +57,7 @@ compare() # reffile
     sed_times < "$outfile" > "${outfile}.tmp"
     diff --side-by-side --width=200 --suppress-common-lines "${reffile}.tmp" "${outfile}.tmp"
     if [ $? -ne 0 ]; then
+        echo "Compared $reffile to $outfile ..."
         echo "*** Output differs: $*"
         exit 1
     fi
