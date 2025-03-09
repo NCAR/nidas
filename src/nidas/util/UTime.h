@@ -155,7 +155,12 @@ public:
      * Note that mon differs from the definition of tm_mon in struct tm
      * which is in the range 0-11.
      */
-    UTime(bool utc, int year,int mon, int day,int hour, int min, double sec);
+    UTime(bool utc, int year, int mon, int day, int hour, int min, double sec);
+
+    /**
+     * Construct UTime with integer seconds and microseconds.
+     */
+    UTime(bool utc, int year, int mon, int day, int hour, int min, int sec, int usec);
 
     /**
      * Constructor. yday is day of year, 1-366.
@@ -284,30 +289,44 @@ public:
 
     /**
      * Format a UTime into a string.
-     * @param utc: if true, use UTC timezone, otherwise the TZ environment variable.
-     * @param fmt: a time format in the form of strftime. All the % format
-     * descriptors of strftime are available. In addition one can
-     * use "%nf" to print fractional seconds, where n is the precision,
-     * a digit from 1 to 9. n defaults to 3, providing millisecond precision,
-     * if not specified.  For example:
-     * ut.format(true,"time is: %Y %m %d %H:%M:%S.%2f");
      *
+     * @param utc: if true, use UTC timezone, otherwise the TZ environment
+     * variable.
+     * 
+     * @param fmt: a time format in the form of strftime. All the % format
+     * descriptors of strftime are available. In addition one can use "%nf" to
+     * print fractional seconds, where n is the precision, a digit from 1 to
+     * 9. n defaults to 3, providing millisecond precision, if not specified.
+     * For example:
+     *
+     *     ut.format(true,"time is: %Y %m %d %H:%M:%S.%2f");
+     *
+     * Fractional seconds are truncated and not rounded, so n is the number of
+     * digits of microseconds that will be inserted into the %f specifier,
+     * from most to least significant, the rest are truncated.  If rounding is
+     * needed, call round() to get a UTime with the desired precision, then
+     * call format().  The number of microsecond digits is capped at 6.
+     * 
      * If this UTime is MIN or MAX, the string "MIN" or "MAX" is returned.
      *
      * The "%s" format descriptor will print the number of non-leap seconds
-     * since 1970 Jan 01 00:00 UTC. This is the same number returned by toSecs().
-     * Note that %s will generate the same value as strftime in the following code:
-     * struct tm tm;
-     * char timestr[12];
-     * time_t tval = mytime;
-     * localtime_r(&tval,&tm);
-     * strftime(timestr,sizeof(timestr),"%s",&tm);
+     * since 1970 Jan 01 00:00 UTC. This is the same number returned by
+     * toSecs().  Note that %s will generate the same value as strftime in the
+     * following code:
+     *
+     *     struct tm tm;
+     *     char timestr[12];
+     *     time_t tval = mytime;
+     *     localtime_r(&tval,&tm);
+     *     strftime(timestr,sizeof(timestr),"%s",&tm);
      *
      * Using gmtime_r to fill in struct tm and then call strftime with a %s
      * generates the wrong value if the local timezone is other than GMT,
-     * since strftime with a %s assumes the struct tm is in the local timezone:
-     * gmtime_r(&tval,&tm);
-     * strftime(timestr,sizeof(timestr),"%s",&tm);  // wrong
+     * since strftime with a %s assumes the struct tm is in the local
+     * timezone:
+     *
+     *     gmtime_r(&tval,&tm);
+     *     strftime(timestr,sizeof(timestr),"%s",&tm);  // wrong
      */
     std::string format(bool utc,const std::string& fmt) const;
 

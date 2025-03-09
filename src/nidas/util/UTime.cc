@@ -85,6 +85,14 @@ UTime::UTime(bool utc, int year, int mon, int day, int hour, int minute,
     _utime = fromTm(utc,&tms) + fromSecs(dsec);
 }
 
+UTime::UTime(bool utc, int year, int mon, int day, int hour, int min, int sec,
+             int usec):
+    _utime(0), _fmt(), _utc(true)
+{
+    *this = UTime(utc, year, mon, day, hour, min, 0);
+    _utime += static_cast<long long>(sec) * USECS_PER_SEC + usec;
+}
+
 UTime::UTime(bool utc, int year, int yday, int hour, int minute, double dsec):
     _utime(0),_fmt(),_utc(utc)
 {
@@ -521,6 +529,7 @@ std::string UTime::format(bool utc, const std::string& fmt) const
             }
             else if (flen > i1 + 1 && ::isdigit(fmt[i1]) && fmt[i1+1] == 'f') {
                 n = fmt[i1] - '0';
+                n = std::min(n, 6);
                 i1 += 2;
             }
             else if (fmt[i1] == 's') {
@@ -556,14 +565,13 @@ std::string UTime::format(bool utc, const std::string& fmt) const
             continue;
         }
 
-        double frac = (double) (_utime % USECS_PER_SEC) / USECS_PER_SEC;
-
-        ostringstream ost;
-        ost << fixed << setw(n+2) << setprecision(n) << frac;
-        const string fracstr = ost.str();
-
-        if (fracstr[0] == '1') ut++;
-        newfmt.append(fracstr.substr(2));
+        // append each digit of microseconds up to desired precision
+        long long usecs = _utime - ute;
+        long long divisor = 100000;
+        for (int i = 1; i <= n; ++i) {
+            newfmt.push_back('0' + ((usecs / divisor) % 10));
+            divisor /= 10;
+        }
     }
     if (i0 < flen) newfmt.append(fmt.substr(i0));
 

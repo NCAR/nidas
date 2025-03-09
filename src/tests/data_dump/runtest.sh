@@ -35,7 +35,7 @@ diff_warn() {
     # [ -f $3 ] || cat $4 | gzip -c > $3
 }
 
-cat << \EOD > $awkcom
+cat << "EOD" > $awkcom
 # BEGIN { CONVFMT="%.4g" }
 /^2.*/{ 
     for (i = 1; i < 6 && i < NF; i++) {
@@ -47,7 +47,7 @@ cat << \EOD > $awkcom
     }
     printf("\n")
 }
-\EOD
+EOD
 
 datfile="$RAWDATADIR/projects/TREX/merge/isff_20060402_160000.dat"
 xfile="../prep/config/projects/TREX/ISFF/config/trex.xml"

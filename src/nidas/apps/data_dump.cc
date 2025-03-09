@@ -113,6 +113,12 @@ public:
     }
 
     void
+    setPrecsion(int ndigits)
+    {
+        precision = ndigits;
+    }
+
+    void
     setTimeFormat(const std::string& fmt)
     {
         timeformat = fmt;
@@ -136,9 +142,10 @@ private:
     const n_u::EndianConverter* fromLittle;
 
     dsm_time_t prev_tt;
- 
+
     float warntime;
     bool showdeltat;
+    int precision;
     bool showlen;
     string timeformat;
     bool csv;
@@ -178,6 +185,7 @@ DumpClient::DumpClient(const SampleMatcher& matcher, format_t fmt,
     prev_tt(0),
     warntime(0.0),
     showdeltat(true),
+    precision(0),
     showlen(true),
     timeformat(DEFTIMEFMT),
     csv(false),
@@ -331,6 +339,7 @@ DumpClient::dumpNaked(const Sample* samp)
 bool
 DumpClient::receive(const Sample* samp) throw()
 {
+    int p { precision };
     if (!_samples.match(samp))
     {
         return false;
@@ -441,10 +450,9 @@ DumpClient::receive(const Sample* samp) throw()
     }
     break;
     case FLOAT:
-        if (samp->getType() == DOUBLE_ST)
-            ostr << setprecision(10);
-        else
-            ostr << setprecision(5);
+        p = (p != 0) ? p : (samp->getType() == DOUBLE_ST ? 10 : 5);
+        ostr << setprecision(p);
+        ostr << setfill(' ');
 
         for (unsigned int i = 0; i < samp->getDataLength(); i++)
             setfield(ostr, "data") << samp->getDataValue(i);
@@ -527,6 +535,10 @@ private:
     NidasAppArg FormatTimeISO;
     NidasAppArg CSV;
     BadSampleFilterArg FilterArg;
+    NidasAppArg Precision{"--precision", "ndigits",
+                          "Number of digits in floating point values.  "
+                          "Default 0 means 5 for floats, 10 for doubles",
+                          "0"};
 };
 
 #define ISOFORMAT "%Y-%m-%dT%H:%M:%S.%4f"
@@ -565,7 +577,7 @@ DataDump::parseRunstring(int argc, char** argv)
                         app.SampleRanges | app.StartTime | app.EndTime |
                         app.Version | app.InputFiles | app.ProcessData |
                         app.Help | app.Version | WarnTime | NoDeltaT | NoLen |
-                        FormatTimeISO | CSV | FilterArg);
+                        FormatTimeISO | CSV | FilterArg | Precision);
 
     app.InputFiles.allowFiles = true;
     app.InputFiles.allowSockets = true;
@@ -805,6 +817,7 @@ DataDump::run() throw()
         DumpClient dumper(app.sampleMatcher(), format, cout);
         dumper.setWarningTime(warntime);
         dumper.setShowDeltaT(!NoDeltaT.asBool());
+        dumper.setPrecsion(Precision.asInt());
         dumper.setShowLen(!NoLen.asBool());
         dumper.setSensors(allsensors);
         dumper.setCSV(CSV.asBool());

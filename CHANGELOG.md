@@ -18,6 +18,11 @@ known as [buster].
 
 ## [master] - Unreleased on master branch
 
+- `UTime::format()` specifier `%[n]f` now truncates to the number of digits
+  instead of rounding.  This makes it more consistent with the other time
+  fields which are never rounded, and times by default show the second which
+  contains them, regardless of specified precision.
+
 - `SampleInputStream` logs a warning on the first sample filtered to help
   diagnose unexpected effects from filtering rules.
 
