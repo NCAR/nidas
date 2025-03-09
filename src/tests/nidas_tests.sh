@@ -53,9 +53,7 @@ compare() # reffile
         cat "${outfile}.stderr"
         exit 1
     fi
-    sed_times < "$reffile" > "${reffile}.tmp"
-    sed_times < "$outfile" > "${outfile}.tmp"
-    diff --side-by-side --width=200 --suppress-common-lines "${reffile}.tmp" "${outfile}.tmp"
+    diff --side-by-side --width=200 --suppress-common-lines "${reffile}" "${outfile}"
     if [ $? -ne 0 ]; then
         echo "Compared $reffile to $outfile ..."
         echo "*** Output differs: $*"

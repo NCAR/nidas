@@ -1,4 +1,4 @@
-from SCons.Script import Split, SConscript
+from SCons.Script import Split, SConscript, Alias
 
 # Testing targets, built and run only on host
 
@@ -24,3 +24,8 @@ wind2d
 """)
 
 SConscript(dirs=dirs)
+
+slowdirs = Split("""serial_sensor sync_server_dump""")
+
+qdirs = [d for d in dirs if d not in slowdirs]
+Alias('qtest', qdirs)
