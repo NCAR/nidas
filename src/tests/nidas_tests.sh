@@ -40,7 +40,7 @@ sed_times()
 compare() # reffile
 {
     reffile="$1"
-    if [ ! -f "$reffile" ]; then
+    if [ -f "baseline/$reffile" ]; then
         reffile="baseline/$reffile"
     fi
     outfile=outputs/`basename "$reffile"`
