@@ -269,8 +269,6 @@ openStream()
     sis.setMaxDsmId(2000);
     sis.setMaxSampleLength(64000);
     sis.setMinSampleTime(n_u::UTime::parse(true,"2006 jan 1 00:00"));
-    // This needs another answer than just a fixed date.  Perhaps current date + 48 hours...
-    sis.setMaxSampleTime(n_u::UTime::parse(true,"2025 jan 1 00:00"));
 
     sis.readInputHeader();
     SampleInputHeader header = sis.getInputHeader();
@@ -285,6 +283,8 @@ openStream()
     DLOG(("SyncServer: first sample ")
          << "at time " << n_u::UTime(_startTime).format());
     DLOG(("SyncServer::openStream() finished."));
+    // bound file 48 hours after start as basic sanity check filter
+    sis.setMaxSampleTime(n_u::UTime(_startTime + (48.0 * 3600.0 * USECS_PER_SEC))); 
 }
 
 
