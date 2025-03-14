@@ -235,6 +235,11 @@ def nidas_build(env: Environment):
     if env.get('GDBDEBUG'):
         env.AppendUnique(CCFLAGS=['-ggdb'])
 
+    # if -k passed to scons, then make it available to shell test functions as
+    # an environment variable.
+    if env.GetOption('keep_going'):
+        env['ENV']['SCONS_KEEP_GOING'] = 'yes'
+
     # Threads
     env.MergeFlags('-pthread')
 

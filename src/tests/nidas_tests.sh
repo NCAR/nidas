@@ -57,7 +57,9 @@ compare() # reffile
     if [ $? -ne 0 ]; then
         echo "Compared $reffile to $outfile ..."
         echo "*** Output differs: $*"
-        exit 1
+        if [ -z "$SCONS_KEEP_GOING" ]; then
+            exit 1
+        fi
     fi
     echo "Comparing $reffile to $outfile: success."
 }
