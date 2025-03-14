@@ -284,7 +284,7 @@ openStream()
          << "at time " << n_u::UTime(_startTime).format());
     DLOG(("SyncServer::openStream() finished."));
     // bound file 48 hours after start as basic sanity check filter
-    sis.setMaxSampleTime(n_u::UTime(_startTime + (48.0 * 3600.0 * USECS_PER_SEC))); 
+    sis.setMaxSampleTime(n_u::UTime(_startTime + (USECS_PER_DAY * 2))); 
 }
 
 
