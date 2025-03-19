@@ -13,8 +13,9 @@ A time tag is the number of non-leap seconds since the
 [UNIX Epoch](https://en.wikipedia.org/wiki/Unix_time), in units of
 microseconds, stored in an 8-byte integer.
 
-The system clock is typically conditioned with NTP, and so has a high accuracy,
-often better than 50 microseconds relative to an absolute GPS reference.
+The DSM system clock is typically conditioned with NTP. If NTP has a good reference clock
+the DSM clock will be quite accurate, often better than 50 microseconds relative to an
+absolute GPS reference.
 
 ## Monitoring System Clock
 
@@ -68,68 +69,150 @@ The above will result in `Stratum_X` and `Timeoffset_X` variables for the DSM. T
 
 ## Latency
 
-The assignment of time tags suffers from several sources of latency. With a
+The assignment of time tags suffers from several sources of acquisition latency. With a
 highly accurate system clock, we can assume that the assigned time tags are always later,
 never earlier, than the actual time the sample was acquired.
 
 Some sources of latency include:
 
  * delay in system response to interrupts
+ * buffering of input
  * interrupts may also be systematically late. For example a serial interrupt generally does
 not occur until the UART has detected inactivity on the serial line
  * acquisition system load causing delays in reading available data from buffers
 
-This last latency can sometimes be significant, several seconds or more, which would seem to
-completely invalidate the time tags.
+## Timetags of Serial Sensor Samples
 
-However, generally this latency is quite random, and for sensors with a known and consistent
-reporting rate, one can determine when the latency is the smallest.  Using an
-artificial sequence of time tags, starting with the first received sample time tag and
-differing by the fixed sensor reporting interval, dt, compute the difference of each raw
-time tag with the associated artificial time tag.  The most negative difference over a period
-of time gives one an estimate of when the system had the minimum latency for that period.
- One can shift the next artificial sequence of time tags by this difference, and continue
-the process.  In this way one can get a good idea of what the time tags would have been
-if the system latency was always at its minimum over that period.
+For sensors with a serial port interface, NIDAS assigns time tags to samples by reading
+the value of the system clock, `Tread`, right after the serial buffer is read.
 
-This method does not remove a constant, systematic latency in the assignment of time tags, but
-is effective in reducing the latency noise. Nor will it correct for time tag latency of sensors
-without a fixed reporting interval.
-
-## Serial Sensor Samples
-
-For sensors with a serial port interface, NIDAS assigns time tags to samples by grabbing
-the value of the system clock right after the serial buffer is read. An estimate of
-the transmission time of the first byte in the buffer is computed as the read time minus
-the number of bytes read, times the transmission time of one byte: 
+An estimate of the time that the first byte of the buffer was transmitted from the sensor, `Tfirst`,
+is calculated as `Tread`, minus the number of bytes read, `Nbyte`, times the transmission time of one byte, `Tbyte`: 
 
         Tfirst = Tread - Nbyte * Tbyte
         Tbyte = (Nd + Ns + Np) / baud
 
-where `Nd`, `Ns` and `Np` are the number of data, stop and parity bits.
+where `Nd`, `Ns` and `Np` are the number of data, stop and parity bits in a transmitted byte,
+and baud is the transmission rate in bits/second.
 
-Then as samples are parsed from the input buffer, the transmission time
+The buffer simply contains some number of bytes in the sequential stream from the sensor,
+and could contain a partial sample or more than one sample.
+As NIDAS parses samples from the input buffer, the transmission time
 of the first byte in a sample is estimated as:
 
         Traw = Tfirst + Noffset * Tbyte
 
-Where `Noffset` is the offset in the input buffer of the first byte
+Where `Noffset` is the byte offset in the input buffer of the first byte
 of the sample.
  
 Each raw sample is then archived, with its associated raw time tag, `Traw`.
 
-If there are more than one sample in the buffer, then unless the sensor has sent
-multiple samples in quick succession, the acquisition system is getting behind. 
+If more than one sample is parsed from the buffer, then, unless the sensor has sent
+multiple samples at once, the acquisition system is getting behind. 
 
 For any remaining samples in the buffer, their `Noffset` will differ
-by `samplen`, the number of bytes in a sample, and the difference in the
+by `samplen`, the number of bytes in a sample. The difference in the
 assigned, raw time tags:
 
         Traw[i] - Traw[i-1] = samplen * Tbyte
 
-will be smaller than the reporting interval of the sensor.
+will likely be smaller than the reporting interval of the sensor.
 
-## TimetagAdjuster
+### Possible Backwards Serial Timetags
+
+The following discussion assumes the [UART](https://en.wikipedia.org/wiki/Universal_asynchronous_receiver-transmitter) 
+for the serial port is on the main CPU board or on an expansion board.
+
+The buffering of a serial port on a USB serial adaptor is more complicated, having the additional latency 
+of the USB transmission, and may vary depending on the adaptor, and the presense of other devices on the bus.
+However, the method that NIDAS assigns timetags is the same as above, using the time-of-receipt of
+each buffer and the RS232 tranmission time of a byte (not the USB transfer time of a byte) to assign timetags.
+
+When bytes are available to be read from the UART serial chip on a CPU or expansion board,
+an interrupt is delivered to the Linux serial port driver, whose interrupt routine then
+transfers all available bytes to an internal buffer.  The driver then notifies any user process
+(NIDAS in this case) which have a read pending on that serial port. NIDAS will then read the buffer
+from the driver, and assign time tags to the samples as discussed above.
+
+The processing loops of the driver and the user process (NIDAS) are independent.  The driver loop,
+responding to interrupts, has higher CPU priority than the user process.  If the user process
+gets behind momentarily, it may then read two or more buffers in quick succession, such that
+the `Tfirst` assigned to the second buffer could be earlier than the `Traw` of the last sample in the
+first buffer (i.e. two or more buffers are received by NIDAS in an interval smaller than
+the time required to send that number of bytes over the serial line).
+
+Thus, using the above method, backwards timetags were possible in the sample
+stream received from a serial port. This was corrected in NIDAS git commit 316aab17d4,
+on Dec 22, 2018, which corrects backward values for `Traw[i]`, setting them to `Traw[i-1]` plus 
+one microsecond.
+
+## Sample Latency and TimetagAdjuster
+
+The serial latency can sometimes be significant, perhaps as bad as several seconds or more
+as could happen if a DSM is swamped with other I/O, such as network bursts, and
+would seem to completely invalidate the time tags.
+
+As mentioned above however, if the system clock is accurate, we can assume that the assigned
+time tags are always later, never earlier, than the actual time the sample was acquired.
+
+This latency will vary over time, due to differing CPU and memory load on the DSM, but it
+is possible to get an estimate of the smallest latency over a time period, for sensors with
+a known and constant
+reporting rate.
+
+TimetagAdjuster creates an estimated sequence of time tags, starting
+with the first received sample time tag, `T0`:
+    
+    T0 = Traw[0]
+
+`T0` is also set, as above, after any large gap exceeding `BIG_GAP`, which is currently
+set to 5 seconds.
+
+The estimated sequence is simply:
+
+    Tguess[I] = T0 + I * dt
+
+It then computes the difference of each raw time tag with the estimated
+time tag:
+
+    adjDiff = Traw[i] - Tguess[I]
+
+The minimum adjDiff over a period of time gives one an estimate of the minimum acquistion latency.
+The minimum adjDiff could be negative if the receipt of a successive
+buffer had a smaller latency than the first buffer. This most likely happens when
+TimetagAdjuster is getting started, before it has determined a good value for `T0`.
+
+Currently TimetagAdjuster computes this minimum latency for the number of samples that are
+received over one second:
+
+    NADJ = 1 / dt
+
+At the end of the second it then corrects the next `T0` by this minimum latency:
+
+    T0 = Tguess[I] + minAdjDiff
+    I = 0
+
+In some cirumstances `I` is allowed to exceed `NADJ` as discussed below.
+
+In this way one can get an estimate what the time tags would have been if the system
+latency was always at the minimum over that period.
+
+The initial value of dt is
+
+        dt = 1 / rate
+
+for the rate specified in the configuration for the sensor.  `dt` is updated periodically
+using a 1 minute running average of the observed dt.
+
+TimetagAdjuster does this simple analysis and adjusts timetags on receipt of each sample. It does
+not buffer samples, and therefore **does not** correct any previous output time tags based
+on an improved estimate for the latency.
+
+This method does not remove a constant, systematic latency in the assignment of time tags, but
+is effective in reducing the latency noise. It also has difficulty with missing samples.
+It also assumes that the sensor has a fixed reporting interval.
+
+### Configuration
 
 If a rate is specified for a sample in the XML configuration, and "ttadjust" is positive,
 and TimetagAdjuster is supported in the sensor class, then it is used in post-processing
@@ -150,93 +233,13 @@ can enable TimetagAdjuster.  The TimetagAdjustor has been added to the process()
 of several sub-classes of CharacterSensor, including ATIK_Sonic, CSAT3_Sonic, CSI_CRX_Binary
 and CSI_IRGA_Sonic in the nidas::dynld::isff namespace.
 
-The archived, raw time tags, `Traw[i]`, are passed one at a time to the
-`TimetagAdjuster::adjust()` method, as each sample is processed.
-
-Each time `adjust()` is called, it computes an adjusted time tag, `Tadj[I]`, using a
-fixed time delta from a base time, `T0`:
-
-        I++
-        Tadj[I] = T0 + I * dt
-
-Each calculated time tag is returned by `adjust()` for the next `Npts`
-input time tags, for `I` from 1 to `Npts`.
-
-The trick is to figure out good values for `T0`, `dt` and `Npts`.
-
-        Npts = max(5, rate)
-
-So `Npts` will be at least 5, and for rates > 5, it will be
-the number of samples per second. In some cirumstances `I` is
-allowed to exceed `Npts` as discussed below.
-
-Initially
-
-        dt = 1/rate
-
-as configured for the sensor.  `dt` is updated periodically
-using a 5 minute running average of the observed value:
-
-        dtobs = (Traw[i] - Traw[i-Npts]) / Npts
-        dt = (dt * (N5min - Npts) + dtobs * Npts) / N5min
-
-Where `N5min` is the number of points in 5 minutes.
-
-Initially, and after any large gap exceeding `BIG_GAP_SECONDS`, `T0` is
-set to the raw time tag passed to `adjust()`:
-
-        T0 = Traw[i]
-        I = 0
-
-and the unadjusted time tag
-
-        Tadj[0] = T0 + 0 * dt = Traw[i]
-
-is returned from `adjust()`.  The current value of `BIG_GAP_SECONDS` is 10.
-
-After that, the difference between each raw and adjusted time tag is
-computed:
-
-        tdiff = Traw[i] - Tadj[I]
-
-`tdiff` is an estimate of the error in `Tadj[I]`.
-
-If `tdiff` is ever negative, then because we assume `Traw[i]` are never
-too early, then `Tadj[I]` and `T0` must be too late, and are corrected
-earlier:
-
-        T0 += tdiff
-        Tadj[I] += tdiff
-        tdiff = 0
-
-Note that since TimetagAdjuster does not buffer samples, it **does not**
-correct any previous output time tags for this negative `tdiff`. 
-
-Over the next `Npts` input time tags, the minimum value of
-`tdiff`, which is now non-negative, is computed.  This `tdiffmin` is
-then an estimate of how much `T0` was too early over that time.
- 
-The idea is that sometimes over the `Npts` the system latency
-is small, and at those times the raw time tags, `Traw[i]`,
-are quite close to the true sample times.
-
-Correcting `T0` forward by `tdiffmin`:
-
-        T0 = Tadj[Npts] + tdiffmin
-
-will give a better series of times for the **next** `Npts`. Note again, that this
-corrected tdiffmin is not applied to any earlier output time tags.
-
-At this time the running average of `dt` is also updated.
-
 ## Periods of Bad Latency
 
-Sometimes a DSM goes "catatonic", such that serial port reads are blocked
-by some other system task. During these times we do not generally see any
+A DSM may go "catatonic", such that serial port reads are blocked for a period of time
+by some other significant system task. During these times we do not generally see any
 data loss, indicating that the serial driver is sufficiently quick in
 responding to interrupts, reading from the UART FIFO before it overflows,
-but the DSM user-space acquisition process is being delayed in reading
-from the serial driver buffers.
+but NIDAS is being delayed in reading from the serial driver buffers.
 
 As a result, for these situations there will be a gap in the `Traw[i]`,
 of perhaps several seconds, followed by time tags with small delta-T:
@@ -264,18 +267,18 @@ as set by the default bufsize for MessageStreamScanner in SampleScanner.h.
 For a buffer length of 2048 bytes, there may be as many as 2048/15=136 PPT samples
 after the gap with a delta-T of 0.0078 sec.
 
-In this case TimetagAdjuster will keep assigning time tags over the `Npts` as usual
-using the `T0` determined from `tdiffmin` before the gap, and the averaged `dt`:
+In this case TimetagAdjuster will keep assigning time tags over the `NADJ` as usual
+using the `T0` determined from `latency` before the gap, and the averaged `dt`:
 
         Tadj[I] = T0 + I * dt
 
-At the gap, `tdiff` jumps to a large value, and then steadily decreases over time, 
+At the gap, `latency` jumps to a large value, and then steadily decreases over time, 
 but might still be large once `Npts` have been processed.
 
-To handle this situation, ttdjust checks whether `tdiff` is decreasing
-(the current `tdiff` is smaller than the previous) and will "flywheel" past
-`I == Npts` without changing `T0` or the averaged dt, until `tdiff` is
-no longer decreasing.  At that point `tdiffmin` should be small, indicating
+To handle this situation, ttdjust checks whether `latency` is decreasing
+(the current `latency` is smaller than the previous) and will continue past
+`I == Npts` without changing `T0` or the averaged dt, until `latency` is
+no longer decreasing.  At that point `latencymin` should be small, indicating
 the system has caught up, and the adjustment over the next set of points
 should be reasonable.
 
@@ -286,14 +289,14 @@ in the buffer is estimated by
 
         Tfirst = Tread - Nbyte * Tbyte
 
-the Tfirst for the next buffer may be earlier than the last sample time in the
+the `Tfirst` for the next buffer may be earlier than the last sample time in the
 previous buffer.  The system does not allow backwards time tags, so the
 time tags of samples in the next buffer are set to the previous time tag plus
 one microsecond.  This will be seen as another gap in the data followed
 by time tags spaced one microsecond apart.
 
 To acount for this second situation, TimetagAdjuster flywheels forward until
-`tdiff` increases or stays the same twice in a row.
+`latency` increases or stays the same twice in a row.
 
 It is probably wise to increase the read buffer size, for example to 4096 bytes.
 
@@ -311,16 +314,16 @@ WCR-TEST test flight.  With `Npts=50`, this is 20 adjustment periods.
 
 ![TimetagAdjuster, WCR-TEST, PSFD, 50 sps serial](ttadjust/PSFD_ttadjust.pdf)
 
-In the top plot, `tdiff` has a linear slope in each 50 point period, which
+In the top plot, `latency` has a linear slope in each 50 point period, which
 gradually decreases in later periods as the adjuster determines a better value
 for the actual reporting rate.  By the third period the adjuster has also
-determined a better value for `tdiffmin`, removing most of the offset in `tdiff`.
+determined a better value for `latencymin`, removing most of the offset in `latency`.
 The second and third plots are the delta-T of the raw and adjusted time tags over
 time. The histograms show the narrowing in the spread of delta-T in the adjusted
 time tags.
 
 If the rate for the Paroscientific is changed to 49.45 in the XML, the
-adjustment is improved, with less slope in the initial values of `tdiff`.
+adjustment is improved, with less slope in the initial values of `latency`.
 
 ### QCF
 
@@ -330,7 +333,7 @@ covering 30 seconds, show the adjustment over a time of bad latency.
 
 ![TimetagAdjuster, WCR-TEST, QCF, 50 sps serial, prompted](ttadjust/QCF_ttadjust.pdf)
 
-The top trace shows the decreasing tdiff after two large latency gaps exceeding 4 seconds.
+The top trace shows the decreasing latency after two large latency gaps exceeding 4 seconds.
 The third trace of `dtadj` indicates, surprisingly, that no data were lost, since
 the maximum resulting delta-T was 0.0220 sec, just slightly larger than the expected
 value of `dt = 1/rate= 0.02 sec`.
@@ -345,7 +348,7 @@ of 0.7, 0.4 and 0.1 seconds. The plots show the adjustment over the 0.7 sec gap,
 
 ![TimetagAdjuster, Perdigao, CSAT3, 20 sps, FTDI Serial-USB](ttadjust/CSAT3_ttadjust.pdf)
 
-The top trace shows the decreasing tdiff after the gap.  Again, the third trace of `dtadj`
+The top trace shows the decreasing latency after the gap.  Again, the third trace of `dtadj`
 indicates that no data was lost, since the resulting delta-Ts are between 0.04990 and 0.05010.
 
 ### Generating Plots
@@ -403,8 +406,8 @@ At the end of processing, an INFO log message is printed for every sample with a
  * outdt min max: min and max successive differences in the adjusted, output time tags
  * rate cfg,obs,diff: the configured sampling rate for the sensor, the observed rate and the difference
  * max gap: maximum gap seen in the data.
- * #neg: number of tdiffs < -dt/2
- * #pos: number of tdiffs > dt/2
+ * #neg: number of latencys < -dt/2
+ * #pos: number of latencys > dt/2
  * #tot: total number of points
 
 In the above message it appears that there were one or more latency gaps of at least
@@ -421,22 +424,22 @@ sample reporting rate.
 
 A large number of #neg or #pos is also a concern.
 
-### Large Positive tdiff
+### Large Positive latency
 
 During processing, TimetagAdjuster logs some warnings.
 
-When TimetagAdjuster is adding the minimum `tdiff` to `T0` for the next set of adjusted points, and the value of
-`tdiff` is larger than `dt/2`, a warning is logged:
+When TimetagAdjuster is adding the minimum `latency` to `T0` for the next set of adjusted points, and the value of
+`latency` is larger than `dt/2`, a warning is logged:
 
-    WARNING|ttadjust: tdiff > dt/2: 2020 11 11 19:30:02.166, id=20,131, tdiff=  0.01, dt=  0.02, #big=1
+    WARNING|ttadjust: latency > dt/2: 2020 11 11 19:30:02.166, id=20,131, latency=  0.01, dt=  0.02, #big=1
 
-### Large Negative tdiff
+### Large Negative latency
 
-When TimetagAdjuster is finds a negative `tdiff` less than `-dt/2`, it logs the issue before applying
-it to 'T0` for the next set of adjusted points. This should be rare, hopefully only happening
+When TimetagAdjuster is finds a negative `latency` less than `-dt/2`, it logs the issue before applying
+it to `T0` for the next set of adjusted points. This should be rare, hopefully only happening
 at startup when there is significant latency jitter
 
-    WARNING|ttadjust: tdiff < -dt/2: 2020 11 11 19:30:02.166, id=20,131, tdiff=  0.01, dt=  -0.02, #neg=1
+    WARNING|ttadjust: latency < -dt/2: 2020 11 11 19:30:02.166, id=20,131, latency=  0.01, dt=  -0.02, #neg=1
 
 ### Debugging
 
@@ -448,24 +451,22 @@ messages from data_dump for sample id 20,131:
         --logconfig enable,level=verbose,function=TimetagAdjuster::adjust \
         --logparam trace_samples=20,131 \
         --logconfig enable,level=info --logfields level,message \
+        --logconfig info \
         input_archive_file.dat \
         2> output.err > output.out
 
 The log options will enable VERBOSE log messages for sample 20,131 in output.err looking like:
 
-    VERBOSE|HR [20,131]@2020 11 11 22:04:59.683, toff tdiff tdiffUncorr tdiffmin nDt: 0.80856 0.002243 0.002243 6.1e-05 40
+    VERBOSE|HR [20,131]@2020 11 11 22:04:59.683 0.80856 0.002243
 
 where for each sample, `Traw`, and several TimetagAdjuster variables are printed:
 
-    * toff: I * dt
-    * tdiff: Traw[i] - Tadj[I], set to 0 if negative
-    * tdiffUncorr: Traw[I] - Tadj[I], but not set to 0 if negative
-    * tdiffmin: minimum value of tdiff so far in the current set of points
-    * nDt: the value of I
+    * tdiff: Traw[i] - Tadj[I]
+    * latency: Traw[I] - Tadj[I], estimated sampling latency at the time
 
 This `sed` command will extract the time and variables from `output.err` above:
 
-    sed -r -n "/^VERBOSE|HR /s/[^@]+@([^,]+).*nDt:(.*)/\1 \2/p" output.err
+    sed -r -n "/^VERBOSE|HR /s/[^@]+@//p" output.err
 
 ## Latency Mitigation
 
