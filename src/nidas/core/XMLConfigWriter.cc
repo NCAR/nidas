@@ -86,8 +86,9 @@ XMLConfigWriterFilter::acceptNode(const xercesc::DOMNode* node) const
 	{
 	    if (child->getNodeType() != xercesc::DOMNode::ELEMENT_NODE) continue;
 	    XDOMElement xchild((xercesc::DOMElement*) child);
+            // note: calling acceptNode() recursively
 	    if (xchild.getNodeName() == "dsm" &&
-	    	acceptDSMNode(child, false) == xercesc::DOMNodeFilter::FILTER_ACCEPT)
+	    	acceptNode(child) == xercesc::DOMNodeFilter::FILTER_ACCEPT)
                     return xercesc::DOMNodeFilter::FILTER_ACCEPT;
 	}
 	// dsm not found for this aircraft/site
@@ -96,7 +97,7 @@ XMLConfigWriterFilter::acceptNode(const xercesc::DOMNode* node) const
 	return xercesc::DOMNodeFilter::FILTER_REJECT;
     }
     else if (xnode.getNodeName() == "dsm")
-        return acceptDSMNode(node, true);
+        return acceptDSMNode(node);
     else if (xnode.getNodeName() == "server")
 	return xercesc::DOMNodeFilter::FILTER_REJECT;
     else if (xnode.getNodeName() == "project")
@@ -105,7 +106,7 @@ XMLConfigWriterFilter::acceptNode(const xercesc::DOMNode* node) const
 }
 
 xercesc::DOMNodeFilter::FilterAction
-XMLConfigWriterFilter::acceptDSMNode(const xercesc::DOMNode* node, bool count) const
+XMLConfigWriterFilter::acceptDSMNode(const xercesc::DOMNode* node) const
 {
     XDOMElement xnode((xercesc::DOMElement*) node);
     if (xnode.getNodeName() != "dsm")
@@ -130,7 +131,7 @@ XMLConfigWriterFilter::acceptDSMNode(const xercesc::DOMNode* node, bool count) c
         ist >> id;
         if (ist.fail()) return xercesc::DOMNodeFilter::FILTER_REJECT;
         if (id == _dsm->getId()) {
-            if (count) _numDSM++;
+            _numDSM++;
             return xercesc::DOMNodeFilter::FILTER_ACCEPT;
         }
     }

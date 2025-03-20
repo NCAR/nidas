@@ -185,8 +185,15 @@ int XMLConfigService::Worker::run()
     output->setByteStream(&formatter);
     output->setSystemId((const XMLCh*)convname);
     writer->writeNode(output,*doc);
-    if (writer->getNumDSM() != 1)
-        PLOG(("Wrote ") << writer->getNumDSM() << " <dsm> nodes to XMLConfigService output");
+
+    int ndsm = writer->getNumDSM();
+    // Generally this should write one <dsm> node, or all of them.
+    if (ndsm == 0)
+        WLOG(("Wrote ") << ndsm << " <dsm> nodes to XMLConfigService output");
+    else if (ndsm < 0)
+        ILOG(("Wrote ") << " all <dsm> nodes to XMLConfigService output");
+    else
+        ILOG(("Wrote ") << ndsm << " <dsm> nodes to XMLConfigService output");
 
     output->release();
 

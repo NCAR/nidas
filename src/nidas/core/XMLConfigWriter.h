@@ -66,7 +66,7 @@ private:
     mutable int _numDSM;
 
     xercesc::DOMNodeFilter::FilterAction
-    acceptDSMNode(const xercesc::DOMNode* node, bool count) const;
+    acceptDSMNode(const xercesc::DOMNode* node) const;
 
     /** No copying. */
     XMLConfigWriterFilter(const XMLConfigWriterFilter&);
@@ -87,7 +87,11 @@ public:
 
     ~XMLConfigWriter();
 
-    int getNumDSM() const { return _filter->getNumDSM(); }
+    /**
+     * How many <dsm> nodes were matched by the XMLConfigWriterFilter.
+     * -1 means no <dsm>s were filtered out, i.e. all <dsm>s were written.
+     */
+    int getNumDSM() const { return _filter ? _filter->getNumDSM() : -1; }
 
 private:
     
