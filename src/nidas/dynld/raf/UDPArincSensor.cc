@@ -50,7 +50,8 @@ const int UDPArincSensor::MAX_CHANNELS = 8;
 
 UDPArincSensor::UDPArincSensor() :
     _prevAPMPseqNum(0), _badAPMPseqCnt(0), _badStatusCnt(0), _ipAddr(),
-    _statusPort(0), configStatus(), _ctrl_pid(0), _arincSensors()
+    _statusPort(0), configStatus(), _latest_pitch(0.0), _latest_roll(0.0),
+    _latest_hdg(0.0), _ctrl_pid(0), _arincSensors()
 {
     for (int i = 0; i < MAX_CHANNELS; ++i)
         _prevRXPseqNum[i] = _badRXPseqCnt[i] = 0;
