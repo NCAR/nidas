@@ -35,12 +35,8 @@ namespace nidas { namespace dynld {
 /**
  * An XMLConfigService that listens for datagram requests of type
  * XML_ALL_CONFIG.
- * A search in Feb 2024, did not find that this service is used.
- * The only place an XML configuration is requested is in DSMEngine, and
- * it asks for the config of a specific DSM, with a request type of XML_CONFIG,
- * not XML_ALL_CONFIG.
- * This class could be obsoleted, but it might be unnecessarily activated in some
- * XML configurations.
+ *
+ * This is used by aeros which wants the full XML to search for Fast2DC probes.
  */
 
 class XMLConfigAllService: public XMLConfigService
@@ -50,7 +46,7 @@ public:
 
     nidas::core::IOChannelRequester* connected(IOChannel*) throw();
 
-    nidas::core::McSocketRequest getRequestType() const 
+    nidas::core::McSocketRequest getRequestType() const
     {
         return XML_ALL_CONFIG;
     }

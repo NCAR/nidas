@@ -58,19 +58,17 @@ namespace nidas { namespace util {
 class Socket;
 
 /**
- * Implementation of a socket, providing a C++ interface to
- * system socket calls: socket,bind,listen,accept,setsockopt, etc.
+ * Implementation of a socket, providing a C++ interface to system socket
+ * calls: socket,bind,listen,accept,setsockopt, etc.
  *
  * This is patterned after java.net.SocketImpl.
  * This class includes methods for both stream (TCP) and datagram (UDP) sockets.
- * We also haven't implemented the socket implementation factory from
- * Java.
+ * We also haven't implemented the socket implementation factory from Java.
  *
- * This class provides the public copy constructors and 
- * assignment operators.  Objects of this class can be copied and
- * assigned to without restriction.  However, because of this,
- * the destructor does not close the socket file descriptor, so,
- * in general, you should make sure that the socket is closed
+ * This class provides the public copy constructors and assignment operators.
+ * Objects of this class can be copied and assigned to without restriction.
+ * However, because of this, the destructor does not close the socket file
+ * descriptor, so, * in general, you should make sure that the socket is closed
  * once at some point.
  */
 class SocketImpl {
@@ -115,7 +113,7 @@ public:
      */
     const SocketAddress& getLocalSocketAddress() const
     {
-    	return *_localaddr;
+        return *_localaddr;
     }
 
     /**
@@ -135,7 +133,7 @@ public:
      */
     const SocketAddress& getRemoteSocketAddress() const
     {
-    	return *_remoteaddr;
+        return *_remoteaddr;
     }
 
     /**
@@ -178,11 +176,10 @@ public:
     bool getTcpNoDelay();
 
     /**
-     * Set the timeout for receive(), recv(), and recvfrom()
-     * methods.
+     * Set the timeout for receive(), recv(), and recvfrom() methods.
      * @param val timeout in milliseconds. 0=no timeout (infinite)
-     * The receive methods will return IOTimeoutException
-     * if an operation times out.
+     * The receive methods will return IOTimeoutException if an operation
+     * times out.
      */
     void setTimeout(int val);
 
@@ -366,7 +363,7 @@ public:
      * @param len number of bytes to send.
      * @flags bitwise OR of flags for send. Default: 0.
      * @return Number of bytes written to socket.
-     * It is not recommended to use this method if using 
+     * It is not recommended to use this method if using
      * non-blocking IO.
      *
      * @throws IOException
@@ -440,10 +437,10 @@ public:
     int getTimeToLive() const;
 
     /**
-     * Control whether a IP_PKTINFO ancillary message is received with
-     * each datagram.  Only supported on DatagramSockets.  The
-     * IP_PKTINFO message is converted to an Inet4PacketInfo object
-     * which is available via the getInet4PacketInfo() method.
+     * Control whether a IP_PKTINFO ancillary message is received with each
+     * datagram.  Only supported on DatagramSockets.  The IP_PKTINFO message
+     * is converted to an Inet4PacketInfo object which is available via the
+     * getInet4PacketInfo() method.
      * @param val: if true enable the IP_PKTINFO message, if false, disable.
      *
      * @throws IOException
@@ -456,14 +453,14 @@ public:
     }
 
     /**
-     * Whether to set the IP_MULTICAST_LOOP socket option. According
-     * to "man 7 ip", IP_MULTICAST_LOOP controls "whether sent multicast
+     * Whether to set the IP_MULTICAST_LOOP socket option. According to
+     * "man 7 ip", IP_MULTICAST_LOOP controls "whether sent multicast
      * packets should be looped back to the local sockets."
-     * This behaviour seems to be the default in Linux in that setting
-     * this does not seem to be necessary for a process on a host
-     * to receive multicast packets that are sent out on one of its
-     * interfaces, providing the multicast reader has joined that
-     * interface, and a firewall is not blocking them.
+     * This behaviour seems to be the default in Linux in that setting this
+     * does not seem to be necessary for a process on a host to receive
+     * multicast packets that are sent out on one of its interfaces, providing
+     * the multicast reader has joined that interface, and a firewall is not
+     * blocking them.
      *
      * @throws IOException
      */
@@ -548,15 +545,14 @@ protected:
 
 /**
  * A stream (TCP) socket.  This class is patterned after the
- * java.net.Socket class. The Socket will be either a
- * AF_INET or AF_UNIX socket depending on the domain or
- * address family of the SocketAddressess argument to the constructor.
- * 
- * This class provides the public copy constructors and 
- * assignment operators.  Objects of this class can be copied and
- * assigned to without restriction.  However, because of this,
- * the destructor does not close the socket file descriptor, so,
- * in general, you should make sure that the socket is closed
+ * java.net.Socket class. The Socket will be either a AF_INET or AF_UNIX
+ * socket depending on the domain or address family of the SocketAddressess
+ * argument to the constructor.
+ *
+ * This class provides the public copy constructors and assignment operators.
+ * Objects of this class can be copied and assigned to without restriction.
+ * However, because of this, the destructor does not close the socket file
+ * descriptor, so, * in general, you should make sure that the socket is closed
  * once at some point.
  *
  * Usage scenario:
@@ -568,18 +564,17 @@ protected:
  *      }
  *      sock.close();
  * \endcode
- * 
+ *
  */
 class Socket {
 public:
 
     /**
-     * Create an unconnected stream socket. Caution: this no-arg
-     * constructor opens a file descriptor, and the
-     * destructor does not close the file descriptor.
-     * You must either do Socket::close() to close it, or
-     * make a copy of Socket, and close the copy, since
-     * the new copy will own the file descriptor.
+     * Create an unconnected stream socket. Caution: this no-arg constructor
+     * opens a file descriptor, and the destructor does not close the file
+     * descriptor.  You must either do Socket::close() to close it, or make a
+     * copy of Socket, and close the copy, since the new copy will own the
+     * file descriptor.
      *
      * @throws IOException
      */
@@ -603,18 +598,16 @@ public:
     Socket(const std::string& host, int port);
 
     /**
-     * Create a stream socket connected to a remote address.
-     * The socket domain will match the domain of the
-     * SocketAddress.
+     * Create a stream socket connected to a remote address.  The socket
+     * domain will match the domain of the SocketAddress.
      *
      * @throws IOException
      */
     Socket(const SocketAddress& addr);
 
     /**
-     * Called by ServerSocket after a connection is
-     * accepted.  The socket domain will match the
-     * domain of the SocketAddress.
+     * Called by ServerSocket after a connection is accepted.  The socket
+     * domain will match the domain of the SocketAddress.
      *
      * @throws IOException
      */
@@ -640,17 +633,15 @@ public:
     static std::vector<Socket*> createSocketPair(int type=SOCK_STREAM);
 
     /**
-     * Set the timeout for receive(), recv(), and recvfrom()
-     * methods.
+     * Set the timeout for receive(), recv(), and recvfrom() methods.
      * @param val timeout in milliseconds. 0=no timeout (infinite)
-     * The receive methods will return IOTimeoutException
-     * if an operation times out.
+     * The receive methods will return IOTimeoutException if an operation
+     * times out.
      */
     void setTimeout(int val) { _impl.setTimeout(val); }
 
     /**
-     * Do fcntl system call to set O_NONBLOCK file descriptor flag on 
-     * the socket.
+     * Do fcntl system call to set O_NONBLOCK file descriptor flag on the socket.
      * @param val true=set O_NONBLOCK, false=unset O_NONBLOCK.
      *
      * @throws IOException
@@ -837,10 +828,9 @@ public:
     }
 
     /**
-     * send all data in buffer on socket, repeating send()
-     * as necessary, until all data is sent (or an exception
-     * occurs).
-     * 
+     * send all data in buffer on socket, repeating send() as necessary, until
+     * all data is sent (or an exception occurs).
+     *
      * @param buf pointer to buffer.
      * @param len number of bytes to send.
      * @flags bitwise OR of flags for send. Default: MSG_NOSIGNAL.
@@ -858,7 +848,7 @@ public:
      **/
     void setReceiveBufferSize(int size)
     {
-    	_impl.setReceiveBufferSize(size);
+        _impl.setReceiveBufferSize(size);
     }
 
     /**
@@ -866,7 +856,7 @@ public:
      **/
     int getReceiveBufferSize()
     {
-    	return _impl.getReceiveBufferSize();
+        return _impl.getReceiveBufferSize();
     }
 
     /**
@@ -874,7 +864,7 @@ public:
      **/
     void setSendBufferSize(int size)
     {
-    	_impl.setSendBufferSize(size);
+        _impl.setSendBufferSize(size);
     }
 
     /**
@@ -882,7 +872,7 @@ public:
      **/
     int getSendBufferSize()
     {
-    	return _impl.getSendBufferSize();
+        return _impl.getSendBufferSize();
     }
 
     /**
@@ -933,14 +923,13 @@ protected:
 };
 
 /**
- * A stream (TCP) socket that is used to listen for connections.
- * This class is patterned after the java.net.ServerSocket class.
+ * A stream (TCP) socket that is used to listen for connections.  This class
+ * is patterned after the java.net.ServerSocket class.
  *
- * This class provides the public copy constructors and 
- * assignment operators.  Objects of this class can be copied and
- * assigned to without restriction.  However, because of this,
- * the destructor does not close the socket, so it is the user's
- * responsibility to call Socket::close() when finished with
+ * This class provides the public copy constructors and assignment operators.
+ * Objects of this class can be copied and assigned to without restriction.
+ * However, because of this, the destructor does not close the socket, so it
+ * is the user's responsibility to call Socket::close() when finished with
  * the connection.
  *
  * Usage scenario of a server which listens for connections
@@ -976,7 +965,7 @@ protected:
  *          // DetachedThreads delete themselves when they're done.
  *      }
  * \endcode
- * 
+ *
  */
 class ServerSocket {
 public:

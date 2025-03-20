@@ -89,7 +89,7 @@ public:
      * Return the IP address portion.
      */
     Inet4Address getInet4Address() const {
-    	return Inet4Address(&_sockaddr.sin_addr);
+	return Inet4Address(&_sockaddr.sin_addr);
     }
 
     /**

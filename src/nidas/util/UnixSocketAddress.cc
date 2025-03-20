@@ -42,7 +42,7 @@ UnixSocketAddress::UnixSocketAddress(const std::string& path):
 
     string tmppath = _path;
     if (_path.length() > 5 && !_path.compare(0,5,"unix:"))
-    	tmppath = _path.substr(5);
+        tmppath = _path.substr(5);
 
     unsigned int l = tmppath.length();
     unsigned int lpath = sizeof(_sockaddr.sun_path);
@@ -72,17 +72,17 @@ UnixSocketAddress::UnixSocketAddress(const struct sockaddr_un* a):
 	int len;
 	for (len = sizeof(_sockaddr.sun_path); len > 0; len--)
 	    if (_sockaddr.sun_path[len-1] != '\0') break;
-	    
+
 	ostringstream ost;
 	if (len == 0) ost << "null";
-	else 
+	else
 	    for (int i = 1; i < len; i++) {
 		if (isprint(_sockaddr.sun_path[i])) ost << _sockaddr.sun_path[i];
 		else ost << " 0x" << hex << setw(2) << setfill('0') <<
 		    (unsigned int)_sockaddr.sun_path[i] << dec;
-	    } 
+	    }
 	// cerr << "abstract sizeof(_sockaddr.sun_path)=" <<
-	// 	sizeof(_sockaddr.sun_path) << " len=" << len << endl;
+	//	sizeof(_sockaddr.sun_path) << " len=" << len << endl;
 	_path = ost.str();
     }
     else {
@@ -93,10 +93,10 @@ UnixSocketAddress::UnixSocketAddress(const struct sockaddr_un* a):
 	    // cerr << "i=" << i << " path=" << _sockaddr.sun_path[i] << endl;
 	    if (isprint(_sockaddr.sun_path[i])) ost << _sockaddr.sun_path[i];
 	    else ost << " 0x" << hex << setw(2) << setfill('0') <<
-	    	(unsigned int)_sockaddr.sun_path[i] << dec;
-	} 
+                 (unsigned int)_sockaddr.sun_path[i] << dec;
+	}
 	// cerr << "nonabstract, sizeof(_sockaddr.sun_path)=" <<
-	// 	sizeof(_sockaddr.sun_path) << endl;
+	//	sizeof(_sockaddr.sun_path) << endl;
 	_path = ost.str();
     }
 #ifdef DEBUG
@@ -161,5 +161,3 @@ bool UnixSocketAddress::operator == (const SocketAddress& x) const {
 	    static_cast<const UnixSocketAddress&>(x);
     return _path.compare(ux._path) == 0;
 }
-
-

@@ -36,7 +36,7 @@ using namespace nidas::util;
 using namespace std;
 
 
-namespace 
+namespace
 {
     typedef map<Inet4SocketAddress,McSocketListener*> listener_map_t;
     Mutex listener_mutex;
@@ -230,7 +230,7 @@ void McSocketListener::add(McSocket<DatagramSocket>* mcsocket)
 {
     DLOG(("McSocketListener add requestType=%d", mcsocket->getRequestType()));
     _mcsocket_mutex.lock();
-    if (_udpMcSockets[mcsocket->getRequestType()]) 
+    if (_udpMcSockets[mcsocket->getRequestType()])
         DLOG(("McSocketListener UDP requestType=%d already added",
               mcsocket->getRequestType()));
     else

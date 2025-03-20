@@ -38,7 +38,7 @@
 #include <signal.h>
 #include <fcntl.h>
 #include <cassert>
-                                                                                
+
 #ifdef DEBUG
 #include <iostream>
 #endif
@@ -119,8 +119,8 @@ void BluetoothRFCommSocket::close()
 #endif
     int fd = _fd;
     _fd = -1;
-    if (fd >= 0 && ::close(fd) < 0) 
-    	throw IOException("BluetoothRFCommSocket","close",errno);
+    if (fd >= 0 && ::close(fd) < 0)
+	throw IOException("BluetoothRFCommSocket","close",errno);
 }
 
 void BluetoothRFCommSocket::connect(const std::string& host, int port)
@@ -143,7 +143,7 @@ void BluetoothRFCommSocket::connect(const SocketAddress& addr)
     if (::connect(_fd,addr.getConstSockAddrPtr(),addr.getSockAddrLen()) < 0) {
 	throw IOException(addr.toAddressString(),"connect",errno);
     }
-    getLocalAddr();	
+    getLocalAddr();
     getRemoteAddr();
 }
 
@@ -166,7 +166,7 @@ void BluetoothRFCommSocket::bind(const SocketAddress& sockaddr)
 	throw IOException("BluetoothRFCommSocket","open",errno);
 
     if (::bind(_fd,sockaddr.getConstSockAddrPtr(),
-    	sockaddr.getSockAddrLen()) < 0) {
+        sockaddr.getSockAddrLen()) < 0) {
 	throw IOException(sockaddr.toAddressString(),"bind",errno);
     }
     // get actual local address
@@ -178,7 +178,7 @@ void BluetoothRFCommSocket::listen()
     if (_fd < 0)
 	throw IOException("BluetoothRFCommSocket","listen",EBADF);
 
-    if (::listen(_fd,1) < 0) 
+    if (::listen(_fd,1) < 0)
 	throw IOException(_localaddr->toAddressString(),"listen",errno);
 }
 
@@ -351,8 +351,8 @@ size_t BluetoothRFCommSocket::recv(void* buf, size_t len, int flags)
 #else
 	if ((res = ::pselect(_fd+1,&fdset,0,0,&_timeout,&sigmask)) < 0)
 	    throw IOException(_localaddr->toAddressString(),"receive",errno);
-	
-	if (res == 0) 
+
+	if (res == 0)
 	    throw IOTimeoutException(_localaddr->toAddressString(),"receive");
 #endif
     }

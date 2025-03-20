@@ -96,7 +96,7 @@ public:
 
     /**
      * Assignment operator.
-     */ 
+     */
     McSocketDatagram& operator=(const McSocketDatagram& rhs);
 
     int getMagic() const { return ntohl(mcdata.magic); }
@@ -208,21 +208,21 @@ public:
 *      Inet4Address mcastAddr = Inet4Address::getByName("239.0.0.10");
 *      int mport = 10000;
 *      Inet4SocketAddress mcastSockAddr(mcastAddr,mport);
-*      
+*
 *      int rtype = 99;
-*      
+*
 *      McSocket<Socket> server;
 *      server.setInet4McastSocketAddress(mcastSockAddr);
 *      server.setRequestType(rtype);
-*      
+*
 *      McSocket<Socket> client;
 *      client.setInet4McastSocketAddress(mcastSockAddr);
 *      client.setRequestType(rtype);
-*      
+*
 *      class McThread: public Thread {
 *      public:
 *         McThread(McSocket<Socket>& clnt):
-*	  	Thread("McThread"),client(clnt) {}
+*		Thread("McThread"),client(clnt) {}
 *	int run() throw(Exception)
 *	{
 *           Socket* socket = client.connect();
@@ -284,13 +284,13 @@ public:
 
     /**
      * Set a specific interface for the multicasts.
-     * If a request() or connect() is done, then requests 
-     * will be sent on this interface. If an listen() or accept()
-     * is done, then an MulticastSocket::joinInterface() will
-     * be done on this interface to listen for incoming datagrams.
-     * If the interface is not set, or is left at the default of
-     * INADDR_ANY, then McSocket will send on or join all available
-     * interfaces capable of multicast, including the loopback interface.  
+     * If a request() or connect() is done, then requests will be sent on this
+     * interface. If an listen() or accept() is done, then an
+     * MulticastSocket::joinInterface() will be done on this interface to
+     * listen for incoming datagrams.  If the interface is not set, or is left
+     * at the default of INADDR_ANY, then McSocket will send on or join all
+     * available * interfaces capable of multicast, including the loopback
+     * interface.
      */
     void setInterface(Inet4NetworkInterface iaddr) {
         _iface = iaddr;
@@ -915,7 +915,7 @@ int McSocketMulticaster<SocketT>::run()
     sigdelset(&sigmask,SIGUSR1);
 
     Inet4SocketAddress mcsockaddr =
-    	_mcsocket->getInet4McastSocketAddress();
+	_mcsocket->getInet4McastSocketAddress();
     Inet4Address mcaddr = mcsockaddr.getInet4Address();
 
     std::vector<Inet4NetworkInterface> ifaces;

@@ -89,7 +89,7 @@ public:
      * Return the Bluetooth address portion.
      */
     BluetoothAddress getBluetoothAddress() const {
-    	return BluetoothAddress(&_sockaddr.rc_bdaddr);
+        return BluetoothAddress(&_sockaddr.rc_bdaddr);
     }
 
     /**

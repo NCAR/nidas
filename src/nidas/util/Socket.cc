@@ -138,7 +138,7 @@ void SocketImpl::close()
          << " remote=" << getRemoteSocketAddress().toString());
     int fd = _fd;
     _fd = -1;
-    if (fd >= 0 && ::close(fd) < 0) 
+    if (fd >= 0 && ::close(fd) < 0)
         throw IOException("Socket","close",errno);
 }
 
@@ -193,7 +193,7 @@ void SocketImpl::bind(const SocketAddress& sockaddr)
     // is shown in:
     //      /proc/sys/net/ipv4/ip_local_port_range
     // which on RHEL5 and Fedora 15 is 32768-61000.
-    if (sockaddr.getPort() >= 32768 && sockaddr.getPort() <= 61000) 
+    if (sockaddr.getPort() >= 32768 && sockaddr.getPort() <= 61000)
         WLOG(("%s: bind to a port number in the range 32768-61000 will fail if it has been dynamically allocated by the system for another connection. See /proc/sys/net/ipv4/ip_local_port_range on Linux",
             sockaddr.toAddressString().c_str()));
     if (_fd < 0 && (_fd = ::socket(_sockdomain,_socktype, 0)) < 0)
@@ -287,13 +287,13 @@ Socket* SocketImpl::accept()
                 if (fds.revents & POLLERR)
                     throw IOException("ServerSocket: " + _localaddr->toAddressString(),"accept POLLERR",errno);
 
-                if (fds.revents & POLLNVAL) 	// fd not open
+                if (fds.revents & POLLNVAL)	// fd not open
                     throw IOException("ServerSocket: " + _localaddr->toAddressString(),"ppoll","socket closed");
 
 #ifdef POLLRDHUP
                 if (fds.revents & (POLLHUP | POLLRDHUP))
 #else
-                if (fds.revents & (POLLHUP)) 
+                if (fds.revents & (POLLHUP))
 #endif
                     NLOG(("ServerSocket %s: accept: POLLHUP",_localaddr->toAddressString().c_str()));
 
@@ -331,13 +331,13 @@ Socket* SocketImpl::accept()
             if (fds.revents & POLLERR)
                 throw IOException("ServerSocket: " + _localaddr->toAddressString(),"accept POLLERR",errno);
 
-            if (fds.revents & POLLNVAL) 	// fd not open
+            if (fds.revents & POLLNVAL)	// fd not open
 		throw IOException("ServerSocket: " + _localaddr->toAddressString(),"ppoll","socket closed");
 
 #ifdef POLLRDHUP
             if (fds.revents & (POLLHUP | POLLRDHUP))
 #else
-            if (fds.revents & (POLLHUP)) 
+            if (fds.revents & (POLLHUP))
 #endif
                 NLOG(("ServerSocket %s: POLLHUP",_localaddr->toAddressString().c_str()));
 #else
@@ -796,7 +796,7 @@ size_t SocketImpl::recvfrom(void* buf, size_t len, int flags,
 #else
         if ((pres = ::pselect(_fd+1,&fdset,0,0,&_timeout,&sigmask)) < 0)
             throw IOException(_localaddr->toAddressString(),"pselect",errno);
-        if (pres == 0) 
+        if (pres == 0)
             throw IOTimeoutException(_localaddr->toAddressString(),"recvfrom");
 #endif
     }
@@ -1596,7 +1596,7 @@ DatagramSocket::DatagramSocket(const SocketAddress& addr) :
 vector<Socket*> Socket::createSocketPair(int type)
 {
     int fds[2];
-    if (::socketpair(AF_UNIX,type,0,fds) < 0) 
+    if (::socketpair(AF_UNIX,type,0,fds) < 0)
         throw IOException("socketpair","create",errno);
     vector<Socket*> res;
     res.push_back(new Socket(fds[0],UnixSocketAddress("")));

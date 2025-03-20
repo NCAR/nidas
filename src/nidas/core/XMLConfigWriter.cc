@@ -53,7 +53,7 @@ XMLConfigWriter::XMLConfigWriter(const DSMConfig* dsm):
 }
 
 
-XMLConfigWriter::~XMLConfigWriter() 
+XMLConfigWriter::~XMLConfigWriter()
 {
     setFilter(0);
     delete _filter;
@@ -88,12 +88,12 @@ XMLConfigWriterFilter::acceptNode(const xercesc::DOMNode* node) const
 	    XDOMElement xchild((xercesc::DOMElement*) child);
             // note: calling acceptNode() recursively
 	    if (xchild.getNodeName() == "dsm" &&
-	    	acceptNode(child) == xercesc::DOMNodeFilter::FILTER_ACCEPT)
-                    return xercesc::DOMNodeFilter::FILTER_ACCEPT;
+                acceptNode(child) == xercesc::DOMNodeFilter::FILTER_ACCEPT)
+                return xercesc::DOMNodeFilter::FILTER_ACCEPT;
 	}
 	// dsm not found for this aircraft/site
 	// cerr << "rejecting " << nodename << " node, name=" <<
-	// 	xnode.getAttributeValue("name") << endl;
+	//	xnode.getAttributeValue("name") << endl;
 	return xercesc::DOMNodeFilter::FILTER_REJECT;
     }
     else if (xnode.getNodeName() == "dsm")
@@ -111,11 +111,11 @@ XMLConfigWriterFilter::acceptDSMNode(const xercesc::DOMNode* node) const
     XDOMElement xnode((xercesc::DOMElement*) node);
     if (xnode.getNodeName() != "dsm")
 	return xercesc::DOMNodeFilter::FILTER_REJECT;	// not a dsm node
-    if(!node->hasAttributes()) 
+    if(!node->hasAttributes())
 	return xercesc::DOMNodeFilter::FILTER_REJECT;	// no attribute
 
     // If the <dsm> has an ID attribute, it's in the dsmcatalog, so accept it.
-    if (xnode.getAttributeValue("ID").length() > 0) 
+    if (xnode.getAttributeValue("ID").length() > 0)
 	return xercesc::DOMNodeFilter::FILTER_ACCEPT;
 
     // Check for a match of this <dsm> node's id (lower case "id") attribute

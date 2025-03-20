@@ -92,6 +92,10 @@ protected:
     long long decodeTIMER(const rxp&);
     int bcd_to_decimal(unsigned char x) { return x - 6 * (x >> 4); }
 
+    /// Broadcast UDP the latest attitude variables.
+    void udpAttitude();
+
+
     // Data ships Big Endian.
     static const nidas::util::EndianConverter * bigEndian;
 
@@ -117,6 +121,8 @@ protected:
      */
     std::map<std::string, int> configStatus;
 
+    /// Latest pitch, roll & heading to broadcast.
+    float _latest_pitch, _latest_roll, _latest_hdg;
 
 private:
     //  PID for process that intializes and controls ENET unit.
