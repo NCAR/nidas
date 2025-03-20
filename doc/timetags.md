@@ -153,7 +153,7 @@ as could happen if a DSM is swamped with other I/O, such as network bursts, and
 would seem to completely invalidate the time tags.
 
 As mentioned above however, if the system clock is accurate, we can assume that the assigned
-time tags are always later, never earlier, than the actual time the sample was acquired.
+time tags are always later, never earlier, than the actual time the sample was sent from the sensor.
 
 This latency will vary over time, due to differing CPU and memory load on the DSM, but it
 is possible to get an estimate of the smallest latency over a time period, for sensors with
@@ -194,8 +194,8 @@ At the end of the second it then corrects the next `T0` by this minimum latency:
 
 In some cirumstances `I` is allowed to exceed `NADJ` as discussed below.
 
-In this way one can get an estimate what the time tags would have been if the system
-latency was always at the minimum over that period.
+In this way one can get an estimate of what the timetags would have been if the system
+latency was always the minimum over that period.
 
 The initial value of dt is
 
@@ -204,13 +204,32 @@ The initial value of dt is
 for the rate specified in the configuration for the sensor.  `dt` is updated periodically
 using a 1 minute running average of the observed dt.
 
-TimetagAdjuster does this simple analysis and adjusts timetags on receipt of each sample. It does
-not buffer samples, and therefore **does not** correct any previous output time tags based
-on an improved estimate for the latency.
+TimetagAdjuster does this simple analysis and adjusts timetags on-the-fly, on receipt of each sample.
+It does not buffer samples, and therefore **does not** correct any previous corrected timetags based
+on improved estimates of `T0` or the latency.
+
+As mentioned above, it assumes that the sensor has a fixed reporting interval.
 
 This method does not remove a constant, systematic latency in the assignment of time tags, but
-is effective in reducing the latency noise. It also has difficulty with missing samples.
-It also assumes that the sensor has a fixed reporting interval.
+is effective in reducing noise in the timetag spacing due to varying latency.
+
+The adjuster will be most effective on files where the number of samples and sample delta-T
+reported by `data_stats` indicates no samples were lost.
+
+The adjuster will assign incorrect time tags if there are missing samples, though
+if the missing samples are due to a sensor being disconnected or powered down for
+a period of time longer than `BIG_GAP`, it restarts its adjustment and the results
+should be better than the original values.
+
+Note that the internal timing of a serial sensor will likely differ slightly from the advertised
+sampling rate, and `data_stats` will then report a number of samples that differs slightly from
+the expected number over a long period of hours or more.
+
+TimetagAdjuster will adjust to the different sample rate successfully as long as no
+samples were actually lost.
+
+A good archive with no lost samples and a good DSM clock will reveal the slight differences
+in precise sampling rates of individual sensors, and these rates are quite consistent over time.
 
 ### Configuration
 
