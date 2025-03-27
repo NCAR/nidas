@@ -14,6 +14,7 @@ sources = env.Split("""
     Arinc_IRS.cc
     BCPD_Serial.cc
     CDP_Serial.cc
+    CDPpbp_Serial.cc
     CVI_LV_Input.cc
     CVIOutput.cc
     CVIProcessor.cc
@@ -68,6 +69,7 @@ headers = env.Split("""
     Arinc_IRS.h
     BCPD_Serial.h
     CDP_Serial.h
+    CDPpbp_Serial.h
     CVI_LV_Input.h
     CVIOutput.h
     CVIProcessor.h
