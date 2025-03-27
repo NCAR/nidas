@@ -147,7 +147,6 @@ void SppSerial::validate()
         }
     }
 
-cout << "noutVals=" << _noutValues << ", nCh=" << _nChannels << ", nHsk=" << _nHskp << ", DT="<<_outputDeltaT << ", pbp="<<_nPbP << endl;
     if (_noutValues != _nChannels + _nHskp + (int) _outputDeltaT + _nPbP) {
         ostringstream ost;
         ost << "total length of variables should be " <<
