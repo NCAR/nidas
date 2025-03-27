@@ -30,11 +30,6 @@
 #include <nidas/dynld/DSMSerialSensor.h>
 #include <nidas/core/VariableConverter.h>
 
-//
-// Add a bogus zeroth bin to the data to match historical behavior.
-// Remove all traces of this after the netCDF file refactor.
-//
-// #define ZERO_BIN_HACK
 
 namespace nidas { namespace dynld { namespace raf {
 
@@ -245,6 +240,11 @@ protected:
      */
     dsm_time_t _prevTime;
     //@}
+
+    /**
+     * Particle by Particle data.  I believe only CDP supports this.
+     */
+    int _nPbP;
 
     /**
      * VariableConverters which may have been defined for each output

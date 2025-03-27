@@ -70,7 +70,7 @@ public:
 protected:
 
   int packetLen() const {
-    return (36 + 4 * _nChannels + 1030);
+    return (36 + (4 * _nChannels) + 1030);
   }
 
 };

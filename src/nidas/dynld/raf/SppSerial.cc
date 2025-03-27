@@ -69,6 +69,7 @@ SppSerial::SppSerial(const std::string & probe) : DSMSerialSensor(),
     // _sampleRate(1),
     _outputDeltaT(false),
     _prevTime(0),
+    _nPbP(0),
     _converters()
 {
     // If these aren't true, we're screwed!
@@ -146,27 +147,14 @@ void SppSerial::validate()
         }
     }
 
-#ifdef ZERO_BIN_HACK
-    /*
-     * We'll be adding a bogus zeroth bin to the data to match historical
-     * behavior. Remove all traces of this after the netCDF file refactor.
-     */
-    if (_noutValues != _nChannels + _nHskp + (int) _outputDeltaT +1) {
+cout << "noutVals=" << _noutValues << ", nCh=" << _nChannels << ", nHsk=" << _nHskp << ", DT="<<_outputDeltaT << ", pbp="<<_nPbP << endl;
+    if (_noutValues != _nChannels + _nHskp + (int) _outputDeltaT + _nPbP) {
         ostringstream ost;
         ost << "total length of variables should be " <<
-            (_nChannels + _nHskp + (int)_outputDeltaT + 1) << " rather than " << _noutValues << ".\n";
+            (_nChannels + _nHskp + (int) _outputDeltaT + _nPbP) << " rather than " << _noutValues << ".\n";
         throw n_u::InvalidParameterException(getName(), "sample",
                 ost.str());
     }
-#else
-    if (_noutValues != _nChannels + _nHskp + (int) _outputDeltaT) {
-        ostringstream ost;
-        ost << "total length of variables should be " <<
-            (_nChannels + _nHskp + (int) _outputDeltaT) << " rather than " << _noutValues << ".\n";
-        throw n_u::InvalidParameterException(getName(), "sample",
-                ost.str());
-    }
-#endif
 
     /*
      * Allocate a new buffer for yet-to-be-handled data.  We get enough space
@@ -181,7 +169,7 @@ void SppSerial::validate()
 }
 
 void SppSerial::sendInitPacketAndCheckAck(void * setup_pkt, int len, int return_len)
-{   
+{
     std::string eType("SppSerial init-ack");
 
     try {

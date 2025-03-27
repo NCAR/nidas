@@ -41,8 +41,9 @@ NIDAS_CREATOR_FUNCTION_NS(raf, CDPpbp_Serial)
 
 CDPpbp_Serial::CDPpbp_Serial() : CDP_Serial()
 {
-
+  _nPbP = 512;
 }
+
 
 bool CDPpbp_Serial::process(const Sample* samp, list<const Sample*>& results)
 {
