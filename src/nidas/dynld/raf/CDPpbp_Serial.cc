@@ -53,7 +53,7 @@ bool CDPpbp_Serial::process(const Sample* samp, list<const Sample*>& results)
     /*
      * Copy the good record into our CDP_blk struct.
      */
-    CDP_blk inRec;
+    CDPpbp_blk inRec;
 
     ::memcpy(&inRec, _waitingData, packetLen() - 2);
     ::memcpy(&inRec.chksum, _waitingData + packetLen() - 2, 2);
