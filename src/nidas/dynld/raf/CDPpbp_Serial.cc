@@ -41,7 +41,7 @@ NIDAS_CREATOR_FUNCTION_NS(raf, CDPpbp_Serial)
 
 CDPpbp_Serial::CDPpbp_Serial() : CDP_Serial()
 {
-  _nPbP = 512;
+  _nPbP = 256;
 }
 
 
@@ -104,20 +104,43 @@ bool CDPpbp_Serial::process(const Sample* samp, list<const Sample*>& results)
     *dout++ = convert(ttag,UnpackDMT_UShort(inRec.SizerThrshld),ivar++);
     *dout++ = convert(ttag,UnpackDMT_ULong(inRec.ADCoverflow),ivar++);
 
-#ifdef ZERO_BIN_HACK
-    // add a bogus zeroth bin for historical reasons
-    *dout++ = 0.0;
-#endif
     for (int iout = 0; iout < _nChannels; ++iout)
-	*dout++ = UnpackDMT_ULong(inRec.OPCchan[iout]);
+      *dout++ = UnpackDMT_ULong(inRec.OPCchan[iout]);
 
     // Compute DELTAT.
     if (_outputDeltaT) {
-        if (_prevTime != 0)
-            *dout++ = (ttag - _prevTime) / USECS_PER_SEC;
-        else *dout++ = 0.0;
-        _prevTime = ttag;
+      if (_prevTime != 0)
+        *dout++ = (ttag - _prevTime) / USECS_PER_SEC;
+      else *dout++ = 0.0;
+      _prevTime = ttag;
     }
+
+    uint64_t startTime = 0;
+    unsigned char *cp = (unsigned char *)&startTime;
+    unsigned char *inp = ((unsigned char *)&inRec) + 34 + (4 * _nChannels);
+
+    cp[0] = inp[4];
+    cp[1] = inp[5];
+    cp[2] = inp[2];
+    cp[3] = inp[3];
+    cp[4] = inp[0];
+    cp[5] = inp[1];
+    cp[7] = 0;
+    cp[8] = 0;
+    inp += 6;
+
+    float times[_nPbP], sizes[_nPbP];
+    for (int iout = 0; iout < _nPbP; ++iout)
+    {
+      uint32_t val = UnpackDMT_ULong(&inp[iout*4]);
+      times[iout] = (float)startTime + (float)(val >> 12);
+      sizes[iout] = (float)(val & 0x00000FFF);
+    }
+
+    for (int iout = 0; iout < _nPbP; ++iout)
+      *dout++ = times[iout];
+    for (int iout = 0; iout < _nPbP; ++iout)
+      *dout++ = sizes[iout];
 
     // If this fails then the correct pre-checks weren't done in validate().
     assert(dout == dend);

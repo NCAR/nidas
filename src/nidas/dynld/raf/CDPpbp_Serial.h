@@ -63,7 +63,7 @@ public:
       DMT_UShort SizerThrshld;  // in 2012 documentation this is Sizer Dynamic Threshold (unused)
       DMT_ULong ADCoverflow;
       DMT_ULong OPCchan[MAX_CHANNELS];	// 40 channels max
-      unsigned char pbp[1031];          // This is a bunch of byte packing.  First value is a 6 byte int.
+      unsigned char pbp[1030];
       DMT_UShort chksum;
   };
 
