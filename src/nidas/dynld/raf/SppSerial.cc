@@ -147,10 +147,10 @@ void SppSerial::validate()
         }
     }
 
-    if (_noutValues != _nChannels + _nHskp + (int) _outputDeltaT + _nPbP) {
+    if (_noutValues != _nChannels + _nHskp + (int) _outputDeltaT + (_nPbP*2)) {
         ostringstream ost;
         ost << "total length of variables should be " <<
-            (_nChannels + _nHskp + (int) _outputDeltaT + _nPbP) << " rather than " << _noutValues << ".\n";
+            (_nChannels + _nHskp + (int) _outputDeltaT + (_nPbP*2)) << " rather than " << _noutValues << ".\n";
         throw n_u::InvalidParameterException(getName(), "sample",
                 ost.str());
     }

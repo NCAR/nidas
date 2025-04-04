@@ -101,16 +101,8 @@ void TwoD_Processing::createSamples(dsm_time_t nextTimeTag,list < const Sample *
         outs->setId(_1dcID);
 
         dout = outs->getDataPtr();
-#ifdef ZERO_BIN_HACK
-        // add a bogus zeroth bin for historical reasons
-        *dout++ = 0.0;
-#endif
         for (int i = 1; i < NumberOfDiodes(); ++i)
             *dout++ = (float)_size_dist_1D[i];
-
-#ifndef ZERO_BIN_HACK
-        *dout++ = 0.0;  // either at the beginning or the end....
-#endif
 
         *dout++ = _dead_time / 1000;      // Dead Time, return milliseconds.
         if (_nextraValues > 1)
@@ -132,16 +124,8 @@ void TwoD_Processing::createSamples(dsm_time_t nextTimeTag,list < const Sample *
         outs->setId(_2dcID);
 
         dout = outs->getDataPtr();
-#ifdef ZERO_BIN_HACK
-        // add a bogus zeroth bin for historical reasons
-        *dout++ = 0.0;
-#endif
         for (int i = 1; i < (NumberOfDiodes()<<1); ++i)
             *dout++ = (float)_size_dist_2D[i];
-
-#ifndef ZERO_BIN_HACK
-        *dout++ = 0.0;
-#endif
 
         *dout++ = _dead_time / 1000;      // Dead Time, return milliseconds.
         results.push_back(outs);

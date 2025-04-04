@@ -234,11 +234,6 @@ bool PIP_Serial::process(const Sample* samp,list<const Sample*>& results)
     *dout++ = convert(ttag,UnpackDMT_UShort(inRec.DOFRejectCount), ivar++);
     *dout++ = convert(ttag,UnpackDMT_UShort(inRec.EndRejectCount), ivar++);
 
-
-#ifdef ZERO_BIN_HACK
-    // add a bogus zeroth bin for historical reasons
-    *dout++ = 0.0;
-#endif
     for (int iout = 0; iout < _nChannels; ++iout)
 	*dout++ = UnpackDMT_UShort(inRec.binCount[iout]);
 

@@ -175,10 +175,6 @@ bool SPP200_Serial::process(const Sample* samp, list<const Sample*>& results)
 	0.9765625,ivar++);
 
 
-#ifdef ZERO_BIN_HACK
-    // add a bogus zeroth bin for historical reasons
-    *dout++ = 0.0;
-#endif
     for (int iout = 0; iout < _nChannels; ++iout)
 	*dout++ = UnpackDMT_ULong(inRec.OPCchan[iout]);
 

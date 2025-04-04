@@ -168,10 +168,6 @@ bool SPP300_Serial::process(const Sample* samp,list<const Sample*>& results)
 //    *dout++ = convert(ttag,UnpackDMT_ULong(inRec.rejDOF),ivar++);
 //    *dout++ = convert(ttag,UnpackDMT_ULong(inRec.ADCoverflow),ivar++);
 
-#ifdef ZERO_BIN_HACK
-    // add a bogus zeroth bin for historical reasons
-    *dout++ = 0.0;
-#endif
     for (int iout = 0; iout < _nChannels; ++iout)
       *dout++ = UnpackDMT_ULong(inRec.OPCchan[iout]);
 
