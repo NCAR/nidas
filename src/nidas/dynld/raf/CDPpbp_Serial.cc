@@ -115,6 +115,8 @@ bool CDPpbp_Serial::process(const Sample* samp, list<const Sample*>& results)
       _prevTime = ttag;
     }
 
+
+    // Extract the PBP (Particle by Particle).
     uint64_t startTime = 0;
     unsigned char *cp = (unsigned char *)&startTime;
     unsigned char *inp = ((unsigned char *)&inRec) + 34 + (4 * _nChannels);
