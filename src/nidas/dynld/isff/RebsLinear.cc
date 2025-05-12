@@ -66,7 +66,7 @@ std::string RebsLinear::toString() const
     return ost.str();
 }
 
-float RebsLinear::convert(dsm_time_t t,float val)
+double RebsLinear::convert(dsm_time_t t, double val)
 {
     readCalFile(t);
 
@@ -79,6 +79,5 @@ float RebsLinear::convert(dsm_time_t t,float val)
     }
     else if (n > SLOPE_POS)
             return val * coefs[SLOPE_POS] + coefs[INTCP_POS];
-    return floatNAN;
+    return doubleNAN;
 }
-

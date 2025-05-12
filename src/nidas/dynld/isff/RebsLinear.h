@@ -54,7 +54,7 @@ public:
     /**
      * Apply linear conversion.
      */
-    float convert(dsm_time_t t, float volts);
+    double convert(dsm_time_t t, double volts) override;
 
 private:
 
