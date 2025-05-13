@@ -68,7 +68,20 @@ public:
 
     bool receive(const nidas::core::Sample *s) throw();
 
-    size_t write(const struct iovec* iov,int iovcnt);
+    /**
+     * The write(struct iovec*, int iovcnt) method in this subclass hides the
+     * SampleOutputBase virtual method, so make it explicit it here that this
+     * signature calls the base class implementation, whether called through
+     * the base class or this class.  Probably this was never called anyway
+     * and so this doesn't matter, but it's good to clean up the warnings and
+     * make the write() implementations explicit.
+     */
+    size_t write(const void* buf, size_t len) override
+    {
+        return SampleOutputBase::write(buf, len);
+    }
+
+    size_t write(const struct iovec* iov, int iovcnt);
 
     // void init() throw();
 
