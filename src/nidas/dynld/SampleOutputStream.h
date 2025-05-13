@@ -76,6 +76,21 @@ public:
     void flush() throw();
 
     /**
+     * Define the SampleOutputBase virtual method to avoid warnings about
+     * it being hidden by the one below, write(buf, len, flush), although
+     * this is somewhat circumspect.  Previous calls to the
+     * SampleOutputBase::write() virtual method (ie, through a base class
+     * pointer) would have called the base class implementation, but this
+     * implementation explicitly calls the subclass write(), since that
+     * seems more correct and consistent.  Probably this was never called
+     * anyway and thus it doesn't matter.
+     */
+    size_t write(const void* buf, size_t len) override
+    {
+        return write(buf, len, false);
+    }
+
+    /**
      * @throws nidas::util::IOException
     **/
     size_t write(const void* buf, size_t len, bool streamFlush);
