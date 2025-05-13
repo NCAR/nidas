@@ -405,7 +405,7 @@ static void releaseClock12(struct DMMAT* brd)
  * is /dev/dmmmat_a2dN or /dev/dmmat_d2dN, depending
  * on whether we are in normal or waveform mode.
  */
-const char *getA2DDeviceName(struct DMMAT_A2D* a2d)
+static const char *getA2DDeviceName(struct DMMAT_A2D* a2d)
 {
         return a2d->deviceName[a2d->mode];
 }
@@ -889,7 +889,9 @@ static int addA2DSampleConfig(struct DMMAT_A2D* a2d,struct nidas_a2d_sample_conf
 
                 result = finfo->fconfig(fdata,
                         cfg->filterData, cfg->nFilterData);
-                if (result) KLOG_ERR("%s: error in filter config\n",getA2DDeviceName(a2d));
+                if (result) {
+                        KLOG_ERR("%s: error in filter config\n",getA2DDeviceName(a2d));
+                }
         }
         return result;
 }
@@ -3241,7 +3243,7 @@ static long dmmat_ioctl_cntr( struct file *filp, unsigned int cmd, unsigned long
 /*
  * Implementation of poll fops.
  */
-unsigned int dmmat_poll_cntr(struct file *filp, poll_table *wait)
+static unsigned int dmmat_poll_cntr(struct file *filp, poll_table *wait)
 {
         struct DMMAT_CNTR* cntr = (struct DMMAT_CNTR*) filp->private_data;
         unsigned int mask = 0;
@@ -3251,7 +3253,9 @@ unsigned int dmmat_poll_cntr(struct file *filp, poll_table *wait)
                 GET_TAIL(cntr->samples,cntr->samples.size))
                 mask |= POLLIN | POLLRDNORM;    /* readable */
 
-        if (mask) KLOG_DEBUG("mask=%x\n",mask);
+        if (mask) {
+                KLOG_DEBUG("mask=%x\n",mask);
+        }
         return mask;
 }
 
@@ -3752,7 +3756,10 @@ static struct file_operations a2d_fops = {
         .open    = dmmat_open_a2d,
         .unlocked_ioctl   = dmmat_ioctl_a2d,
         .release = dmmat_release_a2d,
-        .llseek  = no_llseek,
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 12, 0)
+        /* no_llseek is the default and was removed in 6.12.0 */
+        .llseek = no_llseek,
+#endif
 };
 
 static struct file_operations cntr_fops = {
@@ -3762,7 +3769,10 @@ static struct file_operations cntr_fops = {
         .open    = dmmat_open_cntr,
         .unlocked_ioctl   = dmmat_ioctl_cntr,
         .release = dmmat_release_cntr,
-        .llseek  = no_llseek,
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 12, 0)
+        /* no_llseek is the default and was removed in 6.12.0 */
+        .llseek = no_llseek,
+#endif
 };
 
 static struct file_operations d2a_fops = {
@@ -3770,7 +3780,10 @@ static struct file_operations d2a_fops = {
         .open    = dmmat_open_d2a,
         .unlocked_ioctl   = dmmat_ioctl_d2a,
         .release = dmmat_release_d2a,
-        .llseek  = no_llseek,
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 12, 0)
+        /* no_llseek is the default and was removed in 6.12.0 */
+        .llseek = no_llseek,
+#endif
 };
 
 static struct file_operations d2d_fops = {
@@ -3780,7 +3793,10 @@ static struct file_operations d2d_fops = {
         .open    = dmmat_open_d2d,
         .unlocked_ioctl   = dmmat_ioctl_d2d,
         .release = dmmat_release_d2d,
-        .llseek  = no_llseek,
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 12, 0)
+        /* no_llseek is the default and was removed in 6.12.0 */
+        .llseek = no_llseek,
+#endif
 };
 
 static int init_a2d(struct DMMAT* brd)

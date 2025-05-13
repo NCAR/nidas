@@ -441,7 +441,10 @@ static struct file_operations pcmcom8_fops = {
         .unlocked_ioctl      = pcmcom8_ioctl,
         .open       = pcmcom8_open,
         .release    = pcmcom8_release,
-        .llseek     = no_llseek,
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 12, 0)
+        /* no_llseek is the default and was removed in 6.12.0 */
+        .llseek = no_llseek,
+#endif
 };
 
 /*

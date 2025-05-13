@@ -188,7 +188,10 @@ static struct file_operations ncar_a2d_fops = {
         .unlocked_ioctl = ncar_a2d_ioctl,
         .release = ncar_a2d_release,
         .poll = ncar_a2d_poll,
-        .llseek  = no_llseek,
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 12, 0)
+        /* no_llseek is the default and was removed in 6.12.0 */
+        .llseek = no_llseek,
+#endif
 };
 
 /**
@@ -455,14 +458,17 @@ wait7725Int(struct A2DBoard *brd, int channel, int ncoef)
                 if (!(ntry % 4)) outb(A2DIO_SYSCTL, brd->cmd_addr);
                 status = inb(brd->base_addr);
                 if ((status & mask) != 0) {
-                        if (ntry > 5)
+                        if (ntry > 5) {
                                 KLOG_DEBUG
                                     ("%s: interrupt bit set for channel %d, response=%#hhx, ntry=%d, ncoef=%d\n",
                                      brd->deviceName,channel,status,ntry,ncoef);
+                        }
                         return 0;
                 }
-                else KLOG_DEBUG("%s: channel %d SYSCTL response =%#x, ntry=%d, ncoef=%d\n",
-                                     brd->deviceName,channel,(int)status,ntry,ncoef);
+                else {
+                        KLOG_DEBUG("%s: channel %d SYSCTL response =%#x, ntry=%d, ncoef=%d\n",
+                                   brd->deviceName,channel,(int)status,ntry,ncoef);
+                }
                 schedule();
                 // udelay(1);
                 // set_current_state(TASK_INTERRUPTIBLE);
@@ -1428,7 +1434,7 @@ int GainOffsetToEnum[5][2] = {
     { 3, X}, // gain 4   4F
 };
 
-int withinRange(int volt, int gain, int offset)
+static int withinRange(int volt, int gain, int offset)
 {
         int GO = GainOffsetToEnum[gain][!offset];
 
@@ -2343,13 +2349,15 @@ ncar_a2d_ioctl(struct file *filp, unsigned int cmd,unsigned long arg)
                         ret = addSampleConfig(brd,cfgp);
                         kfree(cfgp);
                 }
-                if (ret != 0)
+                if (ret != 0) {
                         KLOG_ERR
                             ("%s: setup failed with state %d\n",
                              brd->deviceName, ret);
-                else
+                }
+                else {
                         KLOG_DEBUG("%s: setup succeeded\n",
                                    brd->deviceName);
+                }
                 break;
 
         case NCAR_A2D_SET_OCFILTER:

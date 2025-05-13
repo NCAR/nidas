@@ -751,7 +751,10 @@ static struct file_operations lams_fops = {
         .open    = lams_open,
         .unlocked_ioctl   = lams_ioctl,
         .release = lams_release,
-        .llseek  = no_llseek,
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 12, 0)
+        /* no_llseek is the default and was removed in 6.12.0 */
+        .llseek = no_llseek,
+#endif
 };
 
 /*-----------------------Module ------------------------------*/

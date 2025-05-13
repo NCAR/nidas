@@ -1308,7 +1308,10 @@ static struct file_operations twod_fops = {
         .unlocked_ioctl = twod_ioctl,
         .open = twod_open,
         .release = twod_release,
-        .llseek  = no_llseek,
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 12, 0)
+        /* no_llseek is the default and was removed in 6.12.0 */
+        .llseek = no_llseek,
+#endif
 };
 
 /* 

@@ -940,7 +940,10 @@ static struct file_operations emerald_fops = {
         .unlocked_ioctl   = emerald_ioctl,
         .open    = emerald_open,
         .release = emerald_release,
-        .llseek  = no_llseek,
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 12, 0)
+        /* no_llseek is the default and was removed in 6.12.0 */
+        .llseek = no_llseek,
+#endif
 };
 
 /*

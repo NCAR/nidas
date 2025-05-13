@@ -1509,7 +1509,7 @@ static long gpio_mm_ioctl_fcntr(struct file *filp, unsigned int cmd, unsigned lo
 /*
  * Implementation of poll fops.
  */
-unsigned int gpio_mm_poll_fcntr(struct file *filp, poll_table *wait)
+static unsigned int gpio_mm_poll_fcntr(struct file *filp, poll_table *wait)
 {
         struct GPIO_MM_fcntr* fcntr = (struct GPIO_MM_fcntr*)
             filp->private_data;
@@ -1540,7 +1540,10 @@ static struct file_operations fcntr_fops = {
         .open    = gpio_mm_open_fcntr,
         .unlocked_ioctl   = gpio_mm_ioctl_fcntr,
         .release = gpio_mm_release_fcntr,
-        .llseek  = no_llseek,
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 12, 0)
+        /* no_llseek is the default and was removed in 6.12.0 */
+        .llseek = no_llseek,
+#endif
 };
 
 
@@ -1743,7 +1746,7 @@ static long gpio_mm_ioctl_event(struct file *filp, unsigned int cmd, unsigned lo
 /*
  * Implementation of poll fops.
  */
-unsigned int gpio_mm_poll_event(struct file *filp, poll_table *wait)
+static unsigned int gpio_mm_poll_event(struct file *filp, poll_table *wait)
 {
         struct GPIO_MM_event* event = (struct GPIO_MM_event*)
             filp->private_data;
@@ -1774,7 +1777,10 @@ static struct file_operations event_fops = {
         .open    = gpio_mm_open_event,
         .unlocked_ioctl   = gpio_mm_ioctl_event,
         .release = gpio_mm_release_event,
-        .llseek  = no_llseek,
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 12, 0)
+        /* no_llseek is the default and was removed in 6.12.0 */
+        .llseek = no_llseek,
+#endif
 };
 
 /* Don't add __exit macro to the declaration of this cleanup function

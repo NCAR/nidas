@@ -748,7 +748,7 @@ static void free_callbacks(void)
  *      resulting in a system lockup.
  *  2. you won't get any further interrupts.
  */
-static void inline resetHeartBeatLatch(void)
+inline static void resetHeartBeatLatch(void)
 {
         /* reset heart beat latch, write a 0 to bit 4, leave others alone */
         outb(board.IntMask & ~Heartbeat, board.addr + Reset_Port);
@@ -781,7 +781,7 @@ static void enableHeartBeatInt(void)
  * After receiving a match interrupt, one must reset
  * the match flag in order to receive further interrupts.
  */
-static void inline resetMatchLatch(void)
+inline static void resetMatchLatch(void)
 {
         /* reset match flag, write a 0 to bit 3, leave others alone */
         outb(board.IntMask & ~Match, board.addr + Reset_Port);
@@ -928,7 +928,7 @@ static int readDPRAM(unsigned char addr, unsigned char *val)
  *	spin_unlock_irqrestore(&board.lock, flags);
  */
 
-static inline void requestDPRAM(unsigned char addr)
+inline static void requestDPRAM(unsigned char addr)
 {
         /* clear Response_Ready */
         inb(board.addr + Dual_Port_Data_Port);
@@ -937,7 +937,7 @@ static inline void requestDPRAM(unsigned char addr)
         outb(addr, board.addr + Dual_Port_Address_Port);
 }
 
-static inline void getRequestedDPRAM(unsigned char *val)
+inline static void getRequestedDPRAM(unsigned char *val)
 {
         static int ntimeouts = 0;
         unsigned char status;
@@ -1005,8 +1005,10 @@ static int writeDPRAM(unsigned char addr, unsigned char value)
                 }
 
                 if (waitcount > 3)
+                {
                         KLOG_DEBUG("writeDPRAM 1, waitcount=%d\n",
                                    waitcount);
+                }
 
                 /* check for a time out on the response... */
                 if ((status & Response_Ready) == 0) {
@@ -1029,8 +1031,10 @@ static int writeDPRAM(unsigned char addr, unsigned char value)
                 }
 
                 if (waitcount > 3)
+                {
                         KLOG_DEBUG("writeDPRAM 2, waitcount=%d\n",
                                    waitcount);
+                }
 
                 /* check for a time out on the response... */
                 if ((status & Response_Ready) == 0) {
@@ -1698,7 +1702,7 @@ static void checkSoftTicker(int newClock, int currClock,int scale, int notify)
 /**
  * Invoke the callback functions for a given rate.
  */
-static inline void doCallbacklist(int rate)
+inline static void doCallbacklist(int rate)
 {
         struct list_head *list = board.CallbackLists + rate;
         struct list_head *ptr;
@@ -2110,7 +2114,7 @@ static void oneHzFunction(void *ptr)
         board.max100HzBacklog = 0;
 }
 
-static inline void requestExtendedStatus(void)
+inline static void requestExtendedStatus(void)
 {
         /* 
          * Finish read of extended status from dual-port RAM and submit the next
@@ -2516,7 +2520,10 @@ static struct file_operations pc104sg_fops = {
         .open = pc104sg_open,
         .unlocked_ioctl = pc104sg_ioctl,
         .release = pc104sg_release,
-        .llseek  = no_llseek,
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 12, 0)
+        /* no_llseek is the default and was removed in 6.12.0 */
+        .llseek = no_llseek,
+#endif
 };
 
 

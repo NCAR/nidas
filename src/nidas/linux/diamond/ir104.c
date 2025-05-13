@@ -328,7 +328,10 @@ static struct file_operations ir104_fops = {
         .read = ir104_relay_read,
         .poll = ir104_relay_poll,
         .release = ir104_release,
-        .llseek  = no_llseek,
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 12, 0)
+        /* no_llseek is the default and was removed in 6.12.0 */
+        .llseek = no_llseek,
+#endif
 };
 
 /*-----------------------Module ------------------------------*/
