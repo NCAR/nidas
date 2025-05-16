@@ -9,10 +9,14 @@ explanation of the steps.
 ## Build the Debian build container
 
 The [scripts/cnidas.sh](scripts/cnidas.sh) script uses
-[podman](https://podman.io/) to build a Debian Buster image with all the
-dependencies to build NIDAS, and it also provides shortcuts to run the
-container from that image.  The image can be pulled from Docker hub or built
-locally.
+[podman](https://podman.io/) to build a Debian image with all the dependencies
+to build NIDAS, and it also provides shortcuts to run the container from that
+image.  The image can be pulled from Docker hub or built locally.  There are
+two available Debian images, to cross-compile for 32-bit armhf on Buster or
+for aarch64 on Bookworm.
+
+To use the arm64 target on Bookworm, replace all the uses of `pi3` with `arm64` in the
+`cnidas.sh` commands below.
 
 ### Pull the image
 
@@ -25,7 +29,7 @@ podman run -i -t docker.io/ncar/nidas-build-debian-armhf /bin/bash
 
 ### Build the image
 
-Build the image with `cnidas.sh pi3 build`:
+Build the image with `cnidas.sh pi3 build` or (`cnidas.sh arm64 build`):
 
 ```plain
 (base) granger@snoopy:/home/granger/code/nidas/scripts$ ./cnidas.sh pi3 build
