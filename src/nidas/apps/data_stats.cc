@@ -1048,6 +1048,7 @@ private:
     NidasAppArg JsonOutput;
     NidasAppArg ShowProblems;
     NidasAppArg RoundStart;
+    NidasAppArg JsonOutputDir;
 
 #if NIDAS_JSONCPP_ENABLED
 #if !NIDAS_JSONCPP_STREAMWRITER
@@ -1179,6 +1180,15 @@ show the actual sample times.)"),
     streamWriter(),
     headerWriter()
 #endif
+        JsonOutputDir("--json-output-dir", "<dir_path>" R"(Write structured Json output to a directory.
+        The directory path can include strptime() time spec.
+        This will create:
+         -mainifest.json(overall info and links to tream files)
+         -problems.json(all detected data problems)
+         -metadata/<streamid>.json (for each streams header)
+         -statistics/<streamid>.json (for eahc stream's stats)
+         -data_values/<streamid>.json (if --data enabvled for actual values)
+       option mutually exclusive with --json)") 
 {
     NidasApp& app = _app;
     app.setApplicationInstance();
@@ -1192,6 +1202,7 @@ show the actual sample times.)"),
                         ShowProblems | RoundStart);
 #if NIDAS_JSONCPP_ENABLED
     app.enableArguments(JsonOutput);
+    app.enableArguments(JsonOutputDir);
 #endif
     app.InputFiles.allowFiles = true;
     app.InputFiles.allowSockets = true;
@@ -1211,6 +1222,13 @@ int DataStats::parseRunstring(int argc, char** argv)
         {
             return usage(argv[0]);
         }
+
+        if (JsonOutput.specified() && JsonOutputDir.specified())
+        {
+            throw NidasAppException("--json and --json-output-dir are mutually exclusive and cannot be used simultaneously.");
+            
+        }
+
         _period = Period.asInt();
         _update = Update.asInt();
         _count = Count.asInt();
@@ -1809,6 +1827,11 @@ jsonReport()
     {
         createJsonWriters();
     }
+
+    // (JsonOutputDir.specified())
+    //
+    //  std::string base_dir_path_str = _period_start.format(true. JsonOutputDir.getValue());
+    //}                                                                                                                                                            
     std::string jsonname;
     jsonname = _period_start.format(true, JsonOutput.getValue());
     ILOG(("writing json to ") << jsonname);
