@@ -109,9 +109,11 @@ ENV CROSS_ARCH=$hostarch
 # It can be helpful to have package_cloud available in the container.
 RUN apt-get -y --no-install-recommends install ruby ruby-dev
 
-# The rake gem has to be installed first, else the package_cloud install gets an
-# error.
+# The rake gem has to be installed first, else the package_cloud install gets
+# an error.  The explicit versions are the last ones compatible with ruby 2.5.
 RUN gem install rake
+RUN gem install domain_name -v 0.5.20190701
+RUN gem install thor -v 1.2.2
 RUN gem install package_cloud
 
 WORKDIR /root
