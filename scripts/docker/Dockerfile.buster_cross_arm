@@ -26,15 +26,11 @@ RUN apt-get -y update && \
     libjsoncpp-dev:${hostarch} lsb-release \
     xsltproc docbook-xsl \
     libxml2-dev \
-    libi2c-dev \
     valgrind net-tools less \
     python3 python3-pip
 
 # SCons 4 based on python3 not available as a buster package
 RUN pip3 install scons
-
-# libgsl0ldbl is now in libgsl0-dev??
-#RUN apt-get install -y --no-install-recommends libgsl0ldbl:${hostarch} 
 
 # Add the eol repo first
 # But need to allow apt to use ftp, since Buster doesn't allow it by default
@@ -44,10 +40,6 @@ RUN pip3 install scons
 # RUN cat /etc/apt/apt.conf
 # RUN echo "deb ftp://ftp.eol.ucar.edu/pub/archive/software/debian/ buster main" > /etc/apt/sources.list.d/eol.list
 # RUN curl ftp://ftp.eol.ucar.edu/pub/archive/software/debian/conf/eol-prog.gpg.key | apt-key add -
-
-# Also, backports has moved to archive, so fix that -- PEO still true for stretch??
-# RUN echo "deb http://deb.debian.org/debian buster-backports main" >> /etc/apt/sources.list
-#RUN echo "Acquire::Check-Valid-Until no;" > /etc/apt/apt.conf.d/99no-check-valid-until
 
 # Even though container builds can use a locally mounted eol_scons, it is
 # still a build dependency, and it would be required if building nidas on a
@@ -89,14 +81,6 @@ RUN apt-get -y update && apt-get -y --no-install-recommends install \
     libboost-timer-dev:${hostarch} \
     libboost-type-erasure-dev:${hostarch} \
     libboost-wave-dev:${hostarch}
-
-# Add libxml2 for the ublox build below.
-#RUN apt-get -y install 
-
-# add libi2c-dev as original docker image didn't have correct one
-# don't need an ${hostarch} variant, as all the functions are in-line
-# in a single header.
-#RUN apt-get -y install
 
 # get and install ftdi 1.4 and depends libusb-1.0
 #RUN apt-get -y install libusb-1.0:amd64 libusb-1.0:${hostarch} libusb-1.0-0-dev 

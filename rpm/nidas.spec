@@ -316,7 +316,7 @@ if [ -f $cf ]; then
             done
             arg="cap_sys_nice+p" 
             ckarg=$(echo $arg | cut -d, -f 1 | cut -d+ -f 1)
-            for prog in %{nidas_prefix}/bin/{tee_tty,tee_i2c}; do
+            for prog in %{nidas_prefix}/bin/{tee_tty}; do
                 if [ -f $prog ] && ! getcap $prog | grep -F -q $ckarg; then
                     echo "nidas-build trigger: setcap $arg $prog"
                     setcap $arg $prog

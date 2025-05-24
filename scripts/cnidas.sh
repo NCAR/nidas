@@ -303,6 +303,25 @@ build_packages()
 }
 
 
+# Test installing nidas packages into the container.  The packages should
+# already exist in the /packages directory.  This is just a convenient
+# function to run in the container to install the packages that should
+# install.  On cross-platform build containers, nidas-daq cannot be installed
+# because it depends on just nidas and not nidas:${arch}.
+#
+# ./cnidas.sh arm64 run /nidas/scripts/cnidas.sh arm64 install_packages
+#
+# This will break if more than one version of packages exists...
+install_packages()
+{
+    arch=`get_arch $alias`
+    # make sure setcap is installed so postinst scripts can call it
+    apt -y install libcap2-bin
+    cd /packages
+    dpkg -i nidas_*_${arch}.deb nidas-min_*_${arch}.deb nidas-libs_*_${arch}.deb nidas-dev_*_${arch}.deb
+}
+
+
 # Push packages to the cloud for the given alias located in the given
 # path.  Explicitly avoid uploading dbgsym packages.
 
@@ -440,7 +459,7 @@ while [ $# -gt 0 ]; do
             break
             ;;
 
-        build|run|scons|package|clone|push)
+        build|run|scons|package|clone|push|install_packages)
             if [ -z "$alias" ]; then
             echo "Alias is required for $1."
             exit 1
@@ -518,6 +537,10 @@ case "$1" in
     push)
         shift
         push_packages "$@"
+        ;;
+
+    install_packages)
+        install_packages "$@"
         ;;
 
     *)

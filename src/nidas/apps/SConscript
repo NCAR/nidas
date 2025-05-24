@@ -159,47 +159,10 @@ except OSError:
 
 ncenv.NidasProgram('isff/prep.cc')
 
-# Figure out if i2c is available and how to call it.  There are a few
-# possibilities.
-#
-# Raspbian Jessie armhf: libi2c-dev 3.1.1 installs only linux/i2c-dev.h,
-# which contains only macros and inline functions, no library needed.
-#
-# Raspbian Buster armhf: libi2c-dev 4.1 puts declarations i2c/smbus.h and
-# definitions in libi2c.a
-#
-# At the moment ISFS only really needs i2c on Raspbian Jessie for the
-# tee_i2c and ublox programs.  Since it appears that 4.1 removed
-# I2C_SMBUS_I2C_BLOCK_MAX and i2cbuf, we'll just mark i2c unavailable
-# unless it's a header-only version.
-#
-has_i2c = False
-i2cenv = env.Clone()
-i2cenv.Replace(LIBS=[])
-i2cconf = i2cenv.Configure()
-# check if i2c API has 3(old) or 4(new) arguments in
-# i2c_smbus_read_i2c_block_data
-if i2cconf.CheckLibWithHeader('i2c', 'i2c/smbus.h', 'C',
-                              'i2c_smbus_read_i2c_block_data(0,0,0,0);'):
-    print("ignoring i2c library, need header-only interface")
-    has_i2c = False
-elif i2cconf.CheckLibWithHeader('', 'linux/i2c-dev.h', 'C',
-                                'i2c_smbus_read_i2c_block_data(0,0,0,0);'):
-    i2cenv.Append(CPPDEFINES="I2C_HEADER_ONLY")
-    has_i2c = True
-elif i2cconf.CheckLibWithHeader('', 'linux/i2c-dev.h', 'C',
-                                'i2c_smbus_read_i2c_block_data(0,0,0);'):
-    i2cenv.Append(CPPDEFINES=["I2C_HEADER_ONLY", "OLD_I2C_API"])
-    has_i2c = True
-i2cenv = i2cconf.Finish()
-i2cenv.Replace(LIBS=env['LIBS']+i2cenv.get('LIBS'))
-
 # Programs which only use libnidas_util.so, not libnidas.
 #env.NidasUtilProgram('sing.cc')
 env.NidasUtilProgram('tee_tty.cc')
-if has_i2c:
-    env.Alias('tee_i2c', i2cenv.NidasUtilProgram('tee_i2c.cc', libs=[]))
-    env.Alias('ublox', i2cenv.NidasUtilProgram('ublox.cc', libs=[]))
+
 
 def ublox(env):
     """
@@ -207,6 +170,7 @@ def ublox(env):
     moment it is always installed into /usr/local.
     """
     env.Append(CPPPATH=['/usr/local/include'])
+
 
 Export('ublox')
 

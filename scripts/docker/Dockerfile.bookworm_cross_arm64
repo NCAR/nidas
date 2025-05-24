@@ -26,7 +26,6 @@ RUN apt-get -y update && \
     libjsoncpp-dev:${hostarch} lsb-release \
     xsltproc docbook-xsl \
     libxml2-dev \
-    libi2c-dev \
     valgrind net-tools less \
     python3 python3-pip scons
 
@@ -59,14 +58,6 @@ RUN apt-get -y update && \
 # need boost-system, filesystem, asio, thread, so make it easy and get all
 RUN apt-get -y update && apt-get -y --no-install-recommends install \
     libboost-all-dev:${hostarch}
-
-# Add libxml2 for the ublox build below.
-#RUN apt-get -y install 
-
-# add libi2c-dev as original docker image didn't have correct one
-# don't need an ${hostarch} variant, as all the functions are in-line
-# in a single header.
-#RUN apt-get -y install
 
 # get and install ftdi 1.4 and depends libusb-1.0
 #RUN apt-get -y install libusb-1.0:amd64 libusb-1.0:${hostarch} libusb-1.0-0-dev 
