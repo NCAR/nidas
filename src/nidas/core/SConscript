@@ -3,6 +3,7 @@
 
 import os
 import eol_scons.parseconfig as pc
+from SCons.Script import BoolVariable
 
 ##
 ##  Import the build environment.
@@ -26,10 +27,16 @@ def nidas_xmlrpcpp(env):
     else:
         env.Append(LIBS=['xmlrpcpp'])
 
+
 def jsoncpp(env):
     found = pc.ParseConfig(env, 'pkg-config jsoncpp --libs --cflags')
     print("pkg-config found for jsoncpp: %s" % (["no", "yes"][int(found)]))
 
+
+variables = env.GlobalVariables()
+variables.Add(BoolVariable('ENABLE_FTDI_HARDWARE_INTERFACE',
+                           'Enable FTDI hardware interface', 'on'))
+variables.Update(env)
 
 ##
 ##  List of header files
@@ -180,7 +187,6 @@ sources = Split("""
     DynamicLoader.cc
     FileSet.cc
     FsMount.cc
-    HardwareInterface.cc
     HeaderSource.cc
     IOChannel.cc
     IOStream.cc
@@ -308,10 +314,16 @@ Export('libftdi')
 env.Require(['nidasutil', nidas_xmlrpcpp, jsoncpp])
 env.Append(LIBS=['dl', 'xerces-c'])
 
-# Build the ftdi hardware interface
-hwenv = env.Clone()
-hwenv.Require([libftdi])
-shobjs += hwenv.SharedObject('HardwareInterfaceFTDI.cc')
+# Build the ftdi hardware interface if enabled
+enable_ftdi = env.get('ENABLE_FTDI_HARDWARE_INTERFACE')
+if enable_ftdi:
+    hwenv = env.Clone()
+    hwenv.Append(CPPDEFINES=['ENABLE_FTDI_HARDWARE_INTERFACE'])
+    hwenv.Require([libftdi])
+    shobjs += hwenv.SharedObject("HardwareInterface.cc")
+    shobjs += hwenv.SharedObject('HardwareInterfaceFTDI.cc')
+else:
+    shobjs += env.SharedObject("HardwareInterface.cc")
 
 ##
 ##  Build the libnidas library. Search other needed libraries.
@@ -337,6 +349,8 @@ def nidascore(env):
     # Technically only the jsoncpp library link is needed to link with
     # nidascore, and not the include flags, but this is simpler.
     env.Require(['nidasutil', nidas_xmlrpcpp, 'jsoncpp'])
-    env.Append(LIBS=['dl', 'xerces-c', 'ftdi1'])
+    env.Append(LIBS=['dl', 'xerces-c'])
+    if enable_ftdi:
+        env.Append(LIBS=['ftdi1'])
 
 Export('nidascore')

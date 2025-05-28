@@ -176,7 +176,21 @@ public:
 
     /**
      * Constructor.
-     * @param raw Whether the input samples are raw.
+     *
+     * @param raw Passed to the underlying SampleSourceSupport instance.  It
+     * determines which of getRawSampleSource() and getProcessedSampleSource()
+     * return a non-null SampleSource pointer.
+     *
+     * In the past the @p raw parameter had been used to indicate that the
+     * stream should only contain CHAR type samples, and other kinds of
+     * samples would be filtered automatically.  However, it should be
+     * legitimate for an input stream to have both raw and processed samples,
+     * and filtering should have to be enabled explicitly with
+     * setFilterBadSamples().  The default filter, when enabled, will catch
+     * anything with an invalid sample type.  The filter can be further
+     * configured with setBadSampleFilter().  If it proves necessary to filter
+     * specifically by sample type, then that can be added to the
+     * BadSampleFilter class.
      */
     SampleInputStream(bool raw=false);
 
@@ -187,8 +201,10 @@ public:
      *   and will delete it in ~SampleInputStream(). If 
      *   it is a null pointer, then it must be set within
      *   the fromDOMElement method.
+     * 
+     * The @p raw parameter is explained in SampleInputStream(bool raw).
      */
-    SampleInputStream(nidas::core::IOChannel* iochannel,bool raw=false);
+    SampleInputStream(nidas::core::IOChannel* iochannel, bool raw=false);
 
     /**
      * Create a clone, with a new, connected IOChannel.
@@ -545,8 +561,6 @@ private:
     nidas::core::BadSampleFilter _bsf;
 
     SampleInputStream* _original;
-
-    bool _raw;
 
     /**
      * No regular copy.

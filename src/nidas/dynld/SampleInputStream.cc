@@ -185,7 +185,7 @@ SampleInputStream::SampleInputStream(bool raw):
     _block(),_badSamples(0),_goodSamples(0),
     _inputHeader(),
     _bsf(),
-    _original(this),_raw(raw)
+    _original(this)
 {
 }
 
@@ -200,7 +200,7 @@ SampleInputStream::SampleInputStream(IOChannel* iochannel, bool raw):
     _block(),_badSamples(0),_goodSamples(0),
     _inputHeader(),
     _bsf(),
-    _original(this),_raw(raw)
+    _original(this)
 {
     setIOChannel(iochannel);
     _iostream = new IOStream(*_iochan,_iochan->getBufferSize());
@@ -220,7 +220,7 @@ SampleInputStream::SampleInputStream(SampleInputStream& x,
     _block(),_badSamples(0),_goodSamples(0),
     _inputHeader(),
     _bsf(x._bsf),
-    _original(&x),_raw(x._raw)
+    _original(&x)
 {
     setIOChannel(iochannel);
     _iostream = new IOStream(*_iochan,_iochan->getBufferSize());
@@ -424,23 +424,13 @@ bool SampleInputStream::parseInputHeader() throw(n_u::IOException)
 
 namespace {
     void logBadSampleHeader(const string& name, size_t nbad,
-                            long long pos, bool raw,
-                            const SampleHeader& header)
+                            long long pos, const SampleHeader& header)
     {
-        if (raw && header.getType() != CHAR_ST) {
-            WLOG(("%s: raw sample not of type char(%d): "
-                  "#bad=%zd,filepos=%lld,id=(%d,%d),type=%d,len=%u",
-                  name.c_str(), CHAR_ST, nbad, pos,
-                  GET_DSM_ID(header.getId()), GET_SPS_ID(header.getId()),
-                  (int)header.getType(), header.getDataByteLength()));
-        }
-        else {
-            WLOG(("%s: bad sample header: "
-                  "#bad=%zd,filepos=%lld,id=(%d,%d),type=%d,len=%u",
-                  name.c_str(), nbad, pos,
-                  GET_DSM_ID(header.getId()), GET_SPS_ID(header.getId()),
-                  (int)header.getType(), header.getDataByteLength()));
-        }
+        WLOG(("%s: bad sample header: "
+                "#bad=%zd,filepos=%lld,id=(%d,%d),type=%d,len=%u",
+                name.c_str(), nbad, pos,
+                GET_DSM_ID(header.getId()), GET_SPS_ID(header.getId()),
+                (int)header.getType(), header.getDataByteLength()));
     }
 }
 
@@ -634,15 +624,12 @@ sampleFromHeader() throw()
     // Mark the offset of this sample.
     long long offset = _iostream->getNumInputBytes() - _sheader.getSizeOf();
 
-    // Screen bad headers.
-    //
-    // @todo: I'm not sure why non-character samples get filtered in raw
-    // mode, since maybe they are still valid samples but just the wrong
-    // type.  And if they do somehow indicate a bad sample, then why
-    // shouldn't filtering have to be turned on to catch them, like all the
-    // other validity checks?
-    if ((_raw && _sheader.getType() != CHAR_ST) ||
-        _bsf.invalidSampleHeader(_sheader))
+    // Screen bad headers according to the current filter, if enabled.  This
+    // used to assume non-CHAR samples were corrupted if the source was raw,
+    // but that has been abandoned in favor of requiring filtering to be
+    // enabled explicitly, so that sample input streams can legitimately
+    // contain non-CHAR samples.
+    if (_bsf.invalidSampleHeader(_sheader))
     {
         samp = 0;
     }
@@ -659,7 +646,7 @@ sampleFromHeader() throw()
         ++_badSamples;
         if (log_count && !((_badSamples-1) % log_count))
         {
-            logBadSampleHeader(getName(), _badSamples, offset, _raw, _sheader);
+            logBadSampleHeader(getName(), _badSamples, offset, _sheader);
         }
         if (_block.good && _block.nbytes)
         {

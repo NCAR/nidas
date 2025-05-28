@@ -603,6 +603,20 @@ off()
     setState(OutputState::OFF);
 }
 
+bool
+OutputInterface::
+isOn()
+{
+    return getState() == OutputState::ON;
+}
+
+bool
+OutputInterface::
+isOff()
+{
+    return getState() == OutputState::OFF;
+}
+
 void
 OutputInterface::
 setState(OutputState state)
@@ -758,8 +772,9 @@ public:
 };
 
 
+#ifdef ENABLE_FTDI_HARDWARE_INTERFACE
 extern HardwareInterface* get_hardware_interface_ftdi();
-
+#endif
 
 std::shared_ptr<HardwareInterface>
 HardwareInterface::getHardwareInterface()
@@ -772,6 +787,7 @@ HardwareInterface::getHardwareInterface()
         {
             hwi = std::make_shared<MockHardwareInterface>();
         }
+#ifdef ENABLE_FTDI_HARDWARE_INTERFACE
         else if (default_interface_path == "ftdi")
         {
             hwi.reset(get_hardware_interface_ftdi());
@@ -782,6 +798,7 @@ HardwareInterface::getHardwareInterface()
             // if nothing else specified.
             hwi.reset(get_hardware_interface_ftdi());
         }
+#endif
         else
         {
             // always set the implementation to something, even if a null

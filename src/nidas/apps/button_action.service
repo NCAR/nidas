@@ -1,0 +1,13 @@
+[Unit]
+Description=DSM3 button actions
+
+[Service]
+Type=forking
+Environment=LD_LIBRARY_PATH=/opt/nidas-dev/lib/arm-linux-gnueabihf
+ExecStart=/opt/nidas-dev/bin/button_action --log info /etc/button_action.json
+
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

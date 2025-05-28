@@ -108,7 +108,8 @@ void CharacterSensor::sendInitString() throw(n_u::IOException)
     }
 }
 
-IODevice* CharacterSensor::buildIODevice() throw(n_u::IOException)
+
+IODevice* CharacterSensor::overrideIODevice()
 {
     if (getDeviceName().find("inet:") == 0)
         return new TCPSocketIODevice();
@@ -122,6 +123,24 @@ IODevice* CharacterSensor::buildIODevice() throw(n_u::IOException)
 #endif
     return nullptr;
 }
+
+
+IODevice* CharacterSensor::buildIODevice() throw(n_u::IOException)
+{
+    // This is really just a way to subvert the io device for a
+    // character-based sensor subclass that does not care how the characters
+    // come to it.  However, there is nothing about these io devices that is
+    // specific to character parsing, so really this functionality might be
+    // more appropriate in the DSMSensor base class.  Or in a static method of
+    // IODevice.  Some subclasses, namely SerialSensor, need to *know* if
+    // their device is being subverted or not, so they can use their expected
+    // IO device instead, like SerialPortIODevice.
+    IODevice* device = overrideIODevice();
+    if (!device)
+        device = new UnixIODevice();
+    return device;
+}
+
 
 SampleScanner* CharacterSensor::buildSampleScanner()
     throw(n_u::InvalidParameterException)

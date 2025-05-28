@@ -88,37 +88,35 @@ usage()
 {
     std::cerr
         << R""""(
-Usage: pio [list|status] [device [op ...]]
+Usage: pio [options] [list|status|device [op ...]]
 
 Query and control power relays, sensor power, LEDs, serial ports, and
 pushbutton switches.  If no arguments, show the status of all devices.
 
-  {list|status}:
+  {list}:
+    List the known devices, without opening the hardware.
 
-    List the known devices, without opening the hardware, or else
-    open all the hardware devices and show their status.
-    If no other devices or operations specified, the default is 'status'.
+  {status}:
+    Open all the hardware devices and show the status of each.
 
   device:
-
     Device name.  Use 'list' to show the known device names.
 
   op: {on|off|switch}
-
     Turn the output on or off, wait for a switch to be pressed, or set the
     serial port mode.
     If not specified, show the current status of just that output.
 
   op: [{232|422|485h|485f|loop}] [{term|noterm}] [{rts0|rts1}]
-
     Configure a serial port with (term) or without (noterm) 120 Ohm
     termination, and set the signal protocol: RS232, RS422, RS485 half duplex,
     RS485 full duplex, loopback.  Set (rts1) or clear (rts0) the RTS bit.
     Protocol and termination are always set together, so if only
     one is specified, the other defaults to noterm or rs232.
+
 )""""
         << app.usage()
-        << R""""()
+        << R""""(
 
 Examples:
 
@@ -144,6 +142,7 @@ int toomany(const std::string& msg)
 
 int parseRunString(int argc, char* argv[])
 {
+
     app.enableArguments(app.loggingArgs() | app.Help);
 
     ArgVector args = app.parseArgs(argc, argv);
@@ -166,7 +165,9 @@ int parseRunString(int argc, char* argv[])
             {
                 return toomany(Operation);
             }
+            break;
         }
+
         if (Device.empty())
         {
             Device = arg;
@@ -188,6 +189,7 @@ int parseRunString(int argc, char* argv[])
             }
             continue;
         }
+
         if (arg == "rts0" || arg == "rts1")
         {
             RTS = arg;
@@ -366,7 +368,6 @@ int main(int argc, char* argv[]) {
     int fd = -1;
 
     auto ioutput = device.iOutput();
-
     if (Operation == "switch")
     {
         auto ibutton = device.iButton();

@@ -8,7 +8,7 @@ import eol_scons
 #
 # Don't load tools that perform compiler or pkg-config checks
 # until the cross tool is loaded, and PKG_CONFIG_PATH is set.
-env = Environment(tools=['default'])
+env = Environment(tools=['default'], toolpath=['#/tools'])
 
 # Don't rely on host environment to warp /bin/sh to /bin/bash
 env['SHELL']='/bin/bash'
@@ -261,7 +261,8 @@ def getMachineTypes(arch, mspecs):
 #        'arm': {'all': ['viper','titan'], 'viper':['viper'], 'titan': ['titan']},
 #        'armbe': {'all': ['vulcan'], 'vulcan':['vulcan']},
 #        'armel' : {'all': ['titan', 'viper'], 'viper':['viper'], 'titan': ['titan']},
-        'armhf' : {'all': ['rpi2'], 'rpi2': ['rpi2']}
+        'armhf' : {'all': ['rpi2'], 'rpi2': ['rpi2']},
+        'arm64' : {'all': ['rpi3'], 'rpi3': ['rpi3']}
     }
     amachs = machine_types.get(arch, {})
     machs = []
@@ -403,6 +404,33 @@ if 'armhf' in BUILDS:
 
 
     SConscriptVariant('armhf', armhf_env)
+
+
+if 'arm64' in BUILDS:
+    print("Setting up for arm64 build ...")
+    machs = getMachineTypes('arm64', MACHS)
+    arm64_env = env.Clone(tools = ['arm64cross', 'symlink', 'sharedlibrary'],
+        ARCH = 'arm64', MACHS=machs)
+    
+    if 'ARCHLIBDIR' not in arm64_env:
+        arm64_env['ARCHLIBDIR'] = 'lib/arm-linux-gnueabihf'
+    CheckStackProtectorOptions(arm64_env)
+    arm64_env.AppendUnique(CCFLAGS = ['-g', '-fpie',
+            '-Wformat', '-Werror=format-security',
+            '-D_FORTIFY_SOURCE=2'])
+    arm64_env.AppendUnique(CXXFLAGS = ['-std=c++14', '-Wextra','-Weffc++', 
+                                       '-fno-elide-constructors',
+                                       '-fdiagnostics-show-template-tree'])
+    arm64_env.AppendUnique(LINKFLAGS = ['-pie', '-Wl,-z,relro', '-Wl,-z,now'])
+
+    if 'DEBUG' not in arm64_env or not arm64_env['DEBUG']:
+        arm64_env.AppendUnique(CPPDEFINES = ['NDEBUG'])
+
+# arm64_env.AppendUnique(CPPDEFINES = 'NIDAS_EMBEDDED')
+
+
+    SConscriptVariant('arm64', arm64_env)
+
 
 
 Default([BUILDS])

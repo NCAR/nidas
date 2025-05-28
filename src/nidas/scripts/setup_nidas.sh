@@ -118,11 +118,14 @@ setup_nidas_set() # topdir
     fi
     topdir="$1"
     bindir="$topdir/bin"
-    libutil=`find "$topdir"/lib* -name "libnidas_util.so" 2> /dev/null`
-    libdir=`dirname "$libutil"`
+    libutil=`find "$topdir"/lib* -name "libnidas_util.so*" 2> /dev/null | head -1`
+    libdir=""
+    if [ -n "$libutil" ]; then
+        libdir=`dirname "$libutil"`
+    fi
     # Avoid adding a directory which might be malformed if
     # it doesn't look like a nidas install.
-    if [ -x "$bindir/dsm" -a -f "$libdir/libnidas_util.a" ]; then
+    if [ -x "$bindir/dsm" -a -f "$libutil" -a -d "$libdir" ]; then
         setup_nidas_unset "$topdir"
         ldpath=`prepend "$LD_LIBRARY_PATH" "$libdir"`
         epath=`prepend "$PATH" "$bindir"`

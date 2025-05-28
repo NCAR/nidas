@@ -254,6 +254,11 @@ void DatagramSocket::fromDOMElement(const xercesc::DOMElement* node)
             throw n_u::InvalidParameterException("socket","port",
                 "unknown port number");
         setHostPort(remoteHost,port);
+#ifdef notdef
+        // This causes a pointless delay when parsing the XML looking for host
+        // names which only resolve on a private field network and are not
+        // needed for post-processing.  Is the warning really needed?
+
         // Warn, but don't throw exception if address
         // for host cannot be found.
         if (remoteHost.length() > 0) {
@@ -264,6 +269,7 @@ void DatagramSocket::fromDOMElement(const xercesc::DOMElement* node)
                 WLOG(("") << getName() << ": " << e.what());
             }
         }
+#endif
     }
 }
 

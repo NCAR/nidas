@@ -76,6 +76,10 @@ while [ $# -gt 0 ]; do
         export CC=arm-linux-gnueabihf-gcc
         arch=$1
         ;;
+    arm64)
+        export CC=aarch64-linux-gnu-gcc
+        arch=$1
+        ;;
     amd64)
         arch=$1
         ;;

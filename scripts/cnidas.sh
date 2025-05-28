@@ -131,7 +131,7 @@ is named, then the current repo is used.
 EOF
 }
 
-targets=(centos7 centos8 vulcan titan pi2 pi3 ubuntu)
+targets=(centos7 centos8 vulcan titan pi2 pi3 arm64 ubuntu)
 
 # Return the arch for passing to build_dpkg
 get_arch() # alias
@@ -142,6 +142,9 @@ get_arch() # alias
             ;;
         pi*)
             echo armhf
+            ;;
+        arm64)
+            echo arm64
             ;;
         titan)
             echo armel
@@ -186,6 +189,9 @@ get_image_tag() # alias
         pi3)
             echo nidas-build-debian-armhf:buster
             ;;
+        arm64)
+            echo nidas-build-debian-arm64:bookworm
+            ;;
         titan)
             echo nidas-build-debian-armel:jessie
             ;;
@@ -215,6 +221,9 @@ build_image()
             ;;
         pi3)
             podman build -t $tag -f docker/Dockerfile.buster_cross_arm --build-arg hostarch=armhf
+            ;;
+        arm64)
+            podman build -t $tag -f docker/Dockerfile.bookworm_cross_arm64
             ;;
         titan)
             podman build -t $tag -f docker/Dockerfile.cross_arm --build-arg hostarch=armel
@@ -256,22 +265,26 @@ run_image() # command...
     # If the repository is available on this host, then mount that
     # too.
     DEBIAN_REPOSITORY=/net/ftp/pub/archive/software/debian
-    repomoun=""
+    repomount=""
     if [ -d $DEBIAN_REPOSITORY ]; then
         repomount="--volume ${DEBIAN_REPOSITORY}:/debian:rw,Z"
     fi
+    pcmount=""
+    if [ -f "$HOME/.packagecloud" ]; then
+        pcmount="--volume $HOME/.packagecloud:/root/.packagecloud:ro,Z"
+    fi
     set -x
-    # Mount the local scripts directory over top of the source, so the
-    # local build scripts are used no matter what version of source is
-    # being built.
-    exec podman run -i -t \
+    # Mount the local scripts directory over top of the source, so the local
+    # build scripts are used no matter what version of source is being built.
+    # Remove the container when finished, since it does not need to be kept
+    # around and just in any credentials end up on it.
+    exec podman run --rm -i -t \
       --volume "$dest":/nidas:rw,Z \
       --volume "$install":/opt/nidas:rw,Z \
       --volume "$HOME/.scons":/root/.scons:rw,Z \
       --volume "$packagepath":/packages:rw,Z \
       --volume "$scripts":/nidas/scripts:rw,Z \
-      $repomount \
-      $imagetag "$@"
+      $pcmount $repomount $imagetag "$@"
 }
 
 run_scons() # [scons args ...]
@@ -290,6 +303,25 @@ build_packages()
 }
 
 
+# Test installing nidas packages into the container.  The packages should
+# already exist in the /packages directory.  This is just a convenient
+# function to run in the container to install the packages that should
+# install.  On cross-platform build containers, nidas-daq cannot be installed
+# because it depends on just nidas and not nidas:${arch}.
+#
+# ./cnidas.sh arm64 run /nidas/scripts/cnidas.sh arm64 install_packages
+#
+# This will break if more than one version of packages exists...
+install_packages()
+{
+    arch=`get_arch $alias`
+    # make sure setcap is installed so postinst scripts can call it
+    apt -y install libcap2-bin
+    cd /packages
+    dpkg -i nidas_*_${arch}.deb nidas-min_*_${arch}.deb nidas-libs_*_${arch}.deb nidas-dev_*_${arch}.deb
+}
+
+
 # Push packages to the cloud for the given alias located in the given
 # path.  Explicitly avoid uploading dbgsym packages.
 
@@ -305,6 +337,11 @@ push_packages() # path
     packages=`ls "$path"/*.deb | egrep -v dbgsym`
     echo $packages
     case "$alias" in
+        arm64)
+            repo="ncareol/isfs-testing/debian/bookworm"
+            (set -x
+            package_cloud push $repo $packages)
+            ;;
         pi3)
             repo="ncareol/isfs-testing/raspbian/buster"
             (set -x
@@ -422,7 +459,7 @@ while [ $# -gt 0 ]; do
             break
             ;;
 
-        build|run|scons|package|clone|push)
+        build|run|scons|package|clone|push|install_packages)
             if [ -z "$alias" ]; then
             echo "Alias is required for $1."
             exit 1
@@ -500,6 +537,10 @@ case "$1" in
     push)
         shift
         push_packages "$@"
+        ;;
+
+    install_packages)
+        install_packages "$@"
         ;;
 
     *)
