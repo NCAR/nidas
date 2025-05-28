@@ -70,7 +70,7 @@ Export('nidasprogram')
 Export('nidasapps')
 
 
-env = Environment(tools=['default'])
+env = Environment(tools=['default', 'boost_filesystem'])
 
 arch = env['ARCH']  # empty string for native builds
 mach = env.get('MACH')

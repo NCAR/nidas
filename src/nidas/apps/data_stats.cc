@@ -51,6 +51,11 @@
 #include <iostream>
 #include <iomanip>
 #include <sys/stat.h>
+#include <filesystem>
+#include <system_error>
+#include <boost/filesystem.hpp>
+#include <fstream>
+#include <boost/system/error_code.hpp>
 
 #include <unistd.h>
 #include <stdio.h>   // rename()
@@ -84,6 +89,9 @@ namespace {
     {
         return ut.format(true, "%Y-%m-%dT%H:%M:%S.%3fZ");
     }
+    
+
+
 
 #if NIDAS_JSONCPP_ENABLED
     inline Json::Value
@@ -98,9 +106,10 @@ namespace {
             return Json::Value(value);
         }
     }
+
+
 #endif
 }
-
 
 /**
  * Problem is any issue detected in the data and statistics, distinguished
@@ -909,7 +918,7 @@ public:
     {
         clearSampleQueue();
     }
-
+  
     int run();
 
     void readHeader(SampleInputStream& sis);
@@ -1092,7 +1101,6 @@ private:
 #endif
 };
 
-
 bool DataStats::_alarm(false);
 
 
@@ -1176,19 +1184,28 @@ R"(Round the start time of each period to the nearest interval of
 length SECONDS.  The period start time is only ever shown in log
 messages and the json output, since the sample statistics always
 show the actual sample times.)"),
+       JsonOutputDir("--json-output-dir", "<dir_path>" R"(Write structured Json output to a directory.
+        The directory path can include strptime() time spec.
+        This will create:
+         -manifest.json(overall info and links to tream files)
+         -problems.json(all detected data problems)
+         -metadata/<streamid>.json (for each streams header)
+         -statistics/<streamid>.json (for each stream's stats)
+         -data_values/<streamid>.json (if --data enabvled for actual values)
+       option mutually exclusive with --json)"), 
 #if NIDAS_JSONCPP_ENABLED
     streamWriter(),
     headerWriter()
 #endif
-        JsonOutputDir("--json-output-dir", "<dir_path>" R"(Write structured Json output to a directory.
-        The directory path can include strptime() time spec.
-        This will create:
-         -mainifest.json(overall info and links to tream files)
-         -problems.json(all detected data problems)
-         -metadata/<streamid>.json (for each streams header)
-         -statistics/<streamid>.json (for eahc stream's stats)
-         -data_values/<streamid>.json (if --data enabvled for actual values)
-       option mutually exclusive with --json)") 
+      //  JsonOutputDir("--json-output-dir", "<dir_path>" R"(Write structured Json output to a directory.
+      //  The directory path can include strptime() time spec.
+      //  This will create:
+      //   -mainifest.json(overall info and links to tream files)
+      //   -problems.json(all detected data problems)
+      //   -metadata/<streamid>.json (for each streams header)
+      //   -statistics/<streamid>.json (for eahc stream's stats)
+      //   -data_values/<streamid>.json (if --data enabvled for actual values)
+       //option mutually exclusive with --json)") 
 {
     NidasApp& app = _app;
     app.setApplicationInstance();
@@ -1798,16 +1815,36 @@ report()
     // Print results to stdout unless json output specified.  For json
     // output, write the headers and data to a file, and stream the data to
     // stdout in line-separated json.
-    if (!JsonOutput.specified())
-    {
-        printReport(cout);
+     // Determine if any JSON output is requested
+    if (JsonOutputDir.specified() || JsonOutput.specified()) {
+        jsonReport(); // jsonReport will decide the specific JSON format
+    } else {
+        printReport(cout); // Default text report
     }
-    else
-    {
-        jsonReport();
-    }
-}
 
+    // Handle _reportdata for stdout streaming separately if needed.
+    // The original logic for --json also streamed data to stdout if _reportdata.
+    // If using chunked output, the "data_values" chunk handles this.
+    // If using --json (single file), the original logic after json.close() applies.
+    if (JsonOutput.specified() && !JsonOutputDir.specified() && _reportdata)
+    {
+        sample_map_t::iterator si_data_stream;
+        for (si_data_stream = _samples.begin(); si_data_stream != _samples.end(); ++si_data_stream)
+        {
+            SampleCounter* stream = &si_data_stream->second;
+            if (stream->nsamps > 0 || _reportall)
+            {
+#if NIDAS_JSONCPP_ENABLED && NIDAS_JSONCPP_STREAMWRITER
+                streamWriter->write(stream->jsonData(), &std::cout);
+#elif NIDAS_JSONCPP_ENABLED
+                streamWriter->write(std::cout, stream->jsonData());
+#endif
+                std::cout << std::endl;
+            }
+        }
+    }
+
+}
 #if NIDAS_JSONCPP_ENABLED
 inline
 Json::Value&
@@ -1823,16 +1860,134 @@ DataStats::
 jsonReport()
 {
 #if NIDAS_JSONCPP_ENABLED
-    if (!streamWriter.get())
+    if (!streamWriter.get()|| !headerWriter.get())
     {
         createJsonWriters();
     }
+     
+    if (JsonOutputDir.specified())
+   {
+        // A. Determine and Create Base Output Directory Paths
+        std::string output_base_path_str_template = JsonOutputDir.getValue();
+        std::string output_base_path_str = _period_start.format(true, output_base_path_str_template);
+        boost::filesystem::path output_base_path(output_base_path_str);
+        boost::filesystem::path metadata_path = output_base_path / "metadata";
+        boost::filesystem::path statistics_path = output_base_path / "statistics";
+        boost::filesystem::path data_values_path; // Will be set if _reportdata
 
-    // (JsonOutputDir.specified())
-    //
-    //  std::string base_dir_path_str = _period_start.format(true. JsonOutputDir.getValue());
-    //}                                                                                                                                                            
-    std::string jsonname;
+        try {
+            boost::filesystem::create_directories(output_base_path);
+            boost::filesystem::create_directories(metadata_path);
+            boost::filesystem::create_directories(statistics_path);
+            if (_reportdata) {
+                data_values_path = output_base_path / "data_values";
+                boost::filesystem::create_directories(data_values_path);
+            }
+        } catch (const boost::filesystem::filesystem_error& e) {
+            ELOG(("Error creating output directories for --json-output-dir at '") << output_base_path_str << "': " << e.what());
+            return; 
+        }
+
+        ILOG(("Writing full structured JSON output to directory: '") << output_base_path.string() << "'");
+
+        
+        auto writeJsonToFile = [&](const Json::Value& jsonData, const boost::filesystem::path& filePath, Json::StreamWriter* writer) {
+            boost::filesystem::path tmpFilePath = filePath;
+            tmpFilePath += ".tmp"; 
+            std::ofstream outFile(tmpFilePath.string()); 
+            if (!outFile.is_open()) {
+                ELOG(("Failed to open temporary JSON file: ") << tmpFilePath.string()); 
+                return false;
+            }
+            #if NIDAS_JSONCPP_STREAMWRITER 
+            writer->write(jsonData, &outFile);
+            #else 
+            writer->write(outFile, jsonData);
+            #endif
+            outFile.close();
+            boost::system::error_code ec; 
+            boost::filesystem::rename(tmpFilePath, filePath, ec); 
+            if (ec) {
+                ELOG(("Failed to rename temporary JSON file '") << tmpFilePath.string() << "' to '" << filePath.string() << "': " << ec.message());
+                boost::system::error_code remove_ec; 
+                boost::filesystem::remove(tmpFilePath, remove_ec); 
+                return false;
+            }
+            return true;
+        };
+
+        
+        Json::Value manifest(Json::objectValue);
+        Json::Value& processing_info = manifest["processing_info"];
+        processing_info["timeperiod_iso"] = Json::arrayValue;
+        processing_info["timeperiod_iso"].append(iso_format(_period_start));
+        processing_info["timeperiod_iso"].append(iso_format(_period_end));
+        processing_info["update_interval_seconds"] = _update;
+        processing_info["period_seconds"] = _period;
+        processing_info["dataset_starttime_iso"] = iso_format(_start_time);
+        
+        Json::Value& stream_ids_array = manifest["stream_ids"]; // Will be Json::arrayValue
+        stream_ids_array = Json::arrayValue; // Explicitly make it an array
+
+        Json::Value& component_refs = manifest["component_references"];
+        component_refs["problems_file"] = "problems.json"; 
+        component_refs["metadata_template"] = "metadata/{streamid}.json";
+        component_refs["statistics_template"] = "statistics/{streamid}.json";
+        if (_reportdata) {
+            component_refs["data_values_template"] = "data_values/{streamid}.json";
+        }
+
+        
+        std::vector<Problem> all_problems;
+        sample_map_t::iterator si;
+
+        for (si = _samples.begin(); si != _samples.end(); ++si) {
+            SampleCounter* stream = &si->second;
+            const std::string& streamid_str = stream->streamid;
+            std::string safe_streamid_filename = streamid_str; 
+
+            // Add stream ID to manifest
+            stream_ids_array.append(streamid_str);
+
+            
+            Json::Value header_json = stream->jsonHeader();
+            boost::filesystem::path metadata_file_path = metadata_path / (safe_streamid_filename + ".json");
+            writeJsonToFile(header_json, metadata_file_path, headerWriter.get());
+
+            // C2. Get Stats (which also collects problems) and Write Statistics File (statistics/<streamid>.json)
+            Json::Value stats_json = stream->jsonStats(all_problems); // all_problems vector is populated here
+            boost::filesystem::path statistics_file_path = statistics_path / (safe_streamid_filename + ".json");
+            writeJsonToFile(stats_json, statistics_file_path, headerWriter.get());
+
+            // C3. Write Data Values File (data_values/<streamid>.json) - if _reportdata
+            if (_reportdata && (stream->nsamps > 0 || _reportall)) {
+                Json::Value data_json = stream->jsonData();
+                boost::filesystem::path data_file_path = data_values_path / (safe_streamid_filename + ".json");
+                // Use streamWriter for data values 
+                writeJsonToFile(data_json, data_file_path, streamWriter.get()); 
+            }
+        }
+
+        // D. Write Aggregated Problems File (problems.json)
+        Json::Value problems_json_array = Problem::asJsonArray(all_problems);
+        boost::filesystem::path problems_file_path = output_base_path / "problems.json";
+        writeJsonToFile(problems_json_array, problems_file_path, headerWriter.get());
+
+        // E. Finalize and Write Manifest File (now that all stream_ids are collected)
+        boost::filesystem::path manifest_file_path = output_base_path / "manifest.json";
+        writeJsonToFile(manifest, manifest_file_path, headerWriter.get());
+        
+        // Optional
+        std::cout << "--- datastats: Multi-file JSON output complete for this period. ---" << std::endl;
+        std::cout << "--- Check directory '" << output_base_path.string() << "' for all files. ---" << std::endl << std::endl;
+
+        return; 
+    }
+   
+   
+    else if (JsonOutput.specified()) // Original single-file JSON logic
+    {
+     std::string jsonname;
     jsonname = _period_start.format(true, JsonOutput.getValue());
     ILOG(("writing json to ") << jsonname);
 
@@ -1912,7 +2067,9 @@ jsonReport()
             }
         }
     }
+
 #endif
+}
 }
 
 
