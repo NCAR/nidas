@@ -51,6 +51,10 @@
 #include <iostream>
 #include <iomanip>
 #include <sys/stat.h>
+#include <boost/filesystem.hpp>
+#include <fstream>
+#include <boost/system/error_code.hpp>
+
 
 #include <unistd.h>
 #include <stdio.h>   // rename()
@@ -68,7 +72,7 @@
 #define NIDAS_JSONCPP_STREAMWRITER 1
 #endif
 #endif
-
+namespace fs = boost::filesystem;
 using namespace nidas::core;
 using namespace nidas::dynld;
 using namespace std;
@@ -84,6 +88,9 @@ namespace {
     {
         return ut.format(true, "%Y-%m-%dT%H:%M:%S.%3fZ");
     }
+    
+
+
 
 #if NIDAS_JSONCPP_ENABLED
     inline Json::Value
@@ -98,9 +105,10 @@ namespace {
             return Json::Value(value);
         }
     }
+
+
 #endif
 }
-
 
 /**
  * Problem is any issue detected in the data and statistics, distinguished by
@@ -908,7 +916,7 @@ public:
     {
         clearSampleQueue();
     }
-
+  
     int run();
 
     void readHeader(SampleInputStream& sis);
@@ -998,6 +1006,16 @@ private:
     static const int DEFAULT_PORT = 30000;
 
     static bool _alarm;
+    static bool writeJsonToFileHelper(const Json::Value& jsonData,
+                                      const fs::path& filePath, 
+                                      Json::StreamWriter* writer);
+    bool  ensureOutputDirectoriesForPeriod(
+        const fs::path& current_period_base_path, // Input: The fully resolved base path for this period
+        fs::path& out_metadata_path,      // Output: Path to the metadata subdir
+        fs::path& out_statistics_path,    // Output: Path to the statistics subdir
+        fs::path& out_data_values_path    // Output: Path to the data_values subdir (if applicable)
+    );
+                           
 
     typedef map<dsm_sample_id_t, SampleCounter> sample_map_t;
     sample_map_t _samples;
@@ -1048,6 +1066,7 @@ private:
     NidasAppArg JsonOutput;
     NidasAppArg ShowProblems;
     NidasAppArg RoundStart;
+    NidasAppArg JsonOutputDir;
 
 #if NIDAS_JSONCPP_ENABLED
 #if !NIDAS_JSONCPP_STREAMWRITER
@@ -1090,7 +1109,6 @@ private:
 #endif
 #endif
 };
-
 
 bool DataStats::_alarm(false);
 
@@ -1175,10 +1193,20 @@ R"(Round the start time of each period to the nearest interval of
 length SECONDS.  The period start time is only ever shown in log
 messages and the json output, since the sample statistics always
 show the actual sample times.)"),
+       JsonOutputDir("--json-output-dir", "<dir_path>" R"(Write structured Json output to a directory.
+        The directory path can include strptime() time spec.
+        This will create:
+         -manifest.json(overall info and links to stream files)
+         -problems.json(all detected data problems)
+         -metadata/<streamid>.json (for each streams header)
+         -statistics/<streamid>.json (for each stream's stats)
+         -data_values/<streamid>.json (if --data enabled for actual values)
+       option mutually exclusive with --json)"), 
 #if NIDAS_JSONCPP_ENABLED
     streamWriter(),
     headerWriter()
 #endif
+
 {
     NidasApp& app = _app;
     app.setApplicationInstance();
@@ -1192,6 +1220,7 @@ show the actual sample times.)"),
                         ShowProblems | RoundStart | app.Precision);
 #if NIDAS_JSONCPP_ENABLED
     app.enableArguments(JsonOutput);
+    app.enableArguments(JsonOutputDir);
 #endif
     app.InputFiles.allowFiles = true;
     app.InputFiles.allowSockets = true;
@@ -1211,6 +1240,13 @@ int DataStats::parseRunstring(int argc, char** argv)
         {
             return usage(argv[0]);
         }
+
+        if (JsonOutput.specified() && JsonOutputDir.specified())
+        {
+            throw NidasAppException("--json and --json-output-dir are mutually exclusive and cannot be used simultaneously.");
+            
+        }
+
         _period = Period.asInt();
         _update = Update.asInt();
         _count = Count.asInt();
@@ -1783,16 +1819,36 @@ report()
     // Print results to stdout unless json output specified.  For json
     // output, write the headers and data to a file, and stream the data to
     // stdout in line-separated json.
-    if (!JsonOutput.specified())
-    {
-        printReport(cout);
+     // Determine if any JSON output is requested
+    if (JsonOutputDir.specified() || JsonOutput.specified()) {
+        jsonReport(); // jsonReport will decide the specific JSON format
+    } else {
+        printReport(cout); // Default text report
     }
-    else
-    {
-        jsonReport();
-    }
-}
 
+    // Handle _reportdata for stdout streaming separately if needed.
+    // The original logic for --json also streamed data to stdout if _reportdata.
+    // If using chunked output, the "data_values" chunk handles this.
+    // If using --json (single file), the original logic after json.close() applies.
+    if (JsonOutput.specified() && _reportdata)
+    {
+        sample_map_t::iterator si_data_stream;
+        for (si_data_stream = _samples.begin(); si_data_stream != _samples.end(); ++si_data_stream)
+        {
+            SampleCounter* stream = &si_data_stream->second;
+            if (stream->nsamps > 0 || _reportall)
+            {
+#if NIDAS_JSONCPP_ENABLED && NIDAS_JSONCPP_STREAMWRITER
+                streamWriter->write(stream->jsonData(), &std::cout);
+#elif NIDAS_JSONCPP_ENABLED
+                streamWriter->write(std::cout, stream->jsonData());
+#endif
+                std::cout << std::endl;
+            }
+        }
+    }
+
+}
 #if NIDAS_JSONCPP_ENABLED
 inline
 Json::Value&
@@ -1808,11 +1864,107 @@ DataStats::
 jsonReport()
 {
 #if NIDAS_JSONCPP_ENABLED
-    if (!streamWriter.get())
+    if (!streamWriter.get()|| !headerWriter.get())
     {
         createJsonWriters();
     }
-    std::string jsonname;
+     
+    if (JsonOutputDir.specified())
+   {
+        std::string output_base_path_str_template = JsonOutputDir.getValue();
+        std::string current_period_output_base_str = _period_start.format(true, output_base_path_str_template);
+        fs::path current_period_output_base_path(current_period_output_base_str);
+
+        // Declaring path variables that the helper will populate
+        fs::path actual_metadata_path;
+        fs::path actual_statistics_path;
+        fs::path actual_data_values_path; // Will be populated if _reportdata
+
+        // Call the helper to ensure directories exist for this specific period's path
+        if (!ensureOutputDirectoriesForPeriod(current_period_output_base_path,
+                                              actual_metadata_path,
+                                              actual_statistics_path,
+                                              actual_data_values_path)) {
+            // Error was logged by the helper, so just return
+            return; 
+        }
+
+        ILOG(("Writing full structured JSON output to directory: '") << current_period_output_base_path.string() << "'");
+        
+ 
+
+        
+        Json::Value manifest(Json::objectValue);
+        Json::Value& processing_info = manifest["processing_info"];
+        processing_info["timeperiod"] = Json::arrayValue;
+        processing_info["timeperiod"].append(iso_format(_period_start));
+        processing_info["timeperiod"].append(iso_format(_period_end));
+        processing_info["update_interval"] = _update;
+        processing_info["period"] = _period;
+        processing_info["starttime"] = iso_format(_start_time);
+        
+        Json::Value manifest_streams_object(Json::objectValue);
+    
+
+        manifest["problems_file"] = "problems.json"; 
+
+        std::vector<Problem> all_problems;
+        sample_map_t::iterator si;
+
+        for (si = _samples.begin(); si != _samples.end(); ++si) {
+            SampleCounter* stream = &si->second;
+            const std::string& streamid_str = stream->streamid;
+            std::string safe_streamid_filename = streamid_str; 
+
+            // For new manifest structure (direct links)
+            Json::Value stream_links_object(Json::objectValue);
+
+            // METADATA
+            fs::path metadata_file_rel_path = actual_metadata_path.filename() / (safe_streamid_filename + ".json");
+            stream_links_object["metadata_file"] = metadata_file_rel_path.string();
+            Json::Value header_json = stream->jsonHeader();
+            // Use the fully qualified path for writing
+            DataStats::writeJsonToFileHelper(header_json, actual_metadata_path / (safe_streamid_filename + ".json"), headerWriter.get());
+
+            // STATISTICS
+            fs::path statistics_file_rel_path = actual_statistics_path.filename() / (safe_streamid_filename + ".json");
+            stream_links_object["statistics_file"] = statistics_file_rel_path.string();
+            Json::Value stats_json = stream->jsonStats(all_problems);
+            DataStats::writeJsonToFileHelper(stats_json, actual_statistics_path / (safe_streamid_filename + ".json"), headerWriter.get());
+
+            // DATA VALUES
+            if (_reportdata && (stream->nsamps > 0 || _reportall)) {
+                // Ensure actual_data_values_path is valid if _reportdata was true
+                if (!actual_data_values_path.empty()) {
+                    fs::path data_values_file_rel_path = actual_data_values_path.filename() / (safe_streamid_filename + ".json");
+                    stream_links_object["data_values_file"] = data_values_file_rel_path.string();
+                    Json::Value data_json = stream->jsonData();
+                    DataStats::writeJsonToFileHelper(data_json, actual_data_values_path / (safe_streamid_filename + ".json"), streamWriter.get());
+                }
+            }
+            manifest_streams_object[streamid_str] = stream_links_object;
+        }
+        manifest["streams"] = manifest_streams_object; // Add the populated streams object to manifest
+
+        // Write Aggregated Problems File
+        Json::Value problems_json_array = Problem::asJsonArray(all_problems);
+        fs::path problems_file_path = current_period_output_base_path / "problems.json";
+        DataStats::writeJsonToFileHelper(problems_json_array, problems_file_path, headerWriter.get());
+
+        // Write Manifest File
+        fs::path manifest_file_path = current_period_output_base_path / "manifest.json";
+        DataStats::writeJsonToFileHelper(manifest, manifest_file_path, headerWriter.get());
+        
+        std::cout << "--- datastats: Multi-file JSON output complete for this period. ---" << std::endl;
+        std::cout << "--- Check directory '" << current_period_output_base_path.string() << "' for all files. ---" << std::endl << std::endl;
+
+        return; 
+    }
+   
+   
+    else if (JsonOutput.specified()) // Original single-file JSON logic
+    {
+     std::string jsonname;
     jsonname = _period_start.format(true, JsonOutput.getValue());
     ILOG(("writing json to ") << jsonname);
 
@@ -1892,7 +2044,9 @@ jsonReport()
             }
         }
     }
+
 #endif
+}
 }
 
 
@@ -2069,6 +2223,63 @@ int DataStats::run()
     pipeline.interrupt();
     pipeline.join();
     return result;
+}
+bool DataStats::writeJsonToFileHelper(const Json::Value& jsonData,
+                                      const fs::path& filePath,
+                                      Json::StreamWriter* writer)
+{
+    fs::path tmpFilePath = filePath;
+    tmpFilePath += ".tmp"; 
+    std::ofstream outFile(tmpFilePath.string()); 
+
+    if (!outFile.is_open()) {
+        ELOG(("Failed to open temporary JSON file: ") << tmpFilePath.string()); 
+        return false;
+    }
+
+#if NIDAS_JSONCPP_STREAMWRITER 
+    writer->write(jsonData, &outFile);
+#else 
+    writer->write(outFile, jsonData);
+#endif
+    outFile.close();
+
+    
+    boost::system::error_code ec; 
+    fs::rename(tmpFilePath, filePath, ec); 
+
+    if (ec) {
+        ELOG(("Failed to rename temporary JSON file '") << tmpFilePath.string() << "' to '" << filePath.string() << "': " << ec.message());
+        boost::system::error_code remove_ec; 
+        fs::remove(tmpFilePath, remove_ec); 
+        return false;
+    }
+    return true;
+}
+bool DataStats::ensureOutputDirectoriesForPeriod(
+    const fs::path& current_period_base_path,
+    fs::path& out_metadata_path,     // Pass by reference to set them
+    fs::path& out_statistics_path,
+    fs::path& out_data_values_path)
+{
+    out_metadata_path = current_period_base_path / "metadata";
+    out_statistics_path = current_period_base_path / "statistics";
+
+    try {
+        fs::create_directories(current_period_base_path); // Create base for this period if needed
+        fs::create_directories(out_metadata_path);
+        fs::create_directories(out_statistics_path);
+
+        if (_reportdata) { // _reportdata is a member of DataStats
+            out_data_values_path = current_period_base_path / "data_values";
+            fs::create_directories(out_data_values_path);
+        }
+        return true; // Success
+    } catch (const fs::filesystem_error& e) {
+        ELOG(("Error creating output directories under '") << current_period_base_path.string() 
+             << "': " << e.what());
+        return false; // Failure
+    }
 }
 
 int main(int argc, char** argv)
