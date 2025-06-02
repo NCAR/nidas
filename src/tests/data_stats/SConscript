@@ -1,0 +1,15 @@
+# -*- python -*-
+
+from SCons.Script import Environment
+
+env = Environment(tools=['default', 'nidasapps'])
+
+data_stats = env.NidasApp('data_stats')
+datasets = env.NidasApp('datasets')
+
+depends = ["run_test.sh", data_stats, datasets]
+runtest = env.Command("xtest", depends, ["cd $SOURCE.dir && ./run_test.sh"])
+
+env.Precious(runtest)
+env.AlwaysBuild(runtest)
+env.Alias('test', runtest)

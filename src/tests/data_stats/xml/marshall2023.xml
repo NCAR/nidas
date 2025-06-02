@@ -1,0 +1,220 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Copyright 2012 UCAR, NCAR, All Rights Reserved -->
+
+<project
+    xmlns="http://www.eol.ucar.edu/nidas"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns:xi="http://www.w3.org/2001/XInclude"
+    name="MARSHALL2023"
+    system="ISFS"
+    maxStation="12"
+    version="$Revision: 4555 $">
+
+<!--
+    xsi:schemaLocation="http://www.eol.ucar.edu/nidas nidas.xsd"
+-->
+
+    <parameter name="wind3d_horiz_coordinates" type="string" value="$WIND3D_HORIZ_COORDINATES"/>
+    <parameter name="wind3d_horiz_rotation" type="bool" value="$WIND3D_HORIZ_ROTATION"/>
+    <parameter name="wind3d_tilt_correction" type="bool" value="$WIND3D_TILT_CORRECTION"/>
+
+    <xi:include href="sensor_catalog.xml" parse="xml"/>
+
+<!-- This project should be pretty simple.  The same sensors at both the Rohn and TT tower --> 
+<!-- Rohn at 3m, 7m, and  12m -->
+<!-- TT at   7m, 12m, and 32m -->
+<!-- 3 DSMs, 1 at Rohn, 2 at TT -->
+
+    <dsmcatalog>
+        <dsm ID="BASE" rserialPort="30002">
+
+            <serialSensor IDREF="Garmin_GPS" id="10">
+            </serialSensor>
+
+            <serialSensor IDREF="CHRONY_TRACKING_LOG" id="18">
+            </serialSensor>
+
+            <serialSensor IDREF="PWRMONV" devicename="/dev/ttyPWRMONV" id="60">
+            </serialSensor>
+
+            <output class="RawSampleOutputStream">
+                <socket type="server" port="30000" maxIdle="60" block="false"/>
+            </output>
+
+	    <!-- At least for now, disable datagram samples to ustar
+            <output class="RawSampleOutputStream">
+                <socket type="dgrequest" maxIdle="60" block="false"
+                    address="ustar"/>
+            </output>
+            -->
+
+	    <output class="RawSampleOutputStream">
+                <socket type="udp" address="eol-rt-data.eol.ucar.edu"
+                    port="30010" block="false"/>
+            </output>
+	    
+            <output class="RawSampleOutputStream">
+                <fileset dir="$DATAMNT/projects/${PROJECT}/raw_data"
+                        file="${DSM}_%Y%m%d_%H%M%S.dat"
+                        length="43200">
+                <mount dir="$DATAMNT"/>
+                </fileset>
+            </output>
+          </dsm>
+
+    </dsmcatalog>
+
+    <!-- Only three DSM; two on the trailer tower (tt), one on Rohn (r) -->
+    <site name="tt" class="isff.GroundStation" suffix=".$SITE">
+      <dsm name="ttt" IDREF="BASE" id="1">
+	    <!-- override suffix for multiple sensors (GPS, chrony, pwrmon) at a site -->
+	    <serialSensor devicename="usock::32947" suffix=".ttt"/>
+	    <serialSensor devicename="/var/log/chrony/tracking.log" suffix=".ttt"/>
+	    <serialSensor devicename="/dev/ttyPWRMONV" suffix=".ttt"/>
+
+            <serialSensor IDREF="CSAT3_IRGA_BIN" devicename="/dev/ttyDSM0" height="7m" id="1070">
+            </serialSensor>
+            <serialSensor IDREF="NCAR_SHT" devicename="/dev/ttyDSM1" height="7m" id="1072">
+            </serialSensor>
+
+            <serialSensor IDREF="CSAT3_IRGA_BIN" devicename="/dev/ttyDSM2" height="12m" id="1120">
+            </serialSensor>
+            <serialSensor IDREF="NCAR_SHT" devicename="/dev/ttyDSM3" height="12m" id="1122">
+            </serialSensor>
+	    <serialSensor IDREF="Nano" devicename="/dev/ttyDSM4" height="12m" id="1124">
+            </serialSensor>
+
+            <serialSensor IDREF="CSAT3_IRGA_BIN" devicename="/dev/ttyDSM5" height="32m" id="1320">
+            </serialSensor>
+            <serialSensor IDREF="NCAR_SHT" devicename="/dev/ttyDSM6" height="32m" id="1322">
+            </serialSensor>
+	    <serialSensor IDREF="Nano" devicename="/dev/ttyDSM7" height="32m" id="1324">
+            </serialSensor>
+      </dsm>
+
+        <dsm name="ttb"  IDREF="BASE" id="2">
+	    <!-- override suffix for multiple sensors (GPS, chrony, pwrmon) at a site -->
+	    <serialSensor devicename="usock::32947" suffix=".ttb"/>
+	    <serialSensor devicename="/var/log/chrony/tracking.log" suffix=".ttb"/>
+	    <serialSensor devicename="/dev/ttyPWRMONV" suffix=".ttb"/>
+
+            <serialSensor IDREF="Nano" devicename="/dev/ttyDSM0" height="7m" id="1074">
+            </serialSensor>
+
+
+	    <serialSensor IDREF="V28" devicename="/dev/ttyDSM1" id="4000" suffix=".east">
+            </serialSensor>
+
+
+            <!--  3m Rohn Nano on TT DSM (Pressue not critical to tower) -->
+	    <serialSensor IDREF="Nano" devicename="/dev/ttyDSM3" height="3m" id="34">
+            </serialSensor>
+
+            <!--  ott and mote with soils are not critical to experiment, but may eventually add them  -->
+            <serialSensor IDREF="PARSIVEL2" devicename="/dev/ttyDSM6" suffix=".ott" height="1m" id="3020">
+            </serialSensor>
+
+	    <serialSensor IDREF="V28" devicename="/dev/ttyDSM5" id="2800">
+            </serialSensor>
+
+	    <serialSensor IDREF="V28_4comp" devicename="/dev/ttyDSM7" suffix=".rad" id="3800">
+            </serialSensor>
+      </dsm>
+
+    </site>
+    
+    <site name="rohn" class="isff.GroundStation" suffix=".$SITE">
+      <dsm IDREF="BASE" name="$SITE" id="3">
+            <serialSensor IDREF="CSAT3_IRGA_BIN" devicename="/dev/ttyDSM0" height="3m" id="30">
+            </serialSensor>
+            <serialSensor IDREF="NCAR_SHT" devicename="/dev/ttyDSM1" height="3m" id="32">
+            </serialSensor>
+            <!--  3m Nano on TT DSM (Pressue not critical to tower) -->
+
+            <serialSensor IDREF="CSAT3_IRGA_BIN" devicename="/dev/ttyDSM2" height="7m" id="70">
+            </serialSensor>
+            <serialSensor IDREF="NCAR_SHT" devicename="/dev/ttyDSM3" height="7m" id="72">
+            </serialSensor>
+            <serialSensor IDREF="Nano" devicename="/dev/ttyDSM4" height="7m" id="74">
+            </serialSensor>
+
+
+            <serialSensor IDREF="CSAT3_IRGA_BIN" devicename="/dev/ttyDSM5" height="12m" id="120">
+            </serialSensor>
+            <serialSensor IDREF="NCAR_SHT" devicename="/dev/ttyDSM6" height="12m" id="122">
+            </serialSensor>
+	    <serialSensor IDREF="Nano" devicename="/dev/ttyDSM7" height="12m" id="124">
+            </serialSensor>
+      </dsm>
+    </site>   
+
+   <server name='ustar'>
+      <!--
+	   ustar pulls data from the relay on eol-rt-data, but it does not
+	   record the real-time network stream, since that is being done on
+	   barolo, and two network stream archives seems excessive and
+	   redundant and unwieldy.
+      -->
+      <service class="RawSampleService" rawSorterLength="0"
+	       procSorterLength="10" priority="RT_RR:50">
+          <input class="RawSampleInputStream">
+	      <socket type="client"
+		      address="eol-rt-data.eol.ucar.edu" port="30010"/>
+	  </input>
+          <processor class="SampleArchiver">
+              <output class="RawSampleOutputStream">
+                  <socket type="server" port="30000" block="false" maxIdle="120"/>
+              </output>
+              <output class="RawSampleOutputStream">
+                  <socket type="server" path="/tmp/nidas_socket"
+			  block="false" maxIdle="120"/>
+              </output>
+          </processor>
+          <processor class="SampleProcessor">
+              <output class="UDPSampleOutput">
+                  <socket type="dataUDP" port="30005" address="127.0.0.1"/>
+              </output>
+          </processor>
+
+          <!-- comment out until generated 
+	  <xi:include href="stats_5min.xml" parse="xml"/>
+	  -->
+
+      </service>
+   </server>
+
+   <server name='mercury.eol.ucar.edu'>
+      <!--
+	   barolo pulls data from the relay on eol-rt-data and archives the
+	   real-time network stream in the usual place.  Also, don't sort
+	   raw samples before archiving them.
+      -->
+      <service class="RawSampleService" rawSorterLength="0"
+               procSorterLength="0" priority="RT_RR:50">
+          <input class="RawSampleInputStream">
+              <socket type="client"
+                      address="eol-rt-data.eol.ucar.edu" port="30010"/>
+          </input>
+          <processor class="SampleArchiver">
+              <output class="RawSampleOutputStream">
+                  <socket type="server" port="30000" block="false" maxIdle="120"/>
+              </output>
+              <output class="RawSampleOutputStream">
+                  <socket type="server" path="/tmp/nidas_socket"
+                          block="false" maxIdle="120"/>
+              </output>
+              <output class="RawSampleOutputStream">
+                  <fileset dir="$DATAMNT/projects/${PROJECT}/$DATADIR"
+                           file="isfs_%Y%m%d_%H%M%S.dat.bz2"
+                           length="14400">
+                  </fileset>
+              </output>
+          </processor>
+
+          <!--
+          <xi:include href="stats_5min.xml" parse="xml"/>
+          -->
+      </service>
+   </server>
+
+</project>

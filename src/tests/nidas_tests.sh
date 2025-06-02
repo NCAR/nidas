@@ -37,6 +37,21 @@ sed_times()
     sed -E -e 's/([0-9][0-9]:[0-9][0-9]:[0-9][0-9]\.[0-9]+)[0-9][0-9] /\1 /'
 }
 
+compare_outputs() # reffile outfile
+{
+    reffile="$1"
+    outfile="$2"
+    diff --side-by-side --width=200 --suppress-common-lines "${reffile}" "${outfile}"
+    if [ $? -ne 0 ]; then
+        echo "Compared $reffile to $outfile ..."
+        echo "*** Output differs: $*"
+        if [ -z "$SCONS_KEEP_GOING" ]; then
+            exit 1
+        fi
+    fi
+    echo "Comparing $reffile to $outfile: success."
+}
+
 compare() # reffile
 {
     reffile="$1"
@@ -53,15 +68,7 @@ compare() # reffile
         cat "${outfile}.stderr"
         exit 1
     fi
-    diff --side-by-side --width=200 --suppress-common-lines "${reffile}" "${outfile}"
-    if [ $? -ne 0 ]; then
-        echo "Compared $reffile to $outfile ..."
-        echo "*** Output differs: $*"
-        if [ -z "$SCONS_KEEP_GOING" ]; then
-            exit 1
-        fi
-    fi
-    echo "Comparing $reffile to $outfile: success."
+    compare_outputs "$reffile" "$outfile"
 }
 
 failed() # message
