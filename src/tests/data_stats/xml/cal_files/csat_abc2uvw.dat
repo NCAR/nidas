@@ -1,0 +1,17 @@
+#
+# Used by CalFile parser
+# dateFormat = "%Y %b %d %H:%M:%S"
+# timeZone = "US/Mountain"
+#
+# CSAT3 array geometry matrix for ABC->UVW transformations, by row.
+# The standard values are:  -1.333 0.667 0.667 0.0 1.155 -1.155 0.385 0.385 0.385
+#
+# The following geometry of this CSAT3 was measured at the
+# factory and provided to us by Campbell Scientific Inc.
+# The geometry of each CSAT3 is stored in its firmware,
+# and is used by the processing within the CSAT3 in the calculation of 3D winds.
+# Campbell has provided these values so that we can apply a customized
+# correction for transducer shadowing.
+#
+# DateTime
+2021 Jul 01 00:00:00	-1.333	0.667	0.667	0.0	1.155	-1.155	0.385	0.385	0.385
