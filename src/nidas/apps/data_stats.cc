@@ -103,9 +103,8 @@ namespace {
 
 
 /**
- * Problem is any issue detected in the data and statistics, distinguished
- * by a kind id and a stream id, and an optionally including any related
- * values.
+ * Problem is any issue detected in the data and statistics, distinguished by
+ * a kind id and a stream id, and optionally including any related values.
  *
  * { "problem-class": "sample-rate-mismatch",
  *   "streamid": stream-id }
@@ -1022,6 +1021,7 @@ private:
     int _period;
     int _update;
     int _nreports;
+    int _precision{0};
 
     // The buffer of samples from which statistics will be generated.
     typedef std::list<const Sample*> sample_queue;
@@ -1080,7 +1080,7 @@ private:
             builder.settings_["indentation"] = "";
             // This is just a guess at a reasonable value.  The goal is to make
             // the output a little more human readable and concise.
-            builder.settings_["precision"] = 5;
+            builder.settings_["precision"] = _precision;
             streamWriter.reset(builder.newStreamWriter());
 
             builder.settings_["indentation"] = "  ";
@@ -1189,7 +1189,7 @@ show the actual sample times.)"),
                         app.Version | app.InputFiles | FilterArg |
                         app.Help | Period | Update | Count |
                         AllSamples | ShowData | SingleMote | Fullnames |
-                        ShowProblems | RoundStart);
+                        ShowProblems | RoundStart | app.Precision);
 #if NIDAS_JSONCPP_ENABLED
     app.enableArguments(JsonOutput);
 #endif
@@ -1238,6 +1238,9 @@ int DataStats::parseRunstring(int argc, char** argv)
         {
             _period = _update;
         }
+        _precision = _app.Precision.asInt();
+        // default to 5 digits
+        _precision = (_precision == 0) ? 5 : _precision;
         _app.parseInputs(args);
     }
     catch (NidasAppException& ex)

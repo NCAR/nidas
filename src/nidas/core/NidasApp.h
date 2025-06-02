@@ -692,6 +692,10 @@ public:
     NidasAppArg DatasetName;
     NidasAppArg Clipping;
     NidasAppArg SorterLength;
+    NidasAppArg Precision{"--precision", "ndigits",
+                          "Number of digits in floating point data values.  "
+                          "Default 0 means 5 for floats, 10 for doubles",
+                          "0"};
 
     /**
      * It is not enough to enable this arg in an app, the app must must
