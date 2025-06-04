@@ -978,6 +978,15 @@ parseNext()
     // no other logging has been configured by user arguments.
     Logger::setScheme(_logscheme.addFallback("debug"));
   }
+  else if (arg == &Precision)
+  {
+    int precision = Precision.asInt();
+    if (precision < 0 || precision > 16)
+    {
+      throw NidasAppException("Precision must be an int from 0 to 16: " +
+                              Precision.getValue());
+    }
+  }
   else if (arg == &Help)
   {
     _help = true;

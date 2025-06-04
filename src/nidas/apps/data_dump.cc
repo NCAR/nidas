@@ -535,10 +535,6 @@ private:
     NidasAppArg FormatTimeISO;
     NidasAppArg CSV;
     BadSampleFilterArg FilterArg;
-    NidasAppArg Precision{"--precision", "ndigits",
-                          "Number of digits in floating point values.  "
-                          "Default 0 means 5 for floats, 10 for doubles",
-                          "0"};
 };
 
 #define ISOFORMAT "%Y-%m-%dT%H:%M:%S.%4f"
@@ -577,7 +573,7 @@ DataDump::parseRunstring(int argc, char** argv)
                         app.SampleRanges | app.StartTime | app.EndTime |
                         app.Version | app.InputFiles | app.ProcessData |
                         app.Help | app.Version | WarnTime | NoDeltaT | NoLen |
-                        FormatTimeISO | CSV | FilterArg | Precision);
+                        FormatTimeISO | CSV | FilterArg | app.Precision);
 
     app.InputFiles.allowFiles = true;
     app.InputFiles.allowSockets = true;
@@ -817,7 +813,7 @@ DataDump::run() throw()
         DumpClient dumper(app.sampleMatcher(), format, cout);
         dumper.setWarningTime(warntime);
         dumper.setShowDeltaT(!NoDeltaT.asBool());
-        dumper.setPrecsion(Precision.asInt());
+        dumper.setPrecsion(app.Precision.asInt());
         dumper.setShowLen(!NoLen.asBool());
         dumper.setSensors(allsensors);
         dumper.setCSV(CSV.asBool());

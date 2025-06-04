@@ -16,7 +16,7 @@ fi
 datfile="marshall_ttt_20250527_120000_30s.dat"
 xmldir="xml"
 xfile="$xmldir/marshall2023.xml"
-data_stats="data_stats -p -a -D --period 15 -n 1"
+data_stats="data_stats -p -a -D --period 15 -n 1 --precision 4"
 data_stats="$data_stats --xml $xfile $datfile"
 
 export CALFILES="xml/cal_files"
