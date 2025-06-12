@@ -153,7 +153,7 @@ Variable::~Variable()
     delete _converter;
     list<Parameter*>::const_iterator pi;
     for (pi = _parameters.begin(); pi != _parameters.end(); ++pi)
-    	delete *pi;
+        delete *pi;
 }
 
 

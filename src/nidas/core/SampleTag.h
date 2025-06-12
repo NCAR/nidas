@@ -47,14 +47,14 @@ class Parameter;
  * A SampleTag has an integer ID. This is the same ID that is
  * associated with Sample objects, allowing software to map
  * between a data sample and the meta-data associated with it.
- * 
+ *
  * A SampleTag/Sample ID is a 32-bit value comprised of four parts:
  * 6-bit type_id,  10-bit DSM_id,  16-bit sensor+sample id.
  *
  * The type id specifies the data type (float, int, double, etc),
  * The type_id is only meaningful in an actual data Sample,
  * and is not accessible in the SampleTag class.
- * 
+ *
  * The 26 bits of DSM_id and sensor+sample are known simply as the
  * Id (or full id), and is accessible with the getId() method.
  *
@@ -122,7 +122,7 @@ public:
      */
     void setSensorId(unsigned int val) {
         _sensorId = val;
-    	_id = SET_SPS_ID(_id,_sensorId + _sampleId);
+        _id = SET_SPS_ID(_id,_sensorId + _sampleId);
     }
 
     /**
@@ -171,7 +171,7 @@ public:
     void setDSMSensor(const DSMSensor* val);
 
     /**
-     * Station number, which is also known as the Site number. 
+     * Station number, which is also known as the Site number.
      * A station number of 0 is the "non" station.
      * Otherwise positive integers are used when a project
      * consists of more than one similar station, where

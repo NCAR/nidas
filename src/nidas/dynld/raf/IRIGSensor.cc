@@ -401,7 +401,7 @@ bool IRIGSensor::process(const Sample* samp,std::list<const Sample*>& result)
     if (_nvars > 2)
         osamp->getDataPtr()[iv++] = get100HzBacklog(samp);
 
-    for ( ; iv < _nvars; ) 
+    for ( ; iv < _nvars; )
         osamp->getDataPtr()[iv++] = floatNAN;
     result.push_back(osamp);
     return true;

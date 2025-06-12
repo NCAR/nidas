@@ -125,11 +125,11 @@ SampleTag& SampleTag::operator=(const SampleTag& rhs)
 SampleTag::~SampleTag()
 {
     for (vector<Variable*>::const_iterator vi = _variables.begin();
-    	vi != _variables.end(); ++vi) delete *vi;
+        vi != _variables.end(); ++vi) delete *vi;
 
     list<Parameter*>::const_iterator pi;
     for (pi = _parameters.begin(); pi != _parameters.end(); ++pi)
-    	delete *pi;
+        delete *pi;
 }
 
 void SampleTag::addVariable(Variable* var)
@@ -228,7 +228,7 @@ void SampleTag::addParameter(Parameter* val)
     list<Parameter*>::iterator pi;
     for (pi = _parameters.begin(); pi != _parameters.end(); ) {
         Parameter* param = *pi;
-    	if (param->getName() == val->getName()) {
+        if (param->getName() == val->getName()) {
             pi = _parameters.erase(pi);
             delete param;
         }
@@ -281,8 +281,7 @@ void SampleTag::fromDOMElement(const xercesc::DOMElement* node)
 		ist.unsetf(ios::dec);
 		ist >> val;
 		if (ist.fail())
-		    throw n_u::InvalidParameterException("sample",
-		    	aname,sval);
+		    throw n_u::InvalidParameterException("sample", aname,sval);
 		setSampleId(val);
 		// cerr << "attr=" << sval << " id=" << val << endl;
 	    }
@@ -290,12 +289,11 @@ void SampleTag::fromDOMElement(const xercesc::DOMElement* node)
                 istringstream ist(sval);
 		double rate;
 		ist >> rate;
-		if (ist.fail() || rate < 0.0)            
+		if (ist.fail() || rate < 0.0)
                 {
                     ostringstream ost;
                     ost << "sample id=" << getDSMId() << ',' << getSpSId();
-		    throw n_u::InvalidParameterException(ost.str(),
-		    	aname,sval);
+		    throw n_u::InvalidParameterException(ost.str(), aname,sval);
                 }
 		setRate(rate);
 	    }
@@ -306,8 +304,7 @@ void SampleTag::fromDOMElement(const xercesc::DOMElement* node)
 		if (ist.fail() || period < 0.0) {
                     ostringstream ost;
                     ost << "sample id=" << GET_DSM_ID(getId()) << ',' << GET_SPS_ID(getId());
-		    throw n_u::InvalidParameterException(ost.str(),
-		    	aname,sval);
+		    throw n_u::InvalidParameterException(ost.str(), aname,sval);
                 }
 		setPeriod(period);
 	    }
@@ -331,7 +328,7 @@ void SampleTag::fromDOMElement(const xercesc::DOMElement* node)
 		// cerr << "processed=" << process << endl;
             }
 	    else if (aname == "suffix")
-	    	suffix = sval;
+                suffix = sval;
 	    else if (aname == "station") {
                 int station;
                 istringstream ist(sval);
@@ -339,8 +336,7 @@ void SampleTag::fromDOMElement(const xercesc::DOMElement* node)
 		if (ist.fail()) {
                     ostringstream ost;
                     ost << "sample id=" << GET_DSM_ID(getId()) << ',' << GET_SPS_ID(getId());
-		    throw n_u::InvalidParameterException(ost.str(),
-		    	aname,sval);
+		    throw n_u::InvalidParameterException(ost.str(), aname,sval);
                 }
                 setStation(station);
             }
@@ -390,7 +386,7 @@ void SampleTag::fromDOMElement(const xercesc::DOMElement* node)
         // with the same id in a DSMSensor add or override the attributes
         // of the original SampleTag.
         // The list of variables for a SampleTag is presumed to be
-        // in the same sequence in every definition, so that, for 
+        // in the same sequence in every definition, so that, for
         // example, the attributes of the second variable in a
         // SampleTag will be overridden with the attributes of the
         // second variable in successive definition of the SampleTag
@@ -418,7 +414,7 @@ void SampleTag::fromDOMElement(const xercesc::DOMElement* node)
             const Dictionary* dict = 0;
             if (getDSMSensor()) dict = &getDSMSensor()->getDictionary();
 	    Parameter* parameter =
-	    	Parameter::createParameter((xercesc::DOMElement*)child,dict);
+		Parameter::createParameter((xercesc::DOMElement*)child,dict);
 	    addParameter(parameter);
 	}
         else if (elname == "prompt") {

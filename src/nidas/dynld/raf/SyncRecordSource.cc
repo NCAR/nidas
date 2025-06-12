@@ -181,7 +181,7 @@ void SyncInfo::advanceRecord(int ilast)
 }
 
 bool SyncInfo::incrementSlot()
-{ 
+{
     if (++islot == nSlots) {
         // There is no next sync record.
         if (!_srs->nextRecord(*this)) {
@@ -195,7 +195,7 @@ bool SyncInfo::incrementSlot()
 }
 
 bool SyncInfo::checkNonIntRateIncrement()
-{ 
+{
     if (rate == nSlots) return true;
 
     // the best time to increment is when the last slot time rolls
@@ -213,12 +213,12 @@ bool SyncInfo::checkNonIntRateIncrement()
 }
 
 bool SyncInfo::decrementSlot()
-{ 
+{
     nLateSamp = 0;
     if (islot == 0) {
         if (!_srs->prevRecord(*this)) return false;
         islot = nSlots;
-    } 
+    }
     islot--;
     skipModCount--;
     return true;
@@ -335,6 +335,7 @@ selectVariablesFromSensor(DSMSensor* sensor,
             if (vt == Variable::CONTINUOUS || vt == Variable::COUNTER)
             {
                 variables.push_back(var);
+//cout << "var=[" << var->getName() << "], " << var->getSampleTag()->getDSMSensor() << endl;
             }
         }
     }
@@ -391,7 +392,7 @@ init()
              * Note that
              *      _syncInfo[id] = SyncInfo(id, rate, srs);
              * requires a no-arg constructor, though one would think
-             * it would only require an assignment operator.  We don't 
+             * it would only require an assignment operator.  We don't
              * have a no-arg constructor, so so use map::insert(pair<>).
              */
             _syncInfo.insert(
@@ -797,7 +798,7 @@ int SyncRecordSource::computeSlotIndex(const Sample* samp,
         nidas::util::LogContext lcerror(LOG_ERR);
         log(lcerror, "!_syncRecord[n]", samp, sinfo);
     }
-    assert (_syncRecord[n]); 
+    assert (_syncRecord[n]);
 
     if (samp->getTimeTag() >= _syncTime[n] + USECS_PER_SEC)
         nextRecord(sinfo);
@@ -807,7 +808,7 @@ int SyncRecordSource::computeSlotIndex(const Sample* samp,
 
     return ni;
 }
-    
+
 bool SyncRecordSource::checkTime(const Sample* samp,
         SyncInfo& sinfo, SampleTracer& stracer, LogContext& lc,
         int warn_times_interval)
