@@ -217,7 +217,6 @@ rm -rf $RPM_BUILD_ROOT
 %{nidas_prefix}/include/nidas/dynld
 %{nidas_prefix}/include/nidas/linux
 %{nidas_prefix}/lib/libnidas_util.so
-%{nidas_prefix}/lib/libnidas_util.a
 %{nidas_prefix}/lib/libnidas.so
 %{nidas_prefix}/lib/libnidas_dynld.so
 %config %{nidas_prefix}/lib/pkgconfig/nidas.pc
