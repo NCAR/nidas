@@ -8,6 +8,7 @@ using boost::unit_test_framework::test_suite;
 #include <nidas/core/Project.h>
 #include <nidas/core/DSMConfig.h>
 #include <nidas/core/DSMSensor.h>
+#include <nidas/core/Variable.h>
 #include <nidas/core/Site.h>
 
 using namespace nidas::core;
@@ -187,4 +188,60 @@ BOOST_AUTO_TEST_CASE(test_cross_sites)
     {
         BOOST_TEST(true, "exception caught");
     }
+}
+
+
+std::string
+getStringParameter(const nidas::core::Variable* variable, std::string target)
+{
+    std::string cat;
+    if (variable == 0)
+        return cat;
+
+    const nidas::core::SampleTag* tag = variable->getSampleTag();
+    const nidas::core::DSMSensor* sensor = 0;
+    const nidas::core::Parameter* parm = 0;
+
+    if (tag)
+        sensor = tag->getDSMSensor();
+    if (sensor)
+        parm = sensor->getParameter(target);
+    if (parm)
+        cat = parm->getStringValue(0);
+    DLOG(("test getStringParameter(") << variable->getName() << ", " << target
+         << "): sensor=" << (sensor ? sensor->getName() : "null") << "; "
+         << "value=" << cat);
+    return cat;
+}
+
+
+
+BOOST_AUTO_TEST_CASE(test_sensor_parameters)
+{
+    TFixture fix;
+    nidas::core::Project project;
+    project.parseXMLConfigFile("caesar_default.xml");
+
+    DSMConfig* dsm325 = const_cast<DSMConfig*>(project.findDSM("dsm325"));
+    BOOST_REQUIRE(dsm325);
+    BOOST_TEST(dsm325->getId() == 25);
+    auto sensors = dsm325->getSensors();
+    // first sensor is chrony tracking log
+    dsm_sample_id_t sid = SET_DSM_ID(0, 25) | SET_SPS_ID(0, 105);
+    DSMSensor* ctl = project.findSensor(sid);
+
+    std::vector<std::string> xnames = { "Stratum_325", "Timeoffset_325" };
+    auto xi = xnames.begin();
+    VariableIterator vi = ctl->getVariableIterator();
+    for ( ; vi.hasNext(); ) {
+        const Variable* variable = vi.next();
+        BOOST_TEST(variable->getName() == *xi++, "sensor variable name mismatch");
+        std::string category = getStringParameter(variable, "Category");
+        // const Parameter* pcat = variable->getParameter("Category");
+        // if (pcat) {
+        //     category = pcat->getStringValue();
+        // }
+        BOOST_TEST(category == "Housekeeping", variable->getName());
+    }
+    BOOST_TEST((xi == xnames.end()), "not all variables names found");
 }
