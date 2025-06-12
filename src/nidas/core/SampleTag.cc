@@ -167,11 +167,14 @@ void SampleTag::setStation(int val)
 const Site* SampleTag::getSite() const
 {
     const Site* site = 0;
-    // probably sensor is never null, and probably it will have a dsm pointer
-    // if this tag does, but this is just in case since it's not always clear
-    // where and how sample tags get constructed.
-    if (_sensor) site = _sensor->getSite();
-    if (_dsm) site = _dsm->getSite();
+    // If this tag has a sensor, then return the site of the sensor.  If
+    // the sensor in turn does not have a site, then it returns the site of
+    // the dsm, if it has one.  I don't know if it could happen that the
+    // sensor has a different dsm than the tag, because nothing really
+    // prevents that, but the important thing is that the sensor site takes
+    // precedence.
+    if (_sensor)
+        site = _sensor->getSite();
     return site;
 }
 
