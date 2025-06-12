@@ -126,7 +126,7 @@ setup_nidas_set() # topdir
     libdir="$topdir/lib"
     # Avoid adding a directory which might be malformed if
     # it doesn't look like a nidas install.
-    if [ -x "$bindir/dsm" -a -f "$libdir/libnidas_util.a" ]; then
+    if [ -x "$bindir/dsm" -a -x "$libdir/." ]; then
         setup_nidas_unset "$topdir"
         ldpath=`prepend "$LD_LIBRARY_PATH" "$libdir"`
         epath=`prepend "$PATH" "$bindir"`
