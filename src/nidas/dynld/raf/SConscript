@@ -23,6 +23,7 @@ sources = env.Split("""
     DSMMesaSensor.cc
     Extract2D.cc
     GPS_HW_HG2021GB02.cc
+    HVPS.cc
     IRIGSensor.cc
     IRS_HW_HG2001GD.cc
     IRS_HW_YG1854.cc
@@ -78,6 +79,7 @@ headers = env.Split("""
     DSMMesaSensor.h
     Extract2D.h
     GPS_HW_HG2021GB02.h
+    HVPS.h
     IRIGSensor.h
     IRS_HW_HG2001GD.h
     IRS_HW_YG1854.h

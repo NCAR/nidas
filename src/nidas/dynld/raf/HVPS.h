@@ -24,8 +24,8 @@
  ********************************************************************
 */
 
-#ifndef _nidas_dynld_raf_2ds_h_
-#define _nidas_dynld_raf_2ds_h_
+#ifndef _nidas_dynld_raf_hvps_h_
+#define _nidas_dynld_raf_hvps_h_
 
 #include <nidas/dynld/raf/TwoD_Processing.h>
 #include <nidas/dynld/UDPSocketSensor.h>
