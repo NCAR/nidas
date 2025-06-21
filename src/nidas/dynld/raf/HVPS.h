@@ -37,16 +37,16 @@ namespace nidas { namespace dynld { namespace raf {
 using namespace nidas::core;
 
 /**
- * Base class for SPEC 2DS optical array probe on a UDP interface.
+ * Base class for SPEC HVPS optical array probe on a UDP interface.
  * Perhaps can be split out into a base class and sub-classes for
  * 2DS & HVPS.
  */
-class TwoDS : public UDPSocketSensor, public TwoD_Processing
+class HVPS : public UDPSocketSensor, public TwoD_Processing
 {
 
 public:
-    TwoDS();
-    ~TwoDS();
+    HVPS();
+    ~HVPS();
 
     bool process(const Sample * samp, std::list < const Sample * >&results);
 
@@ -108,10 +108,10 @@ protected:
 private:
 
     /** No copying. */
-    TwoDS(const TwoDS&);
+    HVPS(const HVPS&);
 
     /** No copying. */
-    TwoDS& operator=(const TwoDS&);
+    HVPS& operator=(const HVPS&);
 };
 
 
