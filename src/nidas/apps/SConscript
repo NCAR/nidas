@@ -19,7 +19,7 @@ from pathlib import Path
 import eol_scons
 import eol_scons.parseconfig as pc
 
-from SCons.Script import Environment, ARGUMENTS, Split, Export
+from SCons.Script import Environment, ARGUMENTS, Split, Export, BoolVariable
 
 
 def check_pkg_config(env, pkg):
@@ -89,6 +89,26 @@ def jsoncpp(env: Environment):
     env['JSONCPP_ENABLED'] = jsoncpp_enabled
 
 
+# ==============================================================================
+# WEBSOCKETS CONFIGURATION (COMMENTED OUT)
+#
+# # Add a new command-line variable to enable/disable WebSocket feature
+# env.AddVariables(BoolVariable('WEBSOCKETS_ENABLED', 'Enable WebSocket feature in data_stats', 'off'))
+#
+# def beast(env: Environment):
+#     if env['WEBSOCKETS_ENABLED'] == 'on':
+#         # Boost.Beast is header-only but depends on Boost.System,
+#         # which is already linked. We just need to add a CPP define
+#         # so the code knows it can be compiled.
+#         env.PrintProgress("Boost.Beast (for WebSockets) enabled for data_stats.")
+#         env.AppendUnique(CPPDEFINES=['NIDAS_WEBSOCKETS_ENABLED=1'])
+#     else:
+#         env.PrintProgress("WebSockets not enabled.")
+#         env.AppendUnique(CPPDEFINES=['NIDAS_WEBSOCKETS_ENABLED=0'])
+#
+# ==============================================================================
+
+
 programs = Split("""
 arl-ingest
 raf/arinc_out
@@ -149,6 +169,10 @@ if sdconf.CheckFunc('i2c_smbus_read_byte', '#include <linux/i2c-dev.h>', 'C'):
 sdconf.Finish()
 
 env.Tool(jsoncpp)
+
+# env.Tool(beast)
+
+
 didbenv = env.Clone()
 dbconf = didbenv.Configure()
 if bool(arch == 'host' and env.get('JSONCPP_ENABLED') and
@@ -164,9 +188,29 @@ dbconf.Finish()
 # everything else gets everything
 env.Require(['libnidas_dynld'])
 
+
+# # Temporarily remove data_stats from the main loop
+# programs.remove('data_stats')
+#
+# # Build the other programs
+# for prog in programs:
+#     prog = env.NidasProgram(prog, prog+'.cc')
+#     env.Alias(prog[0].name, prog)
+#
+# # Build data_stats separately with its conditional source file
+# data_stats_sources = ['data_stats.cc']
+# if env['WEBSOCKETS_ENABLED'] == 'on':
+#     data_stats_sources.append('WebSocketServer.cc')
+#
+# env.NidasProgram('data_stats', data_stats_sources)
+#
+# ==============================================================================
+
+
 for prog in programs:
     prog = env.NidasProgram(prog, prog+'.cc')
     env.Alias(prog[0].name, prog)
+
 
 env.NidasProgram('prep', 'isff/prep.cc')
 
