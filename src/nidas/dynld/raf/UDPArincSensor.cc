@@ -59,6 +59,7 @@ UDPArincSensor::UDPArincSensor() :
 
 UDPArincSensor::~UDPArincSensor()
 {
+    DLOG(("UDPArincSensor::dtor()"));
     close();
     /*
      * Since these sensors do not get added to _allSensors in SensorHandler
@@ -76,6 +77,7 @@ UDPArincSensor::~UDPArincSensor()
         if (_badRXPseqCnt[i] > 1) // always one for start up.
             cerr << getClassName() << ": Number of RXP sequence count errors for channel "
                  << i << " = " << _badRXPseqCnt[i]-1 << std::endl;
+    DLOG(("UDPArincSensor::dtor() done"));
 }
 
 void UDPArincSensor::validate()
@@ -152,7 +154,7 @@ void UDPArincSensor::open(int flags)
 
 void UDPArincSensor::close()
 {
-
+    DLOG(("UDPArincSensor::close()"));
     if (_ctrl_pid > 0)
     {
         UDPSocketSensor::close();
@@ -170,6 +172,7 @@ void UDPArincSensor::close()
         }
     }
     _ctrl_pid = 0;
+    DLOG(("UDPArincSensor::close() done"));
 }
 
 bool UDPArincSensor::process(const Sample * samp,
