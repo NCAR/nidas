@@ -39,9 +39,7 @@ NIDAS_CREATOR_FUNCTION(XMLConfigAllService)
 XMLConfigAllService::XMLConfigAllService():
 	XMLConfigService("XMLConfigAllService")
 {
-    // See comments in XMLConfigAllService.h. This service is currently
-    // not used by any clients.
-    WLOG(("Running ") << getName() << " is not necssary. Use XMLConfigService instead");
+
 }
 
 IOChannelRequester* XMLConfigAllService::connected(IOChannel* iochan) throw()
