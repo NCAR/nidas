@@ -162,6 +162,9 @@ get_builds() # alias
         centos*|ubuntu*)
             echo host
             ;;
+        arm64)
+            echo arm64
+            ;;
         pi*)
             echo armhf
             ;;

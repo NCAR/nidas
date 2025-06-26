@@ -118,6 +118,10 @@ case "$arch" in
 	echo "Source arch is armel."
         archlib="arm-linux-gnueabi"
 	;;
+    *aarch64*)
+        echo "Source arch is aarch64."
+        archlib="aarch64-linux-gnu"
+        ;;
     *)
 	echo "Cannot derive arch lib dir from: $arch"
 	exit 1
@@ -131,6 +135,11 @@ if echo "$target" | egrep -q -v ':'; then
     target="${target}:/opt/nidas"
 fi
 
+sourcelib="$source/lib"
+if [ -d "$source/lib64" ]; then
+    echo "Using $sourcelib/lib64 as source lib directory."
+    sourcelib="$source/lib64"
+fi
 
 echo "Now running rsync ops..."
 set -x
@@ -139,5 +148,5 @@ set -x
 rsync $opts "$source/bin" "$source/firmware" "$source/include" "$source/share" "$target"
 # First create the lib subdirectory with rsync, then copy the source lib
 # into the archlib directory.
-rsync $opts --exclude="**" "$source/lib/" "$target/lib"
-rsync $opts "$source/lib/" "$target/lib/$archlib"
+rsync $opts --exclude="**" "$sourcelib/" "$target/lib"
+rsync $opts "$sourcelib/" "$target/lib/$archlib"
