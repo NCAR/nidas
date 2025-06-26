@@ -48,16 +48,6 @@
 #include "time_constants.h"
 #include "IOException.h"
 
-/**
- * If UTIME_BASIC_STREAM_IO is defined, then the UTime class
- * supports output to the std::basic_ostream<charT> template class.
- * If it is not defined, then UTime only supports output to
- * std::ostream, which is std::basic_ostream<char>.
- * The general support for basic_ostream<charT> would only be useful
- * if we want to support wide character output, which is not likely,
- * but hey, we'll leave the code in for now.
- */
-#define UTIME_BASIC_STREAM_IO
 
 namespace nidas { namespace util {
 
@@ -72,6 +62,35 @@ namespace nidas { namespace util {
  * convention. Time values around the time that a system's NTP clock are
  * being adjusted for a leap second will be indeterminate by up to a second,
  * depending on how the Unix clock on that system was adjusted.
+ *
+ * UTime supports output to the std::basic_ostream<charT> template class,
+ * which includes output to std::ostream, which is std::basic_ostream<char>.
+ * The general support for basic_ostream<charT> is only useful to support wide
+ * character output, which is not likely, but it works.
+ * 
+ * There is no explicit support for an "unset" or "null" UTime value.  The
+ * default constructor initializes from the current system time; there is no
+ * way to construct an invalid or null time.  Instead, historical practice has
+ * been to use LONG_LONG_MIN or sometimes just (time_t)0 to indicate an unset
+ * UTime.  Therefore the static constants MIN, MAX, and ZERO exist to
+ * formalize this practice.  Use Utime(UTime::ZERO) to construct a single time
+ * for which isZero() returns true.  Use MIN when the intention is to use the
+ * earliest possible UTime value, and similarly for MAX.  The meaning of
+ * (time_t)0 should be made explicit by replacing it with MIN, MAX, or ZERO.
+ * Instead of comparing a UTime to LONG_LONG_MIN or LONG_LONG_MAX, call
+ * isMin() or isMax() or isSet().  Typically, MIN is used as the default to
+ * indicate an unset start time while MAX is used for a default end time, so
+ * calling isSet() works for either start or end times, returning true if the
+ * UTime is neither MIN nor MAX.
+ * 
+ * The stored microseconds since the Posix epoch is a signed long long, so 0
+ * represents the epoch but not the earliest possible UTime.  The minimum
+ * possible UTime is represented by the negative value LONG_LONG_MIN.  ZERO
+ * and isZero() are available in case an application really does want the
+ * default to be the epoch or otherwise needs a convenient UTime constant for
+ * the Posix epoch, but generally it should be avoided since the intention is
+ * less clear, either zero as epoch or zero as unset.  In particular,
+ * ZERO.isSet() returns true.
  */
 class UTime {
 public:
@@ -87,6 +106,30 @@ public:
      * @param t Non-leap microseconds since Jan 1, 1970 00:00 UTC
      */
     UTime(long long t): _utime(t),_fmt(),_utc(true) {}
+
+    static const UTime MIN;
+    static const UTime MAX;
+    static const UTime ZERO;
+
+    /**
+     * Return true if this UTime is equivalent to UTime::ZERO.
+     */
+    bool isZero() const;
+
+    /**
+     * Return true if this UTime is equivalent to UTime::MIN.
+     */
+    bool isMin() const;
+
+    /**
+     * Return true if this UTime is equivalent to UTime::MAX.
+     */
+    bool isMax() const;
+
+    /**
+     * Return true if UTime is neither MIN nor MAX.
+     */
+    bool isSet() const;
 
     /**
      * Constructor.
@@ -112,7 +155,12 @@ public:
      * Note that mon differs from the definition of tm_mon in struct tm
      * which is in the range 0-11.
      */
-    UTime(bool utc, int year,int mon, int day,int hour, int min, double sec);
+    UTime(bool utc, int year, int mon, int day, int hour, int min, double sec);
+
+    /**
+     * Construct UTime with integer seconds and microseconds.
+     */
+    UTime(bool utc, int year, int mon, int day, int hour, int min, int sec, int usec);
 
     /**
      * Constructor. yday is day of year, 1-366.
@@ -121,11 +169,9 @@ public:
      */
     UTime(bool utc, int year,int yday,int hour, int min, double sec);
 
-    UTime(const UTime& u) :
-        _utime(u._utime),
-        _fmt(u._fmt),
-        _utc(u._utc)
-    { }
+    UTime(const UTime& u) = default;
+
+    UTime& operator=(const UTime& u) = default;
 
     void setFromSecs(time_t t) { _utime = fromSecs(t); }
 
@@ -160,29 +206,54 @@ public:
     void setUTC(bool val) { _utc = val; }
 
     /**
-     * Parse a character string into a UTime, using these formats until success:
+     * Parse a character string into a UTime, trying the following formats
+     * until success.  If the string is empty, or the string "now", return the
+     * current time.  If the parsing should consume the entire string, then
+     * the convert() method might be more convenient.  Otherwise, use the
+     * nparsed parameter to determine how much of the string was parsed.
      *
-     * [CC]YY [cmon|mon] day h:m[:s.f]      h,m and s are one or two digits
-     * [CC]YY [cmon|mon] day hhmmss[.f]     hh, mm and ss are two digits
-     * [CC]YY [cmon|mon] day
-     * s.f
-     * YYYY-mm-dd[THH:MM[:SS[.f]]]          ISO format
-     * YYYY-mm-dd[ HH:MM[:SS[.f]]]          ISO format with space separator
+     * ISO format with space, T, or underscore separator, and when utc is
+     * true, an optional Z suffix:
+     *
+     *     YYYY-mm-dd[{T|_| }HH:MM[:SS[.f]]][Z]
+     * 
+     * The fractional seconds in the ISO formats can be either 3 or 6 digits,
+     * ie, either milliseconds or microseconds.
+     *
+     * Other formats:
+     *
+     *     [CC]YY [cmon|mon] day h:m[:s.f]      h,m and s are one or two digits
+     *     [CC]YY [cmon|mon] day hhmmss[.f]     hh, mm and ss are two digits
+     *     [CC]YY [cmon|mon] day
+     *     s.f
      *
      * "cmon" is a character month or abbreviation.
      * "mon" is a numeric month (1-12).
      * "day" is day of month, 1-31.
      * "h" or "hh" are in the range 0-23.
      * "f" is the fractional seconds, one or more digits.
+     *
      * The last format, "s.f" is the number of non-leap seconds since
      * 1970 Jan 1 00:00 GMT. For example, 1262304000.0 is 2010 Jan 1 00:00 GMT.
      * Note: one can also use a "%s" descriptor in the format argument to
      * parse(false,str,format,nparsed) to do the same conversion.
      * If all parsing fails, throw ParseException.
+     *
      * @param nparsed: number of characters parsed.
+     *
+     * @throws ParseException
      */
-    static UTime parse(bool utc, const std::string& string, int* nparsed=0)
-    	throw(ParseException);
+    static UTime parse(bool utc, const std::string& string, int* nparsed=0);
+
+    /**
+     * Same as parse() except UTC is implied.
+     */
+    static UTime parse(const std::string& string, int* nparsed=0);
+
+    /**
+     * parse() the full string in UTC or else throw ParseException.
+     */
+    static UTime convert(const std::string& string);
 
     /**
      * Parse a character string into a UTime.
@@ -195,47 +266,67 @@ public:
      * @param nparsed: number of characters parsed.
      * Example:
      * UTime ut = UTime::parse(true,timestr,"%Y %m %d %H:%M:%S.%2f");
+     *
+     * @throws ParseException
      */
     static UTime parse(bool utc, const std::string& string,
-                       const std::string& format, int* nparsed=0)
-        throw(ParseException);
+                       const std::string& format, int* nparsed=0);
 
     /**
      * Updates the value of a UTime by doing a parse(utc,string,nparsed).
+     *
+     * @throws ParseException
      */
-    void set(bool utc,const std::string& string,int* nparsed=0) 
-    	throw(ParseException);
+    void set(bool utc,const std::string& string,int* nparsed=0);
 
     /**
      * Updates the value of a UTime by doing a parse(utc,string,format,nparsed).
+     *
+     * @throws ParseException
      */
-    void set(bool utc,const std::string& string,const std::string& format,int* nparsed=0) 
-    	throw(ParseException);
+    void set(bool utc,const std::string& string, const std::string& format,
+             int* nparsed=0);
 
     /**
      * Format a UTime into a string.
-     * @param utc: if true, use UTC timezone, otherwise the TZ environment variable.
+     *
+     * @param utc: if true, use UTC timezone, otherwise the TZ environment
+     * variable.
+     * 
      * @param fmt: a time format in the form of strftime. All the % format
-     * descriptors of strftime are available. In addition one can
-     * use "%nf" to print fractional seconds, where n is the precision,
-     * a digit from 1 to 9. n defaults to 3, providing millisecond precision,
-     * if not specified.  For example:
-     * ut.format(true,"time is: %Y %m %d %H:%M:%S.%2f");
+     * descriptors of strftime are available. In addition one can use "%nf" to
+     * print fractional seconds, where n is the precision, a digit from 1 to
+     * 9. n defaults to 3, providing millisecond precision, if not specified.
+     * For example:
+     *
+     *     ut.format(true,"time is: %Y %m %d %H:%M:%S.%2f");
+     *
+     * Fractional seconds are truncated and not rounded, so n is the number of
+     * digits of microseconds that will be inserted into the %f specifier,
+     * from most to least significant, the rest are truncated.  If rounding is
+     * needed, call round() to get a UTime with the desired precision, then
+     * call format().  The number of microsecond digits is capped at 6.
+     * 
+     * If this UTime is MIN or MAX, the string "MIN" or "MAX" is returned.
      *
      * The "%s" format descriptor will print the number of non-leap seconds
-     * since 1970 Jan 01 00:00 UTC. This is the same number returned by toSecs().
-     * Note that %s will generate the same value as strftime in the following code:
-     * struct tm tm;
-     * char timestr[12];
-     * time_t tval = mytime;
-     * localtime_r(&tval,&tm);
-     * strftime(timestr,sizeof(timestr),"%s",&tm);
+     * since 1970 Jan 01 00:00 UTC. This is the same number returned by
+     * toSecs().  Note that %s will generate the same value as strftime in the
+     * following code:
+     *
+     *     struct tm tm;
+     *     char timestr[12];
+     *     time_t tval = mytime;
+     *     localtime_r(&tval,&tm);
+     *     strftime(timestr,sizeof(timestr),"%s",&tm);
      *
      * Using gmtime_r to fill in struct tm and then call strftime with a %s
      * generates the wrong value if the local timezone is other than GMT,
-     * since strftime with a %s assumes the struct tm is in the local timezone:
-     * gmtime_r(&tval,&tm);
-     * strftime(timestr,sizeof(timestr),"%s",&tm);  // wrong
+     * since strftime with a %s assumes the struct tm is in the local
+     * timezone:
+     *
+     *     gmtime_r(&tval,&tm);
+     *     strftime(timestr,sizeof(timestr),"%s",&tm);  // wrong
      */
     std::string format(bool utc,const std::string& fmt) const;
 
@@ -258,15 +349,6 @@ public:
      *
      */
     std::string format() const;
-
-    UTime& operator=(const UTime& u)
-    {
-        if (this != &u) {
-            _utime = u._utime;
-            _fmt = u._fmt;
-        }
-        return *this;
-    }
 
     UTime& operator=(long long u) { _utime = u; return *this; }
 
@@ -292,28 +374,39 @@ public:
 
     bool operator!=(const UTime& u) const { return _utime != u._utime; }
 
+    /**
+     * Return the UTime on the even microseconds interval @p y at or just
+     * prior to this UTime.  If @p y is zero, return this UTime.
+     * 
+     * @param y 
+     * @return UTime 
+     */
     UTime earlier(long long y) const;
+
+    /**
+     * Like earlier(), but if this UTime is closer to one interval past
+     * earlier(), then return that UTime instead of the earlier one.  If @p y
+     * is zero, return this UTime.
+     */
+    UTime round(long long y) const;
 
     static int month(std::string monstr);
 
-    // conversion operator
-    // operator long long() const { return _utime; }
-
     long long toUsecs() const
     {
-	return _utime;
+        return _utime;
     } 
 
     double toDoubleSecs() const
     {
-	// should work for positive and negative.
-	return (time_t)(_utime/USECS_PER_SEC) +
-		(double)(_utime % USECS_PER_SEC) / USECS_PER_SEC;
+        // should work for positive and negative.
+        return (time_t)(_utime/USECS_PER_SEC) +
+                (double)(_utime % USECS_PER_SEC) / USECS_PER_SEC;
     } 
 
     time_t toSecs() const
     {
-	return (_utime + USECS_PER_SEC / 2) / USECS_PER_SEC;
+        return (_utime + USECS_PER_SEC / 2) / USECS_PER_SEC;
     } 
 
     /**
@@ -323,7 +416,7 @@ public:
     UTime& setFormat(const std::string& val)
     {
         _fmt = val;
-	return *this;
+        return *this;
     }
 
     /**
@@ -355,14 +448,10 @@ public:
 
     struct tm tm(bool utc) const;
 
-#ifdef UTIME_BASIC_STREAM_IO
     template<typename charT> friend
     std::basic_ostream<charT, std::char_traits<charT> >& operator << 
         (std::basic_ostream<charT, std::char_traits<charT>  >& os,
             const UTime& x);
-#else
-    friend std::ostream& operator<<(std::ostream& os, const UTime &x);
-#endif
 
     /**
      * Positive modulus:  if x > 0, returns x % y
@@ -390,20 +479,20 @@ protected:
      */
     static long long fromSecs(double x)
     {
-	double xf = floor(x);
+        double xf = floor(x);
         return (long long)xf * USECS_PER_SEC +
-		(int)rint((x-xf) * USECS_PER_SEC) ;
+                (int)rint((x-xf) * USECS_PER_SEC) ;
     } 
 
     static double toDoubleSecs(long long x)
     {
-	// should work for positive and negative.
-	return (time_t)(x/USECS_PER_SEC) + (double)(x % USECS_PER_SEC) / USECS_PER_SEC;
+        // should work for positive and negative.
+        return (time_t)(x/USECS_PER_SEC) + (double)(x % USECS_PER_SEC) / USECS_PER_SEC;
     } 
 
     static time_t toSecs(long long x)
     {
-	return x / USECS_PER_SEC;
+        return x / USECS_PER_SEC;
     } 
 
 private:
@@ -448,21 +537,15 @@ private:
  *  or (if we use the template class):
  *	cout << setTZ<char>("PST8PDT") << setDefaultFormat<char>("%H%M%S") << ut << endl;
  */
-#ifdef UTIME_BASIC_STREAM_IO
 template<typename charT>
-#endif
 class UTime_stream_manip {
 
     std::string _fmt;
-#ifdef UTIME_BASIC_STREAM_IO
     /** 
      * Pointer to function that does a manipulation on a ostream
      * with a string argument.
      */
     std::basic_ostream<charT,std::char_traits<charT> >& (*_f)(std::basic_ostream<charT,std::char_traits<charT> >&, const std::string&);
-#else
-    std::ostream& (*_f)(std::ostream&, const std::string&);
-#endif
 
 public:
     /**
@@ -470,33 +553,19 @@ public:
      * @param f A function that returns a reference to an ostream,
      *          with arguments of the ostream reference and a string.
      */
-#ifdef UTIME_BASIC_STREAM_IO
     UTime_stream_manip(std::basic_ostream<charT,std::char_traits<charT> >&  (*f)(
         std::basic_ostream<charT,std::char_traits<charT> >&, const std::string&), const std::string& fmt): _fmt(fmt),_f(f)
     {
     }
-#else
-    UTime_stream_manip(std::ostream&  (*f)(
-        std::ostream&, const std::string&), const std::string& fmt): _fmt(fmt),_f(f)
-    {
-    }
-#endif
 
     /**
      * << operator of this manipulator on an ostream.
      * Invokes the function that was passed to the constructor.
      */
-#ifdef UTIME_BASIC_STREAM_IO
     template<typename charTx>
     friend std::basic_ostream<charTx, std::char_traits<charTx> >& operator << 
         (std::basic_ostream<charTx, std::char_traits<charTx> >& os,const UTime_stream_manip<charTx>& m);
-#else
-    friend std::ostream& operator<<(std::ostream& os,
-        const UTime_stream_manip& m);
-#endif
 };
-
-#ifdef UTIME_BASIC_STREAM_IO
 
 // format a UTime on an output stream.
 template<typename charT>
@@ -559,54 +628,14 @@ UTime_stream_manip<charT> setTZ(const std::string& val)
     return UTime_stream_manip<charT>(&setOstreamTZ,val);
 }
 
-#else
-
-std::ostream& operator<<(std::ostream& os, const UTime &x)
-{
-    return os << x.format(false);
-}
-
-std::ostream& operator<<(std::ostream& os,
-    const UTime_stream_manip& m)
-{
-    return m._f(os,m._fmt);
-}
-
-// anonymous namespace for private, internal functions
-namespace {
-std::ostream& setOstreamDefaultFormat(std::ostream& os, const std::string& val)
-{
-    UTime::setDefaultFormat(val);
-    return os;
-}
-
-std::ostream& setOstreamTZ(std::ostream& os, const std::string& val)
-{
-    UTime::setTZ(val);
-    return os;
-}
-}   // end of anonymous namespace
-
-UTime_stream_manip setDefaultFormat(const std::string& val)
-{
-    return UTime_stream_manip(&setOstreamDefaultFormat,val);
-}
-
-UTime_stream_manip setTZ(const std::string& val)
-{
-    return UTime_stream_manip(&setOstreamTZ,val);
-}
-
-#endif
-
 /**
  * Return the current unix system time, in microseconds 
  * since Jan 1, 1970, 00:00 GMT
  */
 inline long long getSystemTime() {
-    struct timeval tval;
-    if (::gettimeofday(&tval,0) < 0) return 0;   // shouldn't happen
-    return (long long)(tval.tv_sec) * USECS_PER_SEC + tval.tv_usec;
+    struct timespec ts;
+    ::clock_gettime(CLOCK_REALTIME,&ts);
+    return (long long)ts.tv_sec * USECS_PER_SEC + ts.tv_nsec / NSECS_PER_USEC;
 }
 
 /**
@@ -631,10 +660,10 @@ inline long long timeFloor(long long t,long long delta) {
 /**
  * Utility function, sleeps until the next even period + offset.
  * Returns true if interrupted.
+ *
+ * @throws IOException
  */
-extern bool sleepUntil(unsigned int periodMsec,unsigned int offsetMsec=0)
-    throw(IOException);
-
+extern bool sleepUntil(unsigned int periodMsec,unsigned int offsetMsec=0);
 
 }}	// namespace nidas namespace util
 
