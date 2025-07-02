@@ -64,13 +64,6 @@
 #endif
 #if NIDAS_JSONCPP_ENABLED
 #include <json/json.h>
-// Early json versions without StreamWriterBuilder also did not define a
-// version symbol.
-#ifndef JSONCPP_VERSION_STRING
-#define NIDAS_JSONCPP_STREAMWRITER 0
-#else
-#define NIDAS_JSONCPP_STREAMWRITER 1
-#endif
 #endif
 namespace fs = boost::filesystem;
 using namespace nidas::core;
@@ -1069,24 +1062,6 @@ private:
     NidasAppArg JsonOutputDir;
 
 #if NIDAS_JSONCPP_ENABLED
-#if !NIDAS_JSONCPP_STREAMWRITER
-    n_u::auto_ptr<Json::StyledStreamWriter> streamWriter;
-    n_u::auto_ptr<Json::StyledStreamWriter> headerWriter;
-
-    void
-    createJsonWriters()
-    {
-        if (! streamWriter.get())
-        {
-            Json::StyledStreamWriter* sw = new Json::StyledStreamWriter("");
-            // Can't set precision in the old StyledStreamWriter.
-            streamWriter.reset(sw);
-
-            Json::StyledStreamWriter* hw = new Json::StyledStreamWriter("  ");
-            headerWriter.reset(hw);
-        }
-    }
-#else
     n_u::auto_ptr<Json::StreamWriter> streamWriter;
     n_u::auto_ptr<Json::StreamWriter> headerWriter;
 
@@ -1106,7 +1081,6 @@ private:
             headerWriter.reset(builder.newStreamWriter());
         }
     }
-#endif
 #endif
 };
 
@@ -1775,10 +1749,8 @@ restartStats(const UTime& start, const UTime& end)
         }
     }
 
-
     resetResults();
 
-  
     for (it = _sampleq.begin(); it != _sampleq.end(); ++it)
     {
         const Sample* samp = *it;
@@ -1842,7 +1814,7 @@ jsonReport()
     {
         createJsonWriters();
     }
-     
+
     bool json_output_dir_active = JsonOutputDir.specified();
     bool json_output_file_active = JsonOutput.specified(); 
 
@@ -1861,7 +1833,7 @@ jsonReport()
                                               actual_statistics_path,
                                               actual_data_values_path)) {
             ILOG(("Writing full structured JSON output to directory: '") << current_period_output_base_path.string() << "'");
-            
+
             Json::Value manifest(Json::objectValue);
             Json::Value& processing_info = createObject(manifest["processing_info"]);
             processing_info["timeperiod"] = Json::arrayValue;
@@ -1870,7 +1842,7 @@ jsonReport()
             processing_info["update_interval"] = _update;
             processing_info["period"] = _period;
             processing_info["starttime"] = iso_format(_start_time);
-            
+
             Json::Value& manifest_streams_object = createObject(manifest["streams"]);
             manifest["problems_file"] = "problems.json"; 
 
@@ -1916,7 +1888,6 @@ jsonReport()
         }
 
     }
-   
 
     if (json_output_file_active) 
     {
@@ -1963,11 +1934,7 @@ jsonReport()
         std::string tmpname = jsonname + ".tmp";
         json_file_stream.open(tmpname.c_str());
         if (json_file_stream.is_open()) { 
-#if !NIDAS_JSONCPP_STREAMWRITER
-            headerWriter->write(json_file_stream, root);
-#else
             headerWriter->write(root, &json_file_stream);
-#endif
             json_file_stream.close();
             if (::rename(tmpname.c_str(), jsonname.c_str()) != 0) {
                 ELOG(("Failed to rename temporary JSON file '") << tmpname << "' to '" << jsonname << "'. Errno: " << errno);
@@ -1984,11 +1951,7 @@ jsonReport()
                 SampleCounter* stream = &si_stdout_s1->second;
                 if (stream->nsamps > 0 || _reportall)
                 {
-    #if !NIDAS_JSONCPP_STREAMWRITER
-                    streamWriter->write(std::cout, stream->jsonData());
-    #else
                     streamWriter->write(stream->jsonData(), &std::cout);
-    #endif
                     std::cout << std::endl; 
                 }
             }
@@ -2172,6 +2135,8 @@ int DataStats::run()
     pipeline.join();
     return result;
 }
+
+
 bool DataStats::writeJsonToFileHelper(const Json::Value& jsonData,
                                       const fs::path& filePath,
                                       Json::StreamWriter* writer)
@@ -2185,14 +2150,9 @@ bool DataStats::writeJsonToFileHelper(const Json::Value& jsonData,
         return false;
     }
 
-#if NIDAS_JSONCPP_STREAMWRITER 
     writer->write(jsonData, &outFile);
-#else 
-    writer->write(outFile, jsonData);
-#endif
     outFile.close();
 
-    
     boost::system::error_code ec; 
     fs::rename(tmpFilePath, filePath, ec); 
 
@@ -2204,6 +2164,8 @@ bool DataStats::writeJsonToFileHelper(const Json::Value& jsonData,
     }
     return true;
 }
+
+
 bool DataStats::ensureOutputDirectoriesForPeriod(
     const fs::path& current_period_base_path,
     fs::path& out_metadata_path,     // Pass by reference to set them
