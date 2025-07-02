@@ -59,12 +59,8 @@
 #include <unistd.h>
 #include <stdio.h>   // rename()
 
-#ifndef NIDAS_JSONCPP_ENABLED
-#define NIDAS_JSONCPP_ENABLED 1
-#endif
-#if NIDAS_JSONCPP_ENABLED
 #include <json/json.h>
-#endif
+
 namespace fs = boost::filesystem;
 using namespace nidas::core;
 using namespace nidas::dynld;
@@ -81,11 +77,7 @@ namespace {
     {
         return ut.format(true, "%Y-%m-%dT%H:%M:%S.%3fZ");
     }
-    
 
-
-
-#if NIDAS_JSONCPP_ENABLED
     inline Json::Value
     number_or_null(float value)
     {
@@ -98,9 +90,6 @@ namespace {
             return Json::Value(value);
         }
     }
-
-
-#endif
 }
 
 /**
@@ -207,10 +196,8 @@ public:
         nnans(),
         rawmsg(),
         values(),
-        times()
-#if NIDAS_JSONCPP_ENABLED
-        ,header()
-#endif
+        times(),
+        header()
     {
         streamid = generateStreamId(sensor);
         if (sensor)
@@ -408,7 +395,6 @@ public:
     // Collect the timestamps of all the samples also.
     vector<dsm_time_t> times;
 
-#if NIDAS_JSONCPP_ENABLED
     /**
      * Return a Json::Value node containing all the data in this SampleCounter.
      **/
@@ -433,7 +419,6 @@ public:
 
     // Store stream header metadata.
     Json::Value header;
-#endif
 };
 
 namespace {
@@ -479,7 +464,6 @@ generateStreamId(const DSMSensor* sensor)
     return out.str();
 }
 
-#if NIDAS_JSONCPP_ENABLED
 /**
  * If the metadata string value is not empty, assign that
  * value to the json field named key.
@@ -492,13 +476,11 @@ assign_if_set(Json::Value& object, const std::string& key,
         object[key] = value;
     return value;
 }
-#endif
 
 void
 SampleCounter::
 collectMetadata(const DSMSensor* sensor, const SampleTag* stag)
 {
-#if NIDAS_JSONCPP_ENABLED
     header["streamid"] = streamid;
     // The header specifies a version in case the schema changes for either
     // the header itself or the data streams which reference it.
@@ -546,7 +528,6 @@ collectMetadata(const DSMSensor* sensor, const SampleTag* stag)
             vmap[vname]["units"] = v.getUnits();
         }
     }
-#endif
 }
 
 
@@ -773,7 +754,6 @@ printData(std::ostream& outs)
     outs << endl;
 }
 
-#if NIDAS_JSONCPP_ENABLED
 Json::Value
 SampleCounter::
 jsonData()
@@ -898,7 +878,7 @@ jsonStats(std::vector<Problem>& problems)
     }
     return stats;
 }
-#endif
+
 
 class DataStats : public SampleClient
 {
@@ -1061,7 +1041,6 @@ private:
     NidasAppArg RoundStart;
     NidasAppArg JsonOutputDir;
 
-#if NIDAS_JSONCPP_ENABLED
     n_u::auto_ptr<Json::StreamWriter> streamWriter;
     n_u::auto_ptr<Json::StreamWriter> headerWriter;
 
@@ -1081,7 +1060,6 @@ private:
             headerWriter.reset(builder.newStreamWriter());
         }
     }
-#endif
 };
 
 bool DataStats::_alarm(false);
@@ -1177,10 +1155,8 @@ This will create:
     -statistics/<streamid>.json (for each stream's stats)
     -data_values/<streamid>.json (if --data enabled for actual values)
 This option is mutually exclusive with --json)"), 
-#if NIDAS_JSONCPP_ENABLED
     streamWriter(),
     headerWriter()
-#endif
 
 {
     NidasApp& app = _app;
@@ -1193,10 +1169,8 @@ This option is mutually exclusive with --json)"),
                         app.Help | Period | Update | Count |
                         AllSamples | ShowData | SingleMote | Fullnames |
                         ShowProblems | RoundStart | app.Precision);
-#if NIDAS_JSONCPP_ENABLED
     app.enableArguments(JsonOutput);
     app.enableArguments(JsonOutputDir);
-#endif
     app.InputFiles.allowFiles = true;
     app.InputFiles.allowSockets = true;
     app.InputFiles.setDefaultInput("sock:localhost", DEFAULT_PORT);
@@ -1644,16 +1618,12 @@ void DataStats::printReport(std::ostream& outs)
          << setw(field_width[0] + field_width[1]) << " minMaxLen totalMB"
          << endl;
 
-#if NIDAS_JSONCPP_ENABLED
     std::vector<Problem> problems;
-#endif
 
     for (si = _samples.begin(); si != _samples.end(); ++si)
     {
         SampleCounter& ss = si->second;
-#if NIDAS_JSONCPP_ENABLED
         Json::Value stats = ss.jsonStats(problems);
-#endif
 
         if (ss.nsamps == 0 && !_reportall)
             continue;
@@ -1714,7 +1684,6 @@ void DataStats::printReport(std::ostream& outs)
             ss.printData(outs);
         }
     }
-#if NIDAS_JSONCPP_ENABLED
     if (ShowProblems.asBool())
     {
         for (auto& p: problems)
@@ -1722,7 +1691,6 @@ void DataStats::printReport(std::ostream& outs)
             outs << "problem: " << p.printout() << std::endl;
         }
     }
-#endif
 }
 
 
@@ -1804,7 +1772,6 @@ void
 DataStats::
 jsonReport()
 {
-#if NIDAS_JSONCPP_ENABLED
     auto createObject = [](Json::Value& value) -> Json::Value& {
         value = Json::Value(Json::objectValue);
         return value;
@@ -1956,8 +1923,7 @@ jsonReport()
                 }
             }
         }
-    } 
-#endif 
+    }
 }
 
 

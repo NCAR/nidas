@@ -19,6 +19,7 @@ from pathlib import Path
 import eol_scons
 import eol_scons.parseconfig as pc
 
+import SCons.Errors
 from SCons.Script import Environment, ARGUMENTS, Split, Export, BoolVariable
 
 
@@ -79,14 +80,9 @@ env.Tool(nidasprogram)
 
 
 def jsoncpp(env: Environment):
-    jsoncpp_enabled = (arch != 'armbe') and check_pkg_config(env, 'jsoncpp')
-    if jsoncpp_enabled:
-        env.PrintProgress("jsoncpp enabled for data_stats and sync_dump.")
-        env.AppendUnique(CPPDEFINES=['NIDAS_JSONCPP_ENABLED=1'])
-    else:
-        env.PrintProgress("jsoncpp not enabled.")
-        env.AppendUnique(CPPDEFINES=['NIDAS_JSONCPP_ENABLED=0'])
-    env['JSONCPP_ENABLED'] = jsoncpp_enabled
+    jsoncpp_found = check_pkg_config(env, 'jsoncpp')
+    if not jsoncpp_found:
+        raise SCons.Errors.StopError("jsoncpp not found.")
 
 
 # ==============================================================================
@@ -175,10 +171,8 @@ env.Tool(jsoncpp)
 
 didbenv = env.Clone()
 dbconf = didbenv.Configure()
-if bool(arch == 'host' and env.get('JSONCPP_ENABLED') and
-        check_pkg_config(didbenv, 'libcurl')):
-    env.PrintProgress("C++11, jsoncpp, and libcurl found, "
-                      "building data_influxdb.")
+if bool(arch == 'host' and check_pkg_config(didbenv, 'libcurl')):
+    env.PrintProgress("libcurl found, building data_influxdb.")
     didbenv.Append(CCFLAGS='-Wno-effc++')
     didbenv.Require(['libnidas_dynld'])
     didb = didbenv.NidasProgram('data_influxdb', 'data_influxdb.cc')
