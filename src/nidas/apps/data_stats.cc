@@ -1193,15 +1193,16 @@ R"(Round the start time of each period to the nearest interval of
 length SECONDS.  The period start time is only ever shown in log
 messages and the json output, since the sample statistics always
 show the actual sample times.)"),
-    JsonOutputDir("--json-output-dir", "<dir_path>" R"(Write structured Json output to a directory.
-        The directory path can include strptime() time spec.
-        This will create:
-         -manifest.json(overall info and links to stream files)
-         -problems.json(all detected data problems)
-         -metadata/<streamid>.json (for each streams header)
-         -statistics/<streamid>.json (for each stream's stats)
-         -data_values/<streamid>.json (if --data enabled for actual values)
-       option mutually exclusive with --json)"), 
+    JsonOutputDir("--json-output-dir", "<dir_path>",
+R"(Write structured Json output to a directory.
+The directory path can include strptime() time spec.
+This will create:
+    -manifest.json(overall info and links to stream files)
+    -problems.json(all detected data problems)
+    -metadata/<streamid>.json (for each streams header)
+    -statistics/<streamid>.json (for each stream's stats)
+    -data_values/<streamid>.json (if --data enabled for actual values)
+This option is mutually exclusive with --json)"), 
 #if NIDAS_JSONCPP_ENABLED
     streamWriter(),
     headerWriter()
