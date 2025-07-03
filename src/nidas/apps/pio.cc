@@ -43,6 +43,7 @@
 
 #include <algorithm>
 #include <iostream>
+#include <fstream>
 #include <string>
 #include <sstream>
 #include <iomanip>
@@ -55,6 +56,7 @@
 #include <nidas/core/HardwareInterface.h>
 #include <nidas/util/Termios.h>
 
+#include <json/json.h>
 
 using namespace nidas::core;
 using namespace nidas::util;
@@ -82,11 +84,20 @@ PortType PTYPE(PortType::RS232);
 PortTermination PTERM(PortTermination::NO_TERM);
 std::string RTS;
 
+NidasAppArg Update("-U,--update", "<seconds>",
+R"(Update status at the given interval if not zero.
+Ignored if not a status operation.)", "0");
+
+NidasAppArg JsonOutput("--json", "",
+R"(Write status output in JSON format.)");
+
+NidasAppArg OutputPath("--output", "<path>",
+R"(Write status output to <path>.  Most useful with --update.)", "");
 
 void
 usage()
 {
-    std::cerr
+    std::cout
         << R""""(
 Usage: pio [options] [list|status|device [op ...]]
 
@@ -133,23 +144,22 @@ Examples:
 }
 
 
-int toomany(const std::string& msg)
+NidasAppException toomany(const std::string& msg)
 {
-    cerr << msg << ": too many arguments.  Use -h for help." << endl;
-    return 1;
+    return NidasAppException(msg + ": too many arguments.  Use -h for help.");
 }
 
 
-int parseRunString(int argc, char* argv[])
+void parseRunString(int argc, char* argv[])
 {
-
-    app.enableArguments(app.loggingArgs() | app.Help);
+    app.enableArguments(Update | JsonOutput | OutputPath |
+                        app.loggingArgs() | app.Help);
 
     ArgVector args = app.parseArgs(argc, argv);
     if (app.helpRequested())
     {
         usage();
-        return 1;
+        exit(0);
     }
 
     // Get positional args
@@ -163,7 +173,7 @@ int parseRunString(int argc, char* argv[])
             Operation = arg;
             if (pargs.size() > 1)
             {
-                return toomany(Operation);
+                throw toomany(Operation);
             }
             break;
         }
@@ -185,7 +195,7 @@ int parseRunString(int argc, char* argv[])
             // a switch.
             if (pargs.size() > 2)
             {
-                return toomany(Operation);
+                throw toomany(Operation);
             }
             continue;
         }
@@ -200,10 +210,8 @@ int parseRunString(int argc, char* argv[])
             Serial = arg;
             continue;
         }
-        std::cerr << "operation unknown: " << arg << endl;
-        return 1;
+        throw NidasAppException("operation unknown: " + arg);
     }
-    return 0;
 }
 
 
@@ -293,51 +301,174 @@ read_rts(int fd, bool& rts)
 
 
 void
-print_status(HardwareDevice& device, int fd=-1)
+write_status(std::ofstream& out, HardwareDevice& device, int fd=-1)
 {
-    cout << left << setw(8) << device;
+    out << left << setw(8) << device;
     if (auto oi = device.iOutput())
     {
-        cout << left << setw(5) << oi->getState();
+        out << left << setw(5) << oi->getState();
         if (auto iserial = device.iSerial())
         {
             PortType ptype;
             PortTermination term;
             iserial->getConfig(ptype, term);
-            cout << left << setw(5) << ptype.toString(ptf_485);
-            cout << left << setw(8) << term;
+            out << left << setw(5) << ptype.toString(ptf_485);
+            out << left << setw(8) << term;
             bool rts;
             if (read_rts(fd, rts))
             {
-                cout << left << setw(5) << (rts ? "rts1" : "rts0");
+                out << left << setw(5) << (rts ? "rts1" : "rts0");
             }
         }
         if (auto ibutton = device.iButton())
         {
-            cout << (ibutton->isDown() ? "down" : "up");
+            out << (ibutton->isDown() ? "down" : "up");
         }
     }
     else
-        cout << "could-not-open";
-    cout << endl;
+        out << "could-not-open";
+    out << endl;
 }
 
 
-void print_all()
+const std::string STDOUT = "/dev/stdout";
+std::ofstream output_stream;
+std::string output_path;
+std::string tmp_path;
+
+std::ofstream& get_output()
 {
-    // Print the current state for all power outputs.
-    auto hwi = HardwareInterface::getHardwareInterface();
-    for (auto& device: hwi->devices())
+    if (output_stream.is_open())
     {
-        print_status(device);
+        return output_stream;
+    }
+    output_path = OutputPath.getValue();
+    if (output_path.empty() || output_path == "-")
+    {
+        output_path = STDOUT;
+        tmp_path = "";
+        output_stream.open(output_path);
+    }
+    else
+    {
+        tmp_path = output_path + ".tmp";
+        output_stream.open(tmp_path);
+    }
+    if (!output_stream.is_open())
+    {
+        throw std::runtime_error("Could not open output file: " +
+                                 output_path);
+    }
+    return output_stream;
+}
+
+
+void close_output()
+{
+    if (output_stream.is_open())
+    {
+        output_stream.close();
+        if (!tmp_path.empty() && output_path != STDOUT)
+        {
+            // rename the temporary file to the final output path.
+            if (::rename(tmp_path.c_str(), output_path.c_str()) != 0)
+            {
+                throw std::runtime_error("Could not rename " + tmp_path +
+                                         " to " + output_path);
+            }
+        }
     }
 }
 
 
-int main(int argc, char* argv[]) {
+/**
+ * Write the status of the given device to the JSON object @p dev.
+ */
+void json_status(HardwareDevice& device, Json::Value& dev)
+{
+    std::string devName = device.id();
+    std::string ptype;
+    std::string term;
+    if (auto oi = device.iOutput())
+    {
+        dev["output"] = oi->getState().toString();
+        if (auto iserial = device.iSerial())
+        {
+            PortType p;
+            PortTermination terminal;
+            iserial->getConfig(p, terminal);
+            ptype= p.toString(ptf_485);
+            dev["porttype"] = ptype;
+            term = terminal.toShortString();
+            dev["termination"] = term;
+        }
+        if (auto ibutton = device.iButton())
+        {
+            dev["button"] = ibutton->isDown() ? "down" : "up";
+        }
+    }
+    else
+    {
+        dev["error"] = "device not found: " + devName;
+    }
+}
 
-    if (parseRunString(argc, argv))
+
+void write_all_status()
+{
+    // Write the current state for all power outputs, either to stdout
+    // or to a JSON file.
+    bool json_output = JsonOutput.asBool();
+
+    auto hwi = HardwareInterface::getHardwareInterface();
+    Json::Value root;
+    std::ofstream& out = get_output();
+    for (auto& device: hwi->devices())
+    {
+        Json::Value& dev = root[device.id()];
+        if (json_output)
+        {
+            json_status(device, dev);
+        }
+        else
+        {
+            write_status(out, device);
+        }
+    }
+    if (json_output)
+    {
+        Json::StreamWriterBuilder writer;
+        writer["indentation"] = "  "; // pretty print
+        out << Json::writeString(writer, root) << std::endl;
+    }
+    close_output();
+}
+
+
+int main(int argc, char* argv[])
+{
+    try {
+        parseRunString(argc, argv);
+    }
+    catch (NidasAppException& e)
+    {
+        std::cerr << e.what() << std::endl;
         exit(1);
+    }
+
+    // status is first because if it loops, then we need to make sure a
+    // HardwareInterface is not held open between iterations.
+    if (Operation == "status" && Device.empty())
+    {
+        int update = Update.asInt();
+        write_all_status();
+        while (update > 0)
+        {
+            sleep(update);
+            write_all_status();
+        }
+        return 0;
+    }
 
     auto hwi = HardwareInterface::getHardwareInterface();
 
@@ -349,12 +480,6 @@ int main(int argc, char* argv[]) {
             cout << std::setw(10) << device << ":  "
                  << device.description() << endl;
         }
-        return 0;
-    }
-
-    if (Operation == "status" && Device.empty())
-    {
-        print_all();
         return 0;
     }
 
@@ -470,7 +595,22 @@ int main(int argc, char* argv[]) {
             ioutput->off();
     }
 
-    print_status(device, fd);
+    std::ofstream& out = get_output();
+    if (JsonOutput.asBool())
+    {
+        // Write the status for just that device in JSON format.
+        Json::Value dev;
+        json_status(device, dev);
+        Json::StreamWriterBuilder writer;
+        writer["indentation"] = "  "; // pretty print
+        out << Json::writeString(writer, dev) << std::endl;
+    }
+    else
+    {
+        // Write the status in text format.
+        write_status(out, device, fd);
+    }
+    close_output();
     if (fd >= 0)
         ::close(fd);
 

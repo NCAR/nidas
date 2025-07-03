@@ -83,7 +83,6 @@ programs = Split("""
 arl-ingest
 arinc_out
 button_action
-hardware_stats
 ck_aout
 ck_calfile
 ck_xml

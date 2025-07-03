@@ -54,6 +54,13 @@ accept those samples as if they were processed.
 Fixes for the NIDAS install tree to allow the hotfilm program to build against
 NIDAS and without the source tree.
 
+The `pio` utility can write hardware status in JSON format and update
+status to an output path at regular intervals:
+
+```sh
+pio --json --update 5 --output ports.json
+```
+
 ## [1.4]
 
 This is the first of a series of beta versions to test ongoing refactors of
