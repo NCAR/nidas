@@ -1772,11 +1772,6 @@ void
 DataStats::
 jsonReport()
 {
-    auto createObject = [](Json::Value& value) -> Json::Value& {
-        value = Json::Value(Json::objectValue);
-        return value;
-    };
-
     if (!streamWriter.get()|| !headerWriter.get())
     {
         createJsonWriters();
@@ -1802,7 +1797,7 @@ jsonReport()
             ILOG(("Writing full structured JSON output to directory: '") << current_period_output_base_path.string() << "'");
 
             Json::Value manifest(Json::objectValue);
-            Json::Value& processing_info = createObject(manifest["processing_info"]);
+            Json::Value& processing_info = manifest["processing_info"];
             processing_info["timeperiod"] = Json::arrayValue;
             processing_info["timeperiod"].append(iso_format(_period_start));
             processing_info["timeperiod"].append(iso_format(_period_end));
@@ -1810,7 +1805,7 @@ jsonReport()
             processing_info["period"] = _period;
             processing_info["starttime"] = iso_format(_start_time);
 
-            Json::Value& manifest_streams_object = createObject(manifest["streams"]);
+            Json::Value& manifest_streams_object = manifest["streams"];
             manifest["problems_file"] = "problems.json"; 
 
             std::vector<Problem> all_problems; // Accumulator for all problems
@@ -1868,15 +1863,15 @@ jsonReport()
         timeperiod.append(iso_format(_period_start));
         timeperiod.append(iso_format(_period_end));
         
-        Json::Value& stats_obj = createObject(root["stats"]);
+        Json::Value& stats_obj = root["stats"];
         Json::Value data_aggregated; 
-        Json::Value& streams_obj = createObject(root["stream"]);
+        Json::Value& streams_obj = root["stream"];
         
         stats_obj["timeperiod"] = timeperiod;
         stats_obj["update"] = _update;
         stats_obj["period"] = _period;
         stats_obj["starttime"] = iso_format(_start_time);
-        Json::Value& streamstats = createObject(stats_obj["streams"]);
+        Json::Value& streamstats = stats_obj["streams"];
 
         std::vector<Problem> problems_for_single_file; 
         sample_map_t::iterator si_single_file;
