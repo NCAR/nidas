@@ -39,7 +39,13 @@ configuration.
 This does not yet include identifying the kind of sensor attached, NIDAS only
 looks for a response according to the single sensor specified for the port.
 
-## [1.4.1] - Pending release
+## [1.4.1] - 2025-07-07
+
+Source now builds on Debian Bookworm aarch64.
+
+The `button_action` utility has been added to trigger actions on the DSM
+when the push buttons on the serial interface card are pressed, such as
+blocking or unblocking the wifi radio.
 
 Skip DNS lookups while parsing XML configuration files.  The lookups were only
 to warn of unknown host names, but they severely slowed down parsing when the
@@ -108,6 +114,7 @@ to `v1.2-1721-g1ebc8bcd4`.
 
 <!-- Versions -->
 [buster]: https://github.com/ncareol/nidas/tree/buster
+[1.4.1]: https://github.com/ncareol/nidas/compare/v1.4...v1.4.1
 [1.4]: https://github.com/ncareol/nidas/compare/v1.3.253...v1.4
 [1.3.253]: https://github.com/ncareol/nidas/compare/v1.3.235...v1.3.253
 [1.3.235]: https://github.com/ncareol/nidas/compare/v1.3...v1.3.235
