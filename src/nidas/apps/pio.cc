@@ -94,6 +94,18 @@ R"(Write status output in JSON format.)");
 NidasAppArg OutputPath("--output", "<path>",
 R"(Write status output to <path>.  Most useful with --update.)", "");
 
+NidasAppArg Timestamp("--timestamp", "",
+R"(Include a timestamp in text status output.)", "false");
+
+// Borrowed from data_stats, eventually it should be added to UTime to
+// replace both.
+inline std::string
+json_format(const UTime& ut)
+{
+    return ut.format(true, "%Y-%m-%dT%H:%M:%S.%3fZ");
+}
+
+
 void
 usage()
 {
@@ -152,7 +164,7 @@ NidasAppException toomany(const std::string& msg)
 
 void parseRunString(int argc, char* argv[])
 {
-    app.enableArguments(Update | JsonOutput | OutputPath |
+    app.enableArguments(Update | JsonOutput | OutputPath | Timestamp |
                         app.loggingArgs() | app.Help);
 
     ArgVector args = app.parseArgs(argc, argv);
@@ -212,6 +224,11 @@ void parseRunString(int argc, char* argv[])
         }
         throw NidasAppException("operation unknown: " + arg);
     }
+    if (Update.asInt() != 0 && (Operation != "status" || !Device.empty()))
+    {
+        throw NidasAppException("update interval only valid when getting "
+                                "status of all devices");
+    }
 }
 
 
@@ -223,9 +240,27 @@ int unsupported(const HardwareDevice& device, const std::string& op)
 }
 
 
-bool
-set_rts(int fd, bool rts)
+int open_device(HardwareDevice& device)
 {
+    auto hwi = HardwareInterface::getHardwareInterface();
+    int fd = -1;
+    std::string path = hwi->lookupPath(device);
+    if (!path.empty())
+    {
+        fd = ::open(path.c_str(), O_RDONLY);
+        if (fd < 0)
+        {
+            perror(path.c_str());
+        }
+    }
+    return fd;
+}
+
+
+bool
+set_rts(HardwareDevice& device, bool rts)
+{
+    int fd = open_device(device);
     if (fd < 0)
         return false;
     struct termios attr;
@@ -258,18 +293,8 @@ set_rts(int fd, bool rts)
         perror(errStr.c_str());
         return false;
     }
+    ::close(fd);
     return true;
-}
-
-
-int openDevice(const std::string& path)
-{
-    int fd = ::open(path.c_str(), O_RDONLY);
-    if (fd < 0)
-    {
-        perror(path.c_str());
-    }
-    return fd;
 }
 
 
@@ -279,10 +304,11 @@ int openDevice(const std::string& path)
  * retrieve rts.
  */
 bool
-read_rts(int fd, bool& rts)
+read_rts(HardwareDevice& device, bool& rts)
 {
     bool result = false;
     int status = 0;
+    int fd = open_device(device);
     if (fd < 0)
     {
         return false;
@@ -296,12 +322,13 @@ read_rts(int fd, bool& rts)
         rts = ((status & TIOCM_RTS) != 0);
         result = true;
     }
+    ::close(fd);
     return result;
 }
 
 
 void
-write_status(std::ofstream& out, HardwareDevice& device, int fd=-1)
+write_status(std::ofstream& out, HardwareDevice& device)
 {
     out << left << setw(8) << device;
     if (auto oi = device.iOutput())
@@ -315,7 +342,7 @@ write_status(std::ofstream& out, HardwareDevice& device, int fd=-1)
             out << left << setw(5) << ptype.toString(ptf_485);
             out << left << setw(8) << term;
             bool rts;
-            if (read_rts(fd, rts))
+            if (read_rts(device, rts))
             {
                 out << left << setw(5) << (rts ? "rts1" : "rts0");
             }
@@ -401,6 +428,11 @@ void json_status(HardwareDevice& device, Json::Value& dev)
             dev["porttype"] = ptype;
             term = terminal.toShortString();
             dev["termination"] = term;
+            bool rts;
+            if (read_rts(device, rts))
+            {
+                dev["rts"] = rts ? "rts1" : "rts0";
+            }
         }
         if (auto ibutton = device.iButton())
         {
@@ -414,7 +446,7 @@ void json_status(HardwareDevice& device, Json::Value& dev)
 }
 
 
-void write_all_status()
+void write_all_status(std::vector<std::string> ids = {})
 {
     // Write the current state for all power outputs, either to stdout
     // or to a JSON file.
@@ -423,12 +455,23 @@ void write_all_status()
     auto hwi = HardwareInterface::getHardwareInterface();
     Json::Value root;
     std::ofstream& out = get_output();
+    std::string timestamp = json_format(UTime());
+    root["timestamp"] = timestamp;
+    Json::Value& devices = root["devices"];
+    if (!json_output && Timestamp.asBool())
+    {
+        out << "timestamp: " << timestamp << std::endl;
+    }
     for (auto& device: hwi->devices())
     {
-        Json::Value& dev = root[device.id()];
+        if (!ids.empty() && std::find(ids.begin(), ids.end(),
+                                      device.id()) == ids.end())
+        {
+            continue; // skip devices not in the list
+        }
         if (json_output)
         {
-            json_status(device, dev);
+            json_status(device, devices[device.id()]);
         }
         else
         {
@@ -490,7 +533,6 @@ int main(int argc, char* argv[])
         std::cerr << "unrecognized device: " << Device << endl;
         return 2;
     }
-    int fd = -1;
 
     auto ioutput = device.iOutput();
     if (Operation == "switch")
@@ -566,12 +608,6 @@ int main(int argc, char* argv[])
         }
     }
 
-    std::string path = hwi->lookupPath(device);
-    if (!path.empty())
-    {
-        fd = openDevice(path);
-    }
-
     if (!Serial.empty() || !RTS.empty())
     {
         auto iserial = device.iSerial();
@@ -582,7 +618,7 @@ int main(int argc, char* argv[])
             iserial->setConfig(PTYPE, PTERM);
 
         if (!RTS.empty())
-            set_rts(fd, (RTS == "rts1"));
+            set_rts(device, (RTS == "rts1"));
     }
 
     if (!Output.empty())
@@ -595,24 +631,8 @@ int main(int argc, char* argv[])
             ioutput->off();
     }
 
-    std::ofstream& out = get_output();
-    if (JsonOutput.asBool())
-    {
-        // Write the status for just that device in JSON format.
-        Json::Value dev;
-        json_status(device, dev);
-        Json::StreamWriterBuilder writer;
-        writer["indentation"] = "  "; // pretty print
-        out << Json::writeString(writer, dev) << std::endl;
-    }
-    else
-    {
-        // Write the status in text format.
-        write_status(out, device, fd);
-    }
-    close_output();
-    if (fd >= 0)
-        ::close(fd);
+    // Write the status for a single device.
+    write_all_status({device.id()});
 
     // all good, return 0
     return 0;
