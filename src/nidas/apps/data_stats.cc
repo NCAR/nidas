@@ -47,6 +47,7 @@
 
 #include <set>
 #include <map>
+#include <unordered_map>
 #include <deque>
 #include <iostream>
 #include <iomanip>
@@ -1001,7 +1002,7 @@ private:
     // of the sample ID.  The _ordered_counters vector is used to iterate
     // over the counters in XML sensor order, and it is updated whenever
     // the map changes, in createCounters() or addCounter().
-    typedef unordered_map<dsm_sample_id_t, SampleCounter> sample_map_t;
+    typedef std::unordered_map<dsm_sample_id_t, SampleCounter> sample_map_t;
     sample_map_t _samples;
     std::vector<SampleCounter*> _ordered_counters;
 
