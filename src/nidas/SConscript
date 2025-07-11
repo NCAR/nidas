@@ -95,8 +95,8 @@ conf.CheckFunc("epoll_pwait")
 
 pc.ParseConfig(conf.env, 'pkg-config --libs gsl')
 if conf.CheckCXXHeader('gsl/gsl_linalg.h') and conf.CheckLibWithHeader(
-        'gsl', 'gsl/gsl_linalg.h','C',
-        'gsl_linalg_LU_solve(0,0,0,0);'):
+        'gsl', 'gsl/gsl_linalg.h', language='c',
+        call='gsl_linalg_LU_solve(0,0,0,0);'):
     # append gsl library to build environment
     env.AppendUnique(LIBS=conf.env['LIBS'], LIBPATH=conf.env.get('LIBPATH',[]))
 
