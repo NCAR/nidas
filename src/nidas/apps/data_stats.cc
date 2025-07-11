@@ -515,6 +515,7 @@ collectMetadata(const DSMSensor* sensor, const SampleTag* stag)
 
         const auto& variables = stag->getVariables();
         Json::Value& vmap = header["variables"];
+        Json::Value& vlist = header["variable_list"];
         for (unsigned int i = 0; i < variables.size(); ++i)
         {
             const Variable& v = *variables[i];
@@ -526,6 +527,7 @@ collectMetadata(const DSMSensor* sensor, const SampleTag* stag)
             vmap[vname]["fullname"] = v.getName();
             vmap[vname]["longname"] = v.getLongName();
             vmap[vname]["units"] = v.getUnits();
+            vlist.append(vname);
         }
     }
 }
@@ -924,6 +926,12 @@ public:
     addCounter(const SampleCounter& counter);
 
     /**
+     * Return a vector of DSMSensor pointers in the order they were added.
+     */
+    std::vector<SampleCounter*>
+    sensorOrderCounters();
+
+    /**
      * Return a pointer to the SampleCounter for the given sample id @p sid.
      * If no such counter exists, return null.  Mote sensor sample IDs are
      * hashed into buckets by sensor type and according to the _singlemote
@@ -988,10 +996,14 @@ private:
         fs::path& out_statistics_path,    // Output: Path to the statistics subdir
         fs::path& out_data_values_path    // Output: Path to the data_values subdir (if applicable)
     );
-                           
 
-    typedef map<dsm_sample_id_t, SampleCounter> sample_map_t;
+    // The sample map allows looking up a SampleCounter quickly with a hash
+    // of the sample ID.  The _ordered_counters vector is used to iterate
+    // over the counters in XML sensor order, and it is updated whenever
+    // the map changes, in createCounters() or addCounter().
+    typedef unordered_map<dsm_sample_id_t, SampleCounter> sample_map_t;
     sample_map_t _samples;
+    std::vector<SampleCounter*> _ordered_counters;
 
     dsm_sample_id_t
     hashId(dsm_sample_id_t sid);
@@ -1080,6 +1092,7 @@ DataStats::handleSignal(int signum)
 
 DataStats::DataStats():
     _samples(),
+    _ordered_counters(),
     _reportall(false),
     _reportdata(false),
     _singlemote(false),
@@ -1428,6 +1441,12 @@ addCounter(const SampleCounter& counter)
     SampleCounter& stats = _samples[sid];
     stats.enableData(_reportdata);
     stats.enableJSON(JsonOutput.specified());
+    if (_counters_created)
+    {
+        // as a minor optimization, only update the ordered counters
+        // when not being called by createCounters().
+        _ordered_counters = sensorOrderCounters();
+    }
     return &stats;
 }
 
@@ -1506,6 +1525,29 @@ DataStats::createCounters(const list<DSMSensor*>& sensors)
             }
         }
     }
+    _ordered_counters = sensorOrderCounters();
+}
+
+
+std::vector<SampleCounter*>
+DataStats::sensorOrderCounters()
+{
+    // Iterate over the sensors to create an index of counters in sensor
+    // order.  If this is cached, it must be updated whenever the _samples
+    // map changes, in case that invalidates any SampleCounter pointers.
+    std::vector<SampleCounter*> counters;
+    auto push_counter = [&](dsm_sample_id_t sid) {
+        if (SampleCounter* counter = getCounter(sid))
+            counters.push_back(counter);
+    };
+    for (DSMSensor* sensor: allsensors) {
+        push_counter(sensor->getId());
+        SampleTagIterator ti = sensor->getSampleTagIterator();
+        for ( ; ti.hasNext(); ) {
+            push_counter(ti.next()->getId());
+        }
+    }
+    return counters;
 }
 
 
@@ -1521,8 +1563,8 @@ receive(const Sample* samp) throw()
 
     if (!_counters_created)
     {
-        _counters_created = true;
         createCounters(allsensors);
+        _counters_created = true;
     }
 
     VLOG(("received and accepted sample ") << _app.formatId(sampid));
@@ -1576,10 +1618,9 @@ void DataStats::printReport(std::ostream& outs)
     int field_width[3] = {5,5,6};
     int dtlog10[2] = {7,7};
 
-    sample_map_t::iterator si;
-    for (si = _samples.begin(); si != _samples.end(); ++si)
+    for (SampleCounter* counter: _ordered_counters)
     {
-        SampleCounter &ss = si->second;
+        SampleCounter &ss = *counter;
         if (ss.nsamps == 0 && !_reportall)
             continue;
         string name = ss.getHeaderLine(_fullnames);
@@ -1619,9 +1660,9 @@ void DataStats::printReport(std::ostream& outs)
 
     std::vector<Problem> problems;
 
-    for (si = _samples.begin(); si != _samples.end(); ++si)
+    for (SampleCounter* counter: _ordered_counters)
     {
-        SampleCounter& ss = si->second;
+        SampleCounter& ss = *counter;
         Json::Value stats = ss.jsonStats(problems);
 
         if (ss.nsamps == 0 && !_reportall)
@@ -1756,16 +1797,13 @@ report()
                 << iso_format(_period_end));
     }
 
-
-    
     if (JsonOutputDir.specified() || JsonOutput.specified()) {
         jsonReport(); 
     } else {
         printReport(cout); 
     }
-
-
 }
+
 
 void
 DataStats::
@@ -1805,13 +1843,13 @@ jsonReport()
             processing_info["starttime"] = iso_format(_start_time);
 
             Json::Value& manifest_streams_object = manifest["streams"];
+            Json::Value& manifest_streams_list = manifest["stream_list"];
             manifest["problems_file"] = "problems.json"; 
 
             std::vector<Problem> all_problems; // Accumulator for all problems
-            sample_map_t::iterator si_dir_write; 
 
-            for (si_dir_write = _samples.begin(); si_dir_write != _samples.end(); ++si_dir_write) {
-                SampleCounter* stream = &si_dir_write->second;
+            for (SampleCounter* stream: _ordered_counters)
+            {
                 const std::string& streamid_str = stream->streamid;
                 std::string safe_streamid_filename = streamid_str; 
 
@@ -1836,6 +1874,7 @@ jsonReport()
                     }
                 }
                 manifest_streams_object[streamid_str] = stream_links_object;
+                manifest_streams_list.append(streamid_str);
             }
 
             Json::Value problems_json_array = Problem::asJsonArray(all_problems);
@@ -1847,12 +1886,10 @@ jsonReport()
             
             ILOG(("--- datastats: Multi-file JSON output complete for this period. ---"));
         }
-
     }
 
     if (json_output_file_active) 
     {
-
         std::string jsonname;
         jsonname = _period_start.format(true, JsonOutput.getValue());
         ILOG(("writing json to ") << jsonname); 
@@ -1865,7 +1902,8 @@ jsonReport()
         Json::Value& stats_obj = root["stats"];
         Json::Value data_aggregated; 
         Json::Value& streams_obj = root["stream"];
-        
+        Json::Value& streams_list = root["stream_list"];
+
         stats_obj["timeperiod"] = timeperiod;
         stats_obj["update"] = _update;
         stats_obj["period"] = _period;
@@ -1873,11 +1911,10 @@ jsonReport()
         Json::Value& streamstats = stats_obj["streams"];
 
         std::vector<Problem> problems_for_single_file; 
-        sample_map_t::iterator si_single_file;
-        for (si_single_file = _samples.begin(); si_single_file != _samples.end(); ++si_single_file)
+        for (SampleCounter* stream: _ordered_counters)
         {
-            SampleCounter* stream = &si_single_file->second;
             streams_obj[stream->streamid] = stream->jsonHeader();
+            streams_list.append(stream->streamid);
             if (stream->nsamps > 0 || _reportall)
             {
                 if (_reportdata) {
@@ -1906,10 +1943,8 @@ jsonReport()
 
         if (_reportdata)
         {
-            sample_map_t::iterator si_stdout_s1; 
-            for (si_stdout_s1 = _samples.begin(); si_stdout_s1 != _samples.end(); ++si_stdout_s1)
+            for (SampleCounter* stream: _ordered_counters)
             {
-                SampleCounter* stream = &si_stdout_s1->second;
                 if (stream->nsamps > 0 || _reportall)
                 {
                     streamWriter->write(stream->jsonData(), &std::cout);
