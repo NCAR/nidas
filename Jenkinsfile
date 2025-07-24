@@ -20,11 +20,7 @@ pipeline {
     stage('Build NIDAS on all targets') {
       parallel {
         stage('RPi Bookworm') {
-          agent {
-            docker {
-              dockerfile tr
-            }
-          }
+          agent { dockerfile true }
           stages {
             stage('Compile and test') {
               steps {
@@ -54,8 +50,8 @@ pipeline {
             }
           }
         }
-      }
-    }
+      } // parallel stages
+    } // stage('Build NIDAS on all targets')
 
 //   post {
 //     changed
@@ -66,5 +62,5 @@ pipeline {
 //         subject: "Jenkins build ${env.JOB_NAME}: ${currentBuild.currentResult}",
 //         body: "Job ${env.JOB_NAME}: ${currentBuild.currentResult}\n${env.BUILD_URL}"
 //     }
-  }
-}
+  } // sages
+} // pipeline
