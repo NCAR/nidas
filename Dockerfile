@@ -57,8 +57,12 @@ RUN apt-get -y update && \
 # RUN apt-get -y install eol-scons
 
 # need boost-system, filesystem, asio, thread, so make it easy and get all
+# RUN apt-get -y update && apt-get -y --no-install-recommends install \
+#     libboost-all-dev:${hostarch}
+
 RUN apt-get -y update && apt-get -y --no-install-recommends install \
-    libboost-all-dev:${hostarch}
+    libboost-all-dev
+
 
 # Add libxml2 for the ublox build below.
 #RUN apt-get -y install 
@@ -87,10 +91,10 @@ RUN gem install package_cloud
 WORKDIR /root
 
 # Local packages
-RUN mkdir -p ublox
-COPY ./build-ublox.sh ublox
-RUN cd ublox && ./build-ublox.sh
+# RUN mkdir -p ublox
+# COPY ./build-ublox.sh ublox
+# RUN cd ublox && ./build-ublox.sh
 
-RUN mkdir -p xmlrpc-build
-COPY ./build-xmlrpc.sh xmlrpc-build
-RUN cd xmlrpc-build && ./build-xmlrpc.sh ${hostarch}
+# RUN mkdir -p xmlrpc-build
+# COPY ./build-xmlrpc.sh xmlrpc-build
+# RUN cd xmlrpc-build && ./build-xmlrpc.sh ${hostarch}

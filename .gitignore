@@ -8,6 +8,8 @@ doxygen.log
 *.so
 *.so.*
 /src/build
+/src/tools/__pycache__
+/src/tools/*.pyc
 GPATH
 GRTAGS
 GTAGS
