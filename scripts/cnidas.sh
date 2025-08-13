@@ -214,28 +214,28 @@ build_image()
     set -x
     case "$alias" in
         centos8)
-            podman build -t $tag -f docker/Dockerfile.centos8
+            podman build -t $tag -f docker/Dockerfile.centos8 "$@"
             ;;
         centos7)
-            podman build -t $tag -f docker/Dockerfile.centos7
+            podman build -t $tag -f docker/Dockerfile.centos7 "$@"
             ;;
         pi2)
-            podman build -t $tag -f docker/Dockerfile.cross_arm --build-arg hostarch=armhf
+            podman build -t $tag -f docker/Dockerfile.cross_arm --build-arg hostarch=armhf "$@"
             ;;
         pi3)
-            podman build -t $tag -f docker/Dockerfile.buster_cross_arm --build-arg hostarch=armhf
+            podman build -t $tag -f docker/Dockerfile.buster_cross_arm --build-arg hostarch=armhf "$@"
             ;;
         arm64)
-            podman build -t $tag -f docker/Dockerfile.bookworm_cross_arm64
+            podman build -t $tag -f docker/Dockerfile.bookworm_cross_arm64 "$@"
             ;;
         titan)
-            podman build -t $tag -f docker/Dockerfile.cross_arm --build-arg hostarch=armel
+            podman build -t $tag -f docker/Dockerfile.cross_arm --build-arg hostarch=armel "$@"
             ;;
         vulcan)
-            podman build -t $tag -f docker/Dockerfile.cross_ael_armbe
+            podman build -t $tag -f docker/Dockerfile.cross_ael_armbe "$@"
             ;;
         ubuntu)
-            podman build -t $tag -f docker/Dockerfile.ubuntu_amd64
+            podman build -t $tag -f docker/Dockerfile.ubuntu_amd64 "$@"
             ;;
     esac
 }
