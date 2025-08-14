@@ -8,7 +8,13 @@ import eol_scons
 #
 # Don't load tools that perform compiler or pkg-config checks
 # until the cross tool is loaded, and PKG_CONFIG_PATH is set.
-env = Environment(tools=['default'], toolpath=['#/tools'])
+env = Environment(
+    tools=['default'], 
+    toolpath=['#/tools'],
+    CC=os.environ.get('CC', 'gcc'),
+    CXX=os.environ.get('CXX', 'g++'),
+    LINK=os.environ.get('LINK', os.environ.get('CXX', 'g++')),
+    )
 
 # Don't rely on host environment to warp /bin/sh to /bin/bash
 env['SHELL']='/bin/bash'

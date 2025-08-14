@@ -1,100 +1,168 @@
-ARG hostarch=arm64
+# Debian 12 (Bookworm) native amd64 + one selectable cross target
+# Build examples:
+#   docker build -t xdev:arm64 --build-arg HOST_ARCH=arm64 .
+#   docker build -t xdev:armhf --build-arg HOST_ARCH=armhf .
+#   docker build -t xdev:i386  --build-arg HOST_ARCH=i386  .
+#   docker build -t xdev:amd64 --build-arg HOST_ARCH=amd64 .
 
-FROM docker.io/debian:bookworm-slim AS base
-LABEL organization="NCAR EOL"
+FROM debian:12-slim
 
-USER root
+# Ensure all packages are up-to-date to reduce vulnerabilities
+RUN apt-get update && apt-get upgrade -y && rm -rf /var/lib/apt/lists/*
 
-# FROM line above "consumes" hostarch arg, unless we re-declare it here
-# But don't re-assign it!!!
-ARG hostarch
+ENV DEBIAN_FRONTEND=noninteractive
 
-RUN echo "hostarch == $hostarch"
-
-RUN dpkg --add-architecture ${hostarch}
-
-# sudo is not technically needed, but there are other scripts which expect it,
-# like build-xmlrpc.
-RUN apt-get -y update && \
-    apt-get install -y --no-install-recommends gnupg wget cmake apt-utils \
-    sudo vim nano curl git ca-certificates build-essential fakeroot \
-    libncurses-dev bc dh-make quilt rsync crossbuild-essential-${hostarch} \
-    flex libfl-dev gawk devscripts pkg-config libbz2-dev:${hostarch} \
-    libgsl0-dev:${hostarch} libcap-dev:${hostarch} \
-    libxerces-c-dev:${hostarch} libbluetooth-dev:${hostarch} \
-    libnetcdf-dev:${hostarch} reprepro \
-    libjsoncpp-dev:${hostarch} lsb-release \
-    xsltproc docbook-xsl \
-    libxml2-dev \
-    libi2c-dev \
-    valgrind net-tools less \
-    python3 python3-pip scons
-
-# libgsl0ldbl is now in libgsl0-dev??
-#RUN apt-get install -y --no-install-recommends libgsl0ldbl:${hostarch} 
-
-# Add the eol repo first
-# But need to allow apt to use ftp, since Buster doesn't allow it by default
-# RUN touch /etc/apt/apt.conf
-# RUN echo '// allow ftp for eol repo' >> /etc/apt/apt.conf
-# RUN echo 'dir::bin::methods::ftp "ftp";' >> /etc/apt/apt.conf
-# RUN cat /etc/apt/apt.conf
-# RUN echo "deb ftp://ftp.eol.ucar.edu/pub/archive/software/debian/ buster main" > /etc/apt/sources.list.d/eol.list
-# RUN curl ftp://ftp.eol.ucar.edu/pub/archive/software/debian/conf/eol-prog.gpg.key | apt-key add -
-
-# Also, backports has moved to archive, so fix that -- PEO still true for stretch??
-# RUN echo "deb http://deb.debian.org/debian buster-backports main" >> /etc/apt/sources.list
-#RUN echo "Acquire::Check-Valid-Until no;" > /etc/apt/apt.conf.d/99no-check-valid-until
-
-# Even though container builds can use a locally mounted eol_scons, it is
-# still a build dependency, and it would be required if building nidas on a
-# stock system without the eol_scons mount.
-
-# However, until there is a buster EOL repo, do without it.  Actually, this
-# and the xmlrpc++ dependency below should be installed from the
-# packagecloud repo if that's where the nidas packages are going to end up.
-
-# RUN apt-get -y install eol-scons
-
-# need boost-system, filesystem, asio, thread, so make it easy and get all
-# RUN apt-get -y update && apt-get -y --no-install-recommends install \
-#     libboost-all-dev:${hostarch}
-
-RUN apt-get -y update && apt-get -y --no-install-recommends install \
-    libboost-all-dev
+# ---- Select cross target (or amd64 native-only) ----
+ARG HOST_ARCH=arm64
+ENV HOST_ARCH=${HOST_ARCH}
 
 
-# Add libxml2 for the ublox build below.
-#RUN apt-get -y install 
+# ---- Base (native) toolchain, build tools, Python, Boost headers, Flex/Bison ----
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends \
+      ca-certificates gnupg dirmngr wget curl git \
+      build-essential pkg-config ninja-build make cmake scons \
+      ccache gdb gdb-multiarch file patchelf rsync \
+      python3 python3-pip python3-venv python3-setuptools python3-wheel \
+      flex bison libfl-dev \
+      libboost-dev \
+      libboost-system-dev libboost-filesystem-dev libboost-program-options-dev \
+      libboost-thread-dev libboost-chrono-dev libboost-regex-dev \
+       # Debian packaging
+      devscripts quilt debhelper dpkg-dev fakeroot lintian dh-make equivs \
+  && rm -rf /var/lib/apt/lists/*
 
-# add libi2c-dev as original docker image didn't have correct one
-# don't need an ${hostarch} variant, as all the functions are in-line
-# in a single header.
-#RUN apt-get -y install
+# ---- Install cross toolchain + per-arch dev libraries if HOST_ARCH != amd64 ----
+RUN set -eu; \
+  case "$HOST_ARCH" in \
+    arm64) DEBARCH=arm64; TRIPLE=aarch64-linux-gnu;  LIBDIR=aarch64-linux-gnu ;; \
+    armhf) DEBARCH=armhf; TRIPLE=arm-linux-gnueabihf; LIBDIR=arm-linux-gnueabihf ;; \
+    i386)  DEBARCH=i386;  TRIPLE=i686-linux-gnu;      LIBDIR=i386-linux-gnu ;; \
+    amd64) DEBARCH="";    TRIPLE="";                  LIBDIR="";; \
+    *) echo "Unsupported HOST_ARCH: $HOST_ARCH (use arm64|armhf|i386|amd64)"; exit 1;; \
+  esac; \
+  if [ -n "$DEBARCH" ]; then \
+    echo "Installing cross toolchain for $HOST_ARCH ($TRIPLE)"; \
+    dpkg --add-architecture "$DEBARCH"; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends \
+      "gcc-${TRIPLE}" "g++-${TRIPLE}" \
+      "libc6-${DEBARCH}-cross" "libc6-dev-${DEBARCH}-cross" \
+      "libboost-system-dev:${DEBARCH}" \
+      "libboost-filesystem-dev:${DEBARCH}" \
+      "libboost-program-options-dev:${DEBARCH}" \
+      "libboost-thread-dev:${DEBARCH}" \
+      "libboost-chrono-dev:${DEBARCH}" \
+      "libboost-regex-dev:${DEBARCH}" \
+      "libfl-dev:${DEBARCH}" \
+      "libboost-serialization-dev:${DEBARCH}" \
+      "libboost-iostreams-dev:${DEBARCH}" \
+      qemu-user-static; \
+    rm -rf /var/lib/apt/lists/*; \
+    printf "\n# --- custom ---\nexport CC=${TRIPLE}-gcc \nexport CXX=${TRIPLE}-g++ \nexport LINK=${TRIPLE}-g++ \n" >> /root/.bashrc ; \
+  fi
 
-# get and install ftdi 1.4 and depends libusb-1.0
-#RUN apt-get -y install libusb-1.0:amd64 libusb-1.0:${hostarch} libusb-1.0-0-dev 
-#RUN apt-get -y remove libftdi1=0.20-4
-RUN apt-get -y update && apt-get -y --no-install-recommends \
-    -o Dpkg::Options::="--force-overwrite" install libftdi1-dev:${hostarch}
+# ---- pkg-config wrapper for selected cross target (if any) ----
+RUN set -eu; \
+  if [ "$HOST_ARCH" != "amd64" ]; then \
+    case "$HOST_ARCH" in \
+      arm64) TRIPLE=aarch64-linux-gnu;  LIBDIR=aarch64-linux-gnu ;; \
+      armhf) TRIPLE=arm-linux-gnueabihf; LIBDIR=arm-linux-gnueabihf ;; \
+      i386)  TRIPLE=i686-linux-gnu;      LIBDIR=i386-linux-gnu ;; \
+    esac; \
+    printf '%s\n' '#!/bin/sh' \
+      "PKG_CONFIG_LIBDIR=/usr/lib/${LIBDIR}/pkgconfig:/usr/share/pkgconfig exec pkg-config \"\$@\"" \
+      > "/usr/local/bin/${TRIPLE}-pkg-config"; \
+    chmod 0755 "/usr/local/bin/${TRIPLE}-pkg-config"; \
+  fi
 
-ENV CROSS_ARCH=$hostarch
+# ---- CMake toolchain file for selected cross target (if any) ----
+RUN set -eu; \
+  mkdir -p /opt/toolchains; \
+  if [ "$HOST_ARCH" != "amd64" ]; then \
+    case "$HOST_ARCH" in \
+      arm64) TRIPLE=aarch64-linux-gnu;  LIBDIR=aarch64-linux-gnu;  CPU=aarch64 ;; \
+      armhf) TRIPLE=arm-linux-gnueabihf; LIBDIR=arm-linux-gnueabihf; CPU=arm ;; \
+      i386)  TRIPLE=i686-linux-gnu;      LIBDIR=i386-linux-gnu;      CPU=x86 ;; \
+    esac; \
+    TOOLFILE="/opt/toolchains/${TRIPLE}.cmake"; \
+    { \
+      printf '%s\n' \
+        "# Auto-generated toolchain for ${TRIPLE}" \
+        "set(CMAKE_SYSTEM_NAME Linux)" \
+        "set(CMAKE_SYSTEM_PROCESSOR ${CPU})" \
+        "" \
+        "set(TRIPLE ${TRIPLE})" \
+        "set(CMAKE_C_COMPILER   \${TRIPLE}-gcc)" \
+        "set(CMAKE_CXX_COMPILER \${TRIPLE}-g++)" \
+        "set(CMAKE_ASM_COMPILER \${TRIPLE}-gcc)" \
+        "" \
+        "# Prefer target sysroot/multiarch dirs" \
+        "set(CMAKE_FIND_ROOT_PATH" \
+        "    /usr/\${TRIPLE}" \
+        "    /usr/lib/\${TRIPLE}" \
+        "    /usr/lib/${LIBDIR}" \
+        "    /usr/\${TRIPLE}/lib)" \
+        "" \
+        "set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)" \
+        "set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)" \
+        "set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)" \
+        "" \
+        "# Ensure pkg-config queries the right arch" \
+        "set(ENV{PKG_CONFIG} \${TRIPLE}-pkg-config)"; \
+    } > "${TOOLFILE}"; \
+    chmod 0644 "${TOOLFILE}"; \
+  fi
 
-# It can be helpful to have package_cloud available in the container.
-RUN apt-get -y --no-install-recommends install ruby ruby-dev
+# ---- Workspace + ccache ----
+ENV CCACHE_DIR=/ccache
+RUN mkdir -p /workspace /ccache
 
-# The rake gem has to be installed first, else the package_cloud install gets an
-# error.
-RUN gem install rake
-RUN gem install package_cloud
 
-WORKDIR /root
+#custom additions below
+RUN dpkg --add-architecture ${HOST_ARCH} && \
+    apt-get -y update && \
+    apt-get -y --no-install-recommends \
+    -o Dpkg::Options::="--force-overwrite" install \
+    libxerces-c-dev libjsoncpp-dev libxml2 \
+    libxerces-c-dev:${HOST_ARCH} \
+    libcap-dev:${HOST_ARCH} libxerces-c-dev:${HOST_ARCH} libbluetooth-dev:${HOST_ARCH} \
+    libnetcdf-dev:${HOST_ARCH} libjsoncpp-dev:${HOST_ARCH} libftdi1-dev:${HOST_ARCH} \
+    crossbuild-essential-${HOST_ARCH} libbz2-dev:${HOST_ARCH} libgsl0-dev:${HOST_ARCH} \
+    libcap-dev:${HOST_ARCH} libxerces-c-dev:${HOST_ARCH} libbluetooth-dev:${HOST_ARCH} \
+    libnetcdf-dev:${HOST_ARCH}
+
+
+RUN mkdir -p /third-party
+WORKDIR /third-party
+
 
 # Local packages
-# RUN mkdir -p ublox
-# COPY ./build-ublox.sh ublox
-# RUN cd ublox && ./build-ublox.sh
+RUN /bin/bash -c "mkdir -p ublox"
+COPY ./scripts/docker/build-ublox.sh ublox
+RUN /bin/bash -c "pushd ublox && ./build-ublox.sh && popd"
 
-# RUN mkdir -p xmlrpc-build
-# COPY ./build-xmlrpc.sh xmlrpc-build
-# RUN cd xmlrpc-build && ./build-xmlrpc.sh ${hostarch}
+RUN /bin/bash -c "mkdir -p xmlrpc-build"
+COPY ./scripts/docker/build-xmlrpc.sh xmlrpc-build
+RUN /bin/bash -c "pushd xmlrpc-build && ./build-xmlrpc.sh ${HOST_ARCH} && popd"
+
+RUN /bin/bash -c "mkdir -p ~/.scons/ && \
+        cd ~/.scons && \
+        git clone https://github.com/ncar/eol_scons site_scons " 
+
+WORKDIR /workspace
+
+
+# ---- Default: print versions and open a shell ----
+CMD bash -lc '\
+  echo "HOST_ARCH=${HOST_ARCH}"; \
+  echo "Native GCC:"; gcc -v || true; \
+  echo "CMake:"; cmake --version; echo "SCons:"; scons --version; \
+  echo "Python:"; python3 --version; \
+  if [ "${HOST_ARCH}" != "amd64" ]; then \
+    case "${HOST_ARCH}" in \
+      arm64) T=aarch64-linux-gnu ;; armhf) T=arm-linux-gnueabihf ;; i386) T=i686-linux-gnu ;; esac; \
+    echo "Cross GCC (${HOST_ARCH}):"; ${T}-g++ -v || true; \
+    echo "Toolchain file: /opt/toolchains/${T}.cmake"; \
+  fi; \
+  exec bash'
