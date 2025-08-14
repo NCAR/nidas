@@ -55,9 +55,17 @@ RUN apt-get -y update && \
 
 # RUN apt-get -y install eol-scons
 
-# need boost-system, filesystem, asio, thread, so make it easy and get all
+# boost_thread and boost_system are only needed by ubloxbin, which itself is
+# set for the chopping block, so there is room here to remove some
+# dependencies...
+
+# need a few boost libraries
 RUN apt-get -y update && apt-get -y --no-install-recommends install \
-    libboost-all-dev:${hostarch}
+    libboost-filesystem-dev:${hostarch} \
+    libboost-system-dev:${hostarch} \
+    libboost-regex-dev:${hostarch} \
+    libboost-thread-dev:${hostarch} \
+    libboost-test-dev:${hostarch}
 
 # get and install ftdi 1.4 and depends libusb-1.0
 #RUN apt-get -y install libusb-1.0:amd64 libusb-1.0:${hostarch} libusb-1.0-0-dev 
