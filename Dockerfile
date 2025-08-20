@@ -22,7 +22,7 @@ RUN apt-get update \
   && apt-get install -y --no-install-recommends \
       ca-certificates gnupg dirmngr wget curl git \
       build-essential pkg-config ninja-build make cmake scons \
-      ccache gdb gdb-multiarch file patchelf rsync \
+      ccache gdb gdb-multiarch file patchelf rsync gawk reprepro \
       python3 python3-pip python3-venv python3-setuptools python3-wheel \
       flex bison libfl-dev \
       libboost-dev \

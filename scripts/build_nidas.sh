@@ -4,7 +4,7 @@ set -e
 
 usage() {
     echo "Usage: ${1##*/} arch"
-    echo "arch is armel, armhf or amd64"
+    echo "arch is armel, armhf, arm64 or amd64"
     echo "Run this within a chroot"
     exit 1
 }
@@ -23,6 +23,13 @@ while [ $# -gt 0 ]; do
     armhf)
         arch=$1
         PKG_CONFIG_PATH=/usr/lib/arm-linux-gnueabihf/pkgconfig:/usr/lib/pkgconfig:/usr/share/pkgconfig
+        ;;
+    arm64)
+        arch=$1
+        PKG_CONFIG_PATH=/usr/lib/aarch64-linux-gnu/pkgconfig:/usr/lib/pkgconfig:/usr/share/pkgconfig
+        export CC=aarch64-linux-gnu-gcc
+        export CXX=aarch64-linux-gnu-g++
+        export LINK=aarch64-linux-gnu-g++
         ;;
     amd64)
         arch=$1

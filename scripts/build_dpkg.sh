@@ -15,7 +15,7 @@ usage() {
     echo "-I codename: install packages to $eolrepo/codename-<codename>"
     echo "-n: don't clean source tree, passing -nc to dpkg-buildpackage, implies -b"
     echo "-d: move the final packages in the given directory"
-    echo "arch is armel, armhf, amd64 or i386"
+    echo "arch is armel, armhf, arm64, amd64 or i386"
     echo "codename is jessie, xenial or whatever distribution has been enabled on $eolrepo"
     exit 1
 }
@@ -78,6 +78,8 @@ while [ $# -gt 0 ]; do
         ;;
     arm64)
         export CC=aarch64-linux-gnu-gcc
+        export CXX=aarch64-linux-gnu-g++
+        export LINK=aarch64-linux-gnu-g++
         arch=$1
         ;;
     amd64)
