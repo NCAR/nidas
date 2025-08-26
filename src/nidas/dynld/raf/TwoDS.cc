@@ -228,6 +228,14 @@ bool TwoDS::process(const Sample * samp, list < const Sample * >&results)
     const char *input = (const char*) samp->getConstVoidDataPtr();
     bool result = false;
 
+    unsigned nbytes = samp->getDataByteLength();
+
+//    const unsigned char* ip = input;
+//    const unsigned char* eoi = input + nbytes;
+
+    DLOG( ("raf.TwoDS: nBytes = ") << nbytes );
+
+
     if (!strncmp(input, "SPEC2D,", 7))
         result = processHousekeeping(samp, results);    // len == ~250
     else
