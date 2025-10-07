@@ -113,12 +113,6 @@ private:
     int _numOut;
 
     /**
-     * If user requests despike variables, e.g. "uflag","vflag","wflag","tcflag",
-     * the index of "uflag" in the output variables.
-     */
-    int _spikeIndex;
-
-    /**
      * If user requests output of counts values from sonic.
      */
     int _cntsIndex;

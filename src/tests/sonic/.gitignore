@@ -1,2 +1,4 @@
 outputs
 *.tmp
+/twind3d
+/vg.memcheck.log

@@ -29,11 +29,16 @@
 
 #include <nidas/core/SerialSensor.h>
 #include <nidas/core/AdaptiveDespiker.h>
+#include <nidas/core/VariableIndex.h>
 #include <nidas/Config.h>
 #include "WindOrienter.h"
 #include "WindTilter.h"
 #include "WindRotator.h"
 #include <memory>
+
+namespace testing {
+    class Wind3D_test;
+};
 
 namespace nidas {
 
@@ -184,8 +189,16 @@ public:
         _tiltCorrection = val;
     }
 
-    void despike(nidas::core::dsm_time_t tt,float* uvwt,int n, bool* spikeOrMissing)
-        throw();
+    /**
+     * If despiking is enabled, call the AdaptiveDespiker for each component
+     * in @p uvwt and replace the corresponding components in the output
+     * sample @p outsamp. If the spike flag variables exist in the output
+     * sample, then set each component flag to 1 if the component was
+     * despiked, else 0.  The output sample must already have the correct
+     * timestamp, since that is used by the AdaptiveDespiker reset the
+     * statistics after a data gap.
+     */
+    void despike(nidas::core::SampleT<float>* outsamp, float* uvwt, int n);
 
     /**
      * Do standard bias removal, tilt correction and horizontal rotation of
@@ -255,10 +268,6 @@ protected:
     typedef nidas::dynld::isff::WindRotator WindRotator;
     typedef nidas::dynld::isff::WindTilter WindTilter;
 
-    static const int DATA_GAP_USEC = 60000000;
-
-    nidas::core::dsm_time_t _ttlast[4];
-
     double _bias[3];
 
     bool _despike;
@@ -316,6 +325,12 @@ protected:
      */
     int _dirIndex;
 
+    /**
+     * If user requests despike variables, e.g. "uflag","vflag","wflag","tcflag",
+     * the index of "uflag" in the output variables.
+     */
+    nidas::core::VariableIndex _spikeIndex;
+
     unsigned int _noutVals;
 
     /**
@@ -353,14 +368,16 @@ protected:
 
     std::unique_ptr<Wind3D_impl> _impl;
 
+    friend class testing::Wind3D_test;
+
 private:
 
     // no copying
-    Wind3D(const Wind3D& x);
+    Wind3D(const Wind3D& x) = delete;
 
     // no assignment
-    Wind3D& operator=(const Wind3D& x);
-    
+    Wind3D& operator=(const Wind3D& x) = delete;
+
 };
 
 }}}	// namespace nidas namespace dynld namespace isff

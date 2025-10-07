@@ -47,7 +47,6 @@ const float ATIK_Sonic::GAMMA_R = 403.242;
 ATIK_Sonic::ATIK_Sonic():
     Wind3D(),
     _numOut(0),
-    _spikeIndex(-1),
     _cntsIndex(-1),
     _expectedCounts(0),
     _diagThreshold(0.1),
@@ -139,7 +138,6 @@ void ATIK_Sonic::checkSampleTags()
         _cntsIndex = 7;
         break;
     case 11:
-        _spikeIndex = 7;
         break;
     default:
         throw n_u::InvalidParameterException(getName() +
@@ -300,23 +298,12 @@ bool ATIK_Sonic::process(const Sample* samp,
 
     removeShadowCorrection(timetag, uvwt);
 
-    /*
-     * Three situations:
-     * 1. no spike detection
-     *      getDespike() == false, _spikeIndex < 0
-     * 2. spike detection, output spike indicators, but don't replace
-     *      spike value with forecasted value
-     *      getDespike() == false, _spikeIndex >= 0
-     * 3. spike detection, output spike indicators, replace spikes
-     *      with forecasted value
-     *      getDespike() == true, _spikeIndex >= 0
-     */
+    // new sample
+    SampleT<float>* wsamp = getSample<float>(_numOut);
+    wsamp->setTimeTag(timetag);
+    wsamp->setId(_sampleId);
 
-
-    bool spikes[4] = {false,false,false,false};
-    if (getDespike() || _spikeIndex >= 0) {
-        despike(timetag,uvwt,4,spikes);
-    }
+    despike(wsamp, uvwt, 4);
 
     transducerShadowCorrection(timetag, uvwt);
 
@@ -331,11 +318,6 @@ bool ATIK_Sonic::process(const Sample* samp,
 
     offsetsTiltAndRotate(timetag,uvwt);
 
-    // new sample
-    SampleT<float>* wsamp = getSample<float>(_numOut);
-    wsamp->setTimeTag(timetag);
-    wsamp->setId(_sampleId);
-
     float* dout = wsamp->getDataPtr();
 
     memcpy(dout,uvwt,4*sizeof(float));
@@ -349,10 +331,7 @@ bool ATIK_Sonic::process(const Sample* samp,
 
     if (_diagIndex >= 0) dout[_diagIndex] = diag;
     if (_cntsIndex >= 0) memcpy(dout + _cntsIndex,counts,3 * sizeof(float));
-    if (_spikeIndex >= 0) {
-        for (int i = 0; i < 4; i++)
-            dout[i + _spikeIndex] = (float) spikes[i];
-    }
+
     results.push_back(wsamp);
     return true;
 }

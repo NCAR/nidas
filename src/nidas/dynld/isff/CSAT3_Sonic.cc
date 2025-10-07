@@ -54,7 +54,6 @@ CSAT3_Sonic::CSAT3_Sonic():
     _windInLen(12),	// two bytes each for u,v,w,tc,diag, and 0x55aa
     _totalInLen(12),
     _windNumOut(0),
-    _spikeIndex(-1),
     _windSampleId(0),
     _extraSampleTags(),
     _nttsave(-2),
@@ -708,15 +707,7 @@ bool CSAT3_Sonic::process(const Sample* samp,
         // the despiking "should" replace spike values
         // with a value  more close to what should have
         // been actually measured.
-        if (_spikeIndex >= 0 || getDespike()) {
-            bool spikes[4] = {false,false,false,false};
-            despike(wsamp->getTimeTag(),dout,4,spikes);
-
-            if (_spikeIndex >= 0) {
-                for (int i = 0; i < 4; i++) 
-                    dout[i + _spikeIndex] = (float) spikes[i];
-            }
-        }
+        despike(wsamp, dout, 4);
 
         // apply shadow correction before correcting for unusual orientation
         transducerShadowCorrection(wsamp->getTimeTag(), dout);
@@ -850,14 +841,12 @@ void CSAT3_Sonic::checkSampleTags()
             case 5:
             case 6:
             case 9:
-                if (nvars == 9) _spikeIndex = 5;
                 if (nvars == 6) _ldiagIndex = 5;
                 break;
             case 11:
             case 7:
             case 8:
                 if (nvars == 8) _ldiagIndex = 5;
-                if (nvars == 11) _spikeIndex = 7;
                 if (_spdIndex < 0 || _dirIndex < 0)
                     throw n_u::InvalidParameterException(getName() +
                             " CSAT3 cannot find speed or direction variables");

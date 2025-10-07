@@ -375,10 +375,13 @@ bool CSI_IRGA_Sonic::process(const Sample* samp,
 
     pdata += sizeof(uvwtd)/sizeof(uvwtd[0]);
 
-    if (getDespike()) {
-        bool spikes[4] = {false,false,false,false};
-        despike(wsamptime, uvwtd,4,spikes);
-    }
+    // new sample
+    SampleT<float>* wsamp = getSample<float>(_numOut);
+
+    wsamp->setTimeTag(wsamptime);
+    wsamp->setId(_sampleId);
+
+    despike(wsamp, uvwtd, 4);
 
     // apply shadow correction before correcting for unusual orientation
     transducerShadowCorrection(wsamptime, uvwtd);
@@ -386,12 +389,6 @@ bool CSI_IRGA_Sonic::process(const Sample* samp,
     applyOrientation(wsamptime, uvwtd);
 
     offsetsTiltAndRotate(wsamptime, uvwtd);
-
-    // new sample
-    SampleT<float>* wsamp = getSample<float>(_numOut);
-
-    wsamp->setTimeTag(wsamptime);
-    wsamp->setId(_sampleId);
 
     float* dout = wsamp->getDataPtr();
     float* dend = dout + _numOut;

@@ -96,6 +96,7 @@ Wind3D::Wind3D():
     _sampleId(0),
     _diagIndex(-1), _ldiagIndex(-1),
     _spdIndex(-1), _dirIndex(-1),
+    _spikeIndex(),
     _noutVals(0),
     _numParsed(0),
     _oaCalFile(0),
@@ -109,9 +110,6 @@ Wind3D::Wind3D():
     for (int i = 0; i < 3; i++) {
         _bias[i] = 0.0;
     }
-    for (int i = 0; i < 4; i++) {
-        _ttlast[i] = 0;
-    }
 }
 
 // This must be defined here where the impl type is known completely, as
@@ -120,22 +118,31 @@ Wind3D::~Wind3D()
 {
 }
 
-void Wind3D::despike(dsm_time_t tt,
-	float* uvwt,int n,bool* spikeOrMissing) throw()
+/**
+ * There are three situations:
+ * 1. no spike detection
+ *      getDespike() == false, _spikeIndex < 0
+ * 2. spike detection, output spike indicators, but don't replace
+ *      spike value with forecasted value
+ *      getDespike() == false, _spikeIndex >= 0
+ * 3. spike detection, output spike indicators, replace spikes
+ *      with forecasted value
+ *      getDespike() == true, _spikeIndex >= 0
+ */
+void Wind3D::despike(nidas::core::SampleT<float>* outsamp, float* uvwt, int n)
 {
+    if (!getDespike() && !_spikeIndex)
+        return;
+
     vector<double> dvec(n);	// despiked data
     double* duvwt = &dvec.front();
     /*
      * Despike data
      */
+    bool spikes[4] = {false, false, false, false};
     for (int i=0; i < n; i++) {
-        /* Restart statistics after data gap. */
-        if (tt - _ttlast[i] > DATA_GAP_USEC) _despiker[i].reset();
-
-        /* Despike status, 1=despiked, 0=not despiked */
-        spikeOrMissing[i] = std::isnan(uvwt[i]);
-        duvwt[i] = _despiker[i].despike(uvwt[i],spikeOrMissing+i);
-        if (!spikeOrMissing[i]) _ttlast[i] = tt;
+        duvwt[i] = _despiker[i].despike(outsamp->getTimeTag(), uvwt[i],
+                                        spikes+i);
     }
 
     // If user wants despiked data, copy results back to passed array.
@@ -143,6 +150,12 @@ void Wind3D::despike(dsm_time_t tt,
         for (int i=0; i < n; i++) {
             uvwt[i] = duvwt[i];
         }
+    }
+
+    if (_spikeIndex.valid()) {
+        float* dout = outsamp->getDataPtr();
+        for (int i = 0; i < 4; i++)
+            dout[i + _spikeIndex.index()] = (float) spikes[i];
     }
 }
 
@@ -347,6 +360,20 @@ void Wind3D::parseParameters()
     _atCalFile = getCalFile("abc2uvw");
 }
 
+
+/**
+ * Return true if variable name vname matches exact or else starts with
+ * prefix.
+ */
+bool match_variable(const std::string& vname, const std::string& exact,
+                    const std::string& prefix)
+{
+    return vname == exact ||
+        (vname.length() > prefix.length() &&
+         vname.substr(0, prefix.length()) == prefix);
+}
+
+
 void Wind3D::checkSampleTags()
 {
     list<SampleTag*>& tags= getSampleTags();
@@ -363,27 +390,62 @@ void Wind3D::checkSampleTags()
         for (unsigned int i = 0; vi.hasNext(); i++) {
             const Variable* var = vi.next();
             const string& vname = var->getName();
-            if (vname.length() > 2 && vname.substr(0,3) == "spd") {
+            if (match_variable(vname, "spd", "spd")) {
                 _spdIndex = i;
+                VLOG(("") << "spdIndex set: " << _spdIndex);
                 if (i >= _noutVals) _noutVals = i + 1;
             }
-            else if (vname.length() > 2 && vname.substr(0,3) == "dir") {
+            else if (match_variable(vname, "dir", "dir")) {
                 _dirIndex = i;
+                VLOG(("") << "dirIndex set: " << _dirIndex);
                 if (i >= _noutVals) _noutVals = i + 1;
             }
-            else if (vname == "diag" || (vname.length() > 4 && vname.substr(0,5) == "diag.")) {
+            else if (match_variable(vname, "diag", "diag")) {
                 _diagIndex = i;
+                VLOG(("") << "diagIndex set: " << _diagIndex);
                 if (i >= _noutVals) _noutVals = i + 1;
                 if (i >= _numParsed) _numParsed = i + 1;
             }
-            else if (vname == "status" || (vname.length() > 5 && vname.substr(0,6) == "status.")) {
+            else if (match_variable(vname, "status", "status.")) {
                 _diagIndex = i;
+                VLOG(("") << "diagIndex set from status variable: " << _diagIndex);
                 if (i >= _noutVals) _noutVals = i + 1;
             }
-            else if (vname == "ldiag" || (vname.length() > 5 && vname.substr(0,6) == "ldiag.")) {
+            else if (match_variable(vname, "ldiag", "ldiag.")) {
                 _ldiagIndex = i;
+                VLOG(("") << "ldiagIndex set: " << _ldiagIndex);
                 if (i >= _noutVals) _noutVals = i + 1;
             }
+            else if (match_variable(vname, "uflag", "uflag.")) {
+                if (_spikeIndex.valid()) {
+                    throw n_u::InvalidParameterException(getName(),
+                        "output variables",
+                        "duplicate spike flag variable names");
+                }
+                _spikeIndex = VariableIndex(const_cast<Variable*>(var), i);
+                VLOG(("") << "spikeIndex set: " << _spikeIndex.index());
+                // next 3 variables had better be vflag,wflag,tcflag
+                std::vector<std::string> spikeNames = {"uflag", "vflag", "wflag", "tcflag"};
+                unsigned int j = 0;
+                for (; vi.hasNext() && j < 3; j++) {
+                    const Variable* var = vi.next();
+                    const string& vname = var->getName();
+                    if (! match_variable(vname, spikeNames[j+1], spikeNames[j+1] + "."))
+                        break;
+                }
+                if (j != 3)  // didn't find all 4 spike flag variables
+                {
+                    throw n_u::InvalidParameterException(getName(),
+                        "output variables",
+                        "spike flag variables must be uflag,vflag,wflag,tcflag");
+                }
+                _noutVals += 4;
+                i += 4;
+            }
+            VLOG(("") << "after checking variable " << vname
+                      << " with index " << i
+                      << ", noutVals=" << _noutVals
+                      << ", numParsed=" << _numParsed);
         }
     }
 }
@@ -641,32 +703,6 @@ bool Wind3D::process(const Sample* samp,
         else uvwtd[i] = floatNAN;
     }
 
-    //metek has a correction before we start applying other corrections
-    if (_metek) {
-        nidas::dynld::isff::metek::Apply3DCorrect(uvwtd);
-    }
-
-    // get diagnostic value from parsed sample
-    float diagval = floatNAN;
-    bool diagOK = false;
-
-    if (_diagIndex >= 0 && (unsigned) _diagIndex < sizeof(uvwtd)/sizeof(uvwtd[0])) {
-        diagval = uvwtd[_diagIndex];
-        diagOK = !std::isnan(diagval) && diagval == 0.0;
-    }
-
-    if (getDespike()) {
-        bool spikes[4] = {false,false,false,false};
-        despike(samp->getTimeTag(),uvwtd,4,spikes);
-    }
-
-    // apply shadow correction before correcting for unusual orientation
-    transducerShadowCorrection(samp->getTimeTag(), uvwtd);
-
-    applyOrientation(samp->getTimeTag(), uvwtd);
-
-    offsetsTiltAndRotate(samp->getTimeTag(), uvwtd);
-
     // new sample
     SampleT<float>* wsamp = getSample<float>(_noutVals);
 
@@ -683,6 +719,29 @@ bool Wind3D::process(const Sample* samp,
     // any defined time lag has been applied by SerialSensor
     wsamp->setTimeTag(psamp->getTimeTag());
     wsamp->setId(_sampleId);
+
+    //metek has a correction before we start applying other corrections
+    if (_metek) {
+        nidas::dynld::isff::metek::Apply3DCorrect(uvwtd);
+    }
+
+    // get diagnostic value from parsed sample
+    float diagval = floatNAN;
+    bool diagOK = false;
+
+    if (_diagIndex >= 0 && (unsigned) _diagIndex < sizeof(uvwtd)/sizeof(uvwtd[0])) {
+        diagval = uvwtd[_diagIndex];
+        diagOK = !std::isnan(diagval) && diagval == 0.0;
+    }
+
+    despike(wsamp, uvwtd, 4);
+
+    // apply shadow correction before correcting for unusual orientation
+    transducerShadowCorrection(wsamp->getTimeTag(), uvwtd);
+
+    applyOrientation(wsamp->getTimeTag(), uvwtd);
+
+    offsetsTiltAndRotate(wsamp->getTimeTag(), uvwtd);
 
     // finished with parsed sample
     psamp->freeReference();
