@@ -212,6 +212,47 @@ void AdaptiveDespiker::reset()
     _missfreq = 0;
 }
 
+
+size_t AdaptiveDespiker::numPoints() const {
+    return _npts;
+}
+
+
+void AdaptiveDespiker::getStatistics(double* mean, double* var, double* corr)
+    const
+{
+    if (mean)
+    {
+        if (_npts < 1)
+            *mean = NAN;
+        else if (_npts <= STATISTICS_SIZE)
+            *mean = _mean2 / _npts;
+        else
+            *mean = _mean2;
+    }
+    if (var)
+    {
+        if (_npts < 2)
+            *var = NAN;
+        else if (_npts <= STATISTICS_SIZE)
+            *var = _var2 / _npts - (_mean2 / _npts) * (_mean2 / _npts);
+        else
+            *var = _var2;
+    }
+    if (corr)
+    {
+        if (_npts < 2)
+            *corr = NAN;
+        else if (_npts <= STATISTICS_SIZE)
+            *corr = (_corr / _npts - (_mean2 / _npts) * (_mean1 / _npts)) /
+                    sqrt((_var1 / _npts - (_mean1 / _npts) * (_mean1 / _npts)) *
+                         (_var2 / _npts - (_mean2 / _npts) * (_mean2 / _npts)));
+        else
+            *corr = _corr;
+    }
+}
+
+
 float AdaptiveDespiker::despike(dsm_time_t tt, float u, bool* spike)
 {
     /* Restart statistics after data gap. */

@@ -13,6 +13,7 @@ using boost::unit_test_framework::test_suite;
 #include <nidas/core/Variable.h>
 #include <nidas/core/VariableIndex.h>
 #include <nidas/util/InvalidParameterException.h>
+#include <nidas/util/UTime.h>
 #include <memory>
 #include <nidas/util/util.h>
 
@@ -324,4 +325,75 @@ BOOST_AUTO_TEST_CASE(test_wind3d_wrong_order)
     } catch (...) {
         BOOST_FAIL("Expected InvalidParameterException");
     }
+}
+
+
+BOOST_AUTO_TEST_CASE(test_adaptive_despiker)
+{
+    AdaptiveDespiker despiker;
+
+    BOOST_TEST(despiker.numPoints() == 0);
+    double dmean{0}, dvar{0}, dcorr{0};
+
+    // Create a vector of values with known mean and standard deviation.
+    int nvalues = 102;
+    std::vector<float> values(nvalues);
+    float mean = 10.0;
+    float stddev = 2.0;
+    for (int i = 0; i < nvalues; ++i)
+        values[i] = mean + (2 * (i % 2) - 1) * stddev;
+
+    dsm_time_t t = UTime::parse("2023-01-01T00:00:00Z").toUsecs();
+    bool spike { false };
+
+    // Feed the values to the despiker, and check that none are flagged as spikes.
+    for (const auto& value : values) {
+        despiker.despike(t, value, &spike);
+        BOOST_TEST(spike == false);
+        t += 1000000;  // Increment time by 1 second.
+    }
+    despiker.getStatistics(&dmean, &dvar, &dcorr);
+    BOOST_TEST(despiker.numPoints() == (size_t)nvalues);
+    BOOST_CHECK_CLOSE(dmean, mean, 0.01);
+    BOOST_CHECK_CLOSE_FRACTION(dvar, stddev*stddev, 0.01);
+
+    // Do it again, but make sure a spike is still not a spike if the minimum
+    // number of samples is not reached yet.
+    despiker.reset();
+    float vspike = mean + 10 * stddev;
+    float saved = values[99];
+    values[99] = vspike;
+    for (const auto& value : values) {
+        despiker.despike(t, value, &spike);
+        BOOST_TEST(spike == false);
+        t += 1000000;  // Increment time by 1 second.
+    }
+
+    // Do it again, but the spike comes after the minimum reached.
+    despiker.reset();
+    values[99] = saved;
+    for (const auto& value : values) {
+        float result = despiker.despike(t, value, &spike);
+        BOOST_TEST(result == value);
+        BOOST_TEST(spike == false);
+        t += 1000000;  // Increment time by 1 second.
+    }
+    float result = despiker.despike(t, vspike, &spike);
+    BOOST_TEST_MESSAGE("despike(" << vspike << "): " << result);
+    BOOST_TEST(result != vspike);
+    BOOST_TEST(spike == true);
+    // because the last point was a spike, it is not included in the count.
+    BOOST_TEST(despiker.numPoints() == nvalues);
+    despiker.getStatistics(&dmean, &dvar, &dcorr);
+    // should still get the same statistics as before the minimum samples was
+    // reached.
+    BOOST_CHECK_CLOSE_FRACTION(dmean, mean, 0.01);
+    BOOST_CHECK_CLOSE_FRACTION(dvar, stddev*stddev, 0.01);
+
+    // The same value after too much time causes a reset.
+    t += AdaptiveDespiker::DATA_GAP_USEC;
+    result = despiker.despike(t, vspike, &spike);
+    BOOST_TEST(result == vspike);
+    BOOST_TEST(spike == false);
+    BOOST_TEST(despiker.numPoints() == 1);
 }

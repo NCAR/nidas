@@ -104,6 +104,17 @@ public:
     void reset();
 
     /**
+     * Return the number of points accumulated so far, which is not
+     * necessarily the same as the "memory size" for the running statistics.
+     */
+    size_t numPoints() const;
+
+    /**
+     * Return the current running statistics.
+     */
+    void getStatistics(double* mean, double* var, double* corr) const;
+
+    /**
      * Compute a discrimination level from a Gaussan probability.
      * If a value is more than discrLevel * sigma away 
      * from the mean, then it is considered a spike, i.e.
