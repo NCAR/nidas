@@ -141,6 +141,7 @@ void CSI_IRGA_Sonic::checkSampleTags()
     if (_spdIndex >= 0) _numParsed--; // derived, not parsed
     if (_dirIndex >= 0) _numParsed--; // derived, not parsed
     if (_ldiagIndex >= 0) _numParsed--; // derived, not parsed
+    if (_spikeIndex.valid()) _numParsed -= 4; // derived, not parsed
 
     _irgaDiag = findVariableIndex("irgadiag");
     _h2o = findVariableIndex("h2o");
@@ -154,13 +155,14 @@ void CSI_IRGA_Sonic::checkSampleTags()
 
     bool ok = true;
     /* Make sure derived quantities are last. */
-    if (_spdIndex >= 0 && _numOut - _spdIndex > 3) ok = false;
-    if (_dirIndex >= 0 && _numOut - _dirIndex > 3) ok = false;
-    if (_ldiagIndex >= 0 && _numOut - _ldiagIndex > 3) ok = false;
+    for (auto& ix: {_spdIndex, _dirIndex, _ldiagIndex, _spikeIndex.index()})
+    {
+        ok = ok && (ix < 0 || ix >= (int)_numParsed);
+    }
 
     if (!ok)
         throw InvalidParameterException(getName() +
-                " CSI_IRGA_Sonic speed, direction and ldiag variables should be at the end of the list");
+                " CSI_IRGA_Sonic derived variables must be at the end of the list");
 
      const std::list<AsciiSscanf*>& sscanfers = getScanfers();
      if (sscanfers.empty()) {

@@ -331,6 +331,14 @@ protected:
      */
     nidas::core::VariableIndex _spikeIndex;
 
+    // This appears to be the total number of output variables in all sample
+    // tags attached to this sensor, as calculated in
+    // Wind3D::checkSampleTags(). However, it is also used to set the size of
+    // the output sample in Wind3D::process(), which implies that process() is
+    // only correct if there is only one sample tag.  And if that's the case,
+    // then all the _numOut members in subclasses are redundant and should be
+    // removed, and this base class can enforce a single sample tag and keep
+    // an exclusive record of the number of variables in the output samples.
     unsigned int _noutVals;
 
     /**

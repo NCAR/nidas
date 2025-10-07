@@ -440,7 +440,7 @@ void Wind3D::checkSampleTags()
                         "spike flag variables must be uflag,vflag,wflag,tcflag");
                 }
                 _noutVals += 4;
-                i += 4;
+                i += 3;
             }
             VLOG(("") << "after checking variable " << vname
                       << " with index " << i

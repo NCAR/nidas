@@ -10,6 +10,9 @@ using boost::unit_test_framework::test_suite;
 #include <nidas/dynld/isff/CSI_IRGA_Sonic.h>
 #include <nidas/core/XMLParser.h>
 #include <nidas/core/Project.h>
+#include <nidas/core/Variable.h>
+#include <nidas/core/VariableIndex.h>
+#include <nidas/util/InvalidParameterException.h>
 #include <memory>
 #include <nidas/util/util.h>
 
@@ -20,6 +23,9 @@ using namespace nidas::dynld::isff;
 
 using nidas::util::derive_spd_dir_from_uv;
 using nidas::util::derive_uv_from_spd_dir;
+
+
+const std::string log_config = "level=error";
 
 
 namespace testing {
@@ -86,7 +92,7 @@ const char* irga_xml = R"XML(
 
 
 void
-setup_wind3d(Wind3D& wind, bool despike=false)
+setup_wind3d(Wind3D& wind, const char* sonic_xml, bool despike=false)
 {
     static char env_despike[128];
     sprintf(env_despike, "CSAT3_DESPIKE=%s", despike ? "true" : "false");
@@ -94,8 +100,7 @@ setup_wind3d(Wind3D& wind, bool despike=false)
 
     wind.setDSMId(1);
 
-    std::string xml = Project::getInstance()->expandString(irga_xml);
-    std::cerr << xml << std::endl;
+    std::string xml = Project::getInstance()->expandString(sonic_xml);
     std::unique_ptr<xercesc::DOMDocument> doc(XMLParser::ParseString(xml));
     wind.fromDOMElement(doc->getDocumentElement());
     wind.validate();
@@ -109,13 +114,13 @@ setup_wind3d(Wind3D& wind, bool despike=false)
 BOOST_AUTO_TEST_CASE(test_wind3d_no_despike)
 {
     Logger* logger = Logger::createInstance(&std::cerr);
-    logger->setScheme(LogScheme().addConfig("level=verbose"));
+    logger->setScheme(LogScheme().addConfig(log_config));
 
     // the output variables should not change if despiking is on or off
     for (auto despike : {false, true})
     {
         CSI_IRGA_Sonic wind;
-        setup_wind3d(wind, despike);
+        setup_wind3d(wind, irga_xml, despike);
 
         BOOST_TEST(wind.getDSMId() == 1);
         BOOST_TEST(wind.getSensorId() == 4);
@@ -131,5 +136,192 @@ BOOST_AUTO_TEST_CASE(test_wind3d_no_despike)
         BOOST_TEST(pwind._numParsed == 13);
         BOOST_TEST(pwind._noutVals == 16);
         BOOST_TEST(pwind._shadowFactor == 0.0);
+    }
+}
+
+
+// Typical XML for a CSI_IRGA sensor.
+const char* irga_xml_with_flags = R"XML(
+    <serialSensor class="isff.CSI_IRGA_Sonic" ID="CSAT3_IRGA_BIN"
+        baud="115200" parity="none" databits="8" stopbits="1"
+        devicename="/dev/ttyDSM1" id="4">
+        <parameter name="bandwidth" type="float" value="5"/>
+        <parameter type="float" name="shadowFactor" value="0"/>
+        <parameter type="bool" name="despike" value="${CSAT3_DESPIKE}"/>
+        <sample id="1" rate="20">
+            <variable name="u" units="m/s" longname="Wind U component, CSAT3"/>
+            <variable name="v" units="m/s" longname="Wind V component, CSAT3"/>
+            <variable name="w" units="m/s" longname="Wind W component, CSAT3"/>
+            <variable name="tc" units="degC" longname="Virtual air temperature from speed of sound, CSAT3"/>
+            <variable name="diagbits" units="" longname="CSAT3 diagnostic sum, 1=low sig,2=high sig,4=no lock,8=path diff,16=skipped samp"/>
+            <variable name="co2" units="mg/m^3" longname="CO2 density from CSI IRGA"/>
+            <variable name="h2o" units="g/m^3" longname="Water vapor density from CSI IRGA" minValue="-1.00" maxValue="10.0"/>
+            <variable name="irgadiag" units="" longname="CSI IRGA diagnostic" plotrange="$DIAG_RANGE"/>
+            <variable name="Tirga" units="degC" longname="CSI IRGA temperature"/>
+            <variable name="Pirga" units="kPa" longname="CSI IRGA pressure"/>
+            <variable name="SSco2" units="" longname="CSI IRGA CO2 signal strength"/>
+            <variable name="SSh2o" units="" longname="CSI IRGA H2O signal strength"/>
+            <variable name="dPirga" units="mb" longname="CSI IRGA differential pressure"/>
+            <!-- derived variables should be at the end of the sample -->
+            <variable name="uflag" units="1" longname="Spike detection flag for U component"/>
+            <variable name="vflag" units="1" longname="Spike detection flag for V component"/>
+            <variable name="wflag" units="1" longname="Spike detection flag for W component"/>
+            <variable name="tcflag" units="1" longname="Spike detection flag for Tc"/>
+            <variable name="ldiag" units="" longname="CSAT3 logical diagnostic, 0=OK, 1=(diagbits!=0)"/>
+            <variable name="spd" units="m/s" longname="CSAT3 horizontal wind speed"/>
+            <variable name="dir" units="deg" longname="CSAT3 wind direction"/>
+        </sample>
+        <message separator="\x55\xaa" position="end" length="58"/>
+    </serialSensor>
+)XML";
+
+
+BOOST_AUTO_TEST_CASE(test_wind3d_with_flags)
+{
+    Logger* logger = Logger::createInstance(&std::cerr);
+    logger->setScheme(LogScheme().addConfig(log_config));
+
+    // the output variables should not change if despiking is on or off
+    for (auto despike : {false, true})
+    {
+        CSI_IRGA_Sonic wind;
+        setup_wind3d(wind, irga_xml_with_flags, despike);
+
+        BOOST_TEST(wind.getDSMId() == 1);
+        BOOST_TEST(wind.getSensorId() == 4);
+        BOOST_TEST(wind.getDespike() == despike);
+
+        Wind3D_test pwind(wind);
+        BOOST_TEST(pwind._spdIndex == 18);
+        BOOST_TEST(pwind._dirIndex == 19);
+        BOOST_TEST(pwind._diagIndex == 4);
+        BOOST_TEST(pwind._spikeIndex.valid() == true);
+        BOOST_TEST(pwind._spikeIndex.index() == 13);
+        BOOST_TEST(pwind._spikeIndex.variable()->getName() == "uflag");
+        BOOST_TEST(pwind._ldiagIndex == 17);
+        // 13 are parsed, 7 derived (ldiag, spd, dir)
+        BOOST_TEST(pwind._numParsed == 13);
+        BOOST_TEST(pwind._noutVals == 20);
+        BOOST_TEST(pwind._shadowFactor == 0.0);
+    }
+}
+
+
+// Typical XML for a CSI_IRGA sensor.
+const char* irga_xml_with_flags_at_end = R"XML(
+    <serialSensor class="isff.CSI_IRGA_Sonic" ID="CSAT3_IRGA_BIN"
+        baud="115200" parity="none" databits="8" stopbits="1"
+        devicename="/dev/ttyDSM1" id="4">
+        <parameter name="bandwidth" type="float" value="5"/>
+        <parameter type="float" name="shadowFactor" value="0"/>
+        <parameter type="bool" name="despike" value="${CSAT3_DESPIKE}"/>
+        <sample id="1" rate="20">
+            <variable name="u" units="m/s" longname="Wind U component, CSAT3"/>
+            <variable name="v" units="m/s" longname="Wind V component, CSAT3"/>
+            <variable name="w" units="m/s" longname="Wind W component, CSAT3"/>
+            <variable name="tc" units="degC" longname="Virtual air temperature from speed of sound, CSAT3"/>
+            <variable name="diagbits" units="" longname="CSAT3 diagnostic sum, 1=low sig,2=high sig,4=no lock,8=path diff,16=skipped samp"/>
+            <variable name="co2" units="mg/m^3" longname="CO2 density from CSI IRGA"/>
+            <variable name="h2o" units="g/m^3" longname="Water vapor density from CSI IRGA" minValue="-1.00" maxValue="10.0"/>
+            <variable name="irgadiag" units="" longname="CSI IRGA diagnostic" plotrange="$DIAG_RANGE"/>
+            <variable name="Tirga" units="degC" longname="CSI IRGA temperature"/>
+            <variable name="Pirga" units="kPa" longname="CSI IRGA pressure"/>
+            <variable name="SSco2" units="" longname="CSI IRGA CO2 signal strength"/>
+            <variable name="SSh2o" units="" longname="CSI IRGA H2O signal strength"/>
+            <variable name="dPirga" units="mb" longname="CSI IRGA differential pressure"/>
+            <!-- derived variables ldiag, spd, dir should be at the end of the sample -->
+            <variable name="ldiag" units="" longname="CSAT3 logical diagnostic, 0=OK, 1=(diagbits!=0)"/>
+            <variable name="spd" units="m/s" longname="CSAT3 horizontal wind speed"/>
+            <variable name="dir" units="deg" longname="CSAT3 wind direction"/>
+            <variable name="uflag" units="1" longname="Spike detection flag for U component"/>
+            <variable name="vflag" units="1" longname="Spike detection flag for V component"/>
+            <variable name="wflag" units="1" longname="Spike detection flag for W component"/>
+            <variable name="tcflag" units="1" longname="Spike detection flag for Tc"/>
+        </sample>
+        <message separator="\x55\xaa" position="end" length="58"/>
+    </serialSensor>
+)XML";
+
+
+BOOST_AUTO_TEST_CASE(test_wind3d_with_flags_at_end)
+{
+    Logger* logger = Logger::createInstance(&std::cerr);
+    logger->setScheme(LogScheme().addConfig(log_config));
+
+    // the output variables should not change if despiking is on or off
+    for (auto despike : {false, true})
+    {
+        CSI_IRGA_Sonic wind;
+        setup_wind3d(wind, irga_xml_with_flags_at_end, despike);
+
+        BOOST_TEST(wind.getDSMId() == 1);
+        BOOST_TEST(wind.getSensorId() == 4);
+        BOOST_TEST(wind.getDespike() == despike);
+
+        Wind3D_test pwind(wind);
+        BOOST_TEST(pwind._spdIndex == 14);
+        BOOST_TEST(pwind._dirIndex == 15);
+        BOOST_TEST(pwind._diagIndex == 4);
+        BOOST_TEST(pwind._spikeIndex.valid() == true);
+        BOOST_TEST(pwind._spikeIndex.index() == 16);
+        BOOST_TEST(pwind._spikeIndex.variable()->getName() == "uflag");
+        BOOST_TEST(pwind._ldiagIndex == 13);
+        // 13 are parsed, 7 derived (ldiag, spd, dir)
+        BOOST_TEST(pwind._numParsed == 13);
+        BOOST_TEST(pwind._noutVals == 20);
+        BOOST_TEST(pwind._shadowFactor == 0.0);
+    }
+}
+
+
+const char* irga_xml_wrong_order = R"XML(
+    <serialSensor class="isff.CSI_IRGA_Sonic" ID="CSAT3_IRGA_BIN"
+        baud="115200" parity="none" databits="8" stopbits="1"
+        devicename="/dev/ttyDSM1" id="4">
+        <parameter name="bandwidth" type="float" value="5"/>
+        <parameter type="float" name="shadowFactor" value="0"/>
+        <parameter type="bool" name="despike" value="${CSAT3_DESPIKE}"/>
+        <sample id="1" rate="20">
+            <variable name="u" units="m/s" longname="Wind U component, CSAT3"/>
+            <variable name="v" units="m/s" longname="Wind V component, CSAT3"/>
+            <variable name="w" units="m/s" longname="Wind W component, CSAT3"/>
+            <variable name="tc" units="degC" longname="Virtual air temperature from speed of sound, CSAT3"/>
+            <variable name="diagbits" units="" longname="CSAT3 diagnostic sum, 1=low sig,2=high sig,4=no lock,8=path diff,16=skipped samp"/>
+            <variable name="ldiag" units="" longname="CSAT3 logical diagnostic, 0=OK, 1=(diagbits!=0)"/>
+            <variable name="co2" units="mg/m^3" longname="CO2 density from CSI IRGA"/>
+            <variable name="h2o" units="g/m^3" longname="Water vapor density from CSI IRGA" minValue="-1.00" maxValue="10.0"/>
+            <variable name="irgadiag" units="" longname="CSI IRGA diagnostic" plotrange="$DIAG_RANGE"/>
+            <variable name="Tirga" units="degC" longname="CSI IRGA temperature"/>
+            <variable name="Pirga" units="kPa" longname="CSI IRGA pressure"/>
+            <variable name="SSco2" units="" longname="CSI IRGA CO2 signal strength"/>
+            <variable name="SSh2o" units="" longname="CSI IRGA H2O signal strength"/>
+            <variable name="dPirga" units="mb" longname="CSI IRGA differential pressure"/>
+            <!-- derived variables ldiag, spd, dir should be at the end of the sample -->
+            <variable name="spd" units="m/s" longname="CSAT3 horizontal wind speed"/>
+            <variable name="dir" units="deg" longname="CSAT3 wind direction"/>
+            <variable name="uflag" units="1" longname="Spike detection flag for U component"/>
+            <variable name="vflag" units="1" longname="Spike detection flag for V component"/>
+            <variable name="wflag" units="1" longname="Spike detection flag for W component"/>
+            <variable name="tcflag" units="1" longname="Spike detection flag for Tc"/>
+        </sample>
+        <message separator="\x55\xaa" position="end" length="58"/>
+    </serialSensor>
+)XML";
+
+
+BOOST_AUTO_TEST_CASE(test_wind3d_wrong_order)
+{
+    Logger* logger = Logger::createInstance(&std::cerr);
+    logger->setScheme(LogScheme().addConfig(log_config));
+
+    try {
+        CSI_IRGA_Sonic wind;
+        setup_wind3d(wind, irga_xml_wrong_order, true);
+        BOOST_FAIL("Expected InvalidParameterException");
+    } catch (const InvalidParameterException& e) {
+        std::string msg = e.what();
+        BOOST_TEST(msg.find("derived variables must be at the end") != std::string::npos);
+    } catch (...) {
+        BOOST_FAIL("Expected InvalidParameterException");
     }
 }
