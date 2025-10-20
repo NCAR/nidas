@@ -690,6 +690,26 @@ void Wind3D::addSpdDir(nidas::core::SampleT<float>* outsamp, float& u, float& v)
 }
 
 
+void
+Wind3D::addWindDiagnostic(nidas::core::SampleT<float>* outsamp, bool diagOK,
+        float* uvw, int nvals)
+{
+    int nvals_out = outsamp->getDataLength();
+    float* dout = outsamp->getDataPtr();
+    // If user asks for ldiag, use it to flag data values
+    if (_ldiagIndex >= 0 && _ldiagIndex < nvals_out) {
+        dout[_ldiagIndex] = (float)!diagOK;
+        if (!diagOK && uvw)
+        {
+            for (int i = 0; i < nvals && i < nvals_out; i++) {
+                uvw[i] = floatNAN;
+            }
+        }
+    }
+}
+
+
+
 bool Wind3D::process(const Sample* samp,
 	std::list<const Sample*>& results)
 {
@@ -768,15 +788,7 @@ bool Wind3D::process(const Sample* samp,
 
     memcpy(dptr, uvwtd, sizeof(float) * nvals);
 
-    // If user asks for ldiag, use it to flag data values
-    if (_ldiagIndex >= 0) {
-        dout[_ldiagIndex] = (float)!diagOK;
-        if (!diagOK) {
-            for (unsigned int i = 0; i < 4 && i < _noutVals; i++) {
-                dout[i] = floatNAN;
-            }
-        }
-    }
+    addWindDiagnostic(wsamp, diagOK, dout, 4);
 
     addSpdDir(wsamp, uvwtd[0], uvwtd[1]);
 

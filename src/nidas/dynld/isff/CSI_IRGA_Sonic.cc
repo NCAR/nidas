@@ -544,8 +544,9 @@ bool CSI_IRGA_Sonic::process(const Sample* samp,
 
     for ( ; pdata < pend && dptr < dend; ) *dptr++ = *pdata++;
 
-    // logical diagnostic value: 0=OK,1=bad
-    if (_ldiagIndex >= 0) dout[_ldiagIndex] = (float) !diagOK;
+    // logical diagnostic value: 0=OK,1=bad.  the winds are not set to nan if
+    // bad since that should have been handled above.
+    addWindDiagnostic(wsamp, diagOK);
 
     addSpdDir(wsamp, uvwtd[0], uvwtd[1]);
 

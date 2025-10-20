@@ -700,7 +700,7 @@ bool CSAT3_Sonic::process(const Sample* samp,
 
         // logical diagnostic value: set to 0 if all sonic
         // diagnostics are zero, otherwise one.
-        if (_ldiagIndex >= 0) dout[_ldiagIndex] = (float)(diag != 0);
+        addWindDiagnostic(wsamp, diag == 0);
 
         // Note that despiking is optionally done before
         // transducer shadow correction. The idea is that

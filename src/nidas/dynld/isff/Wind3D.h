@@ -225,6 +225,15 @@ public:
     void addSpdDir(nidas::core::SampleT<float>* outsamp, float& u, float& v);
 
     /**
+     * If the logical diagnostic variable has been requested in the output
+     * sample, set it to zero if @p diagOk is true, otherwise set it to one.
+     * If not ok and @p uvw is not null, the wind variables in @p uvw [0, n-1]
+     * are set to NaN.
+     */
+    void addWindDiagnostic(nidas::core::SampleT<float>* outsamp, bool diagOK,
+        float* uvw=nullptr, int n=0);
+
+    /**
      * Update the settings from the offsets and angles calibration file, if
      * any.
      **/
