@@ -33,7 +33,6 @@
 #include <nidas/util/Logger.h>
 #include <limits>
 
-using namespace nidas::dynld::isff;
 using namespace std;
 
 using nidas::util::InvalidParameterException;
@@ -42,6 +41,10 @@ using nidas::util::dirFromUV;
 using nidas::util::LogContext;
 
 NIDAS_CREATOR_FUNCTION_NS(isff,CSI_IRGA_Sonic)
+
+
+namespace nidas { namespace dynld { namespace isff {
+
 
 CSI_IRGA_Sonic::CSI_IRGA_Sonic():
     CSAT3_Sonic(),
@@ -229,6 +232,139 @@ bool CSI_IRGA_Sonic::reportBadCRC()
                         getName().c_str(),_badCRCs));
     return false;
 }
+
+
+/**
+ * CSI_IRGA_Fields holds the fields reported by the CSI IRGA Sonic in their
+ * native types.
+ */
+struct CSI_IRGA_Fields
+{
+    float u { 0.0f };
+    float v { 0.0f };
+    float w { 0.0f };
+    float tc { 0.0f };
+    u_int32_t diagbits { 0 };
+    float h2o { 0.0f };
+    float co2 { 0.0f };
+    u_int32_t irgadiag { 0 };
+    float Tirga { 0.0f };
+    float Pirga { 0.0f };
+    float SSco2 { 0.0f };
+    float SSh2o { 0.0f };
+    float dPirga { 0.0f };
+    float Tsource { 0.0f };
+    float Tdetector { 0.0f };
+    unsigned short crc { 0 }; // binary only
+
+    template <typename F>
+    void visit(F& f);
+};
+
+
+template <typename F>
+void CSI_IRGA_Fields::visit(F& f)
+{
+    f.visit(u);
+    f.visit(v);
+    f.visit(w);
+    f.visit(tc);
+    f.visit(diagbits);
+    f.visit(h2o);
+    f.visit(co2);
+    f.visit(irgadiag);
+    f.visit(Tirga);
+    f.visit(Pirga);
+    f.visit(SSco2);
+    f.visit(SSh2o);
+    f.visit(dPirga);
+    f.visit(Tsource);
+    f.visit(Tdetector);
+}
+
+
+/**
+ * Given a buffer of binary data, provide a template method which converts
+ * each value according to its type with the given EndianConverter, either
+ * packing a value into the buffer or unpacking a value from the buffer.
+ */
+class BufferConverter
+{
+public:
+    BufferConverter(const nidas::util::EndianConverter* converter,
+             const char* buffer, const char* end):
+        _converter(converter), buf(buffer), eob(end), bptr(buf),
+        nvals(0)
+    {
+    }
+
+    // Convert value of type T at bptr
+    template <typename T> void convert(T& val);
+
+    // Write value of type T into bptr
+    template <typename T> T convert(void* ptr);
+
+    template <typename T>
+    void visit(T& value)
+    {
+        if (bptr + sizeof(T) <= eob) {
+            convert(value);
+            bptr += sizeof(T);
+            nvals++;
+        }
+    }
+
+    const nidas::util::EndianConverter* _converter;
+    const char* buf;
+    const char* eob;
+    const char* bptr;
+    unsigned int nvals;
+};
+
+
+template <>
+void BufferConverter::convert(float& value)
+{
+    value = _converter->floatValue(bptr);
+}
+
+
+template <>
+void BufferConverter::convert(u_int32_t& value)
+{
+    value = _converter->uint32Value(bptr);
+}
+
+
+void
+CSI_IRGA_Sonic::
+unpackBinary(const char* buf, const char* eob, CSI_IRGA_Fields& fields)
+{
+    BufferConverter unpacker(_converter, buf, eob);
+
+    fields.visit(unpacker);
+}
+
+
+struct FieldToFloat
+{
+    std::vector<float> pvector{};
+
+    template <typename T>
+    void visit(T& field)
+    {
+        pvector.push_back(static_cast<float>(field));
+    }
+};
+
+
+std::vector<float> fields_to_floats(CSI_IRGA_Fields& fields)
+{
+    FieldToFloat visitor;
+    fields.visit(visitor);
+    return visitor.pvector;
+}
+
 
 bool CSI_IRGA_Sonic::process(const Sample* samp,
 	std::list<const Sample*>& results)
@@ -446,3 +582,5 @@ bool CSI_IRGA_Sonic::process(const Sample* samp,
     results.push_back(wsamp);
     return true;
 }
+
+}}} // namespace nidas::dynld::isff

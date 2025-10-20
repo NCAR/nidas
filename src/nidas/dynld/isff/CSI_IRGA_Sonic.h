@@ -37,6 +37,8 @@ class TimetagAdjuster;
 
 namespace nidas { namespace dynld { namespace isff {
 
+struct CSI_IRGA_Fields;
+
 /**
  * A class for making sense of data from a Campbell Scientific
  * IRGASON integrated Gas Analyzer and 3D sonic anemometer.
@@ -58,6 +60,13 @@ public:
     bool process(const Sample* samp,std::list<const Sample*>& results);
 
     virtual void updateAttributes() override;
+
+    /**
+     * Unpack the binary buffer @p buf into @p fields, up until the end of
+     * buffer @p eob.
+     */
+    void
+    unpackBinary(const char* buf, const char* eob, CSI_IRGA_Fields& fields);
 
     /**
      * Calculate the CRC signature of a data record. From EC150 manual.
