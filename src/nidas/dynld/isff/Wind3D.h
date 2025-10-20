@@ -218,6 +218,13 @@ public:
     void applyOrientation(nidas::core::dsm_time_t tt, float* uvwt) throw();
 
     /**
+     * If speed and direction variables are requested in the output sample,
+     * derive them from the given @p u and @p v components and set them in
+     * the output sample.
+     */
+    void addSpdDir(nidas::core::SampleT<float>* outsamp, float& u, float& v);
+
+    /**
      * Update the settings from the offsets and angles calibration file, if
      * any.
      **/

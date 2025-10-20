@@ -322,12 +322,7 @@ bool ATIK_Sonic::process(const Sample* samp,
 
     memcpy(dout,uvwt,4*sizeof(float));
 
-    if (_spdIndex >= 0 && _spdIndex < (signed)_numOut)
-        dout[_spdIndex] = sqrt(dout[0] * dout[0] + dout[1] * dout[1]);
-
-    if (_dirIndex >= 0 && _dirIndex < (signed)_numOut) {
-        dout[_dirIndex] = n_u::dirFromUV(dout[0], dout[1]);
-    }
+    addSpdDir(wsamp, dout[0], dout[1]);
 
     if (_diagIndex >= 0) dout[_diagIndex] = diag;
     if (_cntsIndex >= 0) memcpy(dout + _cntsIndex,counts,3 * sizeof(float));

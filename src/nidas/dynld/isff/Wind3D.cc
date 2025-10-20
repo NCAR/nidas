@@ -678,6 +678,18 @@ void Wind3D::updateAttributes()
 }
 
 
+void Wind3D::addSpdDir(nidas::core::SampleT<float>* outsamp, float& u, float& v)
+{
+    int nvals = outsamp->getDataLength();
+    if (_spdIndex >= 0 && _spdIndex < nvals) {
+        outsamp->setDataValue(_spdIndex, sqrt(u * u + v * v));
+    }
+    if (_dirIndex >= 0 && _dirIndex < nvals) {
+        outsamp->setDataValue(_dirIndex, n_u::dirFromUV(u, v));
+    }
+}
+
+
 bool Wind3D::process(const Sample* samp,
 	std::list<const Sample*>& results)
 {
@@ -766,12 +778,7 @@ bool Wind3D::process(const Sample* samp,
         }
     }
 
-    if (_spdIndex >= 0) {
-        dout[_spdIndex] = sqrt(dout[0] * dout[0] + dout[1] * dout[1]);
-    }
-    if (_dirIndex >= 0) {
-        dout[_dirIndex] = n_u::dirFromUV(dout[0], dout[1]);
-    }
+    addSpdDir(wsamp, uvwtd[0], uvwtd[1]);
 
     if (!_process_started)
     {

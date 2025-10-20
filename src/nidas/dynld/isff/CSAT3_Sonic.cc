@@ -716,11 +716,8 @@ bool CSAT3_Sonic::process(const Sample* samp,
 
         offsetsTiltAndRotate(wsamp->getTimeTag(), dout);
 
-        if (_spdIndex >= 0)
-            dout[_spdIndex] = sqrt(dout[0] * dout[0] + dout[1] * dout[1]);
-        if (_dirIndex >= 0) {
-            dout[_dirIndex] = n_u::dirFromUV(dout[0], dout[1]);
-        }
+        addSpdDir(wsamp, dout[0], dout[1]);
+
         results.push_back(wsamp);
     }
 

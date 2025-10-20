@@ -156,6 +156,9 @@ void CSI_IRGA_Sonic::checkSampleTags()
         throw InvalidParameterException(getName() +
                 ": expect at least 5 variables in sample: u,v,w,tc,diag");
 
+    // XXX can this be done in the Wind3D base class, since it sets
+    // all these derived variable indexes?  Do other wind sensor classes
+    // not require derived variables to be at the end?
     bool ok = true;
     /* Make sure derived quantities are last. */
     for (auto& ix: {_spdIndex, _dirIndex, _ldiagIndex, _spikeIndex.index()})
@@ -544,12 +547,7 @@ bool CSI_IRGA_Sonic::process(const Sample* samp,
     // logical diagnostic value: 0=OK,1=bad
     if (_ldiagIndex >= 0) dout[_ldiagIndex] = (float) !diagOK;
 
-    if (_spdIndex >= 0 && _spdIndex < (signed)_numOut) {
-        dout[_spdIndex] = sqrt(uvwtd[0] * uvwtd[0] + uvwtd[1] * uvwtd[1]);
-    }
-    if (_dirIndex >= 0 && _dirIndex < (signed)_numOut) {
-        dout[_dirIndex] = dirFromUV(uvwtd[0], uvwtd[1]);
-    }
+    addSpdDir(wsamp, uvwtd[0], uvwtd[1]);
 
     // screen h2o and co2 values when the IRGA diagnostic value is indexed and
     // is non-zero, masked by irgadiagmask.  And in the mask once, so the sys
