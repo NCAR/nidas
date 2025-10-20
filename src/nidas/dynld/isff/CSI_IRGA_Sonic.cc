@@ -276,7 +276,7 @@ bool CSI_IRGA_Sonic::process(const Sample* samp,
     unsigned int nvals;
     const float* pdata;
 
-    const unsigned int nbinvals = _numOut - 3;  // requested variables, except final 3 derived
+    const unsigned int nbinvals = _numParsed;
 
     vector<float> pvector(nbinvals);
 
@@ -379,6 +379,12 @@ bool CSI_IRGA_Sonic::process(const Sample* samp,
 
     // new sample
     SampleT<float>* wsamp = getSample<float>(_numOut);
+    float* dout = wsamp->getDataPtr();
+    float* dend = dout + _numOut;
+
+    // initialize output values to nan first so they can be filled in below
+    // from the base class and this class.
+    for (float* dp = dout; dp < dend; ) *dp++ = floatNAN;
 
     wsamp->setTimeTag(wsamptime);
     wsamp->setId(_sampleId);
@@ -392,15 +398,12 @@ bool CSI_IRGA_Sonic::process(const Sample* samp,
 
     offsetsTiltAndRotate(wsamptime, uvwtd);
 
-    float* dout = wsamp->getDataPtr();
-    float* dend = dout + _numOut;
     float *dptr = dout;
 
     memcpy(dptr,uvwtd,sizeof(uvwtd));
     dptr += sizeof(uvwtd) / sizeof(uvwtd[0]);
 
     for ( ; pdata < pend && dptr < dend; ) *dptr++ = *pdata++;
-    for ( ; dptr < dend; ) *dptr++ = floatNAN;
 
     // logical diagnostic value: 0=OK,1=bad
     if (_ldiagIndex >= 0) dout[_ldiagIndex] = (float) !diagOK;
