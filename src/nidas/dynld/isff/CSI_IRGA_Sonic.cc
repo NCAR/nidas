@@ -267,48 +267,97 @@ class BufferConverter
 {
 public:
     BufferConverter(const nidas::util::EndianConverter* converter,
-             const char* buffer, const char* end):
+                    char* buffer, char* end, unsigned int nvals_=0):
         _converter(converter), buf(buffer), eob(end), bptr(buf),
-        nvals(0)
+        nvals(nvals_)
     {
     }
 
     // Convert value of type T at bptr
-    template <typename T> void convert(T& val);
+    template <typename T> void convert_in(char* bptr, T& value);
 
     // Write value of type T into bptr
-    template <typename T> T convert(void* ptr);
+    template <typename T> void convert_out(const T& value, char* ptr);
 
     template <typename T>
-    void visit(T& value)
+    void unpack(T& value)
     {
         if (bptr + sizeof(T) <= eob) {
-            convert(value);
+            convert_in(bptr, value);
             bptr += sizeof(T);
             nvals++;
         }
     }
 
+    template <typename T>
+    void pack(T& value)
+    {
+        if (nvals > 0 && bptr + sizeof(T) <= eob) {
+            convert_out(value, bptr);
+            bptr += sizeof(T);
+            nvals--;
+        }
+    }
+
     const nidas::util::EndianConverter* _converter;
-    const char* buf;
-    const char* eob;
-    const char* bptr;
+    char* buf;
+    char* eob;
+    char* bptr;
     unsigned int nvals;
 };
 
 
 template <>
-void BufferConverter::convert(float& value)
+void BufferConverter::convert_in(char* bptr, float& value)
 {
     value = _converter->floatValue(bptr);
 }
 
-
 template <>
-void BufferConverter::convert(u_int32_t& value)
+void BufferConverter::convert_in(char* bptr, u_int32_t& value)
 {
     value = _converter->uint32Value(bptr);
 }
+
+template <>
+void BufferConverter::convert_out(const float& value, char* ptr)
+{
+    _converter->floatCopy(value, ptr);
+}
+
+template <>
+void BufferConverter::convert_out(const u_int32_t& value, char* ptr)
+{
+    _converter->uint32Copy(value, ptr);
+}
+
+
+struct UnpackerVisitor
+{
+    BufferConverter& _unpacker;
+
+    UnpackerVisitor(BufferConverter& unpacker): _unpacker(unpacker) {}
+
+    template <typename T>
+    void visit(T& field)
+    {
+        _unpacker.unpack(field);
+    }
+};
+
+
+struct PackerVisitor
+{
+    BufferConverter& _packer;
+
+    PackerVisitor(BufferConverter& packer): _packer(packer) {}
+
+    template <typename T>
+    void visit(const T& field)
+    {
+        _packer.pack(field);
+    }
+};
 
 
 int
@@ -336,10 +385,36 @@ unpackBinary(const char* buf, const char* eob, CSI_IRGA_Fields& fields)
     }
 
     eob = bptr;
-    BufferConverter unpacker(_converter, buf, eob);
-
+    BufferConverter converter(_converter, (char*)buf, (char*)eob);
+    UnpackerVisitor unpacker(converter);
     fields.visit(unpacker);
-    return unpacker.nvals;
+    fields.nvals = converter.nvals;
+    return fields.nvals;
+}
+
+
+int
+CSI_IRGA_Sonic::
+packBinary(const CSI_IRGA_Fields& fields, std::vector<char>& buf)
+{
+    buf.resize(fields.nvals*sizeof(float) + 2*sizeof(short));
+
+    char* bptr = buf.data();
+    char* eob = bptr + buf.size();
+
+    BufferConverter converter(_converter, bptr, eob, fields.nvals);
+    PackerVisitor packer(converter);
+    const_cast<CSI_IRGA_Fields&>(fields).visit(packer);
+
+    bptr = converter.bptr;
+    unsigned short sigval = signature((const unsigned char*)buf.data(),
+                                      (const unsigned char*)bptr);
+
+    _converter->uint16Copy(sigval, bptr);
+    bptr += sizeof(short);
+    ::memcpy(bptr, "\x55\xaa", 2);
+    bptr += 2;
+    return fields.nvals;
 }
 
 

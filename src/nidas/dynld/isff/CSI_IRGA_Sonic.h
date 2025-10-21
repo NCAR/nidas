@@ -62,6 +62,9 @@ struct CSI_IRGA_Fields
     float Tsource { floatNAN };
     float Tdetector { floatNAN };
 
+    /// Number of valid fields (when unpacked from a sonic message)
+    int nvals { 0 };
+
     template <typename F>
     void visit(F& f);
 };
@@ -98,6 +101,15 @@ public:
      */
     int
     unpackBinary(const char* buf, const char* eob, CSI_IRGA_Fields& fields);
+
+    /**
+     * Pack @p fields into the binary buffer @p buf.  Return the number of
+     * fields packed, which should be equal to the number of valid fields in
+     * @p fields (nvals). The CRC signature and termination bytes are added at
+     * the end of the buffer.
+     */
+    int
+    packBinary(const CSI_IRGA_Fields& fields, std::vector<char>& buf);
 
     /**
      * Calculate the CRC signature of a data record. From EC150 manual.

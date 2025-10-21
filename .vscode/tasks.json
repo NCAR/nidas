@@ -145,6 +145,35 @@
                         ]
                 },
                 {
+                        "label": "test sonic",
+                        "type": "process",
+                        "command": "scons",
+                        "args": [
+                                "-C",
+                                "${workspaceFolder}/src",
+                                "-u",
+                                "tests/sonic/xtest"
+                        ],
+                        "group": {
+                                "kind": "test",
+                                "isDefault": true
+                        },
+                        "presentation": {
+                                "reveal": "always",
+                                "panel": "dedicated",
+                                "clear": true
+                        },
+                        "problemMatcher": [
+                                {
+                                        "base": "$gcc",
+                                        "fileLocation": [
+                                                "relative",
+                                                "${workspaceFolder}/src"
+                                        ]
+                                }
+                        ]
+                },
+                {
                         "label": "build twind3d",
                         "type": "process",
                         "command": "scons",

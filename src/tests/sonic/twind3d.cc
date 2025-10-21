@@ -3,7 +3,10 @@
 #include <boost/test/unit_test.hpp>
 using boost::unit_test_framework::test_suite;
 
+namespace tt = boost::test_tools;
+
 #include <functional>
+#include <iomanip>
 
 
 #include <nidas/dynld/isff/Wind3D.h>
@@ -27,6 +30,31 @@ using nidas::util::derive_uv_from_spd_dir;
 
 
 const std::string log_config = "level=error";
+
+
+class LogFixture
+{
+    void setup() {
+        Logger* logger = Logger::createInstance(&std::cerr);
+        logger->setScheme(LogScheme().addConfig(log_config));
+    }
+
+    void teardown() {
+        Logger::destroyInstance();
+    }
+};
+
+BOOST_TEST_GLOBAL_FIXTURE(LogFixture);
+
+
+// As near as I can tell from the documentation, BOOST_TEST() is supposed to
+// allow absolute tolerance comparisons, but that behavior must have changed
+// or been broken somewhere along the way, since in my testing I can only get
+// relative differences.  So create a macro to force it until something better
+// comes along.
+
+#define TEST_CLOSE(got, expected, tolerance) \
+    BOOST_CHECK_SMALL(std::abs((got) - (expected)), (tolerance))
 
 
 namespace testing {
@@ -125,9 +153,6 @@ setup_wind3d(Wind3D& wind, const char* sonic_xml, bool despike=false)
 
 BOOST_AUTO_TEST_CASE(test_wind3d_no_despike)
 {
-    Logger* logger = Logger::createInstance(&std::cerr);
-    logger->setScheme(LogScheme().addConfig(log_config));
-
     // the output variables should not change if despiking is on or off
     for (auto despike : {false, true})
     {
@@ -194,9 +219,6 @@ static const char* irga_xml_with_flags = R"XML(
 
 BOOST_AUTO_TEST_CASE(test_wind3d_with_flags)
 {
-    Logger* logger = Logger::createInstance(&std::cerr);
-    logger->setScheme(LogScheme().addConfig(log_config));
-
     // the output variables should not change if despiking is on or off
     for (auto despike : {false, true})
     {
@@ -265,9 +287,6 @@ static const char* irga_xml_with_flags_at_end = R"XML(
 
 BOOST_AUTO_TEST_CASE(test_wind3d_with_flags_at_end)
 {
-    Logger* logger = Logger::createInstance(&std::cerr);
-    logger->setScheme(LogScheme().addConfig(log_config));
-
     // the output variables should not change if despiking is on or off
     for (auto despike : {false, true})
     {
@@ -335,9 +354,6 @@ static const char* irga_xml_wrong_order = R"XML(
 
 BOOST_AUTO_TEST_CASE(test_wind3d_wrong_order)
 {
-    Logger* logger = Logger::createInstance(&std::cerr);
-    logger->setScheme(LogScheme().addConfig(log_config));
-
     try {
         CSI_IRGA_Sonic wind;
         setup_wind3d(wind, irga_xml_wrong_order, true);
@@ -392,9 +408,6 @@ static const char* irga_xml_few_flags = R"XML(
 
 BOOST_AUTO_TEST_CASE(test_wind3d_few_flags)
 {
-    Logger* logger = Logger::createInstance(&std::cerr);
-    logger->setScheme(LogScheme().addConfig(log_config));
-
     try {
         CSI_IRGA_Sonic wind;
         setup_wind3d(wind, irga_xml_few_flags, true);
@@ -409,59 +422,80 @@ BOOST_AUTO_TEST_CASE(test_wind3d_few_flags)
 }
 
 
+class BinaryMessage : public std::vector<char> {
+public:
+    BinaryMessage(const char* hex_data) {
+        std::istringstream ibuf(hex_data);
+        std::string hexstr;
+        while (ibuf >> hexstr) {
+            char val = static_cast<char>(strtol(hexstr.c_str(), nullptr, 16));
+            this->push_back(val);
+        }
+    }
+};
+
+
 struct SonicSample {
     std::string raw_timestamp;
     int dsm_id;
     int sensor_id;
-    const char* raw_data;
+    BinaryMessage raw_data;
     std::string processed_timestamp;
     int processed_id;
     std::vector<float> processed_data;
+
+    SampleT<char>* getSample() const
+    {
+        SampleT<char>* samp = nidas::core::getSample<char>(raw_data.size());
+        std::memcpy(samp->getDataPtr(), raw_data.data(), raw_data.size());
+        return samp;
+    }
 };
 
 
-// env CSAT3_SHADOW_FACTOR=0.0 data_dump --nodeltat -H --iso -i 120,1030-1031 --xml /home/granger/code/isfs/projects/M2HATS/ISFS/config/m2hats1.xml -p t0t_20230804_120000.dat
+// env CSAT3_SHADOW_FACTOR=0.0 data_dump --precision 12 --nodeltat -H --iso -i 120,1030-1031 --xml .../m2hats1.xml -p t0t_20230804_120000.dat
 std::vector<SonicSample> test_samples {
     SonicSample{
 "2023-08-04T12:00:00.0054", 1, 4, R"(b4 dc fe bf 1b 54 25 be 39 22 12 3e 4c 0e 5d 41 00 00 00 00 9e ea 1f 44 25 19 84 40 00 00 00 00 40 e1 4d 41 26 92 a7 42 92 7c 76 3f 19 c5 75 3f 40 4d 21 44 9a f6 dc 00 2d 84 55 aa)",
-"2023-08-04T11:59:59.2054", 5, {-1.9911, -0.16145, 0.14271, 13.816, 0, 0.63967, 4.1281, 0, 12.867, 837.85, 0.96284, 0.96004, 645.21, 0, 1.9976, 85.364}
+"2023-08-04T11:59:59.2054", 5, {
+    -1.99111032486, -0.161453649402, 0.142708674073, 13.815990448, 0, 0.639665901661, 4.12806940079, 0, 12.8674926758, 837.854492188, 0.962838292122, 0.960038721561, 645.20703125, 0, 1.99764549732, 85.3641815186 }
     },
     SonicSample{
 "2023-08-04T12:00:00.0214", 1, 4, R"(22 b0 07 c0 74 36 d6 bd 80 6c 15 3e 35 ba 5d 41 00 00 00 00 e4 f5 1f 44 01 47 84 40 00 00 00 00 40 e1 4d 41 26 92 a7 42 4a 7a 76 3f dd c6 75 3f 1e 5a 21 44 9b f6 dc 00 25 5c 55 aa)",
-"2023-08-04T11:59:59.2214", 5, {-2.1201, -0.1046, 0.14592, 13.858, 0, 0.63984, 4.1337, 0, 12.867, 837.85, 0.9628, 0.96007, 645.41, 0, 2.1227, 87.176}
+"2023-08-04T11:59:59.2214", 5, {
+    -2.12012529373, -0.104596048594, 0.145921707153, 13.857960701, 0, 0.639842092991, 4.13366746902, 0, 12.8674926758, 837.854492188, 0.962803483009, 0.960065662861, 645.408081055, 0, 2.12270379066, 87.1756134033 }
     },
     SonicSample{
 "2023-08-04T12:00:00.1180", 1, 4, R"(b3 9f 0a c0 18 90 83 3e 8b dd 7b 3e 5a ed 5d 41 00 00 00 00 83 ea 1f 44 37 33 84 40 00 00 00 00 40 e1 4d 41 26 92 a7 42 12 7b 76 3f ed c7 75 3f 1e 4f 21 44 9c f6 dc 00 46 d4 55 aa)",
-"2023-08-04T11:59:59.3180", 5, {-2.166, 0.25696, 0.24596, 13.87, 0, 0.63966, 4.1313, 0, 12.867, 837.85, 0.96282, 0.96008, 645.24, 0, 2.1812, 96.766}
+"2023-08-04T11:59:59.3180", 5, {
+    -2.16599726677, 0.256958723068, 0.245962306857, 13.8704471588, 0, 0.639664292336, 4.13125181198, 0, 12.8674926758, 837.854492188, 0.962815403938, 0.960081875324, 645.236206055, 0, 2.18118596077, 96.7655487061 }
     }
 };
 
 
-// Convert the raw data in ascii printable form back to bytes.
-static SampleT<char>*
-getSampleFromHexStrings(const char* raw_data)
-{
-    std::vector<uint8_t> data;
-    std::istringstream ibuf(raw_data);
+const int IXU = 0;
+const int IXV = 1;
+const int IXW = 2;
+const int IXTC = 3;
+const int IXSPD = 14;
+const int IXDIR = 15;
+const int IXUFLAG = 16;
+const int IXVFLAG = 17;
+const int IXWFLAG = 18;
+const int IXTCFLAG = 19;
 
-    std::string hexstr;
-    while (ibuf >> hexstr) {
-        uint8_t val = static_cast<uint8_t>(strtol(hexstr.c_str(), nullptr, 16));
-        data.push_back(val);
-    }
-    SampleT<char>* samp = getSample<char>(data.size());
-    std::memcpy(samp->getDataPtr(), data.data(), data.size());
-    return samp;
-}
 
 
 static void
 process_wind3d_samples(CSI_IRGA_Sonic& wind,
     const std::vector<SonicSample>& samples)
 {
-    for (const auto& sample : samples) {
+    int nsample = 0;
+    for (const auto& sample : samples)
+    {
+        ++nsample;
 
-        SampleT<char>* samp = getSampleFromHexStrings(sample.raw_data);
+        SampleT<char>* samp = sample.getSample();
         samp->setDSMId(sample.dsm_id);
         samp->setSpSId(sample.sensor_id);
         samp->setTimeTag(UTime::parse(sample.raw_timestamp).toUsecs());
@@ -477,10 +511,26 @@ process_wind3d_samples(CSI_IRGA_Sonic& wind,
         BOOST_TEST(psamp->getDSMId() == sample.dsm_id);
         BOOST_TEST(psamp->getSpSId() == sample.processed_id);
 
+        const std::vector<float>& xpd = sample.processed_data;
+        bool despiked = false;
+        if (xpd.size() == IXTCFLAG + 1) {
+            despiked = xpd[IXUFLAG] || xpd[IXVFLAG] || xpd[IXWFLAG] || xpd[IXTCFLAG];
+        }
+
         BOOST_TEST(psamp->getDataLength() == sample.processed_data.size());
         for (size_t i = 0; i < sample.processed_data.size(); ++i) {
-            BOOST_CHECK_CLOSE_FRACTION(
-                psamp->getDataValue(i), sample.processed_data[i], 0.001);
+            float tolerance = 0.001;
+            if (despiked && i <= IXTC && xpd[i+IXUFLAG])
+                tolerance = 0.1;
+            if (despiked && (i == IXSPD || i == IXDIR))
+                tolerance = 1.0;
+
+            float fgot = (float)psamp->getDataValue(i);
+            DLOG(("") << "nsample=" << nsample << ";i=" << i
+                      << " got=" << fgot << " expected=" << xpd[i]
+                      << ", abs(diff)=" << abs(fgot - xpd[i])
+                      << ", tolerance=" << tolerance);
+            TEST_CLOSE((float)psamp->getDataValue(i), xpd[i], tolerance);
         }
         psamp->freeReference();
     }
@@ -490,9 +540,6 @@ process_wind3d_samples(CSI_IRGA_Sonic& wind,
 
 BOOST_AUTO_TEST_CASE(test_wind3d_process)
 {
-    Logger* logger = Logger::createInstance(&std::cerr);
-    logger->setScheme(LogScheme().addConfig(log_config));
-
     CSI_IRGA_Sonic wind;
 
     // first try the standard processing, without despiking and without flags
@@ -501,11 +548,62 @@ BOOST_AUTO_TEST_CASE(test_wind3d_process)
 }
 
 
+BOOST_AUTO_TEST_CASE(test_wind3d_process_flatlines)
+{
+    CSI_IRGA_Sonic wind;
+    setup_wind3d(wind, irga_xml_with_flags_at_end, true);
+
+    std::vector<SonicSample> samples_with_flags = test_samples;
+    for (auto& sample : samples_with_flags) {
+        // add 4 flag values (no spikes detected, so all zero)
+        sample.processed_data.insert(
+            sample.processed_data.end(), {0.0, 0.0, 0.0, 0.0});
+    }
+
+    // make sure flatlines do not cause problems
+    std::vector<SonicSample> flatlines(500, samples_with_flags[0]);
+    process_wind3d_samples(wind, flatlines);
+}
+
+
+BOOST_AUTO_TEST_CASE(test_wind3d_process_spikes)
+{
+    CSI_IRGA_Sonic wind;
+    setup_wind3d(wind, irga_xml_with_flags_at_end, true);
+
+    std::vector<SonicSample> samples_with_flags = test_samples;
+    for (auto& sample : samples_with_flags) {
+        // add 4 flag values (no spikes detected, so all zero)
+        sample.processed_data.insert(
+            sample.processed_data.end(), {0.0, 0.0, 0.0, 0.0});
+    }
+
+    std::vector<SonicSample> spike_samples;
+    for (unsigned int i = 0; i < 500; ++i)
+    {
+        SonicSample ss = samples_with_flags[i % samples_with_flags.size()];
+        if (i % 75 == 0 && i > 100)
+        {
+            CSI_IRGA_Fields fields;
+            wind.unpackBinary(ss.raw_data.data(),
+                              ss.raw_data.data() + ss.raw_data.size(),
+                              fields);
+            // introduce a spike
+            fields.v += 10.0;
+            ss.processed_data[17] = 1.0; // set vflag
+            // repack the binary data with the spike
+            wind.packBinary(fields, ss.raw_data);
+            // leave the expected processed data value, since the despiker
+            // should replace it with something close.
+        }
+        spike_samples.push_back(ss);
+    }
+    process_wind3d_samples(wind, spike_samples);
+}
+
+
 BOOST_AUTO_TEST_CASE(test_wind3d_process_with_despike_and_flags)
 {
-    Logger* logger = Logger::createInstance(&std::cerr);
-    logger->setScheme(LogScheme().addConfig(log_config));
-
     CSI_IRGA_Sonic wind;
 
     // now try with despiking and flags
@@ -522,38 +620,53 @@ BOOST_AUTO_TEST_CASE(test_wind3d_process_with_despike_and_flags)
 }
 
 
+std::string to_hex(const char* buf, size_t len)
+{
+    std::ostringstream os;
+    for (size_t i = 0; i < len; ++i) {
+        os << std::hex << std::setw(2) << std::setfill('0')
+           << static_cast<int>(static_cast<unsigned char>(buf[i])) << " ";
+    }
+    return os.str();
+}
+
+
 BOOST_AUTO_TEST_CASE(test_wind3d_unpacker)
 {
-    Logger* logger = Logger::createInstance(&std::cerr);
-    logger->setScheme(LogScheme().addConfig(log_config));
-
     CSI_IRGA_Sonic wind;
     setup_wind3d(wind, irga_xml, false);
 
     for (const auto& sample : test_samples) {
-        SampleT<char>* samp = getSampleFromHexStrings(sample.raw_data);
+        SampleT<char>* samp = sample.getSample();
 
         CSI_IRGA_Fields values;
         const char* buf = samp->getDataPtr();
         const char* eob = samp->getDataPtr() + samp->getDataLength();
         int nvals = wind.unpackBinary(buf, eob, values);
-        samp->freeReference();
 
         // the binary samples have 14 fields, all but Tdetector, even though
         // the test samples only parsed 13, so check that the last is NaN.
         BOOST_TEST(nvals == 14);
-        BOOST_CHECK_CLOSE_FRACTION(
-            values.u, sample.processed_data[0], 0.001);
-        BOOST_CHECK_CLOSE_FRACTION(
-            values.v, sample.processed_data[1], 0.001);
-        BOOST_CHECK_CLOSE_FRACTION(
-            values.w, sample.processed_data[2], 0.001);
-        BOOST_CHECK_CLOSE_FRACTION(
-            values.tc, sample.processed_data[3], 0.001);
-        BOOST_CHECK_CLOSE_FRACTION(values.dPirga,
-                                   sample.processed_data[12], 0.001);
+        TEST_CLOSE(values.u, sample.processed_data[0], 0.001f);
+        TEST_CLOSE(values.v, sample.processed_data[1], 0.001f);
+        TEST_CLOSE(values.w, sample.processed_data[2], 0.001f);
+        TEST_CLOSE(values.tc, sample.processed_data[3], 0.001f);
+        TEST_CLOSE(values.dPirga, sample.processed_data[12], 0.001f);
         BOOST_TEST(!isnanf(values.Tsource));
         BOOST_TEST(isnanf(values.Tdetector));
+
+        // and it should work to pack it back to binary
+        std::vector<char> outbuf;
+        wind.packBinary(values, outbuf);
+        BOOST_TEST(outbuf.size() == samp->getDataLength());
+        DLOG(("") << "expected: "
+                  << to_hex(samp->getDataPtr(), samp->getDataLength()));
+        DLOG(("") << "     got: "
+                  << to_hex(outbuf.data(), outbuf.size()));
+        BOOST_TEST(std::memcmp(outbuf.data(), samp->getDataPtr(),
+                   outbuf.size()) == 0);
+
+        samp->freeReference();
     }
 }
 
@@ -584,8 +697,8 @@ BOOST_AUTO_TEST_CASE(test_adaptive_despiker)
     }
     despiker.getStatistics(&dmean, &dvar, &dcorr);
     BOOST_TEST(despiker.numPoints() == (size_t)nvalues);
-    BOOST_CHECK_CLOSE(dmean, mean, 0.01);
-    BOOST_CHECK_CLOSE_FRACTION(dvar, stddev*stddev, 0.01);
+    TEST_CLOSE(dmean, mean, 0.01);
+    TEST_CLOSE(dvar, stddev*stddev, 0.01);
 
     // Do it again, but make sure a spike is still not a spike if the minimum
     // number of samples is not reached yet.
@@ -617,8 +730,8 @@ BOOST_AUTO_TEST_CASE(test_adaptive_despiker)
     despiker.getStatistics(&dmean, &dvar, &dcorr);
     // should still get the same statistics as before the minimum samples was
     // reached.
-    BOOST_CHECK_CLOSE_FRACTION(dmean, mean, 0.01);
-    BOOST_CHECK_CLOSE_FRACTION(dvar, stddev*stddev, 0.01);
+    TEST_CLOSE(dmean, mean, 0.01);
+    TEST_CLOSE(dvar, stddev*stddev, 0.01);
 
     // The same value after too much time causes a reset.
     t += AdaptiveDespiker::DATA_GAP_USEC;
