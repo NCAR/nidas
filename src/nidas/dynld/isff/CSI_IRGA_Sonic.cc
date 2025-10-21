@@ -237,34 +237,6 @@ bool CSI_IRGA_Sonic::reportBadCRC()
 }
 
 
-/**
- * CSI_IRGA_Fields holds the fields reported by the CSI IRGA Sonic in their
- * native types.
- */
-struct CSI_IRGA_Fields
-{
-    float u { 0.0f };
-    float v { 0.0f };
-    float w { 0.0f };
-    float tc { 0.0f };
-    u_int32_t diagbits { 0 };
-    float h2o { 0.0f };
-    float co2 { 0.0f };
-    u_int32_t irgadiag { 0 };
-    float Tirga { 0.0f };
-    float Pirga { 0.0f };
-    float SSco2 { 0.0f };
-    float SSh2o { 0.0f };
-    float dPirga { 0.0f };
-    float Tsource { 0.0f };
-    float Tdetector { 0.0f };
-    unsigned short crc { 0 }; // binary only
-
-    template <typename F>
-    void visit(F& f);
-};
-
-
 template <typename F>
 void CSI_IRGA_Fields::visit(F& f)
 {
@@ -339,13 +311,35 @@ void BufferConverter::convert(u_int32_t& value)
 }
 
 
-void
+int
 CSI_IRGA_Sonic::
 unpackBinary(const char* buf, const char* eob, CSI_IRGA_Fields& fields)
 {
+    const char* bptr = eob;
+    bptr -= sizeof(short);
+    // check for 55AA at end
+    bool buf_ok = (bptr >= buf + sizeof(short));
+    buf_ok = buf_ok && (::memcmp(bptr, "\x55\xaa", 2) == 0);
+    if (buf_ok)
+    {
+        bptr -= sizeof(short);  // 2 byte signature
+        unsigned short sigval = _converter->uint16Value(bptr);
+        // calculated signature from buffer contents
+        auto calcsig = signature((const unsigned char*)buf,
+                                 (const unsigned char*)bptr);
+        buf_ok = (calcsig == sigval);
+    }
+    if (!buf_ok)
+    {
+        reportBadCRC();
+        return 0;
+    }
+
+    eob = bptr;
     BufferConverter unpacker(_converter, buf, eob);
 
     fields.visit(unpacker);
+    return unpacker.nvals;
 }
 
 

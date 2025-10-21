@@ -18,6 +18,15 @@ known as [buster].
 
 ## [master] - Unreleased on master branch
 
+- The `CSI_IRGA_Sonic` sensor class now supports the despiking flags `uflag`,
+  `vflag`, `wflag`, and `tcflag`.  It was possible before to enable despiking
+  and replace the wind components in the processed output, but it was not
+  possible to include the output variables which indicated if despiking had
+  happened, or if it would have happened.  The flag variables have to be added
+  to the output sample in the sensor XML.  The actual replacement of spikes in
+  `u`, `v`, `w`, and `tc` does not happen unless the `despike` parameter is
+  `true`.
+
 - `UTime::format()` specifier `%[n]f` now truncates to the number of digits
   instead of rounding.  This makes it more consistent with the other time
   fields which are never rounded, and times by default show the second which

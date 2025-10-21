@@ -522,6 +522,42 @@ BOOST_AUTO_TEST_CASE(test_wind3d_process_with_despike_and_flags)
 }
 
 
+BOOST_AUTO_TEST_CASE(test_wind3d_unpacker)
+{
+    Logger* logger = Logger::createInstance(&std::cerr);
+    logger->setScheme(LogScheme().addConfig(log_config));
+
+    CSI_IRGA_Sonic wind;
+    setup_wind3d(wind, irga_xml, false);
+
+    for (const auto& sample : test_samples) {
+        SampleT<char>* samp = getSampleFromHexStrings(sample.raw_data);
+
+        CSI_IRGA_Fields values;
+        const char* buf = samp->getDataPtr();
+        const char* eob = samp->getDataPtr() + samp->getDataLength();
+        int nvals = wind.unpackBinary(buf, eob, values);
+        samp->freeReference();
+
+        // the binary samples have 14 fields, all but Tdetector, even though
+        // the test samples only parsed 13, so check that the last is NaN.
+        BOOST_TEST(nvals == 14);
+        BOOST_CHECK_CLOSE_FRACTION(
+            values.u, sample.processed_data[0], 0.001);
+        BOOST_CHECK_CLOSE_FRACTION(
+            values.v, sample.processed_data[1], 0.001);
+        BOOST_CHECK_CLOSE_FRACTION(
+            values.w, sample.processed_data[2], 0.001);
+        BOOST_CHECK_CLOSE_FRACTION(
+            values.tc, sample.processed_data[3], 0.001);
+        BOOST_CHECK_CLOSE_FRACTION(values.dPirga,
+                                   sample.processed_data[12], 0.001);
+        BOOST_TEST(!isnanf(values.Tsource));
+        BOOST_TEST(isnanf(values.Tdetector));
+    }
+}
+
+
 BOOST_AUTO_TEST_CASE(test_adaptive_despiker)
 {
     AdaptiveDespiker despiker;

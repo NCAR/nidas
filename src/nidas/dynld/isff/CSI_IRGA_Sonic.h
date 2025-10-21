@@ -31,13 +31,42 @@
 
 #include <nidas/Config.h>
 #include <nidas/util/EndianConverter.h>
+#include <nidas/core/Sample.h>
 #include <nidas/core/VariableIndex.h>
 
 class TimetagAdjuster;
 
 namespace nidas { namespace dynld { namespace isff {
 
-struct CSI_IRGA_Fields;
+/**
+ * CSI_IRGA_Fields holds the fields reported by the CSI IRGA Sonic in their
+ * native types.
+ */
+struct CSI_IRGA_Fields
+{
+    const float floatNAN = nidas::core::floatNAN;
+
+    float u { floatNAN };
+    float v { floatNAN };
+    float w { floatNAN };
+    float tc { floatNAN };
+    u_int32_t diagbits { 0 };
+    float h2o { floatNAN };
+    float co2 { floatNAN };
+    u_int32_t irgadiag { 0 };
+    float Tirga { floatNAN };
+    float Pirga { floatNAN };
+    float SSco2 { floatNAN };
+    float SSh2o { floatNAN };
+    float dPirga { floatNAN };
+    float Tsource { floatNAN };
+    float Tdetector { floatNAN };
+
+    template <typename F>
+    void visit(F& f);
+};
+
+
 
 /**
  * A class for making sense of data from a Campbell Scientific
@@ -63,9 +92,11 @@ public:
 
     /**
      * Unpack the binary buffer @p buf into @p fields, up until the end of
-     * buffer @p eob.
+     * buffer @p eob.  Return the number of fields successfully unpacked. If
+     * the CRC signature check fails or the buffer is too short, the return
+     * value is zero.
      */
-    void
+    int
     unpackBinary(const char* buf, const char* eob, CSI_IRGA_Fields& fields);
 
     /**
