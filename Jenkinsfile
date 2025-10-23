@@ -41,12 +41,7 @@ pipeline {
             stages {
                 stage('Compile and test') {
                     steps {
-                        // sh 'bash -c "pwd"'
-                        // sh 'bash -c "ls -la"'
-                        // sh 'bash -lc "echo CPP: ${CXX} ${PKG_CONFIG}" '
-                        // sh 'bash -lc "cat ~/.bashrc" '
                         sh 'bash -lc "pushd src && scons -j$(nproc) --no-cache && popd"'
-                        // sh 'bash -c "./jenkins.sh test"'
                     }
                 }
                 stage('Build packages') {
@@ -62,14 +57,14 @@ pipeline {
             }
         }
 
-  //   post {
-  //     changed
-  //     {
-  //       emailext from: "granger@ucar.edu",
-  //         to: "granger@ucar.edu, cjw@ucar.edu, cdewerd@ucar.edu",
-  //         recipientProviders: [developers(), requestor()],
-  //         subject: "Jenkins build ${env.JOB_NAME}: ${currentBuild.currentResult}",
-  //         body: "Job ${env.JOB_NAME}: ${currentBuild.currentResult}\n${env.BUILD_URL}"
-  //     }
-  } // sages
+    //   post {
+    //     changed
+    //     {
+    //       emailext from: "granger@ucar.edu",
+    //         to: "granger@ucar.edu, cjw@ucar.edu, cdewerd@ucar.edu",
+    //         recipientProviders: [developers(), requestor()],
+    //         subject: "Jenkins build ${env.JOB_NAME}: ${currentBuild.currentResult}",
+    //         body: "Job ${env.JOB_NAME}: ${currentBuild.currentResult}\n${env.BUILD_URL}"
+    //     }
+    } // sages
 } // pipeline
