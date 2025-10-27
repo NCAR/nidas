@@ -92,18 +92,6 @@ public:
     static void
     appendChecksum(char* rec, int len, int maxlen);
 
-    /**
-     * Override SerialSensor::buildSampleScanner() and
-     * CharacterSensor::buildSampleScanner(), which create
-     * a DatagramSampleScanner if the device name starts with "usock:".
-     * Javad GPS units output UDP packets, containing more than
-     * one newline terminated NMEA message in each UDP packet. So,
-     * instead we want to scan with a MessageStreamScanner(),
-     * breaking up the packet into separate samples.
-     *
-     * @throws nidas::util::InvalidParameterException
-     **/
-    SampleScanner* buildSampleScanner();
 
     dsm_time_t parseGGA(const char* input,double *dout,int nvars,dsm_time_t tt)
         throw();

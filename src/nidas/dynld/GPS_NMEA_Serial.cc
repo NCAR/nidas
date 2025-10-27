@@ -662,14 +662,3 @@ bool GPS_NMEA_Serial::process(const Sample* samp,list<const Sample*>& results)
     }
     return false;
 }
-
-SampleScanner* GPS_NMEA_Serial::buildSampleScanner()
-{
-    MessageStreamScanner* scanr = new MessageStreamScanner();
-    scanr->setNullTerminate(doesAsciiSscanfs());
-    scanr->setMessageParameters(getMessageLength(),
-            getMessageSeparator(),getMessageSeparatorAtEOM());
-    DLOG(("%s: usec/byte=%d",getName().c_str(),getUsecsPerByte()));
-    scanr->setUsecsPerByte(getUsecsPerByte());
-    return scanr;
-}
