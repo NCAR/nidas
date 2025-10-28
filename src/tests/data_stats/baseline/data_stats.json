@@ -17573,16 +17573,6 @@
       },
       {
         "kind" : "no-samples",
-        "streamid" : "MARSHALL2023.2.35"
-      },
-      {
-        "averagerate" : null,
-        "expectedrate" : 19.8,
-        "kind" : "sample-rate-mismatch",
-        "streamid" : "MARSHALL2023.2.35"
-      },
-      {
-        "kind" : "no-samples",
         "streamid" : "MARSHALL2023.2.61"
       },
       {
@@ -17613,63 +17603,73 @@
       },
       {
         "kind" : "no-samples",
-        "streamid" : "MARSHALL2023.2.2801"
+        "streamid" : "MARSHALL2023.2.4001"
       },
       {
         "averagerate" : null,
         "expectedrate" : 0.2,
         "kind" : "sample-rate-mismatch",
-        "streamid" : "MARSHALL2023.2.2801"
+        "streamid" : "MARSHALL2023.2.4001"
       },
       {
         "kind" : "no-samples",
-        "streamid" : "MARSHALL2023.2.2802"
+        "streamid" : "MARSHALL2023.2.4002"
       },
       {
         "averagerate" : null,
         "expectedrate" : 0.2,
         "kind" : "sample-rate-mismatch",
-        "streamid" : "MARSHALL2023.2.2802"
+        "streamid" : "MARSHALL2023.2.4002"
       },
       {
         "kind" : "no-samples",
-        "streamid" : "MARSHALL2023.2.2803"
+        "streamid" : "MARSHALL2023.2.4003"
       },
       {
         "averagerate" : null,
         "expectedrate" : 0.2,
         "kind" : "sample-rate-mismatch",
-        "streamid" : "MARSHALL2023.2.2803"
+        "streamid" : "MARSHALL2023.2.4003"
       },
       {
         "kind" : "no-samples",
-        "streamid" : "MARSHALL2023.2.2804"
+        "streamid" : "MARSHALL2023.2.4004"
       },
       {
         "averagerate" : null,
         "expectedrate" : 0.2,
         "kind" : "sample-rate-mismatch",
-        "streamid" : "MARSHALL2023.2.2804"
+        "streamid" : "MARSHALL2023.2.4004"
       },
       {
         "kind" : "no-samples",
-        "streamid" : "MARSHALL2023.2.2805"
+        "streamid" : "MARSHALL2023.2.4005"
       },
       {
         "averagerate" : null,
         "expectedrate" : 0.2,
         "kind" : "sample-rate-mismatch",
-        "streamid" : "MARSHALL2023.2.2805"
+        "streamid" : "MARSHALL2023.2.4005"
       },
       {
         "kind" : "no-samples",
-        "streamid" : "MARSHALL2023.2.2806"
+        "streamid" : "MARSHALL2023.2.4006"
       },
       {
         "averagerate" : null,
         "expectedrate" : 0.2,
         "kind" : "sample-rate-mismatch",
-        "streamid" : "MARSHALL2023.2.2806"
+        "streamid" : "MARSHALL2023.2.4006"
+      },
+      {
+        "kind" : "no-samples",
+        "streamid" : "MARSHALL2023.2.35"
+      },
+      {
+        "averagerate" : null,
+        "expectedrate" : 19.8,
+        "kind" : "sample-rate-mismatch",
+        "streamid" : "MARSHALL2023.2.35"
       },
       {
         "kind" : "no-samples",
@@ -17683,6 +17683,66 @@
       },
       {
         "kind" : "no-samples",
+        "streamid" : "MARSHALL2023.2.2801"
+      },
+      {
+        "averagerate" : null,
+        "expectedrate" : 0.2,
+        "kind" : "sample-rate-mismatch",
+        "streamid" : "MARSHALL2023.2.2801"
+      },
+      {
+        "kind" : "no-samples",
+        "streamid" : "MARSHALL2023.2.2802"
+      },
+      {
+        "averagerate" : null,
+        "expectedrate" : 0.2,
+        "kind" : "sample-rate-mismatch",
+        "streamid" : "MARSHALL2023.2.2802"
+      },
+      {
+        "kind" : "no-samples",
+        "streamid" : "MARSHALL2023.2.2803"
+      },
+      {
+        "averagerate" : null,
+        "expectedrate" : 0.2,
+        "kind" : "sample-rate-mismatch",
+        "streamid" : "MARSHALL2023.2.2803"
+      },
+      {
+        "kind" : "no-samples",
+        "streamid" : "MARSHALL2023.2.2804"
+      },
+      {
+        "averagerate" : null,
+        "expectedrate" : 0.2,
+        "kind" : "sample-rate-mismatch",
+        "streamid" : "MARSHALL2023.2.2804"
+      },
+      {
+        "kind" : "no-samples",
+        "streamid" : "MARSHALL2023.2.2805"
+      },
+      {
+        "averagerate" : null,
+        "expectedrate" : 0.2,
+        "kind" : "sample-rate-mismatch",
+        "streamid" : "MARSHALL2023.2.2805"
+      },
+      {
+        "kind" : "no-samples",
+        "streamid" : "MARSHALL2023.2.2806"
+      },
+      {
+        "averagerate" : null,
+        "expectedrate" : 0.2,
+        "kind" : "sample-rate-mismatch",
+        "streamid" : "MARSHALL2023.2.2806"
+      },
+      {
+        "kind" : "no-samples",
         "streamid" : "MARSHALL2023.2.3801"
       },
       {
@@ -17730,66 +17790,6 @@
         "expectedrate" : 0.2,
         "kind" : "sample-rate-mismatch",
         "streamid" : "MARSHALL2023.2.3805"
-      },
-      {
-        "kind" : "no-samples",
-        "streamid" : "MARSHALL2023.2.4001"
-      },
-      {
-        "averagerate" : null,
-        "expectedrate" : 0.2,
-        "kind" : "sample-rate-mismatch",
-        "streamid" : "MARSHALL2023.2.4001"
-      },
-      {
-        "kind" : "no-samples",
-        "streamid" : "MARSHALL2023.2.4002"
-      },
-      {
-        "averagerate" : null,
-        "expectedrate" : 0.2,
-        "kind" : "sample-rate-mismatch",
-        "streamid" : "MARSHALL2023.2.4002"
-      },
-      {
-        "kind" : "no-samples",
-        "streamid" : "MARSHALL2023.2.4003"
-      },
-      {
-        "averagerate" : null,
-        "expectedrate" : 0.2,
-        "kind" : "sample-rate-mismatch",
-        "streamid" : "MARSHALL2023.2.4003"
-      },
-      {
-        "kind" : "no-samples",
-        "streamid" : "MARSHALL2023.2.4004"
-      },
-      {
-        "averagerate" : null,
-        "expectedrate" : 0.2,
-        "kind" : "sample-rate-mismatch",
-        "streamid" : "MARSHALL2023.2.4004"
-      },
-      {
-        "kind" : "no-samples",
-        "streamid" : "MARSHALL2023.2.4005"
-      },
-      {
-        "averagerate" : null,
-        "expectedrate" : 0.2,
-        "kind" : "sample-rate-mismatch",
-        "streamid" : "MARSHALL2023.2.4005"
-      },
-      {
-        "kind" : "no-samples",
-        "streamid" : "MARSHALL2023.2.4006"
-      },
-      {
-        "averagerate" : null,
-        "expectedrate" : 0.2,
-        "kind" : "sample-rate-mismatch",
-        "streamid" : "MARSHALL2023.2.4006"
       },
       {
         "kind" : "no-samples",
@@ -17817,26 +17817,6 @@
       },
       {
         "kind" : "no-samples",
-        "streamid" : "MARSHALL2023.3.31"
-      },
-      {
-        "averagerate" : null,
-        "expectedrate" : 60.0,
-        "kind" : "sample-rate-mismatch",
-        "streamid" : "MARSHALL2023.3.31"
-      },
-      {
-        "kind" : "no-samples",
-        "streamid" : "MARSHALL2023.3.33"
-      },
-      {
-        "averagerate" : null,
-        "expectedrate" : 1.0,
-        "kind" : "sample-rate-mismatch",
-        "streamid" : "MARSHALL2023.3.33"
-      },
-      {
-        "kind" : "no-samples",
         "streamid" : "MARSHALL2023.3.61"
       },
       {
@@ -17854,6 +17834,26 @@
       {
         "kind" : "no-samples",
         "streamid" : "MARSHALL2023.3.65"
+      },
+      {
+        "kind" : "no-samples",
+        "streamid" : "MARSHALL2023.3.31"
+      },
+      {
+        "averagerate" : null,
+        "expectedrate" : 60.0,
+        "kind" : "sample-rate-mismatch",
+        "streamid" : "MARSHALL2023.3.31"
+      },
+      {
+        "kind" : "no-samples",
+        "streamid" : "MARSHALL2023.3.33"
+      },
+      {
+        "averagerate" : null,
+        "expectedrate" : 1.0,
+        "kind" : "sample-rate-mismatch",
+        "streamid" : "MARSHALL2023.3.33"
       },
       {
         "kind" : "no-samples",
@@ -20181,6 +20181,25 @@
       "site" : "tt",
       "spsid" : 1071,
       "streamid" : "MARSHALL2023.1.1071",
+      "variable_list" : 
+      [
+        "u",
+        "v",
+        "w",
+        "tc",
+        "diagbits",
+        "co2",
+        "h2o",
+        "irgadiag",
+        "Tirga",
+        "Pirga",
+        "SSco2",
+        "SSh2o",
+        "dPirga",
+        "ldiag",
+        "spd",
+        "dir"
+      ],
       "variables" : 
       {
         "Pirga" : 
@@ -20311,6 +20330,12 @@
       "site" : "tt",
       "spsid" : 1073,
       "streamid" : "MARSHALL2023.1.1073",
+      "variable_list" : 
+      [
+        "T",
+        "RH",
+        "Rfan"
+      ],
       "variables" : 
       {
         "RH" : 
@@ -20349,6 +20374,16 @@
       "site" : "tt",
       "spsid" : 11,
       "streamid" : "MARSHALL2023.1.11",
+      "variable_list" : 
+      [
+        "Lat",
+        "Lon",
+        "GPSqual",
+        "GPSnsat",
+        "GPShordil",
+        "Alt",
+        "GPSgeoidht"
+      ],
       "variables" : 
       {
         "Alt" : 
@@ -20416,6 +20451,25 @@
       "site" : "tt",
       "spsid" : 1121,
       "streamid" : "MARSHALL2023.1.1121",
+      "variable_list" : 
+      [
+        "u",
+        "v",
+        "w",
+        "tc",
+        "diagbits",
+        "co2",
+        "h2o",
+        "irgadiag",
+        "Tirga",
+        "Pirga",
+        "SSco2",
+        "SSh2o",
+        "dPirga",
+        "ldiag",
+        "spd",
+        "dir"
+      ],
       "variables" : 
       {
         "Pirga" : 
@@ -20546,6 +20600,12 @@
       "site" : "tt",
       "spsid" : 1123,
       "streamid" : "MARSHALL2023.1.1123",
+      "variable_list" : 
+      [
+        "T",
+        "RH",
+        "Rfan"
+      ],
       "variables" : 
       {
         "RH" : 
@@ -20585,6 +20645,10 @@
       "site" : "tt",
       "spsid" : 1125,
       "streamid" : "MARSHALL2023.1.1125",
+      "variable_list" : 
+      [
+        "P"
+      ],
       "variables" : 
       {
         "P" : 
@@ -20609,6 +20673,11 @@
       "site" : "tt",
       "spsid" : 12,
       "streamid" : "MARSHALL2023.1.12",
+      "variable_list" : 
+      [
+        "GPSstat",
+        "GPSdiff"
+      ],
       "variables" : 
       {
         "GPSdiff" : 
@@ -20641,6 +20710,25 @@
       "site" : "tt",
       "spsid" : 1321,
       "streamid" : "MARSHALL2023.1.1321",
+      "variable_list" : 
+      [
+        "u",
+        "v",
+        "w",
+        "tc",
+        "diagbits",
+        "co2",
+        "h2o",
+        "irgadiag",
+        "Tirga",
+        "Pirga",
+        "SSco2",
+        "SSh2o",
+        "dPirga",
+        "ldiag",
+        "spd",
+        "dir"
+      ],
       "variables" : 
       {
         "Pirga" : 
@@ -20771,6 +20859,12 @@
       "site" : "tt",
       "spsid" : 1323,
       "streamid" : "MARSHALL2023.1.1323",
+      "variable_list" : 
+      [
+        "T",
+        "RH",
+        "Rfan"
+      ],
       "variables" : 
       {
         "RH" : 
@@ -20810,6 +20904,10 @@
       "site" : "tt",
       "spsid" : 1325,
       "streamid" : "MARSHALL2023.1.1325",
+      "variable_list" : 
+      [
+        "P"
+      ],
       "variables" : 
       {
         "P" : 
@@ -20833,6 +20931,11 @@
       "site" : "tt",
       "spsid" : 19,
       "streamid" : "MARSHALL2023.1.19",
+      "variable_list" : 
+      [
+        "Stratum",
+        "Timeoffset"
+      ],
       "variables" : 
       {
         "Stratum" : 
@@ -20863,6 +20966,10 @@
       "site" : "tt",
       "spsid" : 61,
       "streamid" : "MARSHALL2023.1.61",
+      "variable_list" : 
+      [
+        "Vbatt"
+      ],
       "variables" : 
       {
         "Vbatt" : 
@@ -20886,6 +20993,10 @@
       "site" : "tt",
       "spsid" : 62,
       "streamid" : "MARSHALL2023.1.62",
+      "variable_list" : 
+      [
+        "Icharge"
+      ],
       "variables" : 
       {
         "Icharge" : 
@@ -20909,6 +21020,10 @@
       "site" : "tt",
       "spsid" : 63,
       "streamid" : "MARSHALL2023.1.63",
+      "variable_list" : 
+      [
+        "Vcharge"
+      ],
       "variables" : 
       {
         "Vcharge" : 
@@ -20932,6 +21047,10 @@
       "site" : "tt",
       "spsid" : 64,
       "streamid" : "MARSHALL2023.1.64",
+      "variable_list" : 
+      [
+        "Iload"
+      ],
       "variables" : 
       {
         "Iload" : 
@@ -20955,6 +21074,10 @@
       "site" : "tt",
       "spsid" : 65,
       "streamid" : "MARSHALL2023.1.65",
+      "variable_list" : 
+      [
+        "Cstate"
+      ],
       "variables" : 
       {
         "Cstate" : 
@@ -20980,6 +21103,10 @@
       "site" : "tt",
       "spsid" : 1075,
       "streamid" : "MARSHALL2023.2.1075",
+      "variable_list" : 
+      [
+        "P"
+      ],
       "variables" : 
       {
         "P" : 
@@ -21004,6 +21131,16 @@
       "site" : "tt",
       "spsid" : 11,
       "streamid" : "MARSHALL2023.2.11",
+      "variable_list" : 
+      [
+        "Lat",
+        "Lon",
+        "GPSqual",
+        "GPSnsat",
+        "GPShordil",
+        "Alt",
+        "GPSgeoidht"
+      ],
       "variables" : 
       {
         "Alt" : 
@@ -21070,6 +21207,11 @@
       "site" : "tt",
       "spsid" : 12,
       "streamid" : "MARSHALL2023.2.12",
+      "variable_list" : 
+      [
+        "GPSstat",
+        "GPSdiff"
+      ],
       "variables" : 
       {
         "GPSdiff" : 
@@ -21100,6 +21242,11 @@
       "site" : "tt",
       "spsid" : 19,
       "streamid" : "MARSHALL2023.2.19",
+      "variable_list" : 
+      [
+        "Stratum",
+        "Timeoffset"
+      ],
       "variables" : 
       {
         "Stratum" : 
@@ -21131,6 +21278,13 @@
       "site" : "tt",
       "spsid" : 2801,
       "streamid" : "MARSHALL2023.2.2801",
+      "variable_list" : 
+      [
+        "Tmote",
+        "Vbatt.mote",
+        "Iload.mote",
+        "I3load.mote"
+      ],
       "variables" : 
       {
         "I3load.mote" : 
@@ -21176,6 +21330,13 @@
       "site" : "tt",
       "spsid" : 2802,
       "streamid" : "MARSHALL2023.2.2802",
+      "variable_list" : 
+      [
+        "Tsoil.0.6cm",
+        "Tsoil.1.9cm",
+        "Tsoil.3.1cm",
+        "Tsoil.4.4cm"
+      ],
       "variables" : 
       {
         "Tsoil.0.6cm" : 
@@ -21221,6 +21382,10 @@
       "site" : "tt",
       "spsid" : 2803,
       "streamid" : "MARSHALL2023.2.2803",
+      "variable_list" : 
+      [
+        "Gsoil"
+      ],
       "variables" : 
       {
         "Gsoil" : 
@@ -21245,6 +21410,14 @@
       "site" : "tt",
       "spsid" : 2804,
       "streamid" : "MARSHALL2023.2.2804",
+      "variable_list" : 
+      [
+        "Vheat",
+        "Vpile_On",
+        "Vpile_Off",
+        "Tau63",
+        "Lambda"
+      ],
       "variables" : 
       {
         "Lambda" : 
@@ -21297,6 +21470,10 @@
       "site" : "tt",
       "spsid" : 2805,
       "streamid" : "MARSHALL2023.2.2805",
+      "variable_list" : 
+      [
+        "Qsoil"
+      ],
       "variables" : 
       {
         "Qsoil" : 
@@ -21321,6 +21498,15 @@
       "site" : "tt",
       "spsid" : 2806,
       "streamid" : "MARSHALL2023.2.2806",
+      "variable_list" : 
+      [
+        "Rsw.in",
+        "Rsw.out",
+        "Rpile.in",
+        "Rpile.out",
+        "Tcase",
+        "Wetness"
+      ],
       "variables" : 
       {
         "Rpile.in" : 
@@ -21381,6 +21567,16 @@
       "site" : "tt",
       "spsid" : 3021,
       "streamid" : "MARSHALL2023.2.3021",
+      "variable_list" : 
+      [
+        "Rainr",
+        "WX",
+        "Vis",
+        "Tcell",
+        "Sig",
+        "N",
+        "Stat"
+      ],
       "variables" : 
       {
         "N" : 
@@ -21448,6 +21644,10 @@
       "site" : "tt",
       "spsid" : 35,
       "streamid" : "MARSHALL2023.2.35",
+      "variable_list" : 
+      [
+        "P"
+      ],
       "variables" : 
       {
         "P" : 
@@ -21472,6 +21672,13 @@
       "site" : "tt",
       "spsid" : 3801,
       "streamid" : "MARSHALL2023.2.3801",
+      "variable_list" : 
+      [
+        "Tmote",
+        "Vbatt.mote",
+        "Iload.mote",
+        "I3load.mote"
+      ],
       "variables" : 
       {
         "I3load.mote" : 
@@ -21517,6 +21724,10 @@
       "site" : "tt",
       "spsid" : 3802,
       "streamid" : "MARSHALL2023.2.3802",
+      "variable_list" : 
+      [
+        "Rsw.in"
+      ],
       "variables" : 
       {
         "Rsw.in" : 
@@ -21541,6 +21752,10 @@
       "site" : "tt",
       "spsid" : 3803,
       "streamid" : "MARSHALL2023.2.3803",
+      "variable_list" : 
+      [
+        "Rsw.out"
+      ],
       "variables" : 
       {
         "Rsw.out" : 
@@ -21565,6 +21780,11 @@
       "site" : "tt",
       "spsid" : 3804,
       "streamid" : "MARSHALL2023.2.3804",
+      "variable_list" : 
+      [
+        "Rpile.in",
+        "Tcase.in"
+      ],
       "variables" : 
       {
         "Rpile.in" : 
@@ -21596,6 +21816,11 @@
       "site" : "tt",
       "spsid" : 3805,
       "streamid" : "MARSHALL2023.2.3805",
+      "variable_list" : 
+      [
+        "Rpile.out",
+        "Tcase.out"
+      ],
       "variables" : 
       {
         "Rpile.out" : 
@@ -21627,6 +21852,13 @@
       "site" : "tt",
       "spsid" : 4001,
       "streamid" : "MARSHALL2023.2.4001",
+      "variable_list" : 
+      [
+        "Tmote",
+        "Vbatt.mote",
+        "Iload.mote",
+        "I3load.mote"
+      ],
       "variables" : 
       {
         "I3load.mote" : 
@@ -21672,6 +21904,13 @@
       "site" : "tt",
       "spsid" : 4002,
       "streamid" : "MARSHALL2023.2.4002",
+      "variable_list" : 
+      [
+        "Tsoil.0.6cm",
+        "Tsoil.1.9cm",
+        "Tsoil.3.1cm",
+        "Tsoil.4.4cm"
+      ],
       "variables" : 
       {
         "Tsoil.0.6cm" : 
@@ -21717,6 +21956,10 @@
       "site" : "tt",
       "spsid" : 4003,
       "streamid" : "MARSHALL2023.2.4003",
+      "variable_list" : 
+      [
+        "Gsoil"
+      ],
       "variables" : 
       {
         "Gsoil" : 
@@ -21741,6 +21984,14 @@
       "site" : "tt",
       "spsid" : 4004,
       "streamid" : "MARSHALL2023.2.4004",
+      "variable_list" : 
+      [
+        "Vheat",
+        "Vpile_On",
+        "Vpile_Off",
+        "Tau63",
+        "Lambda"
+      ],
       "variables" : 
       {
         "Lambda" : 
@@ -21793,6 +22044,10 @@
       "site" : "tt",
       "spsid" : 4005,
       "streamid" : "MARSHALL2023.2.4005",
+      "variable_list" : 
+      [
+        "Qsoil"
+      ],
       "variables" : 
       {
         "Qsoil" : 
@@ -21817,6 +22072,15 @@
       "site" : "tt",
       "spsid" : 4006,
       "streamid" : "MARSHALL2023.2.4006",
+      "variable_list" : 
+      [
+        "Rsw.in",
+        "Rsw.out",
+        "Rpile.in",
+        "Rpile.out",
+        "Tcase",
+        "Wetness"
+      ],
       "variables" : 
       {
         "Rpile.in" : 
@@ -21875,6 +22139,10 @@
       "site" : "tt",
       "spsid" : 61,
       "streamid" : "MARSHALL2023.2.61",
+      "variable_list" : 
+      [
+        "Vbatt"
+      ],
       "variables" : 
       {
         "Vbatt" : 
@@ -21898,6 +22166,10 @@
       "site" : "tt",
       "spsid" : 62,
       "streamid" : "MARSHALL2023.2.62",
+      "variable_list" : 
+      [
+        "Icharge"
+      ],
       "variables" : 
       {
         "Icharge" : 
@@ -21921,6 +22193,10 @@
       "site" : "tt",
       "spsid" : 63,
       "streamid" : "MARSHALL2023.2.63",
+      "variable_list" : 
+      [
+        "Vcharge"
+      ],
       "variables" : 
       {
         "Vcharge" : 
@@ -21944,6 +22220,10 @@
       "site" : "tt",
       "spsid" : 64,
       "streamid" : "MARSHALL2023.2.64",
+      "variable_list" : 
+      [
+        "Iload"
+      ],
       "variables" : 
       {
         "Iload" : 
@@ -21967,6 +22247,10 @@
       "site" : "tt",
       "spsid" : 65,
       "streamid" : "MARSHALL2023.2.65",
+      "variable_list" : 
+      [
+        "Cstate"
+      ],
       "variables" : 
       {
         "Cstate" : 
@@ -21991,6 +22275,16 @@
       "site" : "rohn",
       "spsid" : 11,
       "streamid" : "MARSHALL2023.3.11",
+      "variable_list" : 
+      [
+        "Lat",
+        "Lon",
+        "GPSqual",
+        "GPSnsat",
+        "GPShordil",
+        "Alt",
+        "GPSgeoidht"
+      ],
       "variables" : 
       {
         "Alt" : 
@@ -22057,6 +22351,11 @@
       "site" : "rohn",
       "spsid" : 12,
       "streamid" : "MARSHALL2023.3.12",
+      "variable_list" : 
+      [
+        "GPSstat",
+        "GPSdiff"
+      ],
       "variables" : 
       {
         "GPSdiff" : 
@@ -22089,6 +22388,25 @@
       "site" : "rohn",
       "spsid" : 121,
       "streamid" : "MARSHALL2023.3.121",
+      "variable_list" : 
+      [
+        "u",
+        "v",
+        "w",
+        "tc",
+        "diagbits",
+        "co2",
+        "h2o",
+        "irgadiag",
+        "Tirga",
+        "Pirga",
+        "SSco2",
+        "SSh2o",
+        "dPirga",
+        "ldiag",
+        "spd",
+        "dir"
+      ],
       "variables" : 
       {
         "Pirga" : 
@@ -22219,6 +22537,12 @@
       "site" : "rohn",
       "spsid" : 123,
       "streamid" : "MARSHALL2023.3.123",
+      "variable_list" : 
+      [
+        "T",
+        "RH",
+        "Rfan"
+      ],
       "variables" : 
       {
         "RH" : 
@@ -22258,6 +22582,10 @@
       "site" : "rohn",
       "spsid" : 125,
       "streamid" : "MARSHALL2023.3.125",
+      "variable_list" : 
+      [
+        "P"
+      ],
       "variables" : 
       {
         "P" : 
@@ -22281,6 +22609,11 @@
       "site" : "rohn",
       "spsid" : 19,
       "streamid" : "MARSHALL2023.3.19",
+      "variable_list" : 
+      [
+        "Stratum",
+        "Timeoffset"
+      ],
       "variables" : 
       {
         "Stratum" : 
@@ -22313,6 +22646,25 @@
       "site" : "rohn",
       "spsid" : 31,
       "streamid" : "MARSHALL2023.3.31",
+      "variable_list" : 
+      [
+        "u",
+        "v",
+        "w",
+        "tc",
+        "diagbits",
+        "co2",
+        "h2o",
+        "irgadiag",
+        "Tirga",
+        "Pirga",
+        "SSco2",
+        "SSh2o",
+        "dPirga",
+        "ldiag",
+        "spd",
+        "dir"
+      ],
       "variables" : 
       {
         "Pirga" : 
@@ -22443,6 +22795,12 @@
       "site" : "rohn",
       "spsid" : 33,
       "streamid" : "MARSHALL2023.3.33",
+      "variable_list" : 
+      [
+        "T",
+        "RH",
+        "Rfan"
+      ],
       "variables" : 
       {
         "RH" : 
@@ -22480,6 +22838,10 @@
       "site" : "rohn",
       "spsid" : 61,
       "streamid" : "MARSHALL2023.3.61",
+      "variable_list" : 
+      [
+        "Vbatt"
+      ],
       "variables" : 
       {
         "Vbatt" : 
@@ -22503,6 +22865,10 @@
       "site" : "rohn",
       "spsid" : 62,
       "streamid" : "MARSHALL2023.3.62",
+      "variable_list" : 
+      [
+        "Icharge"
+      ],
       "variables" : 
       {
         "Icharge" : 
@@ -22526,6 +22892,10 @@
       "site" : "rohn",
       "spsid" : 63,
       "streamid" : "MARSHALL2023.3.63",
+      "variable_list" : 
+      [
+        "Vcharge"
+      ],
       "variables" : 
       {
         "Vcharge" : 
@@ -22549,6 +22919,10 @@
       "site" : "rohn",
       "spsid" : 64,
       "streamid" : "MARSHALL2023.3.64",
+      "variable_list" : 
+      [
+        "Iload"
+      ],
       "variables" : 
       {
         "Iload" : 
@@ -22572,6 +22946,10 @@
       "site" : "rohn",
       "spsid" : 65,
       "streamid" : "MARSHALL2023.3.65",
+      "variable_list" : 
+      [
+        "Cstate"
+      ],
       "variables" : 
       {
         "Cstate" : 
@@ -22597,6 +22975,25 @@
       "site" : "rohn",
       "spsid" : 71,
       "streamid" : "MARSHALL2023.3.71",
+      "variable_list" : 
+      [
+        "u",
+        "v",
+        "w",
+        "tc",
+        "diagbits",
+        "co2",
+        "h2o",
+        "irgadiag",
+        "Tirga",
+        "Pirga",
+        "SSco2",
+        "SSh2o",
+        "dPirga",
+        "ldiag",
+        "spd",
+        "dir"
+      ],
       "variables" : 
       {
         "Pirga" : 
@@ -22727,6 +23124,12 @@
       "site" : "rohn",
       "spsid" : 73,
       "streamid" : "MARSHALL2023.3.73",
+      "variable_list" : 
+      [
+        "T",
+        "RH",
+        "Rfan"
+      ],
       "variables" : 
       {
         "RH" : 
@@ -22766,6 +23169,10 @@
       "site" : "rohn",
       "spsid" : 75,
       "streamid" : "MARSHALL2023.3.75",
+      "variable_list" : 
+      [
+        "P"
+      ],
       "variables" : 
       {
         "P" : 
@@ -22778,5 +23185,68 @@
       },
       "version" : "v0"
     }
-  }
+  },
+  "stream_list" : 
+  [
+    "MARSHALL2023.1.11",
+    "MARSHALL2023.1.12",
+    "MARSHALL2023.1.19",
+    "MARSHALL2023.1.61",
+    "MARSHALL2023.1.62",
+    "MARSHALL2023.1.63",
+    "MARSHALL2023.1.64",
+    "MARSHALL2023.1.65",
+    "MARSHALL2023.1.1071",
+    "MARSHALL2023.1.1073",
+    "MARSHALL2023.1.1121",
+    "MARSHALL2023.1.1123",
+    "MARSHALL2023.1.1125",
+    "MARSHALL2023.1.1321",
+    "MARSHALL2023.1.1323",
+    "MARSHALL2023.1.1325",
+    "MARSHALL2023.2.11",
+    "MARSHALL2023.2.12",
+    "MARSHALL2023.2.19",
+    "MARSHALL2023.2.61",
+    "MARSHALL2023.2.62",
+    "MARSHALL2023.2.63",
+    "MARSHALL2023.2.64",
+    "MARSHALL2023.2.65",
+    "MARSHALL2023.2.1075",
+    "MARSHALL2023.2.4001",
+    "MARSHALL2023.2.4002",
+    "MARSHALL2023.2.4003",
+    "MARSHALL2023.2.4004",
+    "MARSHALL2023.2.4005",
+    "MARSHALL2023.2.4006",
+    "MARSHALL2023.2.35",
+    "MARSHALL2023.2.3021",
+    "MARSHALL2023.2.2801",
+    "MARSHALL2023.2.2802",
+    "MARSHALL2023.2.2803",
+    "MARSHALL2023.2.2804",
+    "MARSHALL2023.2.2805",
+    "MARSHALL2023.2.2806",
+    "MARSHALL2023.2.3801",
+    "MARSHALL2023.2.3802",
+    "MARSHALL2023.2.3803",
+    "MARSHALL2023.2.3804",
+    "MARSHALL2023.2.3805",
+    "MARSHALL2023.3.11",
+    "MARSHALL2023.3.12",
+    "MARSHALL2023.3.19",
+    "MARSHALL2023.3.61",
+    "MARSHALL2023.3.62",
+    "MARSHALL2023.3.63",
+    "MARSHALL2023.3.64",
+    "MARSHALL2023.3.65",
+    "MARSHALL2023.3.31",
+    "MARSHALL2023.3.33",
+    "MARSHALL2023.3.71",
+    "MARSHALL2023.3.73",
+    "MARSHALL2023.3.75",
+    "MARSHALL2023.3.121",
+    "MARSHALL2023.3.123",
+    "MARSHALL2023.3.125"
+  ]
 }
