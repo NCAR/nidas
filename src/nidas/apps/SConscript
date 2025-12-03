@@ -19,7 +19,8 @@ from pathlib import Path
 import eol_scons
 import eol_scons.parseconfig as pc
 
-from SCons.Script import Environment, ARGUMENTS, Split, Export
+import SCons.Errors
+from SCons.Script import Environment, ARGUMENTS, Split, Export, BoolVariable
 
 
 def check_pkg_config(env, pkg):
@@ -70,7 +71,7 @@ Export('nidasprogram')
 Export('nidasapps')
 
 
-env = Environment(tools=['default'])
+env = Environment(tools=['default', 'boost_filesystem'])
 
 arch = env['ARCH']  # empty string for native builds
 mach = env.get('MACH')
@@ -79,14 +80,29 @@ env.Tool(nidasprogram)
 
 
 def jsoncpp(env: Environment):
-    jsoncpp_enabled = (arch != 'armbe') and check_pkg_config(env, 'jsoncpp')
-    if jsoncpp_enabled:
-        env.PrintProgress("jsoncpp enabled for data_stats and sync_dump.")
-        env.AppendUnique(CPPDEFINES=['NIDAS_JSONCPP_ENABLED=1'])
-    else:
-        env.PrintProgress("jsoncpp not enabled.")
-        env.AppendUnique(CPPDEFINES=['NIDAS_JSONCPP_ENABLED=0'])
-    env['JSONCPP_ENABLED'] = jsoncpp_enabled
+    jsoncpp_found = check_pkg_config(env, 'jsoncpp')
+    if not jsoncpp_found:
+        raise SCons.Errors.StopError("jsoncpp not found.")
+
+
+# ==============================================================================
+# WEBSOCKETS CONFIGURATION (COMMENTED OUT)
+#
+# # Add a new command-line variable to enable/disable WebSocket feature
+# env.AddVariables(BoolVariable('WEBSOCKETS_ENABLED', 'Enable WebSocket feature in data_stats', 'off'))
+#
+# def beast(env: Environment):
+#     if env['WEBSOCKETS_ENABLED'] == 'on':
+#         # Boost.Beast is header-only but depends on Boost.System,
+#         # which is already linked. We just need to add a CPP define
+#         # so the code knows it can be compiled.
+#         env.PrintProgress("Boost.Beast (for WebSockets) enabled for data_stats.")
+#         env.AppendUnique(CPPDEFINES=['NIDAS_WEBSOCKETS_ENABLED=1'])
+#     else:
+#         env.PrintProgress("WebSockets not enabled.")
+#         env.AppendUnique(CPPDEFINES=['NIDAS_WEBSOCKETS_ENABLED=0'])
+#
+# ==============================================================================
 
 
 programs = Split("""
@@ -149,12 +165,14 @@ if sdconf.CheckFunc('i2c_smbus_read_byte', '#include <linux/i2c-dev.h>', 'C'):
 sdconf.Finish()
 
 env.Tool(jsoncpp)
+
+# env.Tool(beast)
+
+
 didbenv = env.Clone()
 dbconf = didbenv.Configure()
-if bool(arch == 'host' and env.get('JSONCPP_ENABLED') and
-        check_pkg_config(didbenv, 'libcurl')):
-    env.PrintProgress("C++11, jsoncpp, and libcurl found, "
-                      "building data_influxdb.")
+if bool(arch == 'host' and check_pkg_config(didbenv, 'libcurl')):
+    env.PrintProgress("libcurl found, building data_influxdb.")
     didbenv.Append(CCFLAGS='-Wno-effc++')
     didbenv.Require(['libnidas_dynld'])
     didb = didbenv.NidasProgram('data_influxdb', 'data_influxdb.cc')
@@ -164,9 +182,29 @@ dbconf.Finish()
 # everything else gets everything
 env.Require(['libnidas_dynld'])
 
+
+# # Temporarily remove data_stats from the main loop
+# programs.remove('data_stats')
+#
+# # Build the other programs
+# for prog in programs:
+#     prog = env.NidasProgram(prog, prog+'.cc')
+#     env.Alias(prog[0].name, prog)
+#
+# # Build data_stats separately with its conditional source file
+# data_stats_sources = ['data_stats.cc']
+# if env['WEBSOCKETS_ENABLED'] == 'on':
+#     data_stats_sources.append('WebSocketServer.cc')
+#
+# env.NidasProgram('data_stats', data_stats_sources)
+#
+# ==============================================================================
+
+
 for prog in programs:
     prog = env.NidasProgram(prog, prog+'.cc')
     env.Alias(prog[0].name, prog)
+
 
 env.NidasProgram('prep', 'isff/prep.cc')
 
