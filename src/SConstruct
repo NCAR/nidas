@@ -346,9 +346,14 @@ def BriefVariableHelpText(env, key, help, dflt, actual, aliases=None) -> str:
     return text
 
 
-AddOption("--help-all", dest="helpall", action="store_true")
-if not env.GetOption("helpall"):
-    opts.FormatVariableHelpText = BriefVariableHelpText
+# Use built-in brief help support if available
+if getattr(opts, 'BriefVariables', None) is not None:
+    opts.BriefVariables = ['PREFIX', 'BUILD', 'LINUX_MODULES',
+                           'PKG_CONFIG_PATH']
+else:
+    AddOption("--help-all", dest="helpall", action="store_true")
+    if not env.GetOption("helpall"):
+        opts.FormatVariableHelpText = BriefVariableHelpText
 
 # Use the eol_scons SetHelp() method to generate all the help text,
 # including the directory of aliases, but then append a custom summary of
