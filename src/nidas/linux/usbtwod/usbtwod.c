@@ -58,6 +58,11 @@
 #define REPO_REVISION "unknown"
 #endif
 
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6,15,0)
+#define timer_delete_sync del_timer_sync
+#endif
+
 /* This driver will be invoked when devices with the
  * NCAR_VENDOR_ID and either of the PRODUCT_IDs are
  * plugged in.  Currently it isn't strictly necessary
@@ -431,7 +436,7 @@ static void send_tas_timer_func(struct timer_list* tlist)
 static int twod_set_sor_rate(struct usb_twod *dev, int rate)
 {
         if (dev->sendTASJiffies > 0)
-                del_timer_sync(&dev->sendTASTimer);
+                timer_delete_sync(&dev->sendTASTimer);
         dev->sendTASJiffies = 0;
         if (rate > 0) {
                 /* how many jiffies we are into the second */
@@ -1085,7 +1090,7 @@ static int twod_release(struct inode *inode, struct file *file)
         KLOG_INFO("%s: urb timeouts = %d\n",dev->dev_name, dev->stats.urbTimeouts);
 
         if (throttleRate > 0) 
-                del_timer_sync(&dev->urbThrottle);
+                timer_delete_sync(&dev->urbThrottle);
 
         twod_set_sor_rate(dev, 0);
 

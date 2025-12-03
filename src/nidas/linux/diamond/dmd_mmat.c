@@ -58,6 +58,9 @@
 # define IRQF_SHARED SA_SHIRQ
 #endif
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6,15,0)
+#define timer_delete_sync del_timer_sync
+#endif
 
 /* ioport addresses of installed boards, 0=no board installed */
 static unsigned int ioports[MAX_DMMAT_BOARDS] = { 0x380, 0, 0, 0 };
@@ -1689,7 +1692,7 @@ static int stopCNTR(struct DMMAT_CNTR* cntr)
         if (!atomic_read(&cntr->running)) return 0;
 
         atomic_set(&cntr->shutdownTimer,1);
-        del_timer_sync(&cntr->timer);
+        timer_delete_sync(&cntr->timer);
 
         // call the board-specific stop function
         cntr->stop(cntr);
