@@ -97,17 +97,13 @@ env = conf.Finish()
 # build libnidas_util.so
 lib = env.SharedLibrary3('$VARIANT_DIR/lib/nidas_util', objects,
                          LIBS=['pthread'] + env['LIBS'])
-
-slib = env.StaticLibrary('$VARIANT_DIR/lib/nidas_util', objects)
-
-env.Default([lib, slib])
+env.Default(lib)
 
 #
 # Install targets for libraries and headers.
 #
 nodes = []
 nodes += env.SharedLibrary3Install('$PREFIX', lib)
-nodes += env.Install('$PREFIX/lib', slib)
 nodes += env.Install('$PREFIX/include/nidas/util', headers)
 
 env.Alias('install', nodes)
