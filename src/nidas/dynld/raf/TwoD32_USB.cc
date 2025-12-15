@@ -48,7 +48,7 @@ const unsigned char TwoD32_USB::_overldString[] = {0x55, 0xaa};
 const unsigned char TwoD32_USB::_blankString[] = {0xff, 0xff, 0xff, 0xff};
 
 
-TwoD32_USB::TwoD32_USB()
+TwoD32_USB::TwoD32_USB() : TwoD_USB("PMS2D")
 {
 }
 

@@ -47,23 +47,14 @@ const unsigned char TwoDS::_syncString[] = { 0xaa, 0xaa, 0xaa };
 const unsigned char TwoDS::_blankString[] =
     { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
 
-TwoDS::TwoDS()
+TwoDS::TwoDS() : TwoD_Processing("Fast2DS")
 {
 
 }
 
 TwoDS::~TwoDS()
 {
-    if (_totalRecords > 0) {
-        std::cerr << "Total number of 2D records = " << _totalRecords << std::endl;
-        std::cerr << "Total number of 2D particles detected = " << _totalParticles << std::endl;
-        std::cerr << "Number of rejected particles for 1D = " << _rejected1D_Cntr << std::endl;
-        std::cerr << "Number of rejected particles for 2D = " << _rejected2D_Cntr << std::endl;
-        std::cerr << "Number of overload words = " << _overLoadSliceCount << std::endl;
-        std::cerr << "2D over-sized particle count = " << _overSizeCount_2D << std::endl;
-        std::cerr << "Number of misaligned sync words = " << _misAligned << std::endl;
-        std::cerr << "Number of suspect slices = " << _suspectSlices << std::endl;
-    }
+
 }
 
 
@@ -125,12 +116,7 @@ void TwoDS::init()
 }
 
 /*---------------------------------------------------------------------------*/
-bool TwoDS::processHousekeeping(const Sample * samp, list < const Sample * >&results)
-{
-    return !CharacterSensor::process(samp, results);
-}
-
-bool TwoDS::processImageRecord(const Sample * samp, list < const Sample * >&results)
+bool TwoDS::process(const Sample * samp, list < const Sample * >&results)
 {
     unsigned slen = samp->getDataByteLength();
     const int wordSize = 16;
@@ -220,28 +206,6 @@ return false;  // Remove when ready.
     saveBuffer(cp,eod);
 
     return false;
-}
-
-/*---------------------------------------------------------------------------*/
-bool TwoDS::process(const Sample * samp, list < const Sample * >&results)
-{
-    const char *input = (const char*) samp->getConstVoidDataPtr();
-    bool result = false;
-
-    unsigned nbytes = samp->getDataByteLength();
-
-//    const unsigned char* ip = input;
-//    const unsigned char* eoi = input + nbytes;
-
-    DLOG( ("raf.TwoDS: nBytes = ") << nbytes );
-
-
-    if (!strncmp(input, "SPEC2D,", 7))
-        result = processHousekeeping(samp, results);    // len == ~250
-    else
-        result = processImageRecord(samp, results); // len == 4121
-
-    return result;
 }
 
 /*---------------------------------------------------------------------------*/

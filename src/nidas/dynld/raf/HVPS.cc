@@ -48,7 +48,7 @@ const unsigned char HVPS::_syncString[] = { 0xaa, 0xaa, 0xaa };
 const unsigned char HVPS::_blankString[] =
     { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
 
-HVPS::HVPS()
+HVPS::HVPS() : TwoD_Processing("HVPS")
 {
 
 }
@@ -87,8 +87,6 @@ void HVPS::init_parameters()
 }
 
 /*---------------------------------------------------------------------------*/
-/* Stuff that is necessary when post-processing.
- */
 void HVPS::init()
 {
     UDPSocketSensor::init();
@@ -125,13 +123,8 @@ void HVPS::init()
     clearData();
 }
 
-/*---------------------------------------------------------------------------*/
-bool HVPS::processHousekeeping(const Sample * samp, list < const Sample * >&results)
-{
-    return !CharacterSensor::process(samp, results);
-}
 
-bool HVPS::processImageRecord(const Sample * samp, list < const Sample * >&results)
+bool HVPS::process(const Sample * samp, list < const Sample * >&results)
 {
     unsigned slen = samp->getDataByteLength();
     const int wordSize = 16;
@@ -221,20 +214,6 @@ return false;  // Remove when ready.
     saveBuffer(cp,eod);
 
     return false;
-}
-
-/*---------------------------------------------------------------------------*/
-bool HVPS::process(const Sample * samp, list < const Sample * >&results)
-{
-    const char *input = (const char*) samp->getConstVoidDataPtr();
-    bool result = false;
-
-    if (!strncmp(input, "SPEC2D,", 7))
-        result = processHousekeeping(samp, results);    // len == ~250
-    else
-        result = processImageRecord(samp, results); // len == 4121
-
-    return result;
 }
 
 /*---------------------------------------------------------------------------*/

@@ -48,7 +48,7 @@ class TwoD_USB : public DSMSensor, public TwoD_Processing, public DerivedDataCli
 {
 
 public:
-    TwoD_USB();
+    TwoD_USB(std::string name);
     virtual ~TwoD_USB();
 
     IODevice *buildIODevice();

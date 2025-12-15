@@ -35,29 +35,26 @@ namespace nidas { namespace dynld { namespace raf {
 using namespace nidas::core;
 
 /**
- * Base class for SPEC 2DS optical array probe on a USB interface.
- * Perhaps can be split out into a base class and sub-classes for
- * 2DS & HVPS.
+ * Base class for SPEC optical array probe processing.
  */
 class TwoD_Processing
 {
 
 public:
-    TwoD_Processing();
+    TwoD_Processing(std::string name);
     virtual ~TwoD_Processing();
 
     /**
      * Number of diodes in the probe array.  This is also the bits-per-slice
-     * value.  Traditional 2D probes have 32 diodes, the HVPS has 128 and
-     * the Fast2DC has 64.
+     * value.  Traditional 2D probes have 32 diodes, the SPEC probes have 128,
+     * and the Fast2DC has 64.
      * @returns the number of bits per data slice.
      */
     virtual int NumberOfDiodes() const = 0;
 
     /**
      * The probe resolution in meters.  Probe resolution is also the diameter
-     * of the each diode.  Typical values are 25 for the 2DC and 200
-     * micrometers for the 2DP.
+     * of the each diode.
      * @returns The probe resolution in meters.
      */
     float getResolution() const { return _resolutionMeters; }
@@ -65,7 +62,7 @@ public:
     /**
      * The probe resolution in micrometers.  Probe resolution is also the diameter
      * of the each diode.  Typical values are 25 for the 2DC and 200
-     * micrometers for the 2DP.
+     * micrometers for the 2DP.  Ten um for SPEC 2DS and 150 for SPEC HVPS.
      * @returns The probe resolution in micrometers.
      */
     unsigned int getResolutionMicron() const { return _resolutionMicron; }
@@ -101,6 +98,9 @@ protected:
         /// Depth Of Field Reject? Last bit of sync word.
         bool dofReject;
     } ;
+
+    /// Probe name
+    std::string _name;
 
     /**
      * Process a slice and update the Particle struct area, edgeTouch, width

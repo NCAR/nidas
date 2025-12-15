@@ -48,12 +48,26 @@ public:
     HVPS();
     ~HVPS();
 
+    /**
+     * Process a single 2D record generating size-distribution data.  Two
+     * size-distribution data are generated: a) the 1D array emulates a 260X,
+     * height only and any particle touching the edge is rejected. b) 2D
+     * array uses max(widht, height) of particle for particles which do not
+     * touch the edge and the center-in method for reconstructing particles
+     * which do touch an edge diode.
+     *
+     * @param samp is the sample data.
+     * @param results is the output result array.
+     * @see _size_dist_1D
+     * @see _size_dist_2D
+     * @returns whether samples were output.
+     */
     bool process(const Sample * samp, std::list < const Sample * >&results);
 
     /**
      * Number of diodes in the probe array.  This is also the bits-per-slice
-     * value.  Traditional 2D probes have 32 diodes, the HVPS has 128 and
-     * the Fast2DC has 64.
+     * value.  Traditional 2D probes have 32 diodes, the SPEC probes have 128,
+     * and the NCAR Fast2DC has 64.
      * @returns the number of bits per data slice.
      */
     virtual int NumberOfDiodes() const { return 128; }
@@ -74,26 +88,6 @@ protected:
      */
     virtual void init_parameters();
 
-    /**
-     * Process the UDP ASCII packet.
-     */
-    bool processHousekeeping(const Sample * samp, std::list < const Sample * >&results);
-
-    /**
-     * Process a single 2D record generating size-distribution data.  Two
-     * size-distribution data are generated: a) the 1D array emulates a 260X,
-     * height only and any particle touching the edge is rejected. b) 2D
-     * array uses max(widht, height) of particle for particles which do not
-     * touch the edge and the center-in method for reconstructing particles
-     * which do touch an edge diode.
-     *
-     * @param samp is the sample data.
-     * @param results is the output result array.
-     * @see _size_dist_1D
-     * @see _size_dist_2D
-     * @returns whether samples were output.
-     */
-    bool processImageRecord(const Sample * samp, std::list < const Sample * >&results);
 
 //@{
     /**

@@ -54,24 +54,14 @@ const n_u::EndianConverter * TwoD_USB::littleEndian =
     n_u::EndianConverter::getConverter(n_u::EndianConverter::
                                        EC_LITTLE_ENDIAN);
 
-TwoD_USB::TwoD_USB() : _tasRate(1), _tasOutOfRange(0), _sorID(0), _trueAirSpeed(0)
+TwoD_USB::TwoD_USB(std::string name) : TwoD_Processing(name),
+  _tasRate(1), _tasOutOfRange(0), _sorID(0), _trueAirSpeed(0)
 {
     setDefaultMode(O_RDWR);
 }
 
 TwoD_USB::~TwoD_USB()
 {
-    if (_totalRecords > 0) {
-        std::cerr << "Total number of 2D records = " << _totalRecords << std::endl;
-        std::cerr << "Total number of 2D particles detected = " << _totalParticles << std::endl;
-        std::cerr << "Number of rejected particles for 1D = " << _rejected1D_Cntr << std::endl;
-        std::cerr << "Number of rejected particles for 2D = " << _rejected2D_Cntr << std::endl;
-        std::cerr << "Number of overload words = " << _overLoadSliceCount << std::endl;
-        std::cerr << "2D over-sized particle count = " << _overSizeCount_2D << std::endl;
-        std::cerr << "Number of times TAS out of range = " << _tasOutOfRange << std::endl;
-        std::cerr << "Number of misaligned sync words = " << _misAligned << std::endl;
-        std::cerr << "Number of suspect slices = " << _suspectSlices << std::endl;
-    }
 }
 
 IODevice *TwoD_USB::buildIODevice()

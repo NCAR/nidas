@@ -42,8 +42,8 @@ using namespace nidas::dynld::raf;
 namespace n_u = nidas::util;
 
 
-TwoD_Processing::TwoD_Processing() :
-    _numImages(0),_lastStatusTime(0),
+TwoD_Processing::TwoD_Processing(std::string name) :
+    _name(name), _numImages(0),_lastStatusTime(0),
     _resolutionMeters(0.0), _resolutionMicron(0),
     _1dcID(0), _2dcID(0),
     _size_dist_1D(0), _size_dist_2D(0),_dead_time(0.0),
@@ -65,14 +65,15 @@ TwoD_Processing::~TwoD_Processing()
     delete [] _size_dist_2D;
 
     if (_totalRecords > 0) {
-        std::cerr << "Total number of 2D records = " << _totalRecords << std::endl;
-        std::cerr << "Total number of 2D particles detected = " << _totalParticles << std::endl;
-        std::cerr << "Number of rejected particles for 1D = " << _rejected1D_Cntr << std::endl;
-        std::cerr << "Number of rejected particles for 2D = " << _rejected2D_Cntr << std::endl;
-        std::cerr << "Number of overload words = " << _overLoadSliceCount << std::endl;
-        std::cerr << "2D over-sized particle count = " << _overSizeCount_2D << std::endl;
-        std::cerr << "Number of misaligned sync words = " << _misAligned << std::endl;
-        std::cerr << "Number of suspect slices = " << _suspectSlices << std::endl;
+        std::cerr << _name << " stats: " << std::endl;
+        std::cerr << "  Total number of 2D records = " << _totalRecords << std::endl;
+        std::cerr << "  Total number of 2D particles detected = " << _totalParticles << std::endl;
+        std::cerr << "  Number of rejected particles for 1D = " << _rejected1D_Cntr << std::endl;
+        std::cerr << "  Number of rejected particles for 2D = " << _rejected2D_Cntr << std::endl;
+        std::cerr << "  Number of overload words = " << _overLoadSliceCount << std::endl;
+        std::cerr << "  2D over-sized particle count = " << _overSizeCount_2D << std::endl;
+        std::cerr << "  Number of misaligned sync words = " << _misAligned << std::endl;
+        std::cerr << "  Number of suspect slices = " << _suspectSlices << std::endl;
     }
     delete [] _saveBuffer;
 }
