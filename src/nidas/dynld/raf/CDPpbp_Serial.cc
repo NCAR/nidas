@@ -119,9 +119,9 @@ bool CDPpbp_Serial::process(const Sample* samp, list<const Sample*>& results)
     // Extract the PBP (Particle by Particle).
     unsigned char *inp = ((unsigned char *)&inRec) + 34 + (4 * _nChannels);
 /*
- * Since nidas/nimbus are single precision floats, they can not hold microseconds accumulated for hours.
- * Options exceed the capacity of a float.  I am leaving this code in to show how to decode the startTime
- * in case that is desired for some reason in the future.
+ * Since nidas/nimbus are single precision floats, they can not hold microseconds accumulated
+ * for hours.  All options exceed the capacity of a float.  I am leaving this code in to show
+ * how to decode the startTime in case that is desired for some reason in the future.
  *
  * Extract 1st_PbP_Time U48 data type.
  *
