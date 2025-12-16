@@ -26,9 +26,11 @@
 
 #include <ctime>
 
-#if defined(NIDAS_JSONCPP_ENABLED) and NIDAS_JSONCPP_ENABLED
+// Defining this here before including SyncRecordReader.h enables the
+// functions to write JSON output.  They are not enabled by default so the
+// jsoncpp library does not need to be linked into libnidas_dynld.so, only
+// to this executable.
 #define SYNC_RECORD_JSON_OUTPUT
-#endif
 
 #include <nidas/core/FileSet.h>
 #include <nidas/util/Logger.h>
@@ -178,9 +180,6 @@ Examples:\n" <<
 	argv0 << " DPRES /tmp/xxx.dat\n" <<
 	argv0 << " DPRES file:/tmp/xxx.dat\n" <<
 	argv0 << " DPRES sock:hyper:30001\n" << endl;
-#ifndef SYNC_RECORD_JSON_OUTPUT
-    cerr << "JSON output is not available in this build of sync_dump.\n";
-#endif
     return 1;
 }
 
@@ -265,13 +264,11 @@ int SyncDumper::run()
 	hout.close();
     }
 
-#ifdef SYNC_RECORD_JSON_OUTPUT
     if (_dumpJSON.length())
     {
 	json.open(_dumpJSON.c_str());
 	write_sync_record_header_as_json(json, reader.textHeader());
     }
-#endif
 
     cerr << "project=" << reader.getProjectName() << endl;
     cerr << "aircraft=" << reader.getTailNumber() << endl;
@@ -336,12 +333,10 @@ int SyncDumper::run()
 	    {
 	      continue;
 	    }
-#ifdef SYNC_RECORD_JSON_OUTPUT
 	    if (_dumpJSON.length())
 	    {
 	        write_sync_record_as_json(json, tt0, &rec.front(), len, _vars);
 	    }
-#endif
 
             if (tt0 <= ttlast)
             {
@@ -383,12 +378,10 @@ int SyncDumper::run()
     catch (const n_u::IOException& e) {
         cerr << "SyncDumper::main: " << e.what() << endl;
     }
-#ifdef SYNC_RECORD_JSON_OUTPUT
     if (_dumpJSON.length())
     {
         json.close();
     }
-#endif
     return 0;
 }
 

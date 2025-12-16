@@ -47,28 +47,22 @@
 
 #include <set>
 #include <map>
+#include <unordered_map>
 #include <deque>
 #include <iostream>
 #include <iomanip>
 #include <sys/stat.h>
+#include <boost/filesystem.hpp>
+#include <fstream>
+#include <boost/system/error_code.hpp>
+
 
 #include <unistd.h>
 #include <stdio.h>   // rename()
 
-#ifndef NIDAS_JSONCPP_ENABLED
-#define NIDAS_JSONCPP_ENABLED 1
-#endif
-#if NIDAS_JSONCPP_ENABLED
 #include <json/json.h>
-// Early json versions without StreamWriterBuilder also did not define a
-// version symbol.
-#ifndef JSONCPP_VERSION_STRING
-#define NIDAS_JSONCPP_STREAMWRITER 0
-#else
-#define NIDAS_JSONCPP_STREAMWRITER 1
-#endif
-#endif
 
+namespace fs = boost::filesystem;
 using namespace nidas::core;
 using namespace nidas::dynld;
 using namespace std;
@@ -85,7 +79,6 @@ namespace {
         return ut.format(true, "%Y-%m-%dT%H:%M:%S.%3fZ");
     }
 
-#if NIDAS_JSONCPP_ENABLED
     inline Json::Value
     number_or_null(float value)
     {
@@ -98,9 +91,7 @@ namespace {
             return Json::Value(value);
         }
     }
-#endif
 }
-
 
 /**
  * Problem is any issue detected in the data and statistics, distinguished by
@@ -206,10 +197,8 @@ public:
         nnans(),
         rawmsg(),
         values(),
-        times()
-#if NIDAS_JSONCPP_ENABLED
-        ,header()
-#endif
+        times(),
+        header()
     {
         streamid = generateStreamId(sensor);
         if (sensor)
@@ -407,7 +396,6 @@ public:
     // Collect the timestamps of all the samples also.
     vector<dsm_time_t> times;
 
-#if NIDAS_JSONCPP_ENABLED
     /**
      * Return a Json::Value node containing all the data in this SampleCounter.
      **/
@@ -432,7 +420,6 @@ public:
 
     // Store stream header metadata.
     Json::Value header;
-#endif
 };
 
 namespace {
@@ -478,7 +465,6 @@ generateStreamId(const DSMSensor* sensor)
     return out.str();
 }
 
-#if NIDAS_JSONCPP_ENABLED
 /**
  * If the metadata string value is not empty, assign that
  * value to the json field named key.
@@ -491,13 +477,11 @@ assign_if_set(Json::Value& object, const std::string& key,
         object[key] = value;
     return value;
 }
-#endif
 
 void
 SampleCounter::
 collectMetadata(const DSMSensor* sensor, const SampleTag* stag)
 {
-#if NIDAS_JSONCPP_ENABLED
     header["streamid"] = streamid;
     // The header specifies a version in case the schema changes for either
     // the header itself or the data streams which reference it.
@@ -532,6 +516,7 @@ collectMetadata(const DSMSensor* sensor, const SampleTag* stag)
 
         const auto& variables = stag->getVariables();
         Json::Value& vmap = header["variables"];
+        Json::Value& vlist = header["variable_list"];
         for (unsigned int i = 0; i < variables.size(); ++i)
         {
             const Variable& v = *variables[i];
@@ -543,9 +528,9 @@ collectMetadata(const DSMSensor* sensor, const SampleTag* stag)
             vmap[vname]["fullname"] = v.getName();
             vmap[vname]["longname"] = v.getLongName();
             vmap[vname]["units"] = v.getUnits();
+            vlist.append(vname);
         }
     }
-#endif
 }
 
 
@@ -772,7 +757,6 @@ printData(std::ostream& outs)
     outs << endl;
 }
 
-#if NIDAS_JSONCPP_ENABLED
 Json::Value
 SampleCounter::
 jsonData()
@@ -897,7 +881,7 @@ jsonStats(std::vector<Problem>& problems)
     }
     return stats;
 }
-#endif
+
 
 class DataStats : public SampleClient
 {
@@ -908,7 +892,7 @@ public:
     {
         clearSampleQueue();
     }
-
+  
     int run();
 
     void readHeader(SampleInputStream& sis);
@@ -941,6 +925,12 @@ public:
      **/
     SampleCounter*
     addCounter(const SampleCounter& counter);
+
+    /**
+     * Return a vector of DSMSensor pointers in the order they were added.
+     */
+    std::vector<SampleCounter*>
+    sensorOrderCounters();
 
     /**
      * Return a pointer to the SampleCounter for the given sample id @p sid.
@@ -998,9 +988,23 @@ private:
     static const int DEFAULT_PORT = 30000;
 
     static bool _alarm;
+    static bool writeJsonToFileHelper(const Json::Value& jsonData,
+                                      const fs::path& filePath, 
+                                      Json::StreamWriter* writer);
+    bool  ensureOutputDirectoriesForPeriod(
+        const fs::path& current_period_base_path, // Input: The fully resolved base path for this period
+        fs::path& out_metadata_path,      // Output: Path to the metadata subdir
+        fs::path& out_statistics_path,    // Output: Path to the statistics subdir
+        fs::path& out_data_values_path    // Output: Path to the data_values subdir (if applicable)
+    );
 
-    typedef map<dsm_sample_id_t, SampleCounter> sample_map_t;
+    // The sample map allows looking up a SampleCounter quickly with a hash
+    // of the sample ID.  The _ordered_counters vector is used to iterate
+    // over the counters in XML sensor order, and it is updated whenever
+    // the map changes, in createCounters() or addCounter().
+    typedef std::unordered_map<dsm_sample_id_t, SampleCounter> sample_map_t;
     sample_map_t _samples;
+    std::vector<SampleCounter*> _ordered_counters;
 
     dsm_sample_id_t
     hashId(dsm_sample_id_t sid);
@@ -1048,26 +1052,8 @@ private:
     NidasAppArg JsonOutput;
     NidasAppArg ShowProblems;
     NidasAppArg RoundStart;
+    NidasAppArg JsonOutputDir;
 
-#if NIDAS_JSONCPP_ENABLED
-#if !NIDAS_JSONCPP_STREAMWRITER
-    n_u::auto_ptr<Json::StyledStreamWriter> streamWriter;
-    n_u::auto_ptr<Json::StyledStreamWriter> headerWriter;
-
-    void
-    createJsonWriters()
-    {
-        if (! streamWriter.get())
-        {
-            Json::StyledStreamWriter* sw = new Json::StyledStreamWriter("");
-            // Can't set precision in the old StyledStreamWriter.
-            streamWriter.reset(sw);
-
-            Json::StyledStreamWriter* hw = new Json::StyledStreamWriter("  ");
-            headerWriter.reset(hw);
-        }
-    }
-#else
     n_u::auto_ptr<Json::StreamWriter> streamWriter;
     n_u::auto_ptr<Json::StreamWriter> headerWriter;
 
@@ -1087,10 +1073,7 @@ private:
             headerWriter.reset(builder.newStreamWriter());
         }
     }
-#endif
-#endif
 };
-
 
 bool DataStats::_alarm(false);
 
@@ -1110,6 +1093,7 @@ DataStats::handleSignal(int signum)
 
 DataStats::DataStats():
     _samples(),
+    _ordered_counters(),
     _reportall(false),
     _reportdata(false),
     _singlemote(false),
@@ -1175,10 +1159,19 @@ R"(Round the start time of each period to the nearest interval of
 length SECONDS.  The period start time is only ever shown in log
 messages and the json output, since the sample statistics always
 show the actual sample times.)"),
-#if NIDAS_JSONCPP_ENABLED
+    JsonOutputDir("--json-output-dir", "<dir_path>",
+R"(Write structured Json output to a directory.
+The directory path can include strptime() time spec.
+This will create:
+    -manifest.json(overall info and links to stream files)
+    -problems.json(all detected data problems)
+    -metadata/<streamid>.json (for each streams header)
+    -statistics/<streamid>.json (for each stream's stats)
+    -data_values/<streamid>.json (if --data enabled for actual values)
+This option is mutually exclusive with --json)"), 
     streamWriter(),
     headerWriter()
-#endif
+
 {
     NidasApp& app = _app;
     app.setApplicationInstance();
@@ -1190,9 +1183,8 @@ show the actual sample times.)"),
                         app.Help | Period | Update | Count |
                         AllSamples | ShowData | SingleMote | Fullnames |
                         ShowProblems | RoundStart | app.Precision);
-#if NIDAS_JSONCPP_ENABLED
     app.enableArguments(JsonOutput);
-#endif
+    app.enableArguments(JsonOutputDir);
     app.InputFiles.allowFiles = true;
     app.InputFiles.allowSockets = true;
     app.InputFiles.setDefaultInput("sock:localhost", DEFAULT_PORT);
@@ -1211,6 +1203,13 @@ int DataStats::parseRunstring(int argc, char** argv)
         {
             return usage(argv[0]);
         }
+
+        if (JsonOutput.specified() && JsonOutputDir.specified())
+        {
+            throw NidasAppException("--json and --json-output-dir are mutually exclusive and cannot be used simultaneously.");
+            
+        }
+
         _period = Period.asInt();
         _update = Update.asInt();
         _count = Count.asInt();
@@ -1444,6 +1443,12 @@ addCounter(const SampleCounter& counter)
     SampleCounter& stats = _samples[sid];
     stats.enableData(_reportdata);
     stats.enableJSON(JsonOutput.specified());
+    if (_counters_created)
+    {
+        // as a minor optimization, only update the ordered counters
+        // when not being called by createCounters().
+        _ordered_counters = sensorOrderCounters();
+    }
     return &stats;
 }
 
@@ -1522,6 +1527,29 @@ DataStats::createCounters(const list<DSMSensor*>& sensors)
             }
         }
     }
+    _ordered_counters = sensorOrderCounters();
+}
+
+
+std::vector<SampleCounter*>
+DataStats::sensorOrderCounters()
+{
+    // Iterate over the sensors to create an index of counters in sensor
+    // order.  If this is cached, it must be updated whenever the _samples
+    // map changes, in case that invalidates any SampleCounter pointers.
+    std::vector<SampleCounter*> counters;
+    auto push_counter = [&](dsm_sample_id_t sid) {
+        if (SampleCounter* counter = getCounter(sid))
+            counters.push_back(counter);
+    };
+    for (DSMSensor* sensor: allsensors) {
+        push_counter(sensor->getId());
+        SampleTagIterator ti = sensor->getSampleTagIterator();
+        for ( ; ti.hasNext(); ) {
+            push_counter(ti.next()->getId());
+        }
+    }
+    return counters;
 }
 
 
@@ -1537,8 +1565,8 @@ receive(const Sample* samp) throw()
 
     if (!_counters_created)
     {
-        _counters_created = true;
         createCounters(allsensors);
+        _counters_created = true;
     }
 
     VLOG(("received and accepted sample ") << _app.formatId(sampid));
@@ -1592,10 +1620,9 @@ void DataStats::printReport(std::ostream& outs)
     int field_width[3] = {5,5,6};
     int dtlog10[2] = {7,7};
 
-    sample_map_t::iterator si;
-    for (si = _samples.begin(); si != _samples.end(); ++si)
+    for (SampleCounter* counter: _ordered_counters)
     {
-        SampleCounter &ss = si->second;
+        SampleCounter &ss = *counter;
         if (ss.nsamps == 0 && !_reportall)
             continue;
         string name = ss.getHeaderLine(_fullnames);
@@ -1633,16 +1660,12 @@ void DataStats::printReport(std::ostream& outs)
          << setw(field_width[0] + field_width[1]) << " minMaxLen totalMB"
          << endl;
 
-#if NIDAS_JSONCPP_ENABLED
     std::vector<Problem> problems;
-#endif
 
-    for (si = _samples.begin(); si != _samples.end(); ++si)
+    for (SampleCounter* counter: _ordered_counters)
     {
-        SampleCounter& ss = si->second;
-#if NIDAS_JSONCPP_ENABLED
+        SampleCounter& ss = *counter;
         Json::Value stats = ss.jsonStats(problems);
-#endif
 
         if (ss.nsamps == 0 && !_reportall)
             continue;
@@ -1703,7 +1726,6 @@ void DataStats::printReport(std::ostream& outs)
             ss.printData(outs);
         }
     }
-#if NIDAS_JSONCPP_ENABLED
     if (ShowProblems.asBool())
     {
         for (auto& p: problems)
@@ -1711,7 +1733,6 @@ void DataStats::printReport(std::ostream& outs)
             outs << "problem: " << p.printout() << std::endl;
         }
     }
-#endif
 }
 
 
@@ -1722,7 +1743,7 @@ restartStats(const UTime& start, const UTime& end)
     DLOG(("") << "restartStats(" << iso_format(start) << ", "
      << iso_format(end) << ")");
 
-    // Clear out any samples which precede the start time.
+
     sample_queue::iterator it;
     dsm_time_t tstart(start.toUsecs());
     for (it = _sampleq.begin(); it != _sampleq.end(); )
@@ -1738,10 +1759,8 @@ restartStats(const UTime& start, const UTime& end)
         }
     }
 
-    // Tell all the counters to reset their statistics.
     resetResults();
 
-    // Now replay all the samples from the queue prior to the new end time.
     for (it = _sampleq.begin(); it != _sampleq.end(); ++it)
     {
         const Sample* samp = *it;
@@ -1772,7 +1791,7 @@ void
 DataStats::
 report()
 {
-    // Only report the period start and end when it's been set.
+   
     if (_period > 0)
     {
         ILOG(("") << "Reporting stats from "
@@ -1780,119 +1799,162 @@ report()
                 << iso_format(_period_end));
     }
 
-    // Print results to stdout unless json output specified.  For json
-    // output, write the headers and data to a file, and stream the data to
-    // stdout in line-separated json.
-    if (!JsonOutput.specified())
-    {
-        printReport(cout);
-    }
-    else
-    {
-        jsonReport();
+    if (JsonOutputDir.specified() || JsonOutput.specified()) {
+        jsonReport(); 
+    } else {
+        printReport(cout); 
     }
 }
 
-#if NIDAS_JSONCPP_ENABLED
-inline
-Json::Value&
-createObject(Json::Value& value)
-{
-    value = Json::Value(Json::objectValue);
-    return value;
-}
-#endif
 
 void
 DataStats::
 jsonReport()
 {
-#if NIDAS_JSONCPP_ENABLED
-    if (!streamWriter.get())
+    if (!streamWriter.get()|| !headerWriter.get())
     {
         createJsonWriters();
     }
-    std::string jsonname;
-    jsonname = _period_start.format(true, JsonOutput.getValue());
-    ILOG(("writing json to ") << jsonname);
 
-    // Create a json object which contains all the headers and all the
-    // data for all the SampleCounter streams, then write it out.
-    Json::Value root;
-    Json::Value timeperiod(Json::arrayValue);
-    timeperiod.append(iso_format(_period_start));
-    timeperiod.append(iso_format(_period_end));
-    // Create three top-level objects, according to what has been enabled.
-    Json::Value& stats = createObject(root["stats"]);
-    Json::Value data;
-    Json::Value& streams = createObject(root["stream"]);
-    stats["timeperiod"] = timeperiod;
-    stats["update"] = _update;
-    stats["period"] = _period;
-    stats["starttime"] = iso_format(_start_time);
-    Json::Value& streamstats = createObject(stats["streams"]);
+    bool json_output_dir_active = JsonOutputDir.specified();
+    bool json_output_file_active = JsonOutput.specified(); 
 
-    std::vector<Problem> problems;
-    sample_map_t::iterator si;
-    for (si = _samples.begin(); si != _samples.end(); ++si)
+    if (json_output_dir_active)
     {
-        SampleCounter* stream = &si->second;
-        // Use a "stream" field in the top level object to provide a
-        // "namespace" for stream objects.  Keeping "data" and
-        // "stream" namespaces allows writing both into one file or
-        // into different files, without modifying the schema
-        // expected by consumers.
-        streams[stream->streamid] = stream->jsonHeader();
-        // Rewriting the data every time seems excessive, but at the
-        // moment it's an expedient way to provide both headers and
-        // data in one file for web clients.  Later the data could
-        // be written into a different file.  Also, it might be
-        // possible for the set of headers to change as streams come
-        // and go, so writing them all together means they are
-        // always in sync and consistent.  Every data object will
-        // have a corresponding stream header in the same file.
-        if (stream->nsamps > 0 || _reportall)
-        {
-            if (_reportdata)
-                data[stream->streamid] = stream->jsonData();
-            streamstats[stream->streamid] = stream->jsonStats(problems);
+        std::string output_base_path_str_template = JsonOutputDir.getValue();
+        std::string current_period_output_base_str = _period_start.format(true, output_base_path_str_template);
+        fs::path current_period_output_base_path(current_period_output_base_str);
+
+        fs::path actual_metadata_path;
+        fs::path actual_statistics_path;
+        fs::path actual_data_values_path;
+
+        if (ensureOutputDirectoriesForPeriod(current_period_output_base_path,
+                                              actual_metadata_path,
+                                              actual_statistics_path,
+                                              actual_data_values_path)) {
+            ILOG(("Writing full structured JSON output to directory: '") << current_period_output_base_path.string() << "'");
+
+            Json::Value manifest(Json::objectValue);
+            Json::Value& processing_info = manifest["processing_info"];
+            processing_info["timeperiod"] = Json::arrayValue;
+            processing_info["timeperiod"].append(iso_format(_period_start));
+            processing_info["timeperiod"].append(iso_format(_period_end));
+            processing_info["update_interval"] = _update;
+            processing_info["period"] = _period;
+            processing_info["starttime"] = iso_format(_start_time);
+
+            Json::Value& manifest_streams_object = manifest["streams"];
+            Json::Value& manifest_streams_list = manifest["stream_list"];
+            manifest["problems_file"] = "problems.json"; 
+
+            std::vector<Problem> all_problems; // Accumulator for all problems
+
+            for (SampleCounter* stream: _ordered_counters)
+            {
+                const std::string& streamid_str = stream->streamid;
+                std::string safe_streamid_filename = streamid_str; 
+
+                Json::Value stream_links_object(Json::objectValue);
+
+                fs::path metadata_file_rel_path = fs::path("metadata") / (safe_streamid_filename + ".json");
+                stream_links_object["metadata_file"] = metadata_file_rel_path.string();
+                Json::Value header_json = stream->jsonHeader();
+                DataStats::writeJsonToFileHelper(header_json, actual_metadata_path / (safe_streamid_filename + ".json"), headerWriter.get());
+
+                fs::path statistics_file_rel_path = fs::path("statistics") / (safe_streamid_filename + ".json");
+                stream_links_object["statistics_file"] = statistics_file_rel_path.string();
+                Json::Value stats_json_val = stream->jsonStats(all_problems); 
+                DataStats::writeJsonToFileHelper(stats_json_val, actual_statistics_path / (safe_streamid_filename + ".json"), headerWriter.get());
+
+                if (_reportdata && (stream->nsamps > 0 || _reportall)) {
+                    if (!actual_data_values_path.empty()) {
+                        fs::path data_values_file_rel_path = fs::path("data_values") / (safe_streamid_filename + ".json"); 
+                        stream_links_object["data_values_file"] = data_values_file_rel_path.string();
+                        Json::Value data_json_val = stream->jsonData(); 
+                        DataStats::writeJsonToFileHelper(data_json_val, actual_data_values_path / (safe_streamid_filename + ".json"), streamWriter.get());
+                    }
+                }
+                manifest_streams_object[streamid_str] = stream_links_object;
+                manifest_streams_list.append(streamid_str);
+            }
+
+            Json::Value problems_json_array = Problem::asJsonArray(all_problems);
+            fs::path problems_file_path = current_period_output_base_path / "problems.json";
+            DataStats::writeJsonToFileHelper(problems_json_array, problems_file_path, headerWriter.get());
+
+            fs::path manifest_file_path = current_period_output_base_path / "manifest.json";
+            DataStats::writeJsonToFileHelper(manifest, manifest_file_path, headerWriter.get());
+            
+            ILOG(("--- datastats: Multi-file JSON output complete for this period. ---"));
         }
     }
-    if (_reportdata)
-        root["data"] = data;
-    stats["problems"] = Problem::asJsonArray(problems);
 
-    std::ofstream json;
-    // Write to a temporary file first, then move into place.
-    std::string tmpname = jsonname + ".tmp";
-    json.open(tmpname.c_str());
-#if !NIDAS_JSONCPP_STREAMWRITER
-    headerWriter->write(json, root);
-#else
-    headerWriter->write(root, &json);
-#endif
-    json.close();
-    // Now move into place.
-    ::rename(tmpname.c_str(), jsonname.c_str());
-
-    if (_reportdata)
+    if (json_output_file_active) 
     {
-        // Now stream the data to stdout.
-        for (si = _samples.begin(); si != _samples.end(); ++si)
+        std::string jsonname;
+        jsonname = _period_start.format(true, JsonOutput.getValue());
+        ILOG(("writing json to ") << jsonname); 
+
+        Json::Value root; 
+        Json::Value timeperiod(Json::arrayValue);
+        timeperiod.append(iso_format(_period_start));
+        timeperiod.append(iso_format(_period_end));
+        
+        Json::Value& stats_obj = root["stats"];
+        Json::Value data_aggregated; 
+        Json::Value& streams_obj = root["stream"];
+        Json::Value& streams_list = root["stream_list"];
+
+        stats_obj["timeperiod"] = timeperiod;
+        stats_obj["update"] = _update;
+        stats_obj["period"] = _period;
+        stats_obj["starttime"] = iso_format(_start_time);
+        Json::Value& streamstats = stats_obj["streams"];
+
+        std::vector<Problem> problems_for_single_file; 
+        for (SampleCounter* stream: _ordered_counters)
         {
-            SampleCounter* stream = &si->second;
+            streams_obj[stream->streamid] = stream->jsonHeader();
+            streams_list.append(stream->streamid);
             if (stream->nsamps > 0 || _reportall)
             {
-#if !NIDAS_JSONCPP_STREAMWRITER
-                streamWriter->write(std::cout, stream->jsonData());
-#else
-                streamWriter->write(stream->jsonData(), &std::cout);
-#endif
-                std::cout << std::endl;
+                if (_reportdata) {
+                    if (data_aggregated.isNull()) data_aggregated = Json::objectValue;
+                    data_aggregated[stream->streamid] = stream->jsonData();
+                }
+                streamstats[stream->streamid] = stream->jsonStats(problems_for_single_file);
+            }
+        }
+        if (_reportdata)
+            root["data"] = data_aggregated;
+        stats_obj["problems"] = Problem::asJsonArray(problems_for_single_file);
+
+        std::ofstream json_file_stream; 
+        std::string tmpname = jsonname + ".tmp";
+        json_file_stream.open(tmpname.c_str());
+        if (json_file_stream.is_open()) { 
+            headerWriter->write(root, &json_file_stream);
+            json_file_stream.close();
+            if (::rename(tmpname.c_str(), jsonname.c_str()) != 0) {
+                ELOG(("Failed to rename temporary JSON file '") << tmpname << "' to '" << jsonname << "'. Errno: " << errno);
+            }
+        } else {
+            ELOG(("Failed to open temporary JSON file for writing: ") << tmpname);
+        }
+
+        if (_reportdata)
+        {
+            for (SampleCounter* stream: _ordered_counters)
+            {
+                if (stream->nsamps > 0 || _reportall)
+                {
+                    streamWriter->write(stream->jsonData(), &std::cout);
+                    std::cout << std::endl; 
+                }
             }
         }
     }
-#endif
 }
 
 
@@ -2069,6 +2131,62 @@ int DataStats::run()
     pipeline.interrupt();
     pipeline.join();
     return result;
+}
+
+
+bool DataStats::writeJsonToFileHelper(const Json::Value& jsonData,
+                                      const fs::path& filePath,
+                                      Json::StreamWriter* writer)
+{
+    fs::path tmpFilePath = filePath;
+    tmpFilePath += ".tmp"; 
+    std::ofstream outFile(tmpFilePath.string()); 
+
+    if (!outFile.is_open()) {
+        ELOG(("Failed to open temporary JSON file: ") << tmpFilePath.string()); 
+        return false;
+    }
+
+    writer->write(jsonData, &outFile);
+    outFile.close();
+
+    boost::system::error_code ec; 
+    fs::rename(tmpFilePath, filePath, ec); 
+
+    if (ec) {
+        ELOG(("Failed to rename temporary JSON file '") << tmpFilePath.string() << "' to '" << filePath.string() << "': " << ec.message());
+        boost::system::error_code remove_ec; 
+        fs::remove(tmpFilePath, remove_ec); 
+        return false;
+    }
+    return true;
+}
+
+
+bool DataStats::ensureOutputDirectoriesForPeriod(
+    const fs::path& current_period_base_path,
+    fs::path& out_metadata_path,     // Pass by reference to set them
+    fs::path& out_statistics_path,
+    fs::path& out_data_values_path)
+{
+    out_metadata_path = current_period_base_path / "metadata";
+    out_statistics_path = current_period_base_path / "statistics";
+
+    try {
+        fs::create_directories(current_period_base_path); // Create base for this period if needed
+        fs::create_directories(out_metadata_path);
+        fs::create_directories(out_statistics_path);
+
+        if (_reportdata) { // _reportdata is a member of DataStats
+            out_data_values_path = current_period_base_path / "data_values";
+            fs::create_directories(out_data_values_path);
+        }
+        return true; // Success
+    } catch (const fs::filesystem_error& e) {
+        ELOG(("Error creating output directories under '") << current_period_base_path.string() 
+             << "': " << e.what());
+        return false; // Failure
+    }
 }
 
 int main(int argc, char** argv)
