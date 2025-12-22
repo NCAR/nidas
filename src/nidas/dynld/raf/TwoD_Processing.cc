@@ -66,12 +66,12 @@ TwoD_Processing::~TwoD_Processing()
 
     if (_totalRecords > 0) {
         std::cerr << _name << " stats: " << std::endl;
-        std::cerr << "  Total number of 2D records = " << _totalRecords << std::endl;
-        std::cerr << "  Total number of 2D particles detected = " << _totalParticles << std::endl;
+        std::cerr << "  Total number of " << _name << " records = " << _totalRecords << std::endl;
+        std::cerr << "  Total number of " << _name << " particles detected = " << _totalParticles << std::endl;
         std::cerr << "  Number of rejected particles for 1D = " << _rejected1D_Cntr << std::endl;
         std::cerr << "  Number of rejected particles for 2D = " << _rejected2D_Cntr << std::endl;
         std::cerr << "  Number of overload words = " << _overLoadSliceCount << std::endl;
-        std::cerr << "  2D over-sized particle count = " << _overSizeCount_2D << std::endl;
+        std::cerr << "  Number of over-sized particle count = " << _overSizeCount_2D << std::endl;
         std::cerr << "  Number of misaligned sync words = " << _misAligned << std::endl;
         std::cerr << "  Number of suspect slices = " << _suspectSlices << std::endl;
     }
