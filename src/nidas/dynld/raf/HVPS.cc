@@ -55,16 +55,7 @@ HVPS::HVPS() : TwoD_Processing("HVPS")
 
 HVPS::~HVPS()
 {
-    if (_totalRecords > 0) {
-        std::cerr << "Total number of HVPS records = " << _totalRecords << std::endl;
-        std::cerr << "Total number of HVPS particles detected = " << _totalParticles << std::endl;
-        std::cerr << "Number of rejected particles for 1D = " << _rejected1D_Cntr << std::endl;
-        std::cerr << "Number of rejected particles for 2D = " << _rejected2D_Cntr << std::endl;
-        std::cerr << "Number of overload words = " << _overLoadSliceCount << std::endl;
-        std::cerr << "HVPS over-sized particle count = " << _overSizeCount_2D << std::endl;
-        std::cerr << "Number of misaligned sync words = " << _misAligned << std::endl;
-        std::cerr << "Number of suspect slices = " << _suspectSlices << std::endl;
-    }
+
 }
 
 
