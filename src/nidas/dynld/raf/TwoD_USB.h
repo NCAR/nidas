@@ -44,7 +44,7 @@ using namespace nidas::core;
  * Base class for PMS 2D particle probes on a USB interface.  Covers
  * both the Fast2DC and the white converter box for older 2D probes.
  */
-class TwoD_USB : public DSMSensor, public TwoD_Processing, public DerivedDataClient
+class TwoD_USB : public DSMSensor, public DerivedDataClient
 {
 
 public:
@@ -107,6 +107,9 @@ public:
     Tap2DToTAS(const Tap2Dv1 * t2d) const;
 
 
+    virtual int NumberOfDiodes() const = 0;
+
+
 protected:
 
     // Probe produces Big Endian.
@@ -125,6 +128,12 @@ protected:
      * in turn send it to the probe.
      */
     virtual void sendTrueAirspeed(float tas);
+
+    /// Probe name (e.g. Fast2DC, HVPS, TwoDS);
+    std::string _name;
+
+    /// Common processing utilities for OAP probes.
+    TwoD_Processing *_processor;
 
     /**
      * How often to send the true air speed.

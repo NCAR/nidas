@@ -66,11 +66,11 @@ bool TwoD32_USB::processImage(const Sample * samp,
     assert(tap2dSize == 4);
 
     if (slen < sizeof (int32_t) + tap2dSize) return false;
-    _totalRecords++;
-    _recordsPerSecond++;
+    _processor->_totalRecords++;
+    _processor->_recordsPerSecond++;
 
-    dsm_time_t startTime = _prevTime;
-    _prevTime = samp->getTimeTag();
+    dsm_time_t startTime = _processor->_prevTime;
+    _processor->_prevTime = samp->getTimeTag();
 
     if (startTime == 0) return false;
 
@@ -100,10 +100,10 @@ bool TwoD32_USB::processImage(const Sample * samp,
         return false;
     }
 
-    setupBuffer(&cp, &eod);
+    _processor->setupBuffer(&cp, &eod);
     const unsigned char * sod = cp;
 
-    float resolutionUsec = getResolutionMicron() / tas;
+    float resolutionUsec = _processor->getResolutionMicron() / tas;
 
     unsigned int overld = 0;
     unsigned int tBarElapsedTime = 0;  // Running accumulation of time-bars
@@ -128,24 +128,24 @@ bool TwoD32_USB::processImage(const Sample * samp,
         for (; cp < eow; ) {
             switch (*cp) {
             case 0x55:  // overload (0x55aa) or sync (0x55*) string
-                if ((unsigned long)cp % wordSize) _misAligned++;
+                if ((unsigned long)cp % wordSize) _processor->_misAligned++;
                 if (::memcmp(cp, _overldString, sizeof(_overldString)) == 0) {
                     // overload word, reject particle.
-                    _overLoadSliceCount++;
+                    _processor->_overLoadSliceCount++;
                     overld = (bigEndian->int32Value(cp) & 0x0000ffff) / 2000;
 #ifdef DEBUG
                     cerr << "overload value at word " << (cp - sod)/wordSize <<
                         " is " << overld << endl;
 #endif
                     tBarElapsedTime += overld;
-                    if (cp - sod != (eod - sod)/2) _particle.zero();
+                    if (cp - sod != (eod - sod)/2) _processor->_particle.zero();
                 }
                 else {
                     unsigned int timeWord = bigEndian->int32Value(cp) & 0x00ffffff;
                     if (timeWord == 0) {    // start of particle
-                        _totalParticles++;
-                        _particle.zero();
-                        _particle.width = 1;  // First slice generally considered lost.
+                        _processor->_totalParticles++;
+                        _processor->_particle.zero();
+                        _processor->_particle.width = 1;  // First slice generally considered lost.
                     }
                     else
                     /* This is to catch suspect sync words observed in PLOWS.  There may be a
@@ -156,16 +156,16 @@ bool TwoD32_USB::processImage(const Sample * samp,
                              << hex << timeWord << dec;
                         cerr << ", " << n_u::UTime(samp->getTimeTag()).format(true,"%y/%m/%d %H:%M:%S.%6f")
                              << endl;
-                        _totalParticles++;
-                        _particle.zero();
-                        _particle.width = 1;  // First slice generally considered lost.
+                        _processor->_totalParticles++;
+                        _processor->_particle.zero();
+                        _processor->_particle.width = 1;  // First slice generally considered lost.
                     }
                     else {
                         timeWord = (unsigned int)(timeWord * resolutionUsec);   // end of particle
                         tBarElapsedTime += timeWord;
                         dsm_time_t thisParticleTime = startTime + tBarElapsedTime;
                         if (thisParticleTime <= samp->getTimeTag()+3000000)
-                            createSamples(thisParticleTime,results);
+                            _processor->createSamples(thisParticleTime,results);
                         else { cerr << "PMS2D" << getSuffix() <<
                             " thisParticleTime in the future, not calling createSamples(), " << tBarElapsedTime << endl;
                             cerr << "  " << n_u::UTime(samp->getTimeTag()).format(true,"%y/%m/%d %H:%M:%S.%6f") <<
@@ -184,18 +184,18 @@ bool TwoD32_USB::processImage(const Sample * samp,
         }
         if (sos) {
             if (::memcmp(sos,_blankString,sizeof(_blankString)) == 0) {
-                countParticle(_particle, resolutionUsec);
-                _particle.zero();
+                _processor->countParticle(_processor->_particle, resolutionUsec);
+                _processor->_particle.zero();
             }
-            else processParticleSlice(_particle, sos);
+            else _processor->processParticleSlice(_processor->_particle, sos);
             cp = sos + wordSize;
         }
     }
 
-    createSamples(samp->getTimeTag(),results);
+    _processor->createSamples(samp->getTimeTag(),results);
 
     /* Data left in image block, save it in order to pre-pend to next image block */
-    saveBuffer(cp,eod);
+    _processor->saveBuffer(cp,eod);
 
     return !results.empty();
 }

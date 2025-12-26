@@ -54,8 +54,7 @@ const n_u::EndianConverter * TwoD_USB::littleEndian =
     n_u::EndianConverter::getConverter(n_u::EndianConverter::
                                        EC_LITTLE_ENDIAN);
 
-TwoD_USB::TwoD_USB(std::string name) : TwoD_Processing(name),
-  _tasRate(1), _tasOutOfRange(0), _sorID(0), _trueAirSpeed(0)
+TwoD_USB::TwoD_USB(std::string name) : _name(name), _processor(0), _tasRate(1), _tasOutOfRange(0), _sorID(0), _trueAirSpeed(0)
 {
     setDefaultMode(O_RDWR);
 }
@@ -112,13 +111,6 @@ void TwoD_USB::init_parameters()
 {
     const Parameter *p;
 
-    // Acquire probe diode/pixel resolution (in micrometers) for tas encoding.
-    p = getParameter("RESOLUTION");
-    if (!p)
-        throw n_u::InvalidParameterException(getName(), "RESOLUTION","not found");
-    _resolutionMicron = (int)p->getNumericValue(0);
-    _resolutionMeters = (float)_resolutionMicron * 1.0e-6;
-
     p = getParameter("TAS_RATE");
     if (!p)
         throw n_u::InvalidParameterException(getName(), "TAS_RATE","not found");
@@ -131,37 +123,10 @@ void TwoD_USB::init_parameters()
 void TwoD_USB::init()
 {
     DSMSensor::init();
+    _processor = new TwoD_Processing(_name, NumberOfDiodes(), this);
+    _processor->init();
     init_parameters();
 
-    // Find SampleID for 1D & 2D arrays.
-    list<SampleTag *>& tags = getSampleTags();
-    list<SampleTag *>::const_iterator si = tags.begin();
-    for ( ; si != tags.end(); ++si) {
-        const SampleTag * tag = *si;
-        Variable & var = ((SampleTag *)tag)->getVariable(0);
-
-        if (var.getName().compare(0, 3, "A1D") == 0) {
-            _1dcID = tag->getId();
-            _nextraValues = tag->getVariables().size() - 1;
-        }
-
-        if (var.getName().compare(0, 3, "A2D") == 0)
-            _2dcID = tag->getId();
-    }
-
-    _prevTime = 0;
-
-    _twoDAreaRejectRatio = 0.1;
-    const Parameter * p = getParameter("AREA_RATIO_REJECT");
-    if (p) {
-        _twoDAreaRejectRatio = p->getNumericValue(0);
-    }
-
-    delete [] _size_dist_1D;
-    delete [] _size_dist_2D;
-    _size_dist_1D = new unsigned int[NumberOfDiodes()];
-    _size_dist_2D = new unsigned int[NumberOfDiodes()<<1];
-    clearData();
 }
 
 /*---------------------------------------------------------------------------*/
@@ -191,7 +156,7 @@ int TwoD_USB::TASToTap2D(void * tap2d, float tas)
     if (tas < DefaultTrueAirspeed)
         tas = DefaultTrueAirspeed;
 
-    double freq = tas / getResolution();
+    double freq = tas / _processor->getResolution();
     double maxfreq;
     double PotFudgeFactor = 1.01;
 
@@ -234,7 +199,7 @@ int TwoD_USB::TASToTap2D(void * tap2d, float tas)
 /*---------------------------------------------------------------------------*/
 float TwoD_USB::Tap2DToTAS(const Tap2D * t2d) const
 {
-    float tas = (1.0e11 / ((float)t2d->ntap * 2 * 25000 / 511)) * getResolution();
+    float tas = (1.0e11 / ((float)t2d->ntap * 2 * 25000 / 511)) * _processor->getResolution();
 
     if (t2d->div10 == 1)
         tas /= 10.0;
@@ -245,7 +210,7 @@ float TwoD_USB::Tap2DToTAS(const Tap2D * t2d) const
 /*---------------------------------------------------------------------------*/
 float TwoD_USB::Tap2DToTAS(const Tap2Dv1 * t2d) const
 {
-    float tas = (1.0e6 / (1.0 - ((float)t2d->ntap / 255))) * getResolution();
+    float tas = (1.0e6 / (1.0 - ((float)t2d->ntap / 255))) * _processor->getResolution();
 
     if (t2d->div10 == 1)
         tas /= 10.0;
@@ -278,10 +243,10 @@ void TwoD_USB::printStatus(std::ostream& ostr)
     try {
 	ioctl(USB2D_GET_STATUS,&status,sizeof(status));
 	long long tnow = n_u::getSystemTime();
-	float imagePerSec = float(status.numImages - _numImages) /
-		float(tnow - _lastStatusTime) * USECS_PER_SEC;
-	_numImages = status.numImages;
-	_lastStatusTime = tnow;
+	float imagePerSec = float(status.numImages - _processor->_numImages) /
+		float(tnow - _processor->_lastStatusTime) * USECS_PER_SEC;
+	_processor->_numImages = status.numImages;
+	_processor->_lastStatusTime = tnow;
 
 	ostr << "<td align=left>" << "imgBlks/sec=" <<
 		fixed << setprecision(1) << imagePerSec <<

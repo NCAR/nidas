@@ -28,6 +28,7 @@
 #define _nidas_dynld_raf_2d_processing_h_
 
 #include <nidas/core/Sample.h>
+#include <nidas/core/DSMSensor.h>
 
 
 namespace nidas { namespace dynld { namespace raf {
@@ -41,8 +42,11 @@ class TwoD_Processing
 {
 
 public:
-    TwoD_Processing(std::string name);
+    TwoD_Processing(std::string name, int nDiodes, DSMSensor *sensor);
     virtual ~TwoD_Processing();
+
+    void init();
+    void init_parameters();
 
     /**
      * Number of diodes in the probe array.  This is also the bits-per-slice
@@ -50,7 +54,7 @@ public:
      * and the Fast2DC has 64.
      * @returns the number of bits per data slice.
      */
-    virtual int NumberOfDiodes() const = 0;
+    virtual int NumberOfDiodes() const { return _nDiodes; }
 
     /**
      * The probe resolution in meters.  Probe resolution is also the diameter
@@ -68,7 +72,7 @@ public:
     unsigned int getResolutionMicron() const { return _resolutionMicron; }
 
 
-protected:
+//protected:
     class Particle
     {
     public:
@@ -101,6 +105,9 @@ protected:
 
     /// Probe name
     std::string _name;
+
+    /// Parent sensor
+    DSMSensor *_sensor;
 
     /**
      * Process a slice and update the Particle struct area, edgeTouch, width
@@ -154,6 +161,8 @@ protected:
      * Time of last printStatus.
      */
     long long _lastStatusTime;
+
+    unsigned int _nDiodes;
 
 //@{
     /**

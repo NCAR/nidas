@@ -63,12 +63,17 @@ TwoD64_USB_v3::~TwoD64_USB_v3()
 void TwoD64_USB_v3::init_parameters()
 {
     TwoD_USB::init_parameters();
+
+    /* Look for a sample tag with SHDOR as 3rd variable. This is assumed to be
+     * the shadowOR sample.
+     */
     float sorRate = 0.0;
     list<SampleTag *>& tags = getSampleTags();
     list<SampleTag *>::const_iterator si = tags.begin();
     for ( ; si != tags.end(); ++si) {
         const SampleTag * tag = *si;
         Variable & var = ((SampleTag *)tag)->getVariable(2);
+
         if (var.getName().compare(0, 5, "SHDOR") == 0) {
             sorRate = tag->getRate();
             _sorID = tag->getId();
@@ -86,8 +91,8 @@ int TwoD64_USB_v3::TASToTap2D(void * t2d, float tas)
 
     t2d = (Tap2D_v3 * )t2d;
     unsigned short * p = (unsigned short * )t2d;
-    p[0]=(unsigned int)(tas*10.0);
-    p[1]=(unsigned int)getResolutionMicron();
+    p[0] = (unsigned int)(tas*10.0);
+    p[1] = (unsigned int)_processor->getResolutionMicron();
     return 0;
 }
 

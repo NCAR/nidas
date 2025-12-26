@@ -42,11 +42,10 @@ using namespace nidas::dynld::raf;
 namespace n_u = nidas::util;
 
 
-TwoD_Processing::TwoD_Processing(std::string name) :
-    _name(name), _numImages(0),_lastStatusTime(0),
-    _resolutionMeters(0.0), _resolutionMicron(0),
-    _1dcID(0), _2dcID(0),
-    _size_dist_1D(0), _size_dist_2D(0),_dead_time(0.0),
+TwoD_Processing::TwoD_Processing(std::string name, int nDiodes, DSMSensor *sensor) :
+    _name(name), _nDiodes(nDiodes), _sensor(sensor), _numImages(0),
+    _lastStatusTime(0), _resolutionMeters(0.0), _resolutionMicron(0),
+    _1dcID(0), _2dcID(0), _size_dist_1D(0), _size_dist_2D(0),_dead_time(0.0),
     _totalRecords(0),_totalParticles(0),
     _rejected1D_Cntr(0), _rejected2D_Cntr(0),
     _overLoadSliceCount(0), _overSizeCount_2D(0),
@@ -76,6 +75,57 @@ TwoD_Processing::~TwoD_Processing()
         std::cerr << "  Number of suspect slices = " << _suspectSlices << std::endl;
     }
     delete [] _saveBuffer;
+}
+
+/*---------------------------------------------------------------------------*/
+void TwoD_Processing::init_parameters()
+{
+    const Parameter *p;
+
+    // Acquire probe diode/pixel resolution (in micrometers) for tas encoding.
+    p = _sensor->getParameter("RESOLUTION");
+    if (!p)
+        throw n_u::InvalidParameterException(_sensor->getName(), "RESOLUTION","not found");
+    _resolutionMicron = (int)p->getNumericValue(0);
+    _resolutionMeters = (float)_resolutionMicron * 1.0e-6;
+}
+
+/*---------------------------------------------------------------------------*/
+/* Stuff that is necessary when post-processing.
+ */
+void TwoD_Processing::init()
+{
+    init_parameters();
+
+    // Find SampleID for 1D & 2D arrays.
+    list<SampleTag *>& tags = _sensor->getSampleTags();
+    list<SampleTag *>::const_iterator si = tags.begin();
+    for ( ; si != tags.end(); ++si) {
+        const SampleTag * tag = *si;
+        Variable & var = ((SampleTag *)tag)->getVariable(0);
+
+        if (var.getName().compare(0, 3, "A1D") == 0) {
+            _1dcID = tag->getId();
+            _nextraValues = tag->getVariables().size() - 1;
+        }
+
+        if (var.getName().compare(0, 3, "A2D") == 0)
+            _2dcID = tag->getId();
+    }
+
+    _prevTime = 0;
+
+    _twoDAreaRejectRatio = 0.1;
+    const Parameter * p = _sensor->getParameter("AREA_RATIO_REJECT");
+    if (p) {
+        _twoDAreaRejectRatio = p->getNumericValue(0);
+    }
+
+    delete [] _size_dist_1D;
+    delete [] _size_dist_2D;
+    _size_dist_1D = new unsigned int[NumberOfDiodes()];
+    _size_dist_2D = new unsigned int[NumberOfDiodes()<<1];
+    clearData();
 }
 
 /*---------------------------------------------------------------------------*/
