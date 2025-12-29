@@ -42,7 +42,7 @@ class TwoD_Processing
 {
 
 public:
-    TwoD_Processing(std::string name, int nDiodes, DSMSensor *sensor);
+    TwoD_Processing(std::string name, size_t nDiodes, DSMSensor *sensor);
     virtual ~TwoD_Processing();
 
     void init();
@@ -54,7 +54,7 @@ public:
      * and the Fast2DC has 64.
      * @returns the number of bits per data slice.
      */
-    virtual int NumberOfDiodes() const { return _nDiodes; }
+    virtual size_t NumberOfDiodes() const { return _nDiodes; }
 
     /**
      * The probe resolution in meters.  Probe resolution is also the diameter
@@ -162,7 +162,7 @@ public:
      */
     long long _lastStatusTime;
 
-    unsigned int _nDiodes;
+    size_t _nDiodes;
 
 //@{
     /**

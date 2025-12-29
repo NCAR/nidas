@@ -71,8 +71,6 @@ TwoD64_USB::~TwoD64_USB()
 
 void TwoD64_USB::init_parameters()
 {
-    TwoD_USB::init_parameters();
-
     /* Look for a sample tag with SHDOR as 1st variable. This is assumed to be
      * the shadowOR sample.  Check its rate.
      */
@@ -94,7 +92,7 @@ void TwoD64_USB::init_parameters()
     if (sorRate != getTASRate()) {
         n_u::Logger::getInstance()->log(LOG_WARNING,
 		"%s: shadowOR sample rate=%f is not equal to TAS_RATE=%f, continuing",
-		getName().c_str(),sorRate,getTASRate());
+		getName().c_str(), sorRate, getTASRate());
     }
 }
 

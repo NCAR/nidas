@@ -62,8 +62,6 @@ TwoD64_USB_v3::~TwoD64_USB_v3()
 
 void TwoD64_USB_v3::init_parameters()
 {
-    TwoD_USB::init_parameters();
-
     /* Look for a sample tag with SHDOR as 3rd variable. This is assumed to be
      * the shadowOR sample.
      */
@@ -91,7 +89,7 @@ int TwoD64_USB_v3::TASToTap2D(void * t2d, float tas)
 
     t2d = (Tap2D_v3 * )t2d;
     unsigned short * p = (unsigned short * )t2d;
-    p[0] = (unsigned int)(tas*10.0);
+    p[0] = (unsigned int)(tas * 10.0);
     p[1] = (unsigned int)_processor->getResolutionMicron();
     return 0;
 }
@@ -99,7 +97,7 @@ int TwoD64_USB_v3::TASToTap2D(void * t2d, float tas)
 float TwoD64_USB_v3::Tap2DToTAS(const Tap2D * t2d) const
 {
     unsigned short * p = (unsigned short * )t2d;
-    return (float)p[0]/10.0;
+    return (float)p[0] / 10.0;
 }
 
 void TwoD64_USB_v3::validate()
@@ -111,9 +109,9 @@ void TwoD64_USB_v3::validate()
 
     for ( ; ti != tags.end(); ++ti) {
         SampleTag* stag = *ti;
-        if(stag->getSampleId()==1) {
+        if(stag->getSampleId() == 1) {
             _nHskp= stag->getVariables().size();
-            if (_nHskp!= 9) {
+            if (_nHskp != 9) {
                 throw n_u::InvalidParameterException(getName(),
                 "unexpected number of variables", " in processSOR sample");
             }

@@ -119,11 +119,6 @@ protected:
     static const nidas::util::EndianConverter * littleEndian;
 
     /**
-     * Initialize parameters for real-time and post-processing.
-     */
-    virtual void init_parameters();
-
-    /**
      * Encode and send the true airspeed to the USB driver, which will in
      * turn send it to the probe.
      */

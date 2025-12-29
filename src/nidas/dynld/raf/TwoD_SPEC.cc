@@ -47,7 +47,6 @@ using namespace nidas::dynld::raf;
 
 namespace n_u = nidas::util;
 
-// This will ve a Type32 format, not Type48
 const unsigned char TwoD_SPEC::_syncString[] = { 0xaa, 0xaa };
 const unsigned char TwoD_SPEC::_blankString[] =
     { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
@@ -55,13 +54,12 @@ const unsigned char TwoD_SPEC::_blankString[] =
 
 TwoD_SPEC::TwoD_SPEC(std::string name) : _name(name), _processor(0)
 {
-  _processor = new TwoD_Processing(name, NumberOfDiodes(), this);
 
 }
 
 TwoD_SPEC::~TwoD_SPEC()
 {
-  delete _processor;
+    delete _processor;
 }
 
 
@@ -69,6 +67,8 @@ TwoD_SPEC::~TwoD_SPEC()
 void TwoD_SPEC::init()
 {
     UDPSocketSensor::init();
+
+    _processor = new TwoD_Processing(_name, NumberOfDiodes(), this);
     _processor->init();
 }
 
@@ -124,7 +124,7 @@ return false;  // Remove when ready.
         const unsigned char* eow = cp + wordSize;
 
         for (; cp < eow; ++cp) {
-            if (*cp == 0xaa) { // start of possible particle string
+            if (*cp == _syncString[0]) { // start of possible particle string
                 if (cp + wordSize > eod) {
                     _processor->createSamples(samp->getTimeTag(), results);
                     _processor->saveBuffer(cp,eod);

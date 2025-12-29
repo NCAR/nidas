@@ -42,16 +42,16 @@ using namespace nidas::dynld::raf;
 namespace n_u = nidas::util;
 
 
-TwoD_Processing::TwoD_Processing(std::string name, int nDiodes, DSMSensor *sensor) :
+TwoD_Processing::TwoD_Processing(std::string name, size_t nDiodes, DSMSensor *sensor) :
     _name(name), _nDiodes(nDiodes), _sensor(sensor), _numImages(0),
     _lastStatusTime(0), _resolutionMeters(0.0), _resolutionMicron(0),
-    _1dcID(0), _2dcID(0), _counts_1D(0), _counts_2D(0),_dead_time(0.0),
+    _1dcID(0), _2dcID(0), _counts_1D(0), _counts_2D(0), _dead_time(0.0),
     _totalRecords(0),_totalParticles(0),
     _rejected1D_Cntr(0), _rejected2D_Cntr(0),
     _overLoadSliceCount(0), _overSizeCount_2D(0),
     _misAligned(0),_suspectSlices(0),
     _recordsPerSecond(0), _totalPixelsShadowed(0),
-    _prevTime(0),_histoEndTime(0),_twoDAreaRejectRatio(0.0),
+    _prevTime(0),_histoEndTime(0),_twoDAreaRejectRatio(0.1),
     _particle(), _nextraValues(1),
     _saveBuffer(0),_savedBytes(0),_savedAlloc(0)
 {
@@ -113,9 +113,6 @@ void TwoD_Processing::init()
             _2dcID = tag->getId();
     }
 
-    _prevTime = 0;
-
-    _twoDAreaRejectRatio = 0.1;
     const Parameter * p = _sensor->getParameter("AREA_RATIO_REJECT");
     if (p) {
         _twoDAreaRejectRatio = p->getNumericValue(0);

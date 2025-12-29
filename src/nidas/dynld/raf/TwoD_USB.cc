@@ -78,7 +78,11 @@ SampleScanner *TwoD_USB::buildSampleScanner()
 void TwoD_USB::open(int flags)
 {
     DSMSensor::open(flags);
-    init_parameters();
+
+    const Parameter *p = getParameter("TAS_RATE");
+    if (!p)
+        throw n_u::InvalidParameterException(getName(), "TAS_RATE","not found");
+    setTASRate((int)(rint(p->getNumericValue(0)))); //tas_rate is the same rate used as sor_rate
 
     // Shut the probe down until a valid TAS comes along.
     sendTrueAirspeed(DefaultTrueAirspeed);
@@ -97,24 +101,8 @@ void TwoD_USB::open(int flags)
 void TwoD_USB::close()
 {
     if (DerivedDataReader::getInstance())
-	    DerivedDataReader::getInstance()->removeClient(this);
+        DerivedDataReader::getInstance()->removeClient(this);
     DSMSensor::close();
-}
-
-/*---------------------------------------------------------------------------*/
-/* Initialization of things that are needed in real-time
- * and when post-processing.  Don't put stuff here that
- * is *only* needed during post-processing (the idea is to
- * save memory on DSMs).
- */
-void TwoD_USB::init_parameters()
-{
-    const Parameter *p;
-
-    p = getParameter("TAS_RATE");
-    if (!p)
-        throw n_u::InvalidParameterException(getName(), "TAS_RATE","not found");
-    setTASRate((int)(rint(p->getNumericValue(0)))); //tas_rate is the same rate used as sor_rate
 }
 
 /*---------------------------------------------------------------------------*/
@@ -125,9 +113,8 @@ void TwoD_USB::init()
     DSMSensor::init();
     _processor = new TwoD_Processing(_name, NumberOfDiodes(), this);
     _processor->init();
-    init_parameters();
-
 }
+
 
 /*---------------------------------------------------------------------------*/
 void TwoD_USB::derivedDataNotify(const nidas::core::DerivedDataReader * s)
