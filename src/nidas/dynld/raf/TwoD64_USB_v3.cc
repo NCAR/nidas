@@ -49,6 +49,8 @@ namespace n_u = nidas::util;
 using nidas::util::endlog;
 
 NIDAS_CREATOR_FUNCTION_NS(raf, TwoD64_USB_v3)
+
+
 TwoD64_USB_v3::TwoD64_USB_v3():_nHskp(0)
 {
      _probeClockRate=33.3333333;        //Default for v3 is 33 MHZ

@@ -54,6 +54,7 @@ const unsigned char TwoD_SPEC::_blankString[] =
 
 TwoD_SPEC::TwoD_SPEC(std::string name) : _name(name), _processor(0)
 {
+std::cout << ">>>>>>>> TwoD_SPEC::ctor - " << _name << std::endl;
 
 }
 
@@ -62,8 +63,6 @@ TwoD_SPEC::~TwoD_SPEC()
     delete _processor;
 }
 
-
-/*---------------------------------------------------------------------------*/
 void TwoD_SPEC::init()
 {
     UDPSocketSensor::init();
@@ -73,6 +72,7 @@ void TwoD_SPEC::init()
 }
 
 
+/*---------------------------------------------------------------------------*/
 bool TwoD_SPEC::process(const Sample * samp, list < const Sample * >&results)
 {
     unsigned slen = samp->getDataByteLength();
@@ -81,6 +81,7 @@ bool TwoD_SPEC::process(const Sample * samp, list < const Sample * >&results)
 
     _processor->_totalRecords++;
     _processor->_recordsPerSecond++;
+std::cout << ">>>>> TwoD_SPEC::process\n";
 return false;  // Remove when ready.
 
     // slen is coming in as 4121 bytes.  Actual record is 4114 [ts|image|cksum]

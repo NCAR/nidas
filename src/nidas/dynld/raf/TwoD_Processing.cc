@@ -149,7 +149,7 @@ void TwoD_Processing::createSamples(dsm_time_t nextTimeTag,list < const Sample *
         outs->setId(_1dcID);
 
         dout = outs->getDataPtr();
-        for (int i = 1; i < NumberOfDiodes(); ++i)
+        for (size_t i = 1; i < NumberOfDiodes(); ++i)
             *dout++ = (float)_counts_1D[i];
 
         *dout++ = _dead_time / 1000;      // Dead Time, return milliseconds.
@@ -172,7 +172,7 @@ void TwoD_Processing::createSamples(dsm_time_t nextTimeTag,list < const Sample *
         outs->setId(_2dcID);
 
         dout = outs->getDataPtr();
-        for (int i = 1; i < (NumberOfDiodes()<<1); ++i)
+        for (size_t i = 1; i < (NumberOfDiodes()<<1); ++i)
             *dout++ = (float)_counts_2D[i];
 
         *dout++ = _dead_time / 1000;      // Dead Time, return milliseconds.
@@ -310,7 +310,7 @@ void TwoD_Processing::countParticle(const Particle& p, float /* resolutionUsec *
     // 2D - Center-in algo
     if (acceptThisParticle2D(p))
     {
-        int n = std::max(p.height, p.width);
+        size_t n = std::max(p.height, p.width);
         if (n < (NumberOfDiodes()<<1))
             _counts_2D[n]++;
         else

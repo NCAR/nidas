@@ -106,6 +106,8 @@ public:
     /// Probe name
     std::string _name;
 
+    size_t _nDiodes;
+
     /// Parent sensor
     DSMSensor *_sensor;
 
@@ -161,8 +163,6 @@ public:
      * Time of last printStatus.
      */
     long long _lastStatusTime;
-
-    size_t _nDiodes;
 
 //@{
     /**
