@@ -45,7 +45,7 @@ namespace n_u = nidas::util;
 TwoD_Processing::TwoD_Processing(std::string name, int nDiodes, DSMSensor *sensor) :
     _name(name), _nDiodes(nDiodes), _sensor(sensor), _numImages(0),
     _lastStatusTime(0), _resolutionMeters(0.0), _resolutionMicron(0),
-    _1dcID(0), _2dcID(0), _size_dist_1D(0), _size_dist_2D(0),_dead_time(0.0),
+    _1dcID(0), _2dcID(0), _counts_1D(0), _counts_2D(0),_dead_time(0.0),
     _totalRecords(0),_totalParticles(0),
     _rejected1D_Cntr(0), _rejected2D_Cntr(0),
     _overLoadSliceCount(0), _overSizeCount_2D(0),
@@ -60,8 +60,8 @@ TwoD_Processing::TwoD_Processing(std::string name, int nDiodes, DSMSensor *senso
 
 TwoD_Processing::~TwoD_Processing()
 {
-    delete [] _size_dist_1D;
-    delete [] _size_dist_2D;
+    delete [] _counts_1D;
+    delete [] _counts_2D;
 
     if (_totalRecords > 0) {
         std::cerr << _name << " stats: " << std::endl;
@@ -121,10 +121,10 @@ void TwoD_Processing::init()
         _twoDAreaRejectRatio = p->getNumericValue(0);
     }
 
-    delete [] _size_dist_1D;
-    delete [] _size_dist_2D;
-    _size_dist_1D = new unsigned int[NumberOfDiodes()];
-    _size_dist_2D = new unsigned int[NumberOfDiodes()<<1];
+    delete [] _counts_1D;
+    delete [] _counts_2D;
+    _counts_1D = new unsigned int[NumberOfDiodes()];
+    _counts_2D = new unsigned int[NumberOfDiodes()<<1];
     clearData();
 }
 
@@ -153,7 +153,7 @@ void TwoD_Processing::createSamples(dsm_time_t nextTimeTag,list < const Sample *
 
         dout = outs->getDataPtr();
         for (int i = 1; i < NumberOfDiodes(); ++i)
-            *dout++ = (float)_size_dist_1D[i];
+            *dout++ = (float)_counts_1D[i];
 
         *dout++ = _dead_time / 1000;      // Dead Time, return milliseconds.
         if (_nextraValues > 1)
@@ -176,7 +176,7 @@ void TwoD_Processing::createSamples(dsm_time_t nextTimeTag,list < const Sample *
 
         dout = outs->getDataPtr();
         for (int i = 1; i < (NumberOfDiodes()<<1); ++i)
-            *dout++ = (float)_size_dist_2D[i];
+            *dout++ = (float)_counts_2D[i];
 
         *dout++ = _dead_time / 1000;      // Dead Time, return milliseconds.
         results.push_back(outs);
@@ -301,7 +301,7 @@ void TwoD_Processing::countParticle(const Particle& p, float /* resolutionUsec *
     // 1D
     if (acceptThisParticle1D(p))
     {
-        _size_dist_1D[p.height]++;
+        _counts_1D[p.height]++;
         _totalPixelsShadowed += p.area;
     }
     else
@@ -315,7 +315,7 @@ void TwoD_Processing::countParticle(const Particle& p, float /* resolutionUsec *
     {
         int n = std::max(p.height, p.width);
         if (n < (NumberOfDiodes()<<1))
-            _size_dist_2D[n]++;
+            _counts_2D[n]++;
         else
             _overSizeCount_2D++;
     }
@@ -328,10 +328,10 @@ void TwoD_Processing::countParticle(const Particle& p, float /* resolutionUsec *
     if (sdlog.active())
     {
         sdmsg << "1D: [";
-        stream_histogram(sdmsg, _size_dist_1D, NumberOfDiodes());
+        stream_histogram(sdmsg, _counts_1D, NumberOfDiodes());
         sdmsg << "]; reject=" << _rejected1D_Cntr << n_u::endlog;
         sdmsg << "2D: [";
-        stream_histogram(sdmsg, _size_dist_2D, NumberOfDiodes() << 1);
+        stream_histogram(sdmsg, _counts_2D, NumberOfDiodes() << 1);
         sdmsg << "]; reject=" << _rejected2D_Cntr
               << ", oversize=" << _overSizeCount_2D << n_u::endlog;
     }
@@ -340,8 +340,8 @@ void TwoD_Processing::countParticle(const Particle& p, float /* resolutionUsec *
 /*---------------------------------------------------------------------------*/
 void TwoD_Processing::clearData()
 {
-    ::memset(_size_dist_1D, 0, NumberOfDiodes()*sizeof(unsigned int));
-    ::memset(_size_dist_2D, 0, NumberOfDiodes()*sizeof(unsigned int)*2);
+    ::memset(_counts_1D, 0, NumberOfDiodes()*sizeof(unsigned int));
+    ::memset(_counts_2D, 0, NumberOfDiodes()*sizeof(unsigned int)*2);
 
     _dead_time = 0.0;
     _recordsPerSecond = 0;

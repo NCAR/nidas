@@ -147,7 +147,7 @@ public:
     virtual void createSamples(dsm_time_t nextTimeTag,std::list<const Sample *>&results) throw();
 
     /**
-     * Clear size_dist arrays.
+     * Clear counts arrays.
      */
     virtual void clearData();
 //@}
@@ -182,8 +182,8 @@ public:
     /**
      * Arrays for size-distribution histograms.
      */
-    unsigned int * _size_dist_1D;
-    unsigned int * _size_dist_2D;
+    unsigned int * _counts_1D;
+    unsigned int * _counts_2D;
 
     /**
      * Amount of time probe was inactive or amount of time consumed by rejected

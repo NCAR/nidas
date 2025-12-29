@@ -41,8 +41,8 @@ namespace nidas { namespace dynld { namespace raf {
 using namespace nidas::core;
 
 /**
- * Base class for PMS 2D particle probes on a USB interface.  Covers
- * both the Fast2DC and the white converter box for older 2D probes.
+ * Base class for PMS 2D particle probes on a USB interface.  Covers both the
+ * Fast2DC and the white converter box for older PMS 2D probes.
  */
 class TwoD_USB : public DSMSensor, public DerivedDataClient
 {
@@ -79,8 +79,8 @@ public:
     void printStatus(std::ostream& ostr);
 
     /**
-     * Build the struct above from the true airspeed (in m/s).  Encodes
-     * for Analog Devices AD5255.
+     * Build the struct above from the true airspeed (in m/s).  Encodes for
+     * Analog Devices AD5255.
      * @param t2d the Tap2D to be filled
      * @param tas the true airspeed in m/s
      */
@@ -88,9 +88,9 @@ public:
     virtual int TASToTap2D(void * t2d, float tas);
 
     /**
-     * Reverse the true airspeed encoding.  Used to extract TAS from
-     * recorded records.  The *v1 method is for the first generation
-     * TAS clock, the second generation gives finer resolution (07/01/2009).
+     * Reverse the true airspeed encoding.  Used to extract TAS from recorded
+     * records.  The *v1 method is for the first generation TAS clock, the
+     * second generation gives finer resolution (07/01/2009).
      * Second generation chip is an Analog Devices AD5255.
      * @param t2d the Tap2D to extract from.
      * @param the probe frequency.
@@ -100,8 +100,8 @@ public:
     virtual float
     Tap2DToTAS(const Tap2D * t2d) const;
     /**
-     * The first generation used the Maxim 5418 chip.  This is for legacy
-     * data (PACDEX through VOCALS).
+     * The first generation used the Maxim 5418 chip.  This is for legacy data
+     * (PACDEX through VOCALS).
      */
     virtual float
     Tap2DToTAS(const Tap2Dv1 * t2d) const;
@@ -124,8 +124,8 @@ protected:
     virtual void init_parameters();
 
     /**
-     * Encode and send the true airspeed to the USB driver, which will
-     * in turn send it to the probe.
+     * Encode and send the true airspeed to the USB driver, which will in
+     * turn send it to the probe.
      */
     virtual void sendTrueAirspeed(float tas);
 
@@ -136,10 +136,9 @@ protected:
     TwoD_Processing *_processor;
 
     /**
-     * How often to send the true air speed.
-     * Probes also send back the shadowOR when they receive
-     * the true airspeed, so in general this is also the
-     * receive rate of the shadowOR.
+     * How often to send the true air speed.  Probes also send back the
+     * shadowOR when they receive the true airspeed, so in general this is
+     * also the receive rate of the shadowOR.
      */
     int _tasRate;
 
