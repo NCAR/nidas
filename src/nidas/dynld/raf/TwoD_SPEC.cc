@@ -52,14 +52,17 @@ const unsigned char TwoD_SPEC::_blankString[] =
     { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
 
 
-TwoD_SPEC::TwoD_SPEC(std::string name) : _name(name), _processor(0)
+TwoD_SPEC::TwoD_SPEC(std::string name)
+    : _name(name), _processor(0), _decomp(0), _uncompressedData(0), _timingWordMask(0x00000000ffffffffULL)
+
 {
-std::cout << ">>>>>>>> TwoD_SPEC::ctor - " << _name << std::endl;
 
 }
 
 TwoD_SPEC::~TwoD_SPEC()
 {
+    delete [] _uncompressedData;
+    delete _decomp;
     delete _processor;
 }
 
@@ -69,40 +72,55 @@ void TwoD_SPEC::init()
 
     _processor = new TwoD_Processing(_name, NumberOfDiodes(), this);
     _processor->init();
+
+    _decomp = new SpecDecompress();
+    _uncompressedData = new unsigned char[32767];
 }
 
 
 /*---------------------------------------------------------------------------*/
 bool TwoD_SPEC::process(const Sample * samp, list < const Sample * >&results)
 {
+    const unsigned char *cp = (unsigned char *)samp->getConstVoidDataPtr();
+
+    // Leave if this is housekeeping, or add the processing here at a later
+    // date....
+    if (memcmp(cp, "SPEC2D", 6) == 0)
+        return false;
+
+    // slen is coming in as 4098 bytes for image buffer, no timestamp or cksum.
     unsigned slen = samp->getDataByteLength();
     const int wordSize = 16;
-//    if (slen < sizeof (int32_t) + sizeof(Tap2D)) return false;
 
     _processor->_totalRecords++;
     _processor->_recordsPerSecond++;
-std::cout << ">>>>> TwoD_SPEC::process\n";
-return false;  // Remove when ready.
 
-    // slen is coming in as 4121 bytes.  Actual record is 4114 [ts|image|cksum]
-    // We can only print this if we are getting the same record as written to disk.
-    unsigned short *ts = (unsigned short *)samp->getConstVoidDataPtr();
+    /* We can only print this if we are getting the same record as written to disk.
     std::cout << _name << "::processImageRecord, len = " << slen << " - " <<
                 ts[0] << "/" << std::setw(2) << std::setfill('0') <<
                 ts[1] << "/" << ts[3] << "  " <<
                 ts[4] << ":" << ts[5] << ":" << ts[6] << "." << ts[7] << "\n";
+     */
 
+    // Use DSM time tags, since we don't have probe timestamps.
     dsm_time_t startTime = _processor->_prevTime;
     _processor->_prevTime = samp->getTimeTag();
 
     if (startTime == 0) return false;
 
-    const unsigned char * cp = (const unsigned char *) samp->getConstVoidDataPtr();
     const unsigned char * eod = cp + slen;
 
 //    cp += sizeof(int16_t) * 8; // Move past timestamp?
 
     _processor->setupBuffer(&cp, &eod);
+
+
+// Need to decompress the record here.
+    size_t nSlices = _decomp->decompressSPEC((const uint16_t *)cp, _uncompressedData);
+
+std::cout << "  nSlices = " << nSlices << ", " << nSlices*8<<"\n";
+
+return false;  // Remove when ready.
 
     // Loop through all slices in record.
 

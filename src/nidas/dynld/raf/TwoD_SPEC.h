@@ -31,9 +31,13 @@
 
 #include <nidas/util/InvalidParameterException.h>
 
-namespace nidas { namespace dynld { namespace raf {
 
 using namespace nidas::core;
+
+
+class SpecDecompress;
+
+namespace nidas { namespace dynld { namespace raf {
 
 class TwoD_Processing;
 
@@ -86,13 +90,15 @@ protected:
     /// Probe nick name.
     std::string _name;
 
-    /**
-     * Initialize parameters for real-time and post-processing.
-     */
-//    virtual void init_parameters();
-
 
     TwoD_Processing *_processor;
+
+    SpecDecompress *_decomp;
+
+    /**
+     * buffer space for uncompressed data.  We'll allocate it once.
+     */
+    unsigned char *_uncompressedData;
 
     unsigned long long _timingWordMask;
 
