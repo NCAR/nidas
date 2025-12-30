@@ -37,6 +37,7 @@ using namespace nidas::core;
 
 /**
  * Class for SPEC HVPS optical array probe on a UDP interface.
+ * This probe uses the older data file format known as Type32.
  */
 class HVPS : public TwoD_SPEC
 {

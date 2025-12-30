@@ -37,6 +37,7 @@ using namespace nidas::core;
 
 /**
  * Class for SPEC 2DS optical array probe on a UDP interface.
+ * This probe uses the newer data file format known as Type48.
  */
 class TwoDS : public TwoD_SPEC
 {
