@@ -28,6 +28,8 @@
 #define NIDAS_CORE_ADAPTIVE_DESPIKER_H
 
 #include <stdexcept>
+#include <nidas/core/Sample.h>
+#include <nidas/util/time_constants.h>
 
 namespace nidas { namespace core {
 
@@ -77,12 +79,15 @@ public:
     float getDiscLevel() const { return _level; }
 
     /**
-     * Pass a value u, and return a forecasted value,
-     * along with a boolean indicating whether AdaptiveDespiker
-     * considers it a spike.  The input value is added
-     * to the AdaptiveDespiker statistics for forecasting.
+     * Pass a value u, and return a forecasted value, along with a boolean
+     * indicating whether AdaptiveDespiker considers it a spike.  The input
+     * value is added to the AdaptiveDespiker statistics for forecasting. The
+     * timestamp @p tt is used to detect gaps in the data, which causes the
+     * statistics to be reset if the gap is larger than DATA_GAP_USEC. The
+     * spike flag is set to true if the value is a spike or NaN, otherwise it
+     * is set to false.
      */
-    float despike(float u, bool* spike);
+    float despike(nidas::core::dsm_time_t tt, float u, bool* spike);
 
     /**
      * Forecast a value based on the previous point
@@ -90,13 +95,24 @@ public:
      */
     float forecast() const
     {
-	return _u1 * _corr + (1. - _corr) * _mean2;
+        return _u1 * _corr + (1. - _corr) * _mean2;
     }
 
     /**
      * Reset the statistics.
      */
     void reset();
+
+    /**
+     * Return the number of points accumulated so far, which is not
+     * necessarily the same as the "memory size" for the running statistics.
+     */
+    size_t numPoints() const;
+
+    /**
+     * Return the current running statistics.
+     */
+    void getStatistics(double* mean, double* var, double* corr) const;
 
     /**
      * Compute a discrimination level from a Gaussan probability.
@@ -111,6 +127,8 @@ public:
      * correlation.
      */
     static float adjustLevel(float corr);
+
+    static const int DATA_GAP_USEC = 60 * USECS_PER_SEC;
 
 private:
 
@@ -185,6 +203,9 @@ private:
 
     /** Number of points processed */
     size_t _npts;
+
+    /** Time of last point processed */
+    nidas::core::dsm_time_t _ttlast;
 };
 
 }}	// namespace nidas namespace core

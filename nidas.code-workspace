@@ -100,6 +100,7 @@
 		},
 		"editor.tabSize": 8,
                 "editor.detectIndentation": false,
-                "editor.indentSize": 4
+                "editor.indentSize": 4,
+                "r.lsp.promptToInstall": false
 	}
 }

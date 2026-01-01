@@ -67,9 +67,18 @@ bool AdaptiveDespiker::staticInit()
 }
 
 AdaptiveDespiker::AdaptiveDespiker():
-	_prob(1.e-5),_levelMultiplier(2.5),_maxMissingFreq(2.0),
-    _u1(0.0), _mean1(0.0), _mean2(0.0), _var1(0.0), _var2(0.0), _corr(0.0),
-    _initLevel(0.0), _level(0.0), _missfreq(0.0), _msize(0), _npts(0)
+    _prob(1.e-5),
+    _levelMultiplier(2.5),
+    _maxMissingFreq(2.0),
+    _u1(0.0),
+    _mean1(0.0), _mean2(0.0),
+    _var1(0.0), _var2(0.0), _corr(0.0),
+    _initLevel(0.0),
+    _level(0.0),
+    _missfreq(0.0),
+    _msize(0),
+    _npts(0),
+    _ttlast(0)
 {
     setDiscLevelMultiplier(2.5);
     setOutlierProbability(1.e-5);
@@ -203,13 +212,63 @@ void AdaptiveDespiker::reset()
     _missfreq = 0;
 }
 
-float AdaptiveDespiker::despike(float u,bool* spike)
-{
 
+size_t AdaptiveDespiker::numPoints() const {
+    return _npts;
+}
+
+
+void AdaptiveDespiker::getStatistics(double* mean, double* var, double* corr)
+    const
+{
+    if (mean)
+    {
+        if (_npts < 1)
+            *mean = NAN;
+        else if (_npts <= STATISTICS_SIZE)
+            *mean = _mean2 / _npts;
+        else
+            *mean = _mean2;
+    }
+    if (var)
+    {
+        if (_npts < 2)
+            *var = NAN;
+        else if (_npts <= STATISTICS_SIZE)
+            *var = _var2 / _npts - (_mean2 / _npts) * (_mean2 / _npts);
+        else
+            *var = _var2;
+    }
+    if (corr)
+    {
+        if (_npts < 2)
+            *corr = NAN;
+        else if (_npts <= STATISTICS_SIZE)
+            *corr = (_corr / _npts - (_mean2 / _npts) * (_mean1 / _npts)) /
+                    sqrt((_var1 / _npts - (_mean1 / _npts) * (_mean1 / _npts)) *
+                         (_var2 / _npts - (_mean2 / _npts) * (_mean2 / _npts)));
+        else
+            *corr = _corr;
+    }
+}
+
+
+float AdaptiveDespiker::despike(dsm_time_t tt, float u, bool* spike)
+{
+    /* Restart statistics after data gap. */
+    if (tt - _ttlast > DATA_GAP_USEC)
+        reset();
+
+    // flag the value if nan
+    *spike = std::isnan(u);
     if (_npts <= STATISTICS_SIZE) {
-	if (_npts == 0 ) initStatistics(u);
-	else incrementStatistics(u);
-	return u;
+        if (_npts == 0 )
+            initStatistics(u);
+        else
+            incrementStatistics(u);
+        if (!*spike)
+            _ttlast = tt;
+        return u;
     }
 
     /*
@@ -217,7 +276,9 @@ float AdaptiveDespiker::despike(float u,bool* spike)
      * missing data points, don't substitute forecasted data or
      * update forecast statistics.
      */
-    if (_missfreq > _maxMissingFreq) return u;
+    if (_missfreq > _maxMissingFreq) {
+        return u;
+    }
 
     float uf = forecast();
 
@@ -227,10 +288,13 @@ float AdaptiveDespiker::despike(float u,bool* spike)
      * data point, but don't update the statistics.
      */
     if (isnan(u) || fabs(u - uf) / sqrt(_var2) > _level) {
-	u = uf;				/* If not, fix it */
-	*spike = true;
+        u = uf;				/* If not, fix it */
+        *spike = true;
     }
-    else updateStatistics(u);
+    else
+        updateStatistics(u);
+    if (!*spike)
+        _ttlast = tt;
     return u;
 }
 

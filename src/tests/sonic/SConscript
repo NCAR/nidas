@@ -3,7 +3,7 @@
 
 from SCons.Script import Environment
 
-env = Environment(tools=['default', 'nidasapps'])
+env = Environment(tools=['default', 'nidasapps', 'valgrind', 'boost_test'])
 
 data_dump = env.NidasApp('data_dump')
 
@@ -21,3 +21,18 @@ env.AlwaysBuild(runtest)
 env.Alias('test', runtest)
 env.Alias('tests', runtest)
 env.Alias('sonictest', runtest)
+
+tests = env.Program('twind3d', ["twind3d.cc"])
+
+xtest = env.Command("xtest", tests,
+                    env.ChdirActions(["./$SOURCE.file"]))
+env.Precious(xtest)
+env.AlwaysBuild(xtest)
+env.Alias('test', xtest)
+
+env.ValgrindLog('memcheck',
+                env.Command('vg.memcheck.log', tests,
+                            "cd ${SOURCE.dir} && "
+                            "${VALGRIND_PATH} --leak-check=full"
+                            " --gen-suppressions=all ./${SOURCE.file}"
+                            " >& ${TARGET.abspath}"))

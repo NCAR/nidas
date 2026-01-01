@@ -33,7 +33,6 @@
 #include <nidas/util/Logger.h>
 #include <limits>
 
-using namespace nidas::dynld::isff;
 using namespace std;
 
 using nidas::util::InvalidParameterException;
@@ -42,6 +41,10 @@ using nidas::util::dirFromUV;
 using nidas::util::LogContext;
 
 NIDAS_CREATOR_FUNCTION_NS(isff,CSI_IRGA_Sonic)
+
+
+namespace nidas { namespace dynld { namespace isff {
+
 
 CSI_IRGA_Sonic::CSI_IRGA_Sonic():
     CSAT3_Sonic(),
@@ -141,6 +144,7 @@ void CSI_IRGA_Sonic::checkSampleTags()
     if (_spdIndex >= 0) _numParsed--; // derived, not parsed
     if (_dirIndex >= 0) _numParsed--; // derived, not parsed
     if (_ldiagIndex >= 0) _numParsed--; // derived, not parsed
+    if (_spikeIndex.valid()) _numParsed -= 4; // derived, not parsed
 
     _irgaDiag = findVariableIndex("irgadiag");
     _h2o = findVariableIndex("h2o");
@@ -152,15 +156,19 @@ void CSI_IRGA_Sonic::checkSampleTags()
         throw InvalidParameterException(getName() +
                 ": expect at least 5 variables in sample: u,v,w,tc,diag");
 
+    // XXX can this be done in the Wind3D base class, since it sets
+    // all these derived variable indexes?  Do other wind sensor classes
+    // not require derived variables to be at the end?
     bool ok = true;
     /* Make sure derived quantities are last. */
-    if (_spdIndex >= 0 && _numOut - _spdIndex > 3) ok = false;
-    if (_dirIndex >= 0 && _numOut - _dirIndex > 3) ok = false;
-    if (_ldiagIndex >= 0 && _numOut - _ldiagIndex > 3) ok = false;
+    for (auto& ix: {_spdIndex, _dirIndex, _ldiagIndex, _spikeIndex.index()})
+    {
+        ok = ok && (ix < 0 || ix >= (int)_numParsed);
+    }
 
     if (!ok)
         throw InvalidParameterException(getName() +
-                " CSI_IRGA_Sonic speed, direction and ldiag variables should be at the end of the list");
+                " CSI_IRGA_Sonic derived variables must be at the end of the list");
 
      const std::list<AsciiSscanf*>& sscanfers = getScanfers();
      if (sscanfers.empty()) {
@@ -228,6 +236,208 @@ bool CSI_IRGA_Sonic::reportBadCRC()
     return false;
 }
 
+
+template <typename F>
+void CSI_IRGA_Fields::visit(F& f)
+{
+    f.visit(u);
+    f.visit(v);
+    f.visit(w);
+    f.visit(tc);
+    f.visit(diagbits);
+    f.visit(h2o);
+    f.visit(co2);
+    f.visit(irgadiag);
+    f.visit(Tirga);
+    f.visit(Pirga);
+    f.visit(SSco2);
+    f.visit(SSh2o);
+    f.visit(dPirga);
+    f.visit(Tsource);
+    f.visit(Tdetector);
+}
+
+
+/**
+ * Given a buffer of binary data, provide a template method which converts
+ * each value according to its type with the given EndianConverter, either
+ * packing a value into the buffer or unpacking a value from the buffer.
+ */
+class BufferConverter
+{
+public:
+    BufferConverter(const nidas::util::EndianConverter* converter,
+                    char* buffer, char* end, unsigned int nvals_=0):
+        _converter(converter), buf(buffer), eob(end), bptr(buf),
+        nvals(nvals_)
+    {
+    }
+
+    // Convert value of type T at bptr
+    template <typename T> void convert_in(char* bptr, T& value);
+
+    // Write value of type T into bptr
+    template <typename T> void convert_out(const T& value, char* ptr);
+
+    template <typename T>
+    void unpack(T& value)
+    {
+        if (bptr + sizeof(T) <= eob) {
+            convert_in(bptr, value);
+            bptr += sizeof(T);
+            nvals++;
+        }
+    }
+
+    template <typename T>
+    void pack(T& value)
+    {
+        if (nvals > 0 && bptr + sizeof(T) <= eob) {
+            convert_out(value, bptr);
+            bptr += sizeof(T);
+            nvals--;
+        }
+    }
+
+    const nidas::util::EndianConverter* _converter;
+    char* buf;
+    char* eob;
+    char* bptr;
+    unsigned int nvals;
+};
+
+
+template <>
+void BufferConverter::convert_in(char* bptr, float& value)
+{
+    value = _converter->floatValue(bptr);
+}
+
+template <>
+void BufferConverter::convert_in(char* bptr, u_int32_t& value)
+{
+    value = _converter->uint32Value(bptr);
+}
+
+template <>
+void BufferConverter::convert_out(const float& value, char* ptr)
+{
+    _converter->floatCopy(value, ptr);
+}
+
+template <>
+void BufferConverter::convert_out(const u_int32_t& value, char* ptr)
+{
+    _converter->uint32Copy(value, ptr);
+}
+
+
+struct UnpackerVisitor
+{
+    BufferConverter& _unpacker;
+
+    UnpackerVisitor(BufferConverter& unpacker): _unpacker(unpacker) {}
+
+    template <typename T>
+    void visit(T& field)
+    {
+        _unpacker.unpack(field);
+    }
+};
+
+
+struct PackerVisitor
+{
+    BufferConverter& _packer;
+
+    PackerVisitor(BufferConverter& packer): _packer(packer) {}
+
+    template <typename T>
+    void visit(const T& field)
+    {
+        _packer.pack(field);
+    }
+};
+
+
+int
+CSI_IRGA_Sonic::
+unpackBinary(const char* buf, const char* eob, CSI_IRGA_Fields& fields)
+{
+    const char* bptr = eob;
+    bptr -= sizeof(short);
+    // check for 55AA at end
+    bool buf_ok = (bptr >= buf + sizeof(short));
+    buf_ok = buf_ok && (::memcmp(bptr, "\x55\xaa", 2) == 0);
+    if (buf_ok)
+    {
+        bptr -= sizeof(short);  // 2 byte signature
+        unsigned short sigval = _converter->uint16Value(bptr);
+        // calculated signature from buffer contents
+        auto calcsig = signature((const unsigned char*)buf,
+                                 (const unsigned char*)bptr);
+        buf_ok = (calcsig == sigval);
+    }
+    if (!buf_ok)
+    {
+        reportBadCRC();
+        return 0;
+    }
+
+    eob = bptr;
+    BufferConverter converter(_converter, (char*)buf, (char*)eob);
+    UnpackerVisitor unpacker(converter);
+    fields.visit(unpacker);
+    fields.nvals = converter.nvals;
+    return fields.nvals;
+}
+
+
+int
+CSI_IRGA_Sonic::
+packBinary(const CSI_IRGA_Fields& fields, std::vector<char>& buf)
+{
+    buf.resize(fields.nvals*sizeof(float) + 2*sizeof(short));
+
+    char* bptr = buf.data();
+    char* eob = bptr + buf.size();
+
+    BufferConverter converter(_converter, bptr, eob, fields.nvals);
+    PackerVisitor packer(converter);
+    const_cast<CSI_IRGA_Fields&>(fields).visit(packer);
+
+    bptr = converter.bptr;
+    unsigned short sigval = signature((const unsigned char*)buf.data(),
+                                      (const unsigned char*)bptr);
+
+    _converter->uint16Copy(sigval, bptr);
+    bptr += sizeof(short);
+    ::memcpy(bptr, "\x55\xaa", 2);
+    bptr += 2;
+    return fields.nvals;
+}
+
+
+struct FieldToFloat
+{
+    std::vector<float> pvector{};
+
+    template <typename T>
+    void visit(T& field)
+    {
+        pvector.push_back(static_cast<float>(field));
+    }
+};
+
+
+std::vector<float> fields_to_floats(CSI_IRGA_Fields& fields)
+{
+    FieldToFloat visitor;
+    fields.visit(visitor);
+    return visitor.pvector;
+}
+
+
 bool CSI_IRGA_Sonic::process(const Sample* samp,
 	std::list<const Sample*>& results)
 {
@@ -274,7 +484,7 @@ bool CSI_IRGA_Sonic::process(const Sample* samp,
     unsigned int nvals;
     const float* pdata;
 
-    const unsigned int nbinvals = _numOut - 3;  // requested variables, except final 3 derived
+    const unsigned int nbinvals = _numParsed;
 
     vector<float> pvector(nbinvals);
 
@@ -375,10 +585,19 @@ bool CSI_IRGA_Sonic::process(const Sample* samp,
 
     pdata += sizeof(uvwtd)/sizeof(uvwtd[0]);
 
-    if (getDespike()) {
-        bool spikes[4] = {false,false,false,false};
-        despike(wsamptime, uvwtd,4,spikes);
-    }
+    // new sample
+    SampleT<float>* wsamp = getSample<float>(_numOut);
+    float* dout = wsamp->getDataPtr();
+    float* dend = dout + _numOut;
+
+    // initialize output values to nan first so they can be filled in below
+    // from the base class and this class.
+    for (float* dp = dout; dp < dend; ) *dp++ = floatNAN;
+
+    wsamp->setTimeTag(wsamptime);
+    wsamp->setId(_sampleId);
+
+    despike(wsamp, uvwtd, 4);
 
     // apply shadow correction before correcting for unusual orientation
     transducerShadowCorrection(wsamptime, uvwtd);
@@ -387,31 +606,18 @@ bool CSI_IRGA_Sonic::process(const Sample* samp,
 
     offsetsTiltAndRotate(wsamptime, uvwtd);
 
-    // new sample
-    SampleT<float>* wsamp = getSample<float>(_numOut);
-
-    wsamp->setTimeTag(wsamptime);
-    wsamp->setId(_sampleId);
-
-    float* dout = wsamp->getDataPtr();
-    float* dend = dout + _numOut;
     float *dptr = dout;
 
     memcpy(dptr,uvwtd,sizeof(uvwtd));
     dptr += sizeof(uvwtd) / sizeof(uvwtd[0]);
 
     for ( ; pdata < pend && dptr < dend; ) *dptr++ = *pdata++;
-    for ( ; dptr < dend; ) *dptr++ = floatNAN;
 
-    // logical diagnostic value: 0=OK,1=bad
-    if (_ldiagIndex >= 0) dout[_ldiagIndex] = (float) !diagOK;
+    // logical diagnostic value: 0=OK,1=bad.  the winds are not set to nan if
+    // bad since that should have been handled above.
+    addWindDiagnostic(wsamp, diagOK);
 
-    if (_spdIndex >= 0 && _spdIndex < (signed)_numOut) {
-        dout[_spdIndex] = sqrt(uvwtd[0] * uvwtd[0] + uvwtd[1] * uvwtd[1]);
-    }
-    if (_dirIndex >= 0 && _dirIndex < (signed)_numOut) {
-        dout[_dirIndex] = dirFromUV(uvwtd[0], uvwtd[1]);
-    }
+    addSpdDir(wsamp, uvwtd[0], uvwtd[1]);
 
     // screen h2o and co2 values when the IRGA diagnostic value is indexed and
     // is non-zero, masked by irgadiagmask.  And in the mask once, so the sys
@@ -444,3 +650,5 @@ bool CSI_IRGA_Sonic::process(const Sample* samp,
     results.push_back(wsamp);
     return true;
 }
+
+}}} // namespace nidas::dynld::isff

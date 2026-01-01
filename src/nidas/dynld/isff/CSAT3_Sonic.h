@@ -158,12 +158,6 @@ private:
     int _windNumOut;
 
     /**
-     * If user requests despike variables, e.g. "uflag","vflag","wflag","tcflag",
-     * the index of "uflag" in the output variables.
-     */
-    int _spikeIndex;
-
-    /**
      * Output sample id of the wind sample.
      */
     dsm_sample_id_t _windSampleId;
@@ -233,12 +227,12 @@ private:
     /**
      * No copying.
      */
-    CSAT3_Sonic(const CSAT3_Sonic&);
+    CSAT3_Sonic(const CSAT3_Sonic&) = delete;
 
     /**
      * No assignment.
      */
-    CSAT3_Sonic& operator=(const CSAT3_Sonic&);
+    CSAT3_Sonic& operator=(const CSAT3_Sonic&) = delete;
 };
 
 }}}	// namespace nidas namespace dynld namespace isff

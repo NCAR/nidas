@@ -29,11 +29,16 @@
 
 #include <nidas/core/SerialSensor.h>
 #include <nidas/core/AdaptiveDespiker.h>
+#include <nidas/core/VariableIndex.h>
 #include <nidas/Config.h>
 #include "WindOrienter.h"
 #include "WindTilter.h"
 #include "WindRotator.h"
 #include <memory>
+
+namespace testing {
+    class Wind3D_test;
+};
 
 namespace nidas {
 
@@ -184,8 +189,16 @@ public:
         _tiltCorrection = val;
     }
 
-    void despike(nidas::core::dsm_time_t tt,float* uvwt,int n, bool* spikeOrMissing)
-        throw();
+    /**
+     * If despiking is enabled, call the AdaptiveDespiker for each component
+     * in @p uvwt and replace the corresponding components in the output
+     * sample @p outsamp. If the spike flag variables exist in the output
+     * sample, then set each component flag to 1 if the component was
+     * despiked, else 0.  The output sample must already have the correct
+     * timestamp, since that is used by the AdaptiveDespiker reset the
+     * statistics after a data gap.
+     */
+    void despike(nidas::core::SampleT<float>* outsamp, float* uvwt, int n);
 
     /**
      * Do standard bias removal, tilt correction and horizontal rotation of
@@ -203,6 +216,22 @@ public:
      * Apply orientation changes to the wind components.
      **/
     void applyOrientation(nidas::core::dsm_time_t tt, float* uvwt) throw();
+
+    /**
+     * If speed and direction variables are requested in the output sample,
+     * derive them from the given @p u and @p v components and set them in
+     * the output sample.
+     */
+    void addSpdDir(nidas::core::SampleT<float>* outsamp, float& u, float& v);
+
+    /**
+     * If the logical diagnostic variable has been requested in the output
+     * sample, set it to zero if @p diagOk is true, otherwise set it to one.
+     * If not ok and @p uvw is not null, the wind variables in @p uvw [0, n-1]
+     * are set to NaN.
+     */
+    void addWindDiagnostic(nidas::core::SampleT<float>* outsamp, bool diagOK,
+        float* uvw=nullptr, int n=0);
 
     /**
      * Update the settings from the offsets and angles calibration file, if
@@ -254,10 +283,6 @@ protected:
     typedef nidas::dynld::isff::WindOrienter WindOrienter;
     typedef nidas::dynld::isff::WindRotator WindRotator;
     typedef nidas::dynld::isff::WindTilter WindTilter;
-
-    static const int DATA_GAP_USEC = 60000000;
-
-    nidas::core::dsm_time_t _ttlast[4];
 
     double _bias[3];
 
@@ -316,6 +341,20 @@ protected:
      */
     int _dirIndex;
 
+    /**
+     * If user requests despike variables, e.g. "uflag","vflag","wflag","tcflag",
+     * the index of "uflag" in the output variables.
+     */
+    nidas::core::VariableIndex _spikeIndex;
+
+    // This appears to be the total number of output variables in all sample
+    // tags attached to this sensor, as calculated in
+    // Wind3D::checkSampleTags(). However, it is also used to set the size of
+    // the output sample in Wind3D::process(), which implies that process() is
+    // only correct if there is only one sample tag.  And if that's the case,
+    // then all the _numOut members in subclasses are redundant and should be
+    // removed, and this base class can enforce a single sample tag and keep
+    // an exclusive record of the number of variables in the output samples.
     unsigned int _noutVals;
 
     /**
@@ -353,14 +392,16 @@ protected:
 
     std::unique_ptr<Wind3D_impl> _impl;
 
+    friend class testing::Wind3D_test;
+
 private:
 
     // no copying
-    Wind3D(const Wind3D& x);
+    Wind3D(const Wind3D& x) = delete;
 
     // no assignment
-    Wind3D& operator=(const Wind3D& x);
-    
+    Wind3D& operator=(const Wind3D& x) = delete;
+
 };
 
 }}}	// namespace nidas namespace dynld namespace isff
