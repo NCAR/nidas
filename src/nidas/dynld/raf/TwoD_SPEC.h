@@ -93,12 +93,15 @@ protected:
 
     TwoD_Processing *_processor;
 
-    SpecDecompress *_decomp;
+    SpecDecompress *_spec;
 
     /**
-     * buffer space for uncompressed data.  We'll allocate it once.
+     * buffer space for data.  We'll allocate it once.
      */
-    unsigned char *_uncompressedData;
+    uint16_t *_compressedParticle;
+    uint8_t *_uncompressedParticle;
+
+    uint16_t    _prevParticleID;
 
     unsigned long long _timingWordMask;
 

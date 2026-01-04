@@ -53,28 +53,31 @@ const unsigned char TwoD_SPEC::_blankString[] =
 
 
 TwoD_SPEC::TwoD_SPEC(std::string name)
-    : _name(name), _processor(0), _decomp(0), _uncompressedData(0), _timingWordMask(0x00000000ffffffffULL)
-
+    : _name(name), _processor(0), _spec(0),
+      _compressedParticle(0), _uncompressedParticle(0),
+      _prevParticleID(0), _timingWordMask(0x00000000ffffffffULL)
 {
 
 }
 
 TwoD_SPEC::~TwoD_SPEC()
 {
-    delete [] _uncompressedData;
-    delete _decomp;
+    delete [] _uncompressedParticle;
+    delete [] _compressedParticle;
+    delete _spec;
     delete _processor;
 }
 
 void TwoD_SPEC::init()
 {
-    UDPSocketSensor::init();
+    // Post processing only.
 
     _processor = new TwoD_Processing(_name, NumberOfDiodes(), this);
     _processor->init();
 
-    _decomp = new SpecDecompress();
-    _uncompressedData = new unsigned char[32767];
+    _spec = new SpecDecompress();
+    _compressedParticle = new uint16_t[1024];
+    _uncompressedParticle = new uint8_t[8192];
 }
 
 
@@ -90,17 +93,10 @@ bool TwoD_SPEC::process(const Sample * samp, list < const Sample * >&results)
 
     // slen is coming in as 4098 bytes for image buffer, no timestamp or cksum.
     unsigned slen = samp->getDataByteLength();
-    const int wordSize = 16;
 
     _processor->_totalRecords++;
     _processor->_recordsPerSecond++;
 
-    /* We can only print this if we are getting the same record as written to disk.
-    std::cout << _name << "::processImageRecord, len = " << slen << " - " <<
-                ts[0] << "/" << std::setw(2) << std::setfill('0') <<
-                ts[1] << "/" << ts[3] << "  " <<
-                ts[4] << ":" << ts[5] << ":" << ts[6] << "." << ts[7] << "\n";
-     */
 
     // Use DSM time tags, since we don't have probe timestamps.
     dsm_time_t startTime = _processor->_prevTime;
@@ -109,79 +105,102 @@ bool TwoD_SPEC::process(const Sample * samp, list < const Sample * >&results)
     if (startTime == 0) return false;
 
     const unsigned char * eod = cp + slen;
+    long long firstTimeWord = 0;
 
-//    cp += sizeof(int16_t) * 8; // Move past timestamp?
-
+    // Restore any saved buffer from previous call.
     _processor->setupBuffer(&cp, &eod);
 
 
-// Need to decompress the record here.
-    size_t nSlices = _decomp->decompressSPEC((const uint16_t *)cp, _uncompressedData);
+    uint16_t *wp = (uint16_t *)cp;
+    int nImgWords;
 
-std::cout << "  nSlices = " << nSlices << ", " << nSlices*8<<"\n";
-
-return false;  // Remove when ready.
-
-    // Loop through all slices in record.
-
-// quiet compiler warning until we are ready to complete this function.
-//    long long firstTimeWord = 0;        // First timing word in this record.
-
-    for (; cp < eod - (wordSize - 1); )
+    for (size_t j = 0; j < 2043; ++j)   // want at least 5 words, otherwise save
     {
-        /* Four cases, syncWord, overloadWord, blank or legitimate slice.
-         * sync & overload words come at the end of the particle.  In the
-         * case of the this probe, the time word is embedded in the sync
-         * and overload word.
-         */
+        cp = (uint8_t *)&wp[j];
 
-        // possible start of particle slice if it isn't a sync or overload word
-        const unsigned char* sos = cp;
-
-        /* Scan next 8 bytes starting at current pointer, cp, for
-         * a possible syncWord or overloadWord */
-        const unsigned char* eow = cp + wordSize;
-
-        for (; cp < eow; ++cp) {
-            if (*cp == _syncString[0]) { // start of possible particle string
-                if (cp + wordSize > eod) {
-                    _processor->createSamples(samp->getTimeTag(), results);
-                    _processor->saveBuffer(cp,eod);
-                    return !results.empty();
-                }
-                if (cp[1] == _syncString[1]) {  // is a syncWord
-                    _processor->_totalParticles++;
-/*
-
-                    if (firstTimeWord == 0)
-                        firstTimeWord = thisTimeWord;
-
-                    // Approx microseconds since start of record.
-                    long long thisParticleTime = startTime + (thisTimeWord - firstTimeWord);
-
-
-                    // This is incomplete, needs to be fully flushed out.
-                    // See TwoD64_USB.cc  This will be the same but different.
-*/
-                }
-            }
+        if (wp[j] == _spec->FlushWord)          // NL flush buffer
+        {
+            // we want to make sure the buffer is discarded, there is no more data
+            DLOG( ("NL flush @ idx = ") << j );
+            _processor->createSamples(samp->getTimeTag(), results);
+            eod = cp;
+            _processor->saveBuffer(cp, eod);
+            return !results.empty();
         }
-        if (sos) {
-            // scan 8 bytes of particle
-            // If a blank string, then next word should be sync, otherwise discard it
-            if (::memcmp(sos,_blankString,sizeof(_blankString)) != 0) {
-                _processor->processParticleSlice(_processor->_particle, sos);
+
+
+        // Start of particle
+        if ( _spec->isParticleSyncWord(&wp[j]) )
+        {
+            std::cout << " start of particle, j=" << j << " NH/NV=" << wp[j+1] << ", "
+                    << wp[j+2] << std::endl;
+
+            memcpy(_compressedParticle, &wp[j], 5 * sizeof(uint16_t));
+            j += 5;
+            nImgWords = _spec->extractNimageWords(_compressedParticle); // get number of image words to copy
+
+            bool reject = false;
+            if (nImgWords == 0 || nImgWords > 950) // seems runaway @ 960ish
+                reject = true;
+
+            // I am choosing not to deal with multi-packet particles.  If you do, then
+            // make sure to understand that only the last packet has a timing word.
+            if (_compressedParticle[_spec->ID] == _prevParticleID || _spec->_multiPacketParticle)
+                reject = true;
+
+            _prevParticleID = _compressedParticle[_spec->ID];
+
+            if (reject)
+            {
+                j += nImgWords -1;
+                continue;
             }
-            cp = sos + wordSize;
+
+            if (j + nImgWords > 2048)   // Crosses into next buffer
+            {
+                // Save off and leave.
+                DLOG( (" short image, j=") << j << ", n=" << nImgWords);
+                break;
+            }
+
+            memcpy(&_compressedParticle[5], &wp[j], nImgWords * sizeof(uint16_t));
+            j += (nImgWords-1);
+
+            // Decompress particle and get stats.
+            _processor->_particle.zero();
+            _processor->_totalParticles++;
+            size_t nSlices = _spec->decompressParticle(_compressedParticle, _uncompressedParticle);
+            for (size_t k = 0; k < nSlices; ++k)
+            {
+                _processor->processParticleSlice(&_uncompressedParticle[k*16]);
+            }
+
+            // Get time
+            long long thisTimeWord = ((unsigned long *)&_compressedParticle[nImgWords-3])[0] & _timingWordMask;
+//                        (bigEndian->int64Value(cp) & _timeWordMask) /_probeClockRate;
+// @TODO  equivelant of probe clock rate???
+//   freq = probe.resolution / (1.0e6 * tas);
+
+
+            if (firstTimeWord == 0)
+                firstTimeWord = thisTimeWord;
+
+            // Record time tag minus approx microseconds since start of record.
+            long long thisParticleTime = startTime + (thisTimeWord - firstTimeWord);
+
+
+            _processor->countParticle(0);
+            _processor->createSamples(thisParticleTime, results);
+
         }
     }
 
     _processor->createSamples(samp->getTimeTag(), results);
 
     /* Data left in image block, save it in order to pre-pend to next image block */
-    _processor->saveBuffer(cp,eod);
+    _processor->saveBuffer(cp, eod);
 
-    return false;
+    return !results.empty();
 }
 
 /*---------------------------------------------------------------------------*/
