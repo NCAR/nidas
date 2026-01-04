@@ -188,7 +188,7 @@ void TwoD_Processing::createSamples(dsm_time_t nextTimeTag,list < const Sample *
 }
 
 /*---------------------------------------------------------------------------*/
-void TwoD_Processing::processParticleSlice(Particle& p, const unsigned char * data)
+void TwoD_Processing::processParticleSlice(const unsigned char * data)
 {
     int nBytes = NumberOfDiodes() / 8;
 
@@ -199,21 +199,21 @@ void TwoD_Processing::processParticleSlice(Particle& p, const unsigned char * da
     for (int i = 0; i < nBytes; ++i)
         slice[i] = ~(data[i]);
 
-    p.width++;
+    _particle.width++;
 
     if ((slice[0] & 0x80)) { // touched edge
-        p.edgeTouch |= 0x0F;
+        _particle.edgeTouch |= 0x0F;
     }
 
     if ((slice[nBytes-1] & 0x01)) { // touched edge
-        p.edgeTouch |= 0xF0;
+        _particle.edgeTouch |= 0xF0;
     }
 
     // Compute area = number of bits set in particle
     for (int i = 0; i < nBytes; ++i)
     {
         unsigned char c = slice[i];
-        for (; c; p.area++)
+        for (; c; _particle.area++)
             c &= c - 1; // clear the least significant bit set
     }
 
@@ -252,7 +252,7 @@ void TwoD_Processing::processParticleSlice(Particle& p, const unsigned char * da
     }
 
     if (h > 0)
-        p.height = std::max((unsigned)h, p.height);
+        _particle.height = std::max((unsigned)h, _particle.height);
 }
 
 /*---------------------------------------------------------------------------*/
@@ -290,16 +290,16 @@ bool TwoD_Processing::acceptThisParticle2D(const Particle& p) const
 
 
 /*---------------------------------------------------------------------------*/
-void TwoD_Processing::countParticle(const Particle& p, float /* resolutionUsec */)
+void TwoD_Processing::countParticle(float /* resolutionUsec */)
 {
     static n_u::LogContext sdlog(LOG_VERBOSE, "slice_debug");
     static n_u::LogMessage sdmsg(&sdlog);
 
     // 1D
-    if (acceptThisParticle1D(p))
+    if (acceptThisParticle1D(_particle))
     {
-        _counts_1D[p.height]++;
-        _totalPixelsShadowed += p.area;
+        _counts_1D[_particle.height]++;
+        _totalPixelsShadowed += _particle.area;
     }
     else
     {
@@ -308,9 +308,9 @@ void TwoD_Processing::countParticle(const Particle& p, float /* resolutionUsec *
     }
 
     // 2D - Center-in algo
-    if (acceptThisParticle2D(p))
+    if (acceptThisParticle2D(_particle))
     {
-        size_t n = std::max(p.height, p.width);
+        size_t n = std::max(_particle.height, _particle.width);
         if (n < (NumberOfDiodes()<<1))
             _counts_2D[n]++;
         else

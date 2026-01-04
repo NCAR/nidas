@@ -436,7 +436,7 @@ bool TwoD64_USB::processImageRecord(const Sample * samp,
                     // and syncword then ignore last particle.
                     if (cp == sos)
                     {
-                        _processor->countParticle(_processor->_particle, resolutionUsec);
+                        _processor->countParticle(resolutionUsec);
                     }
 #ifdef SLICE_DEBUG
                     else if (sdlog.active())
@@ -469,7 +469,7 @@ bool TwoD64_USB::processImageRecord(const Sample * samp,
             // scan 8 bytes of particle
             // If a blank string, then next word should be sync, otherwise discard it
             if (::memcmp(sos,_blankString,sizeof(_blankString)) != 0) {
-                _processor->processParticleSlice(_processor->_particle, sos);
+                _processor->processParticleSlice(sos);
             }
             cp = sos + wordSize;
         }

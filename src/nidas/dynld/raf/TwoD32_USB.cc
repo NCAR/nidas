@@ -184,10 +184,10 @@ bool TwoD32_USB::processImage(const Sample * samp,
         }
         if (sos) {
             if (::memcmp(sos,_blankString,sizeof(_blankString)) == 0) {
-                _processor->countParticle(_processor->_particle, resolutionUsec);
+                _processor->countParticle(resolutionUsec);
                 _processor->_particle.zero();
             }
-            else _processor->processParticleSlice(_processor->_particle, sos);
+            else _processor->processParticleSlice(sos);
             cp = sos + wordSize;
         }
     }

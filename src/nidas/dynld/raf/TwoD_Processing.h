@@ -114,18 +114,17 @@ public:
     /**
      * Process a slice and update the Particle struct area, edgeTouch, width
      * and height.
-     * @param p is particle info class.
      * @param slice is a pointer to the start of the slice, in big-endian and
      * uncomplemented.
      */
-    virtual void processParticleSlice(Particle& p, const unsigned char * slice);
+    virtual void processParticleSlice(const unsigned char * slice);
 
     /**
      * Look at particle stats/info and decide whether to accept or reject.
      * @param p is the particle information.
      * @param resolutionUsec is the current probe clocking rate.
      */
-    virtual void countParticle(const Particle& p, float resolutionUsec);
+    virtual void countParticle(float resolutionUsec);
 
 //@{
     /**
