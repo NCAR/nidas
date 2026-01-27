@@ -535,6 +535,12 @@ private:
     NidasAppArg FormatTimeISO;
     NidasAppArg CSV;
     BadSampleFilterArg FilterArg;
+    NidasAppArg TimeFormat{
+        "--timeformat", "<format>",
+        "Specify strftime(3) format for timestamps.  "
+        "Use %.6f for full microsecond resolution.",
+        DEFTIMEFMT
+    };
 };
 
 #define ISOFORMAT "%Y-%m-%dT%H:%M:%S.%4f"
@@ -573,7 +579,8 @@ DataDump::parseRunstring(int argc, char** argv)
                         app.SampleRanges | app.StartTime | app.EndTime |
                         app.Version | app.InputFiles | app.ProcessData |
                         app.Help | app.Version | WarnTime | NoDeltaT | NoLen |
-                        FormatTimeISO | CSV | FilterArg | app.Precision);
+                        FormatTimeISO | CSV | FilterArg | app.Precision |
+                        TimeFormat);
 
     app.InputFiles.allowFiles = true;
     app.InputFiles.allowSockets = true;
@@ -820,6 +827,9 @@ DataDump::run() throw()
 
         if (FormatTimeISO.asBool())
             dumper.setTimeFormat(ISOFORMAT);
+
+        if (TimeFormat.specified())
+            dumper.setTimeFormat(TimeFormat.getValue());
 
         if (app.processData())
         {
