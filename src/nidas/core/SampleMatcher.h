@@ -15,9 +15,41 @@
 
 namespace nidas { namespace core {
 
+
+/**
+ * Match a range of DSM IDs and Sample IDs, with optional time and filename
+ * criteria, and optional target ID ranges for remapping.  A default
+ * RangeMatcher does not match any samples because it has no DSM ID range, but
+ * otherwise it matches all samples, times, and filenames.  SampleMatcher uses
+ * multiple RangeMatchers to implement complex selection criteria.  See
+ * SampleMatcher::addCriteria() for the text syntax used to configure a
+ * RangeMatcher.
+ * 
+ * ID remapping only happens if target ID ranges are specified and only by a
+ * call to remap_ids().  The match methods does not change any IDs.
+ **/
 class RangeMatcher
 {
 public:
+
+    struct id_range_t
+    {
+        id_range_t() = default;
+
+        id_range_t(int id) :
+           first(id),
+           last(id)
+        {}
+
+        id_range_t(int b, int e) :
+           first(b),
+           last(e)
+        {}
+
+        int first{0};
+        int last{0};
+    };
+
     using UTime = nidas::util::UTime;
 
     static const int MATCH_FIRST;
@@ -45,15 +77,15 @@ public:
 
     RangeMatcher& set_dsm(int dsm1_, int dsm2_)
     {
-        dsm1 = dsm1_;
-        dsm2 = dsm2_;
+        dsms.first = dsm1_;
+        dsms.last = dsm2_;
         return *this;
     }
 
     RangeMatcher& set_sid(int sid1_, int sid2_)
     {
-        sid1 = sid1_;
-        sid2 = sid2_;
+        sids.first = sid1_;
+        sids.last = sid2_;
         return *this;
     }
 
@@ -77,6 +109,9 @@ public:
     bool
     match(int dsmid, int sid);
 
+    void
+    remap_ids(int& dsmid, int& sid);
+
     /**
      * Return true when @p stime is within the time range or if no time range
      * has been specified, or @p stime is MATCH_ALL_TIME.
@@ -97,14 +132,16 @@ public:
     void
     set_first_dsm(int dsmid);
 
-    int dsm1{0};
-    int dsm2{0};
-    int sid1{MATCH_ALL};
-    int sid2{MATCH_ALL};
+    id_range_t dsms{0};
+    id_range_t sids{MATCH_ALL};
+
     dsm_time_t time1{UTime::MIN.toUsecs()};
     dsm_time_t time2{UTime::MAX.toUsecs()};
     std::string file_pattern{};
     bool include{false};
+
+    id_range_t target_dsms{0};
+    id_range_t target_sids{0};
 };
 
 /**
@@ -126,26 +163,31 @@ public:
     /**
      * Add a sample range using this syntax:
      * @verbatim
-     *   [^]{<d1>[-<d2>|*},{<s1>[-<s2>]|*},[<t1>,<t2>],file=<pattern>
+     *   [^]{<d1>[-<d2>|*[=D]},{<s1>[-<s2>]|*[=S]},[<t1>,<t2>],file=<pattern>
      * @endverbatim
      * The leading '^' will exclude any sample IDs in the given range
      * instead of including them.  The '*' matches any ID.  The older
      * convention where -1 matches all IDs is still supported.
-     * 
+     *
      * An empty criteria string is allowed and valid but changes nothing.
-     * 
+     *
      * The time range is optional and defaults to all times.  The begin or end
      * time of the range can be omitted, but not both.  Timestamps are
      * accepted in multiple formats, but without any commas or spaces.  The
      * time range is inclusive.  For example,
      * [2023-08-10_12:00:00,2023-08-10_13:00:00] includes samples from 12:00
      * to 13:00 on August 10, 2023 UTC.
-     * 
+     *
      * The file pattern is optional and defaults to all files.  The pattern is
      * not a regular expression, it just must be found as a substring in the
      * name of the input stream, which is the filename in the case of datafile
      * streams. The pattern is case-insensitive.
-     * 
+     *
+     * Target DSM and Sample ID ranges can be specified using '=D' and '=S',
+     * where D and S are either a single ID or a range using the same syntax
+     * as the source. The target range must be a single ID, or it must be the
+     * same size as the source range.
+     *
      * @throws nidas::util::ParseException explaining the parse error
      **/
     void
@@ -170,6 +212,14 @@ public:
      **/
     bool
     match(const Sample* samp, const std::string& inputname="");
+
+    /**
+     * Like match(), but if the sample matches a range with target IDs, then
+     * reassign the sample's ID accordingly.  Returns true if the sample
+     * matches, even if the ID is not changed.
+     */
+    bool
+    match_with_reassign(Sample* samp, const std::string& inputname="");
 
     /**
      * Return true if this matcher can only match a single ID pair
@@ -247,6 +297,11 @@ public:
     }
 
 private:
+
+    bool
+    match_range(dsm_sample_id_t id, dsm_time_t tt,
+                const std::string& filename, RangeMatcher** rm_out = nullptr);
+
     using id_lookup_t = std::unordered_map<dsm_sample_id_t, bool> ;
     using range_matches_t = std::vector<RangeMatcher>;
 
