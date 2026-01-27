@@ -287,20 +287,12 @@ int NidsMerge::parseRunstring(int argc, char** argv)
          "Example: -c $ISFF/projects/AHATS/ISFF/config/ahats.xml\n"
          "Any environment variable expansions should be single-quoted\n"
          "if they should not be replaced by the shell.");
-    NidasAppArg OutputFileLength
-        ("-l,--length", "seconds",
-         "Set length of output files in seconds.  This option is deprecated\n"
-         "since it conflicts with the standard -l option for logging.\n"
-         "Instead, use the @<seconds> output file name suffix to specify\n"
-         "the output file length. The @ specifier takes precedence.\n"
-         "Output file length is required if the output filename contains\n"
-         "time specifiers.");
 
     app.enableArguments(app.LogConfig | app.LogShow | app.LogFields |
                         app.LogParam | app.StartTime | app.EndTime |
                         app.OutputFiles | app.Clipping | KeepOpening |
                         FilterArg | InputFileSet | InputFileSetFile |
-                        ReadAhead | ConfigName | OutputFileLength |
+                        ReadAhead | ConfigName | app.OutputFileLength |
                         app.SampleRanges | PrintHeader |
                         app.Version | app.Help);
     // -i conflicts with input specifiers, so require --samples
@@ -318,18 +310,7 @@ int NidsMerge::parseRunstring(int argc, char** argv)
     // they occur on the command-line.
     while ((arg = app.parseNext()))
     {
-        if (arg == &OutputFileLength)
-            outputFileLength = OutputFileLength.asInt();
-        else if (arg == &app.OutputFiles)
-        {
-            // Use the length suffix if given with the output,
-            // otherwise revert to the last length option.
-            if (app.outputFileLength() == 0 && OutputFileLength.specified())
-                outputFileLength = OutputFileLength.asInt();
-            else
-                outputFileLength = app.outputFileLength();
-        }
-        else if (arg == &InputFileSet)
+        if (arg == &InputFileSet)
         {
             // First argument has already been retrieved.
             list<string> fileNames;
@@ -387,19 +368,11 @@ int NidsMerge::parseRunstring(int argc, char** argv)
     configName = ConfigName.getValue();
     startTime = app.getStartTime();
     endTime = app.getEndTime();
+
+    app.validateOutput();
     outputFileName = app.outputFileName();
-    if (outputFileName.length() == 0)
-    {
-        xmsg << "Output file name is required.";
-        throw NidasAppException(xmsg.str());
-    }
-    if (outputFileLength == 0 &&
-        outputFileName.find('%') != string::npos)
-    {
-        xmsg << "Output file length is required for "
-                "output filenames with time specifiers.";
-        throw NidasAppException(xmsg.str());
-    }
+    outputFileLength = app.outputFileLength();
+
     if (requiretimes && (startTime.isMin() || endTime.isMax()))
     {
         xmsg << "Start and end times must be set when a fileset uses "

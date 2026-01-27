@@ -75,6 +75,9 @@ namespace nidas {
 namespace core {
 
 
+const std::string NidasAppInputFilesArg::DEFAULT_INPUT_SPEC{"sock:localhost"};
+
+
 NidasAppArg::
 NidasAppArg(const std::string& flags,
 	    const std::string& syntax,
@@ -369,7 +372,7 @@ usage(const std::string& indent, bool brief)
   if (!_default.empty())
     oss << " [default: " << _default << "]";
 
-  if (!brief)
+  if (!brief || _usage.empty())
     oss << "\n";
 
   std::istringstream iss(_usage);
@@ -490,11 +493,12 @@ matching message is enabled unless the config includes the "disable" field, so
   ("-e,--end", "<end-time>",
    "End samples at end-time, in the form 'YYYY {MMM|mm} dd HH:MM[:SS]'"),
   SampleRanges
-  ("-i,--samples", "[^]{<d1>[-<d2>]|*|/}[,{<s1>[-<s2>]|*|/}]"
-                   ",[<t1>,<t2>],file=<pattern>",
-   R"(D is a range of dsm ids 'd1-d2', or /, *, or -1 for all, or '.'.
-S is a range of sample IDs 's1-s2', or all IDs if *, /, -1, or omitted.
-Sample ids can be specified in 0x hex format with a leading 0x, in which case
+  ("-i,--samples", "[^]{<d1>[-<d2>]|/.*}[=D],{<s1>[-<s2>]|*|/}[=S],"
+                   "[<t1>,<t2>],file=<pattern>",
+   R"(
+The first field is a range of dsm ids 'd1-d2', or /, *, or -1 for all, or '.'.
+The 's1-s2' is a range of sample IDs, or all IDs if *, /, -1, or omitted.
+Sample ids can be specified in hex format with a leading 0x, in which case
 the output format is set to hex.  A DSM ID of '.' matches the DSM of the first
 sample received.  Prefix the range option with ^ to exclude that range of
 samples.  Multiple range options can be specified.  Samples are included or
@@ -510,6 +514,12 @@ on August 10, 2023 UTC.  The brackets are required to identify the time range.
 When file pattern is given, a sample matches only if the pattern is found as a
 case-sensitive substring in the input stream name, which for datafile streams
 is the filename.  The filename criteria requires the file= prefix.
+
+For applications which can reassign DSM and Sample IDs, append =D or =S to
+the DSM and Sample ID ranges, where D and S are explicit ID ranges in the same
+form as d1-d2 and s1-s2.  For example, to remap samples from DSMs 1-10 to
+DSMs 101-110, use 1-10=101-110.  The target ranges must have the same number
+of IDs as the source or be a single ID to which all source IDs are assigned.
 
 Examples:
  --samples /
@@ -851,11 +861,11 @@ parseNext()
     {
       if ((*it)->parse(_argv, &i))
       {
-	arg = *it;
-	// Remove arguments [istart, i], and leave _argi pointing at the
-	// next argument which moves into that spot.
-	_argv.erase(_argv.begin() + _argi, _argv.begin() + i + 1);
-	break;
+        arg = *it;
+        // Remove arguments [istart, i], and leave _argi pointing at the
+        // next argument which moves into that spot.
+        _argv.erase(_argv.begin() + _argi, _argv.begin() + i + 1);
+        break;
       }
     }
     if (!arg && _argv[i].substr(0, 1) == "-" && !allowUnrecognized())
@@ -954,6 +964,10 @@ parseNext()
   {
     parseOutput(OutputFiles.getValue());
   }
+  else if (arg == &OutputFileLength)
+  {
+    _outputFileLength = OutputFileLength.asInt();
+  }
   else if (arg == &Version)
   {
     std::cout << "Version: " << Version::getSoftwareVersion() << std::endl;
@@ -1012,19 +1026,11 @@ parseArgs(const ArgVector& args)
 
 void
 NidasApp::
-parseInputs(const std::vector<std::string>& inputs_,
-	    std::string default_input,
-	    int default_port)
+parseInputs(const std::vector<std::string>& inputs_)
 {
+  std::string default_input = InputFiles.default_input;
+  int default_port = InputFiles.default_port;
   std::vector<std::string> inputs(inputs_);
-  if (default_input.length() == 0)
-  {
-    default_input = InputFiles.default_input;
-  }
-  if (default_port == 0)
-  {
-    default_port = InputFiles.default_port;
-  }
   if (inputs.empty() && default_input.length() > 0)
   {
     inputs.push_back(default_input);
@@ -1038,18 +1044,18 @@ parseInputs(const std::vector<std::string>& inputs_,
       int port = default_port;
       string hostName = url.substr(0,ic);
       if (ic < string::npos) {
-	std::istringstream ist(url.substr(ic+1));
-	ist >> port;
-	if (ist.fail()) {
-	  throw NidasAppException("Invalid port number: " + url.substr(ic+1));
-	}
+        std::istringstream ist(url.substr(ic+1));
+        ist >> port;
+        if (ist.fail() || port <= 0 || port > 65535) {
+          throw NidasAppException("Invalid port number: " + url.substr(ic+1));
+        }
       }
       try {
-	n_u::Inet4Address addr = n_u::Inet4Address::getByName(hostName);
-	_sockAddr.reset(new n_u::Inet4SocketAddress(addr,port));
+        n_u::Inet4Address addr = n_u::Inet4Address::getByName(hostName);
+        _sockAddr.reset(new n_u::Inet4SocketAddress(addr,port));
       }
       catch(const n_u::UnknownHostException& e) {
-	throw NidasAppException(e.what());
+        throw NidasAppException(e.what());
       }
     }
     else if (url.length() > 5 && !url.compare(0,5,"unix:")) {
@@ -1113,6 +1119,13 @@ parseOutput(const std::string& optarg)
       throw NidasAppException("invalid length specifier: " + optarg);
     }
   }
+
+  // Use the length suffix if given with the output, otherwise revert to the
+  // last length option.  The length option can only have an effect if it has
+  // been enabled by the application.
+  if (length == 0 && OutputFileLength.specified())
+      length = OutputFileLength.asInt();
+
   // If no output length suffix was specified, then the output length is
   // reset to zero.  This way the current settings match with the most
   // recent output option on the command line, rather than possibly
@@ -1120,6 +1133,27 @@ parseOutput(const std::string& optarg)
   // name.
   _outputFileLength = length;
   _outputFileName = output;
+}
+
+
+void
+NidasApp::
+validateOutput()
+{
+    std::ostringstream xmsg;
+
+    if (_outputFileName.length() == 0)
+    {
+        xmsg << "Output file name is required.";
+        throw NidasAppException(xmsg.str());
+    }
+    if (_outputFileLength <= 0 &&
+        _outputFileName.find('%') != string::npos)
+    {
+        xmsg << "Positive file length required for "
+                "output filenames with time specifiers.";
+        throw NidasAppException(xmsg.str());
+    }
 }
 
 
@@ -1305,17 +1339,36 @@ getProject()
 
 void
 NidasAppInputFilesArg::
+setDefaultInput(const std::string& spec, int port)
+{
+  default_input = spec;
+  default_port = port;
+  updateUsage();
+}
+
+
+NidasAppInputFilesArg::
+NidasAppInputFilesArg() :
+  NidasAppArg("", "input-spec [...]"),
+  allowFiles(true),
+  allowSockets(true),
+  default_input(),
+  default_port(DEFAULT_INPUT_PORT)
+{
+  updateUsage();
+}
+
+
+void
+NidasAppInputFilesArg::
 updateUsage()
 {
   std::ostringstream oss;
-  oss << "input-url: One of the following:\n";
-  if (allowSockets && default_port > 0)
-  {
-    oss << "  sock:host[:port]    (Default port is " << default_port
-	<< ")\n";
-  }
+  oss << "input-spec: One of the following:\n";
   if (allowSockets)
   {
+    oss << "  sock:host[:port]    (Default port is " << default_port
+        << ")\n";
     oss << "  unix:sockpath       unix socket name\n";
   }
   if (allowFiles)
@@ -1323,7 +1376,7 @@ updateUsage()
     oss << "  path [...]          file names\n";
   }
   if (default_input.length())
-    oss << "Default inputURL is \"" << default_input << "\"\n";
+    oss << "Default input specifier is \"" << default_input << "\"\n";
   setUsageString(oss.str());
 }
 
