@@ -18,6 +18,16 @@ known as [buster].
 
 ## [master] - Unreleased on master branch
 
+- `sensor_extract` now uses the more common NIDAS command arguments,
+  especially `--samples` to select samples by DSM and Sensor ID. The
+  `--samples` syntax can now include target IDs to which the source IDs should
+  be reassigned, but so far only `sensor_extract` implements reassignment. Use
+  `--help` to see the full argument syntax.
+
+- `data_dump` now has a `--timeformat` argument to set the sample time format
+  using strftime(3) specifiers.  In particular, this allows `data_dump` to
+  print full microsecond time resolution by including `%.6f` in the specifier.
+
 - The `CSI_IRGA_Sonic` sensor class now supports the despiking flags `uflag`,
   `vflag`, `wflag`, and `tcflag`.  It was possible before to enable despiking
   and replace the wind components in the processed output, but it was not
