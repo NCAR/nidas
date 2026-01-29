@@ -36,8 +36,7 @@
 #ifdef __KERNEL__
 #include <linux/types.h>
 #else
-#include <sys/types.h>
-#include <stdint.h>
+#include <cstdint> // uint32_t, int32_t, int64_t
 #endif
 
 /**
@@ -48,7 +47,7 @@
 typedef int dsm_sample_time_t;
 
 /** length of data portion of sample. */
-typedef unsigned int dsm_sample_length_t;
+typedef uint32_t dsm_sample_length_t;
 
 /*
  * A data sample as it is passed from kernel-level drivers
