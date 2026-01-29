@@ -551,6 +551,22 @@ void clearNonIncr(SortedSampleSet3& nonincr)
     nonincr.erase(rsb, rse);
 }
 
+
+Sample*
+duplicateSample(const Sample* samp)
+{
+    // make a copy of the sample, preserving its data type
+    Sample* dup = nidas::core::getSample(samp->getType(),
+                                         samp->getDataByteLength());
+    dup->setId(samp->getId());
+    assert(dup->getDataByteLength() == samp->getDataByteLength());
+    ::memcpy(dup->getVoidDataPtr(), samp->getConstVoidDataPtr(),
+             samp->getDataByteLength());
+
+    return dup;
+}
+
+
 int NidsMerge::run()
 {
     nidas::core::FileSet* outSet = FileSet::createFileSet(outputFileName);
@@ -668,11 +684,7 @@ int NidsMerge::run()
                         ", nnonincr=" << nonincr.size() << endl;
 #endif
                     // make a copy of the sample with 1 microsecond added to the time tag
-                    Sample* corsamp = getSample<char>(samp->getDataByteLength());
-                    corsamp->setId(samp->getId());
-                    assert(corsamp->getDataByteLength() == samp->getDataByteLength());
-                    ::memcpy(corsamp->getVoidDataPtr(), samp->getVoidDataPtr(), samp->getDataByteLength());
-
+                    Sample* corsamp = duplicateSample(samp);
                     corsamp->setTimeTag(i2->second + 1);
                     lastTime = corsamp->getTimeTag();
                     lastTTsForInput[input][corsamp->getRawId()] = lastTime;
