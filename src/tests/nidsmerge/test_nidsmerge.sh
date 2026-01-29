@@ -104,5 +104,13 @@ run_merge $times --samples ^2,10,file=isfs_ --samples /,file=isfs_ --samples /,f
 data_stats outputs/merged_20230731_0401_filter_network_sonic.dat.bz2 > outputs/m2hats_merged_filter_network_sonic.stats.txt
 run_diff outputs/m2hats_baseline.stats.txt outputs/m2hats_merged_filter_network_sonic.stats.txt
 
+# Two samples in the output will be adjusted forward to offsets of 1 and 2
+# microseconds.
+dumpfile=channel2_20230920_005950_merged.dump.txt
+echo ...merge single file with non-increasing times and non-char samples
+run_merge -i channel2_20230920_005950.dat -o outputs/channel2_20230920_005950_merged.dat
+data_dump -i /,501 -i /,512 --timeformat "%Y-%m-%d_%H:%M:%S.%6f" outputs/channel2_20230920_005950_merged.dat > outputs/$dumpfile
+run_diff baseline/$dumpfile outputs/$dumpfile
+
 echo
 echo "OK.  All tests passed."
