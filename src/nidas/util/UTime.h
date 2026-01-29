@@ -37,16 +37,10 @@
 #include <ctime>
 #include <iostream>
 #include <cctype>
-#include <cmath>
-#include <climits>
-
-#include <locale>
+#include <cmath> // floor() and rint()
 #include <string>
 
-#include "ThreadSupport.h"
-#include "ParseException.h"
 #include "time_constants.h"
-#include "IOException.h"
 
 
 namespace nidas { namespace util {
@@ -523,9 +517,6 @@ private:
     bool _utc;
 
     static std::string _defaultFormat;
-
-    static Mutex _fmtMutex;
-
 };
 
 /**
