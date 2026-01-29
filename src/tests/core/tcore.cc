@@ -6,6 +6,7 @@ using boost::unit_test_framework::test_suite;
 #include <boost/regex.hpp>
 
 #include <nidas/core/NidasApp.h>
+#include <nidas/util/ParseException.h>
 
 #include <sys/types.h>
 #include <signal.h>

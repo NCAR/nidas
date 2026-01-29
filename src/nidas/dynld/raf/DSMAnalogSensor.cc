@@ -33,6 +33,8 @@
 #include <nidas/core/DSMEngine.h>
 
 #include <nidas/util/Logger.h>
+#include <nidas/util/ParseException.h>
+#include <nidas/util/IOException.h>
 
 #include <cmath>
 

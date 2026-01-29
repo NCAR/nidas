@@ -4,6 +4,7 @@
 #include "Project.h"
 #include "Version.h"
 
+#include <nidas/util/ParseException.h>
 #include <nidas/util/Process.h>
 #include <nidas/core/FileSet.h>
 #include <nidas/core/SampleOutput.h>

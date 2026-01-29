@@ -1,8 +1,10 @@
 
 #include "SampleMatcher.h"
 #include <nidas/util/UTime.h>
+#include <nidas/util/ParseException.h>
 
 #include <stdexcept>
+#include <climits>
 
 using namespace nidas::core;
 using std::string;

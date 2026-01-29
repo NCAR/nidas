@@ -29,6 +29,7 @@
 #include <nidas/util/Logger.h>
 
 #include <cmath>
+#include <climits>
 #include <iostream>
 #include <iomanip>
 

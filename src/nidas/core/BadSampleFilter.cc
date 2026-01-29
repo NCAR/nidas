@@ -2,6 +2,8 @@
 // vim: set shiftwidth=4 softtabstop=4 expandtab:
 
 #include "BadSampleFilter.h"
+
+#include <nidas/util/ParseException.h>
 #include <functional>
 
 using nidas::core::BadSampleFilter;

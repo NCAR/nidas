@@ -48,6 +48,7 @@
 #include <sched.h>
 #include <signal.h>
 #include <cstdlib>
+#include <climits> // PATH_MAX
 #include <cstring> // strsignal()
 
 using namespace std;

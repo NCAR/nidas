@@ -8,6 +8,7 @@ using boost::unit_test_framework::test_suite;
 #include <nidas/core/Project.h>
 #include <memory>
 #include <nidas/util/util.h>
+#include <math.h>
 
 using namespace nidas::util;
 using namespace nidas::core;

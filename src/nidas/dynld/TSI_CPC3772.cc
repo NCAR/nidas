@@ -29,6 +29,8 @@
 
 #include <sstream>
 
+#include <math.h>
+
 using namespace nidas::dynld;
 using namespace nidas::core;
 using namespace std;
