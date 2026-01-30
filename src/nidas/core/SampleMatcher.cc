@@ -442,7 +442,7 @@ match_with_reassign(Sample* samp, const std::string& inputname)
     return false;
   }
   // If the matched range has target dsms or sids, then remap the id.
-  if (rm && rm->target_dsms.first && rm->target_sids.first)
+  if (rm && (rm->target_dsms.first || rm->target_sids.first))
   {
     int did = GET_DSM_ID(sampid);
     int sid = GET_SPS_ID(sampid);
