@@ -29,6 +29,7 @@
 #include <nidas/core/PhysConstants.h>
 #include <nidas/util/Logger.h>
 #include <stdlib.h>
+#include <math.h>
 
 using namespace std;
 using namespace nidas::dynld::raf;

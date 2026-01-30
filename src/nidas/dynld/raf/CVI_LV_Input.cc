@@ -26,6 +26,9 @@
 
 #include "CVI_LV_Input.h"
 #include <nidas/core/ServerSocketIODevice.h>
+#include <nidas/util/time_constants.h>
+
+#include <math.h>
 
 using namespace nidas::core;
 using namespace nidas::dynld::raf;

@@ -26,6 +26,8 @@
 
 #include <iostream>
 #include <nidas/core/CalFile.h>
+#include <nidas/util/ParseException.h>
+#include <nidas/util/IOException.h>
 
 using namespace nidas::core;
 using namespace std;

@@ -30,6 +30,8 @@
 #include "CalFile.h"
 #include <nidas/util/Logger.h>
 #include <nidas/util/UTime.h>
+#include <nidas/util/ParseException.h>
+#include <nidas/util/IOException.h>
 
 #include <iomanip>
 

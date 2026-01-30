@@ -30,6 +30,7 @@
 #include "DSMEngine.h"
 
 #include <nidas/util/Process.h>
+#include <nidas/util/ParseException.h>
 
 #include <iostream>
 #include <sys/stat.h>

@@ -1,8 +1,10 @@
 
 #include "SampleMatcher.h"
 #include <nidas/util/UTime.h>
+#include <nidas/util/ParseException.h>
 
 #include <stdexcept>
+#include <climits>
 
 using namespace nidas::core;
 using std::string;
@@ -66,9 +68,66 @@ parse_range(const std::string& rngstr, int& rngid1, int& rngid2)
   else
   {
     rngid1 = rngid2 = int_from_string(rngstr);
-    if ((rngid1 < 0 && rngid1 != -1) || (rngid2 < 0 && rngid2 != -1))
+    if ((rngid1 < 0 && rngid1 != RangeMatcher::MATCH_ALL) ||
+        (rngid2 < 0 && rngid2 != RangeMatcher::MATCH_ALL))
     {
       throw std::invalid_argument("only negative id allowed is -1");
+    }
+  }
+  if (rngid1 > rngid2)
+  {
+    throw std::invalid_argument("first range id is greater than second: " +
+                                rngstr);
+  }
+}
+
+
+/**
+ * Parse a range field into a source range and an optional target range. If no
+ * target range is specified, tid1 and tid2 are set to 0.
+ * 
+ * @throw invalid_argument on parse error
+ */
+static void
+parse_range_field(const std::string& rngstr, int& rngid1, int& rngid2,
+                  int& tid1, int& tid2)
+{
+  auto equals = rngstr.find('=');
+  if (equals != string::npos)
+  {
+    parse_range(rngstr.substr(0, equals), rngid1, rngid2);
+    parse_range(rngstr.substr(equals+1), tid1, tid2);
+    // target range cannot be MATCH_FIRST or MATCH_ALL
+    if (tid1 == RangeMatcher::MATCH_FIRST || tid1 == RangeMatcher::MATCH_ALL)
+    {
+      throw invalid_argument("target range must be explicit ids");
+    }
+  }
+  else
+  {
+    parse_range(rngstr, rngid1, rngid2);
+    tid1 = tid2 = 0;
+  }
+  if (tid1 != tid2 && (tid2 - tid1 != rngid2 - rngid1))
+  {
+    throw invalid_argument("target range must be length 1 or same as source");
+  }
+}
+
+
+static void remap_id(const RangeMatcher::id_range_t& source,
+                     const RangeMatcher::id_range_t& target,
+                     int& id)
+{
+  if (target.first != 0)
+  {
+    if (target.first == target.last)
+    {
+      id = target.first;
+    }
+    else
+    {
+      id = target.first + (id - source.first);
     }
   }
 }
@@ -119,7 +178,8 @@ parse_specifier(const std::string& specifier)
       }
       if (nfields == 1)
       {
-        parse_range(field, dsm1, dsm2);
+        parse_range_field(field, dsms.first, dsms.last,
+                          target_dsms.first, target_dsms.last);
       }
       else if (field[0] == '[')
       {
@@ -140,8 +200,9 @@ parse_specifier(const std::string& specifier)
       }
       else if (nfields == 2)
       {
-        parse_range(field, sid1, sid2);
-        if (sid1 == MATCH_FIRST)
+        parse_range_field(field, sids.first, sids.last,
+                          target_sids.first, target_sids.last);
+        if (sids.first == MATCH_FIRST)
         {
           throw invalid_argument("invalid use of . to match sample id");
         }
@@ -166,21 +227,31 @@ bool
 RangeMatcher::
 match(int dsmid, int sid)
 {
-  if (sid < sid1 || (sid > sid2 && sid2 >= 0))
+  if (sid < sids.first || (sid > sids.last && sids.last >= 0))
   {
     return false;
   }
   // set the first dsmid only once everything else matches
-  if (dsm1 == MATCH_FIRST)
+  if (dsms.first == MATCH_FIRST)
   {
-    dsm1 = dsm2 = dsmid;
+    dsms.first = dsms.last = dsmid;
   }
-  if (dsmid < dsm1 || (dsmid > dsm2 && dsm2 >= 0))
+  if (dsmid < dsms.first || (dsmid > dsms.last && dsms.last >= 0))
   {
     return false;
   }
   return true;
 }
+
+
+void
+RangeMatcher::
+remap_ids(int& dsmid, int& sid)
+{
+    remap_id(dsms, target_dsms, dsmid);
+    remap_id(sids, target_sids, sid);
+}
+
 
 
 bool
@@ -206,8 +277,8 @@ void
 RangeMatcher::
 set_first_dsm(int dsmid)
 {
-  if (dsm1 == MATCH_FIRST)
-    dsm1 = dsm2 = dsmid;
+  if (dsms.first == MATCH_FIRST)
+    dsms.first = dsms.last = dsmid;
 }
 
 
@@ -271,7 +342,8 @@ addCriteria(const RangeMatcher& rm)
 
 bool
 SampleMatcher::
-match(dsm_sample_id_t id, dsm_time_t tt, const std::string& filename)
+match_range(dsm_sample_id_t id, dsm_time_t tt, const std::string& filename,
+            RangeMatcher** rm_out)
 {
   ++_nsamples;
   id_lookup_t::iterator it = _lookup.find(id);
@@ -287,7 +359,7 @@ match(dsm_sample_id_t id, dsm_time_t tt, const std::string& filename)
     }
   }
   int did = GET_DSM_ID(id);
-  int sid = GET_SHORT_ID(id);
+  int sid = GET_SPS_ID(id);
 
   // it is feasible to defer this setting until a range first matches a
   // sample, and then fill in _just_ that range with the dsm id of that
@@ -328,7 +400,17 @@ match(dsm_sample_id_t id, dsm_time_t tt, const std::string& filename)
   // is no point in checking the other criteria next time.
   _lookup[id] = id_matched_range;
   _nexcluded += (!result);
+  if (rm_out)
+    *rm_out = (ri != _ranges.end() ? &(*ri) : nullptr);
   return result;
+}
+
+
+bool
+SampleMatcher::
+match(dsm_sample_id_t id, dsm_time_t tt, const std::string& filename)
+{
+    return match_range(id, tt, filename);
 }
 
 
@@ -349,14 +431,40 @@ match(const Sample* samp, const std::string& inputname)
 
 bool
 SampleMatcher::
+match_with_reassign(Sample* samp, const std::string& inputname)
+{
+  dsm_time_t tt = samp->getTimeTag();
+  dsm_sample_id_t sampid = samp->getId();
+  RangeMatcher* rm;
+  if (tt < _startTime.toUsecs() || tt > _endTime.toUsecs() ||
+      !match_range(sampid, tt, inputname, &rm))
+  {
+    return false;
+  }
+  // If the matched range has target dsms or sids, then remap the id.
+  if (rm && (rm->target_dsms.first || rm->target_sids.first))
+  {
+    int did = GET_DSM_ID(sampid);
+    int sid = GET_SPS_ID(sampid);
+    rm->remap_ids(did, sid);
+    samp->setDSMId(did);
+    samp->setSpSId(sid);
+  }
+  return true;
+}
+
+
+
+bool
+SampleMatcher::
 exclusiveMatch()
 {
   bool xc = false;
   if (_ranges.size() == 1)
   {
     range_matches_t::iterator ri = _ranges.begin();
-    xc = ((ri->dsm1 == ri->dsm2 && ri->dsm1 != -1) &&
-          (ri->sid1 == ri->sid2 && ri->sid1 != -1));
+    xc = ((ri->dsms.first == ri->dsms.last && ri->dsms.first != -1) &&
+          (ri->sids.first == ri->sids.last && ri->sids.first != -1));
   }
   return xc;
 }

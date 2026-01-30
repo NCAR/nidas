@@ -33,6 +33,7 @@
 
 #include <nidas/util/Logger.h>
 
+#include <cmath> // std::isnan
 #include <sstream>
 #include <limits>
 #include <algorithm>
@@ -154,6 +155,41 @@ Variable::~Variable()
     list<Parameter*>::const_iterator pi;
     for (pi = _parameters.begin(); pi != _parameters.end(); ++pi)
         delete *pi;
+}
+
+
+void Variable::setMinValue(float val)
+{
+    _minValue = val;
+    if (std::isnan(_plotRange[0])) _plotRange[0] = val;
+}
+
+float Variable::getMinValue() const
+{
+    return _minValue;
+}
+
+void Variable::setMaxValue(float val)
+{
+    _maxValue = val;
+    if (std::isnan(_plotRange[1])) _plotRange[1] = val;
+}
+
+float Variable::getMaxValue() const
+{
+    return _maxValue;
+}
+
+void Variable::setPlotRange(float minv,float maxv)
+{
+    _plotRange[0] = minv;
+    _plotRange[1] = maxv;
+}
+
+void Variable::getPlotRange(float& minv,float& maxv) const
+{
+    minv = _plotRange[0];
+    maxv = _plotRange[1];
 }
 
 

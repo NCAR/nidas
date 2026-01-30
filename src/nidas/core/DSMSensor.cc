@@ -401,6 +401,13 @@ void DSMSensor::init()
 {
 }
 
+
+void DSMSensor::setLagSecs(double val)
+{
+    _lag = (int) std::rint(val * USECS_PER_SEC);
+}
+
+
 bool DSMSensor::readSamples()
 {
     bool exhausted = readBuffer();

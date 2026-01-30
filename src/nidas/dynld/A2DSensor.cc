@@ -31,6 +31,7 @@
 #include <nidas/linux/diamond/dmd_mmat.h>
 
 #include <nidas/util/Logger.h>
+#include <nidas/util/ParseException.h>
 
 #include <cmath>
 

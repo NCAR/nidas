@@ -1057,10 +1057,7 @@ protected:
      * in derived classes must apply this lag value. The DSMSensor
      * base class does not adjust time tags of processed samples.
      */
-    virtual void setLagSecs(double val)
-    {
-        _lag = (int) rint(val * USECS_PER_SEC);
-    }
+    virtual void setLagSecs(double val);
 
     /**
      * Perform variable conversions for the variables in @p stag whose

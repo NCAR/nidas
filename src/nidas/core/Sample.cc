@@ -26,11 +26,14 @@
 
 #include "Sample.h"
 
+#include <cmath>
 #include <iostream>
+#include <cstring> // std::memcpy(), strcpy(), strlen()
+#include <limits> // std::numeric_limits<T>
 
-const float nidas::core::floatNAN = nanf("");
+const float nidas::core::floatNAN = std::nanf("");
 
-const double nidas::core::doubleNAN = nan("");
+const double nidas::core::doubleNAN = std::nan("");
 
 using namespace nidas::core;
 using namespace std;
@@ -67,6 +70,124 @@ static Sample::InitValgrind ig;
 
 #endif
 
+
+unsigned int SampleHeader::getMaxDataLength()
+{
+    return std::numeric_limits<dsm_sample_length_t>::max();
+}
+
+
+/**
+ * Allocate data.
+ * @param val: number of DataT's to allocated.
+ * 
+ * @throws SampleLengthException if the number of bytes for @p val DataT's
+ * is larger than the maximum value of dsm_sample_length_t.
+ */
+template <typename DataT>
+void SampleT<DataT>::allocateData(unsigned int val)
+{
+    if (val > getMaxDataLength())
+        throw SampleLengthException(
+            "SampleT::allocateData:", val, getMaxDataLength());
+    if (_allocLen < val * sizeof(DataT))
+    {
+        delete [] _data;
+        _data = new DataT[val];
+        _allocLen = val * sizeof(DataT);
+        setDataLength(0);
+    }
+}
+
+/**
+ * Re-allocate data, space, keeping contents.
+ * @param val: number of DataT's to allocated.
+ * 
+ * @throws SampleLengthException if the number of bytes for @p val DataT's
+ * is larger than the maximum value of dsm_sample_length_t.
+ */
+template <typename DataT>
+void SampleT<DataT>::reallocateData(unsigned int val)
+{
+    if (val > getMaxDataLength())
+        throw SampleLengthException(
+            "SampleT::reallocateData:", val, getMaxDataLength());
+    if (_allocLen < val * sizeof(DataT))
+    {
+        DataT* newdata = new DataT[val];
+        std::memcpy(newdata,_data,_allocLen);
+        delete [] _data;
+        _data = newdata;
+        _allocLen = val * sizeof(DataT);
+    }
+}
+
+template <typename DataT>
+void SampleT<DataT>::setValues(std::initializer_list<DataT> values)
+{
+    unsigned int len = values.size();
+    allocateData(len);
+    setDataLength(len);
+    unsigned int i = 0;
+    for (auto v : values)
+    {
+        _data[i++] = v;
+    }
+}
+
+template <typename DataT>
+SampleT<DataT>::SampleT(std::initializer_list<DataT> values) :
+    Sample(sample_type_traits<DataT>::sample_type_enum),
+    _data(0),_allocLen(0)
+{
+    setValues(values);
+}
+
+template <typename DataT>
+SampleT<DataT>::~SampleT()
+{
+    delete [] _data;
+}
+
+template <typename DataT>
+sampleType SampleT<DataT>:: getType() const
+{
+    return getSampleType(_data);
+}
+
+template <typename DataT>
+unsigned int SampleT<DataT>::getDataLength() const
+{
+    return getDataByteLength() / sizeof(DataT);
+}
+
+template <typename DataT>
+void SampleT<DataT>::setDataLength(unsigned int val)
+{
+    if (val > getAllocLength())
+        throw SampleLengthException(
+            "SampleT::setDataLength:", val, getAllocLength());
+    _header.setDataByteLength(val * sizeof(DataT));
+}
+
+template <typename DataT>
+unsigned int SampleT<DataT>::getMaxDataLength()
+{
+    return SampleHeader::getMaxDataLength() / sizeof(DataT);
+}
+
+// Explicitly instantiate SampleT implementations for all the supported types.
+template class nidas::core::SampleT<char>;
+template class nidas::core::SampleT<unsigned char>;
+template class nidas::core::SampleT<short>;
+template class nidas::core::SampleT<unsigned short>;
+template class nidas::core::SampleT<int32_t>;
+template class nidas::core::SampleT<uint32_t>;
+template class nidas::core::SampleT<float>;
+template class nidas::core::SampleT<double>;
+template class nidas::core::SampleT<int64_t>;
+
+
 Sample* nidas::core::getSample(sampleType type, unsigned int len)
 {
     Sample* samp = 0;
@@ -85,21 +206,19 @@ Sample* nidas::core::getSample(sampleType type, unsigned int len)
             samp = getSample<short>(len);
             break;
         case USHORT_ST:
-            len /= sizeof(short);
-            if (len * sizeof(short) != lin) return 0;
+            len /= sizeof(unsigned short);
+            if (len * sizeof(unsigned short) != lin) return 0;
             samp = getSample<unsigned short>(len);
             break;
         case INT32_ST:
-            assert(sizeof(int) == 4);
-            len /= sizeof(int);
-            if (len * sizeof(int) != lin) return 0;
-            samp = getSample<int>(len);
+            len /= sizeof(int32_t);
+            if (len * sizeof(int32_t) != lin) return 0;
+            samp = getSample<int32_t>(len);
             break;
         case UINT32_ST:
-            assert(sizeof(unsigned int) == 4);
-            len /= sizeof(unsigned int);
-            if (len * sizeof(unsigned int) != lin) return 0;
-            samp = getSample<unsigned int>(len);
+            len /= sizeof(uint32_t);
+            if (len * sizeof(uint32_t) != lin) return 0;
+            samp = getSample<uint32_t>(len);
             break;
         case FLOAT_ST:
             len /= sizeof(float);
@@ -112,9 +231,9 @@ Sample* nidas::core::getSample(sampleType type, unsigned int len)
             samp = getSample<double>(len);
             break;
         case INT64_ST:
-            len /= sizeof(long long);
-            if (len * sizeof(long long) != lin) return 0;
-            samp = getSample<long long>(len);
+            len /= sizeof(int64_t);
+            if (len * sizeof(int64_t) != lin) return 0;
+            samp = getSample<int64_t>(len);
             break;
         case UNKNOWN_ST:
         default:
@@ -135,4 +254,14 @@ SampleT<char>* nidas::core::getSample(const char* data)
         SamplePool<SampleT<char> >::getInstance()->getSample(len);
     strcpy(samp->getDataPtr(), data);
     return samp;
+}
+
+
+SampleChar::
+SampleChar(const char* buffer)
+{
+    unsigned int len = strlen(buffer) + 1;
+    allocateData(len);
+    setDataLength(len);
+    strcpy(getDataPtr(), buffer);
 }

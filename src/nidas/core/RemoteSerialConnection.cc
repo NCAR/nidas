@@ -33,6 +33,7 @@
 #include <unistd.h>
 
 #include <ostream>
+#include <cmath>
 
 using namespace nidas::core;
 using namespace std;
@@ -319,7 +320,7 @@ string RemoteSerialConnection::doEscCmds(const string& inputstr)
 		    _input = _input.substr(idx);
 		    if (_sensor) {
                         int to = _sensor->getTimeoutMsecs();
-                        int newto = (int)rintf(timeout * MSECS_PER_SEC);
+                        int newto = (int)std::rintf(timeout * MSECS_PER_SEC);
                         _sensor->setTimeoutMsecs(newto);
                         _handler->updateTimeouts();
                         ostringstream ost;
