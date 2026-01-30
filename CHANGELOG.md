@@ -18,6 +18,15 @@ known as [buster].
 
 ## [master] - Unreleased on master branch
 
+- `nidsmerge` has had significant changes.  If consecutive samples in a single
+  stream are not in time order, then the succeeding sample can be forced into
+  time order by adding a microsecond to the preceding sample time. All samples
+  with the same DSM and sensor ID from the same input stream (fileset)
+  constitute a single sample stream.  Normally NIDAS forces samples read from
+  the same sensor to have increasing times before recording the samples, so
+  this functionality should only be needed for exceptional cases, such as
+  AHATS processing.  Enable it with `--force-increasing-times`.
+
 - `sensor_extract` now uses the more common NIDAS command arguments,
   especially `--samples` to select samples by DSM and Sensor ID. The
   `--samples` syntax can now include target IDs to which the source IDs should
