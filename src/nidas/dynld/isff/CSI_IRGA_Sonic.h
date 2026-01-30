@@ -31,11 +31,45 @@
 
 #include <nidas/Config.h>
 #include <nidas/util/EndianConverter.h>
+#include <nidas/core/Sample.h>
 #include <nidas/core/VariableIndex.h>
 
 class TimetagAdjuster;
 
 namespace nidas { namespace dynld { namespace isff {
+
+/**
+ * CSI_IRGA_Fields holds the fields reported by the CSI IRGA Sonic in their
+ * native types.
+ */
+struct CSI_IRGA_Fields
+{
+    const float floatNAN = nidas::core::floatNAN;
+
+    float u { floatNAN };
+    float v { floatNAN };
+    float w { floatNAN };
+    float tc { floatNAN };
+    u_int32_t diagbits { 0 };
+    float h2o { floatNAN };
+    float co2 { floatNAN };
+    u_int32_t irgadiag { 0 };
+    float Tirga { floatNAN };
+    float Pirga { floatNAN };
+    float SSco2 { floatNAN };
+    float SSh2o { floatNAN };
+    float dPirga { floatNAN };
+    float Tsource { floatNAN };
+    float Tdetector { floatNAN };
+
+    /// Number of valid fields (when unpacked from a sonic message)
+    int nvals { 0 };
+
+    template <typename F>
+    void visit(F& f);
+};
+
+
 
 /**
  * A class for making sense of data from a Campbell Scientific
@@ -58,6 +92,24 @@ public:
     bool process(const Sample* samp,std::list<const Sample*>& results);
 
     virtual void updateAttributes() override;
+
+    /**
+     * Unpack the binary buffer @p buf into @p fields, up until the end of
+     * buffer @p eob.  Return the number of fields successfully unpacked. If
+     * the CRC signature check fails or the buffer is too short, the return
+     * value is zero.
+     */
+    int
+    unpackBinary(const char* buf, const char* eob, CSI_IRGA_Fields& fields);
+
+    /**
+     * Pack @p fields into the binary buffer @p buf.  Return the number of
+     * fields packed, which should be equal to the number of valid fields in
+     * @p fields (nvals). The CRC signature and termination bytes are added at
+     * the end of the buffer.
+     */
+    int
+    packBinary(const CSI_IRGA_Fields& fields, std::vector<char>& buf);
 
     /**
      * Calculate the CRC signature of a data record. From EC150 manual.
