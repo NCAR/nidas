@@ -80,6 +80,46 @@ using nidas::util::IOException;
 using nidas::util::EOFException;
 using nidas::util::UTime;
 
+
+
+struct InputStats
+{
+    size_t nread{0};
+    size_t nunique{0};
+    size_t nnonincr{0};
+    size_t nnonincr_free{0};
+
+    InputStats& operator+=(const InputStats& other)
+    {
+        nread += other.nread;
+        nunique += other.nunique;
+        nnonincr += other.nnonincr;
+        nnonincr_free += other.nnonincr_free;
+        return *this;
+    }
+};
+
+
+struct InputInfo
+{
+    SampleInputStream* stream{nullptr};
+    dsm_time_t lastTime{LONG_LONG_MIN};
+    // stats within a single readahead window
+    InputStats window_stats{};
+    // sum of stats over entire input
+    InputStats total_stats{};
+    bool eof{false};
+
+    InputInfo(SampleInputStream* sis):
+        stream(sis)
+    {
+    }
+
+    InputInfo(const InputInfo& other) = default;
+    InputInfo& operator=(const InputInfo& other) = default;
+};
+
+
 class NidsMerge: public HeaderSource
 {
 public:
@@ -96,19 +136,27 @@ public:
 
     void sendHeader(dsm_time_t thead,SampleOutput* out);
 
+    int numOpen() const
+    {
+        int nopen = 0;
+        for (auto& i : inputs)
+            nopen += !i.eof;
+        return nopen;
+    }
+
+    void printStats(dsm_time_t tcur, bool totals=false);
+
 private:
 
-    void addInputStream(vector<SampleInputStream*>& inputs,
-                        const list<string>& inputFiles);
+    void addInputStream(const list<string>& inputFiles);
 
-    void flushSorter(dsm_time_t tcur, SampleOutputStream& outStream);
+    dsm_time_t flushSorter(dsm_time_t tcur, SampleOutputStream& outStream);
 
     vector<list<string> > inputFileNames;
 
     string outputFileName;
 
-    vector<dsm_time_t> lastTimes;
-    unsigned int neof;
+    vector<InputInfo> inputs;
 
     long long readAheadUsecs;
 
@@ -141,10 +189,19 @@ private:
     * and allow the user to choose Set2 or Set3 with a command line option.
     */
     SortedSampleSet3 sorter;
-    vector<size_t> samplesRead;
-    vector<size_t> samplesUnique;
-    vector<size_t> samplesNonIncr;
-    vector<size_t> samplesNonIncrFree;
+
+    // lastSampleTimes keeps track of the latest time for each combination of
+    // input stream and sample id.  it is implemented as a map from the input,
+    // id pair to the last time.
+    typedef std::pair<SampleInputStream*, dsm_sample_id_t> InputSampleIdPair;
+    typedef std::map<InputSampleIdPair, dsm_time_t> LastSampleTimesMap;
+    LastSampleTimesMap lastSampleTimes{};
+
+    bool getLastSampleTime(SampleInputStream* sis, dsm_sample_id_t sampleId,
+                           dsm_time_t& lastTime);
+
+    void setLastSampleTime(SampleInputStream* sis, dsm_sample_id_t sampleId,
+                           dsm_time_t lastTime);
 
     unsigned long ndropped;
 
@@ -153,7 +210,39 @@ private:
     BadSampleFilterArg FilterArg;
     NidasAppArg KeepOpening;
     NidasAppArg PrintHeader;
+    NidasAppArg ForceIncreasingTimes{
+        "--force-increasing-times", "",R"""(
+When a sample has a time tag at or preceding the latest sample time for
+that input stream and sample ID, force increasing sample times
+by adding one microsecond, before inserting the sample into the output
+sorter.  This should be an unusual requirement, since NIDAS normally enforces
+increasing sample times when the samples are read from a sensor, thus
+it is disabled by default.)"""
+    };
 };
+
+bool
+NidsMerge::
+getLastSampleTime(SampleInputStream* sis, dsm_sample_id_t sampleId,
+                  dsm_time_t& lastTime)
+{
+    InputSampleIdPair key(sis, sampleId);
+    LastSampleTimesMap::const_iterator it = lastSampleTimes.find(key);
+    if (it != lastSampleTimes.end()) {
+            lastTime = it->second;
+            return true;
+    }
+    return false;
+}
+
+void
+NidsMerge::
+setLastSampleTime(SampleInputStream* sis, dsm_sample_id_t sampleId,
+                  dsm_time_t lastTime)
+{
+    lastSampleTimes[InputSampleIdPair(sis, sampleId)] = lastTime;
+}
+
 
 int main(int argc, char** argv)
 {
@@ -205,15 +294,11 @@ int NidsMerge::main(int argc, char** argv)
 
 
 NidsMerge::NidsMerge():
-    inputFileNames(),outputFileName(),lastTimes(),neof(0),
+    inputFileNames(),outputFileName(),inputs(),
     readAheadUsecs(30*USECS_PER_SEC),startTime(UTime::MIN),
     endTime(UTime::MAX), outputFileLength(0),header(),
     configName(), allowed_dsms(),
     sorter(),
-    samplesRead(),
-    samplesUnique(),
-    samplesNonIncr(),
-    samplesNonIncrFree(),
     ndropped(0),
     _app("nidsmerge"),
     FilterArg(),
@@ -294,7 +379,7 @@ int NidsMerge::parseRunstring(int argc, char** argv)
                         FilterArg | InputFileSet | InputFileSetFile |
                         ReadAhead | ConfigName | app.OutputFileLength |
                         app.SampleRanges | PrintHeader |
-                        app.Version | app.Help);
+                        ForceIncreasingTimes | app.Version | app.Help);
     // -i conflicts with input specifiers, so require --samples
     app.SampleRanges.acceptShortFlag(false);
     app.InputFiles.allowFiles = true;
@@ -424,43 +509,107 @@ tformat(dsm_time_t dt)
 }
 
 
+typedef pair<string, size_t> header_t;
+
+template<typename T>
 void
-NidsMerge::flushSorter(dsm_time_t tcur,
-                       SampleOutputStream& outStream)
+print_column(const header_t& h, const T& val)
+{
+    cout << setw(h.second) << val << ' ';
+}
+
+
+void print_headers(std::ostream& out, const vector<header_t>& headers)
+{
+    for (auto& h : headers)
+        out << setw(h.second) << h.first << ' ';
+    out << endl;
+}
+
+
+void
+find_preceding_samples(dsm_time_t tcur, SortedSampleSet3& sorter,
+                       SortedSampleSet3::const_iterator& begin,
+                       SortedSampleSet3::const_iterator& end)
 {
     SampleT<char> dummy;
     SortedSampleSet3::const_iterator rsb = sorter.begin();
-
     // get iterator pointing at first sample equal to or greater
     // than dummy sample
     dummy.setTimeTag(tcur);
     SortedSampleSet3::const_iterator rsi = sorter.lower_bound(&dummy);
+    begin = rsb;
+    end = rsi;
+}
 
-    for (SortedSampleSet3::const_iterator si = rsb; si != rsi; ++si)
-    {
-        const Sample *sample = *si;
-        bool ok{ true };
-        if (!endTime.isSet() || (sample->getTimeTag() < endTime.toUsecs()))
-            ok = outStream.receive(sample);
-        sample->freeReference();
-        if (!ok)
-            throw IOException("send sample",
-                "Send failed, output disconnected.");
-    }
 
+/**
+ * Free their references and remove the samples from sorter set for the given
+ * range of iterators.  Return the number of samples removed.
+ */
+size_t remove_samples(SortedSampleSet3& sorter,
+                      SortedSampleSet3::const_iterator rsb,
+                      SortedSampleSet3::const_iterator rsi)
+{
     // remove samples from sorted set
     size_t before = sorter.size();
-    if (rsi != rsb) sorter.erase(rsb, rsi);
-    size_t after = sorter.size();
+    for (auto si = rsb; si != rsi; ++si)
+    {
+        const Sample *sample = *si;
+        sample->freeReference();
+    }
+    if (rsi != rsb)
+        sorter.erase(rsb, rsi);
+    return before - sorter.size();
+}
 
-    cout << tformat(tcur) <<
-        setw(8) << before << ' ' << setw(7) << after << ' ' <<
-        setw(7) << before - after << " sorter" << endl;
+
+dsm_time_t
+NidsMerge::flushSorter(dsm_time_t tcur,
+                       SampleOutputStream& outStream)
+{
+    DLOG(("flushing sorter up to ") << tformat(tcur)
+         << ", sorter size=" << sorter.size());
+
+    // write out any samples which are before tcur but also clipped at the
+    // endTime, if set.  then remove all the samples before tcur.
+    SortedSampleSet3::const_iterator rsb, rsi;
+    find_preceding_samples(tcur, sorter, rsb, rsi);
+    size_t noutput = 0;
+    dsm_time_t last_written = LONG_LONG_MIN;
+    for (auto si = rsb; si != rsi; ++si)
+    {
+        const Sample *sample = *si;
+        if (!endTime.isSet() || (sample->getTimeTag() < endTime.toUsecs()))
+        {
+            bool ok = outStream.receive(sample);
+            if (!ok)
+                throw IOException("send sample",
+                    "Send failed, output disconnected.");
+            noutput++;
+            last_written = sample->getTimeTag();
+        }
+    }
+    size_t nremoved = remove_samples(sorter, rsb, rsi);
+    size_t after = sorter.size();
+    size_t before = after + nremoved;
+
+    static vector<header_t> headers = {
+        {"flush output end time", 30},
+        {"before", 8}, {"after", 8}, {"output", 8}, {"removed", 8}
+    };
+    print_headers(cout, headers);
+    print_column(headers[0], tformat(tcur));
+    print_column(headers[1], before);
+    print_column(headers[2], after);
+    print_column(headers[3], noutput);
+    print_column(headers[4], nremoved);
+    cout << endl;
+    return last_written;
 }
 
 void
-NidsMerge::addInputStream(vector<SampleInputStream*>& inputs,
-                          const list<string>& inputFiles)
+NidsMerge::addInputStream(const list<string>& inputFiles)
 {
     nidas::core::FileSet* fset{nullptr};
 
@@ -480,13 +629,13 @@ NidsMerge::addInputStream(vector<SampleInputStream*>& inputs,
     }
     fset->setKeepOpening(KeepOpening.asBool());
 
-    DLOG(("getName=") << fset->getName());
-    DLOG(("start time=") << startTime.format(true, "%c"));
-    DLOG(("end time=") << endTime.format(true, "%c"));
+    DLOG(("adding input: ") << "name=" << fset->getName()
+         << "; start=" << startTime.format(true, "%c")
+         << "; end=" << endTime.format(true, "%c"));
 
     // SampleInputStream owns the iochan ptr.
     SampleInputStream* input = new SampleInputStream(fset);
-    inputs.push_back(input);
+    inputs.push_back(InputInfo(input));
 
     // Set the input stream filter in case other options were set
     // from the command-line that do not filter samples, like
@@ -495,8 +644,6 @@ NidsMerge::addInputStream(vector<SampleInputStream*>& inputs,
     bsf.setDefaultTimeRange(startTime, endTime);
     input->setBadSampleFilter(bsf);
 
-    lastTimes.push_back(LONG_LONG_MIN);
-
     try {
         input->readInputHeader();
         // save header for later writing to output
@@ -504,51 +651,41 @@ NidsMerge::addInputStream(vector<SampleInputStream*>& inputs,
     }
     catch (const EOFException& e) {
         cerr << e.what() << endl;
-        lastTimes.back() = LONG_LONG_MAX;
-        neof++;
+        inputs.back().lastTime = LONG_LONG_MAX;
+        inputs.back().eof = true;
     }
     // IOException propagates to here only on an io read error or if
     // keep-opening is false and a file cannot be opened.  either are good
     // reasons to exit with an error, so let the exception propagate.
 }
 
-void ageOffNonIncr(SortedSampleSet3& nonincr, dsm_time_t tt)
+
+void ageOffNonIncr(dsm_time_t tt, SortedSampleSet3& nonincr)
 {
-    SampleT<char> dummy;
-    SortedSampleSet3::const_iterator rsb = nonincr.begin();
-
-    // get iterator pointing at first sample equal to or greater
-    // than dummy sample
-    dummy.setTimeTag(tt);
-    SortedSampleSet3::const_iterator rsi = nonincr.lower_bound(&dummy);
-
-    for (SortedSampleSet3::const_iterator si = rsb; si != rsi; ++si)
-    {
-        const Sample *sample = *si;
-        sample->freeReference();
-    }
-
-    // remove samples from sorted set
-    size_t before = nonincr.size();
-    if (rsi != rsb) nonincr.erase(rsb, rsi);
+    DLOG(("aging off non-increasing samples up to ")
+          << tformat(tt) << ", size=" << nonincr.size());
+    SortedSampleSet3::const_iterator rsb, rsi;
+    find_preceding_samples(tt, nonincr, rsb, rsi);
+    size_t nremoved = remove_samples(nonincr, rsb, rsi);
+    size_t before = nonincr.size() + nremoved;
     size_t after = nonincr.size();
 
-    cerr << tformat(tt) << " nonincr size before, after=" <<
-        before << ' ' << after << ' ' << ", #freed=" <<
-        before - after << endl;
+    static vector<header_t> headers = {
+        {"nonincr age-off time", 30},
+        {"before", 8}, {"after", 8}, {"removed", 8}
+    };
+    print_headers(cout, headers);
+    print_column(headers[0], tformat(tt));
+    print_column(headers[1], before);
+    print_column(headers[2], after);
+    print_column(headers[3], nremoved);
+    cout << endl;
 }
+
 
 void clearNonIncr(SortedSampleSet3& nonincr)
 {
-    SortedSampleSet3::const_iterator rsb = nonincr.begin();
-    SortedSampleSet3::const_iterator rse = nonincr.end();
-
-    for (SortedSampleSet3::const_iterator si = rsb; si != rse; ++si)
-    {
-        const Sample *sample = *si;
-        sample->freeReference();
-    }
-    nonincr.erase(rsb, rse);
+    remove_samples(nonincr, nonincr.begin(), nonincr.end());
 }
 
 
@@ -567,6 +704,56 @@ duplicateSample(const Sample* samp)
 }
 
 
+struct OSample
+{
+    SampleInputStream* input;
+    Sample* samp;
+
+    OSample(SampleInputStream* sis, Sample* s):
+        input(sis), samp(s)
+    {
+    }
+};
+
+ostream& operator<<(ostream& os, const OSample& osamp)
+{
+    os << "[" << osamp.input->getName() << ": "
+       << "tt=" << tformat(osamp.samp->getTimeTag())
+       << " (" << osamp.samp->getDSMId()
+       << "," << osamp.samp->getSpSId() << ")]";
+    return os;
+}
+
+
+void
+NidsMerge::printStats(dsm_time_t tcur, bool totals)
+{
+    static vector<header_t> window_headers = {
+        {"readahead window start", 30},
+        {"read", 7}, {"unique", 7}, {"nonincr", 7}, {"ni_free", 7},
+        {"file", 0}
+    };
+    static vector<header_t> total_headers = {
+        {"totals up to last time", 30},
+        {"read", 7}, {"unique", 7}, {"nonincr", 7}, {"ni_free", 7},
+        {"file", 0}
+    };
+    vector<header_t>& headers = totals ? total_headers : window_headers;
+    print_headers(cout, headers);
+    for (auto& input : inputs)
+    {
+        InputStats& stats = totals ? input.total_stats : input.window_stats;
+        print_column(headers[0], tformat(tcur));
+        print_column(headers[1], stats.nread);
+        print_column(headers[2], stats.nunique);
+        print_column(headers[3], stats.nnonincr);
+        print_column(headers[4], stats.nnonincr_free);
+        print_column(headers[5], input.stream->getName());
+        cout << endl;
+    }
+}
+
+
 int NidsMerge::run()
 {
     nidas::core::FileSet* outSet = FileSet::createFileSet(outputFileName);
@@ -575,25 +762,16 @@ int NidsMerge::run()
     SampleOutputStream outStream(outSet);
     outStream.setHeaderSource(this);
 
-    vector<SampleInputStream*> inputs;
     for (unsigned int ii = 0; ii < inputFileNames.size(); ii++)
     {
-        addInputStream(inputs, inputFileNames[ii]);
+        addInputStream(inputFileNames[ii]);
     }
 
-    samplesRead = vector<size_t>(inputs.size(), 0);
-    samplesUnique = vector<size_t>(inputs.size(), 0);
-    samplesNonIncr = vector<size_t>(inputs.size(), 0);
-    samplesNonIncrFree = vector<size_t>(inputs.size(), 0);
     SampleMatcher& matcher = _app.sampleMatcher();
-
-    map<SampleInputStream*, map<dsm_sample_id_t, dsm_time_t> > lastTTsForInput;
 
     // samples with non-increasing time tags
     SortedSampleSet3 nonincr;
-
-    cout << "date #read #unique #non-increasing #non-inc-free file" << endl;
-    cout << "date #before #after #output sorter" << endl;
+    bool forceIncreasingTimes = ForceIncreasingTimes.asBool();
 
     // Keep reading as long as there is at least one input stream that has not
     // reached EOF and until we've read at least one whole readahead period
@@ -602,27 +780,41 @@ int NidsMerge::run()
     // any more samples that might also precede endTime.  The flushSorter()
     // method makes sure to never write samples outside the time range.
     dsm_time_t tcur;
+    static nidas::util::LogContext duplog(LOG_VERBOSE);
+    int nloops = 0;
     for (tcur = startTime.toUsecs();
-         neof < inputs.size() &&
+         numOpen() > 0 &&
          (!endTime.isSet() || (tcur < endTime.toUsecs() + readAheadUsecs)) &&
          !_app.interrupted();
          tcur += readAheadUsecs)
     {
-        DLOG(("") << inputs.size() << " inputs left, "
-                  << "merge loop at step: " << tformat(tcur));
-        dsm_time_t lastTime = LONG_LONG_MIN;
+        nloops += 1;
+        DLOG(("") << numOpen() << " inputs open, "
+                  << "merge loop #" << nloops
+                  << " at step: " << tformat(tcur));
+        // if the start time has not been sent, then we do not know yet when
+        // the first readahead window will end, so fill the readahead window
+        // for each input with at least readAheadUsecs of data.  it doesn't
+        // matter if the inputs start at different times, since after the
+        // start time is determined, only the samples within that readahead
+        // window will be output, the rest will stay in the sorter.
+        dsm_time_t filltime =
+            startTime.isMin() ? LONG_LONG_MAX : tcur + readAheadUsecs;
         for (unsigned int ii = 0;
              ii < inputs.size() && !_app.interrupted();
              ii++)
         {
-            SampleInputStream* input = inputs[ii];
-            lastTime = lastTimes[ii];
-            size_t nread = 0;
-            size_t nunique = 0;
-            size_t nnonincr = 0;
-            size_t nnonincr_free = 0;
+            if (inputs[ii].eof)
+                continue;
+            SampleInputStream* input = inputs[ii].stream;
+            dsm_time_t& lastTime = inputs[ii].lastTime;
+            InputStats& stats = inputs[ii].window_stats;
+            stats = InputStats(); // reset window stats
 
-            while (lastTime < tcur + readAheadUsecs && !_app.interrupted())
+            DLOG(("") << "filling input " << input->getName()
+                      << " up to filltime " << tformat(filltime)
+                      << ", lastTime=" << tformat(lastTime));
+            while (lastTime < filltime && !_app.interrupted())
             {
                 Sample* samp{ nullptr };
                 try {
@@ -631,7 +823,7 @@ int NidsMerge::run()
                 catch (const EOFException& e) {
                     cerr << e.what() << endl;
                     lastTime = LONG_LONG_MAX;
-                    ++neof;
+                    inputs[ii].eof = true;
                     break;
                 }
 
@@ -646,7 +838,15 @@ int NidsMerge::run()
                 }
 
                 lastTime = samp->getTimeTag();
-
+                if (startTime.isMin() && lastTime + readAheadUsecs < filltime)
+                {
+                    // until start time is known, the fill window ends at the
+                    // earliest time tag plus the read-ahead time.
+                    DLOG(("adjusting fill time: ") <<
+                         tformat(filltime) << " -> "
+                         << tformat(lastTime + readAheadUsecs));
+                    filltime = lastTime + readAheadUsecs;
+                }
                 // until startTime has been set, no samples can be
                 // dropped.
                 if (lastTime < startTime.toUsecs())
@@ -655,122 +855,116 @@ int NidsMerge::run()
                     DLOG(("dropping sample ") << ndropped
                             << " precedes start "
                             << tformat(startTime.toUsecs()) << ": "
-                            << "(" << samp->getDSMId() << ","
-                            << samp->getSpSId() << ")"
-                            << " at " << tformat(lastTime));
+                            << OSample(input, samp));
                     samp->freeReference();
                     continue;
                 }
-                nread++;
+                stats.nread++;
 
-                // check if this time is not increasing WRT last sample from this input
-                // with this sample id.
-                map<SampleInputStream*, map<dsm_sample_id_t, dsm_time_t> >::const_iterator i1;
-                i1 = lastTTsForInput.find(input);
+                // check if this time is not increasing WRT last sample from
+                // this input with this sample id.  if not, then replace it
+                // with a copy with an adjusted time tag, but keep the
+                // original sample in the nonincr set, and check that set for
+                // duplicates of the original sample.
+                bool time_shifted = false;
+                dsm_time_t lastSampleTime = LONG_LONG_MIN;
 
-                map<dsm_sample_id_t, dsm_time_t>::const_iterator i2;
+                if (getLastSampleTime(input, samp->getRawId(), lastSampleTime)
+                    && lastTime <= lastSampleTime)
+                {
+                    stats.nnonincr++;
+                    VLOG(("non-increasing sample: ") << OSample(input, samp)
+                         << ", nnonincr=" << stats.nnonincr);
 
-                if (i1 != lastTTsForInput.end() &&
-                    (i2 = i1->second.find(samp->getRawId())) != i1->second.end() &&
-                    lastTime <= i2->second) {
-                    // sample with a non-increasing time. Save it, don't free its reference
-                    nonincr.insert(samp);
-                    nnonincr++;
-#ifdef DEBUG_LOG
-                    cerr << "non-increasing sample from " << input->getName() <<
-                        ", tt=" << tformat(samp->getTimeTag()) <<
-                        ", prev=" << tformat(i2->second) <<
-                        " (" << samp->getDSMId() << "," << samp->getSpSId() << ")" <<
-                        ", nnonincr=" << nonincr.size() << endl;
-#endif
-                    // make a copy of the sample with 1 microsecond added to the time tag
-                    Sample* corsamp = duplicateSample(samp);
-                    corsamp->setTimeTag(i2->second + 1);
-                    lastTime = corsamp->getTimeTag();
-                    lastTTsForInput[input][corsamp->getRawId()] = lastTime;
-                    if (!sorter.insert(corsamp).second)
+                    if (forceIncreasingTimes)
                     {
-                        // duplicate of sample already in the sorter set.
-                        corsamp->freeReference();
-#ifdef DEBUG_LOG
-                        // last input is the UDP feed, don't log duplicates from it
-                        if (ii < inputs.size() - 1)
-                            cerr << "duplicate sample after tt correction: " <<
-                                input->getName() <<
-                                ", tt=" << tformat(corsamp->getTimeTag()) <<
-                                " (" << corsamp->getDSMId() << "," << corsamp->getSpSId() << ")" << endl;
-#endif
+                        // sample with a non-increasing time. Save it, don't
+                        // free its reference
+                        nonincr.insert(samp);
+
+                        // make a copy of the sample with 1 microsecond added
+                        // to the time tag
+                        Sample* corsamp = duplicateSample(samp);
+                        corsamp->setTimeTag(lastSampleTime + 1);
+                        lastTime = corsamp->getTimeTag();
+                        samp = corsamp;
+                        time_shifted = true;
                     }
-                    else nunique++;
+                    // sample will be inserted into output sorter below
                 }
-                else {
+                else if (forceIncreasingTimes)
+                {
+                    // only need to check for duplicates in nonincr set if
+                    // time correction is being done.
                     SortedSampleSet3::const_iterator i3 = nonincr.find(samp);
                     if (i3 != nonincr.end()) {
                         assert((*i3)->getTimeTag() == samp->getTimeTag());
-#ifdef DEBUG_LOG
-                        if (ii < inputs.size() - 1)
-                            cerr << "found dup sample in non-increasing set, discarding " << input->getName() <<
-                                ", tt=" << tformat(samp->getTimeTag()) <<
-                                " (" << samp->getDSMId() << "," << samp->getSpSId() << ")" <<
-                                ", nnonincr=" << nonincr.size() << endl;
-#endif
-                        samp->freeReference();
-                        nnonincr_free++;
-                    }
-                    else {
-                        lastTTsForInput[input][samp->getRawId()] = lastTime;
-                        if (!sorter.insert(samp).second)
+                        if (duplog.active() && (ii < inputs.size() - 1))
                         {
-                            // duplicate of sample already in the sorter set.
-                            samp->freeReference();
-#ifdef DEBUG_LOG
-                            // last input is the UDP feed, don't log duplicates from it
-                            if (ii < inputs.size() - 1)
-                                cerr << "duplicate sample: " <<
-                                    input->getName() <<
-                                    ", tt=" << tformat(samp->getTimeTag()) <<
-                                    " (" << samp->getDSMId() << "," << samp->getSpSId() << ")" << endl;
-#endif
+                            duplog.log()
+                                << "found dup sample in non-increasing set, discarding: "
+                                << OSample(input, samp)
+                                << ", nnonincr=" << nonincr.size();
                         }
-                        else nunique++;
+                        samp->freeReference();
+                        stats.nnonincr_free++;
+                        // done with this sample, continue without inserting
+                        // it into output sorter.
+                        continue;
                     }
                 }
-            }
-            lastTimes[ii] = lastTime;
 
-            // set startTime to the first time read across all inputs if user
-            // did not specify it in the runstring.
-            if (startTime.isMin())
-            {
-                auto minmax =
-                    std::minmax_element(lastTimes.begin(), lastTimes.end());
-                tcur = *minmax.first;
-                startTime = tcur;
-                DLOG(("set start time: ") << tformat(tcur));
+                if (lastTime > lastSampleTime)
+                {
+                    // update last sample time if it is newer
+                    setLastSampleTime(input, samp->getRawId(), lastTime);
+                }
+                if (!sorter.insert(samp).second)
+                {
+                    // duplicate of sample already in the sorter set.
+                    samp->freeReference();
+                    if (duplog.active() && (ii < inputs.size() - 1))
+                    {
+                        duplog.log()
+                            << (time_shifted ? "time-shifted " : "")
+                            << "duplicate sample: " << OSample(input, samp);
+                    }
+                }
+                else
+                    stats.nunique++;
             }
-
-            samplesRead[ii] = nread;
-            samplesUnique[ii] = nunique;
-            samplesNonIncr[ii] = nnonincr;
-            samplesNonIncrFree[ii] = nnonincr_free;
         }
-        for (unsigned int ii = 0; ii < samplesRead.size(); ii++) {
-            cout << tformat(tcur) << ' ' <<
-                setw(7) << samplesRead[ii] << ' ' << setw(7) << samplesUnique[ii] << ' ' <<
-                setw(5) << samplesNonIncr[ii] << ' ' << setw(5) << samplesNonIncrFree[ii] << ' ' <<
-                inputs[ii]->getName() << ' ' << endl;
+        // set startTime to the first time read across all inputs if user
+        // did not specify it in the runstring.
+        if (startTime.isMin() && filltime != LONG_LONG_MAX)
+        {
+            tcur = filltime - readAheadUsecs;
+            startTime = tcur;
+            DLOG(("set start time: ") << tformat(tcur));
+        }
+
+        // report stats for this readahead window
+        printStats(tcur);
+        for (auto& input : inputs)
+        {
+            input.total_stats += input.window_stats;
         }
 
         // all the inputs have been read up to the first sample past the
         // read-ahead time, so flush only up until the beginning of the
         // read-ahead period (tcur).  the samples in the individual input
         // streams are likely not in time order, so there will be more samples
-        // which fall into the current read-ahead period.
-        if (!_app.interrupted())
+        // which fall into the current read-ahead period.  if this is the
+        // first time through, then only the first read-ahead period has been
+        // read and no samples would be flushed yet, so don't bother calling
+        // flushSorter().
+        if (!_app.interrupted() && nloops != 1)
         {
-            flushSorter(tcur, outStream);
+            (void)flushSorter(tcur, outStream);
+            // avoid log messages about aging off an empty nonincr set
+            if (nonincr.size() > 0)
+                ageOffNonIncr(tcur, nonincr);
         }
-        ageOffNonIncr(nonincr, tcur);
     }
     // All the samples have been read which need to be read, so flush all the
     // remaining samples.  Make it explicit by passing UTime::MAX as the
@@ -778,15 +972,29 @@ int NidsMerge::run()
     // samples at the end time.
     if (!_app.interrupted())
     {
-        flushSorter(UTime::MAX.toUsecs(), outStream);
+        dsm_time_t last_written = flushSorter(UTime::MAX.toUsecs(), outStream);
+        printStats(last_written, true);
     }
     outStream.flush();
     outStream.close();
     clearNonIncr(nonincr);
-    for (unsigned int ii = 0; ii < inputs.size(); ii++) {
-        SampleInputStream* input = inputs[ii];
-        input->close();
-        delete input;
+    size_t total_nonincr = 0;
+    for (auto& input : inputs) {
+        input.stream->close();
+        delete input.stream;
+        input.stream = nullptr;
+        total_nonincr += input.total_stats.nnonincr;
+    }
+    if (total_nonincr > 0) {
+        cerr << "Warning: Found " << total_nonincr
+             << " samples with non-increasing times!" << endl;
+        if (forceIncreasingTimes)
+            cerr << "Sample times were adjusted to force increasing times."
+                 << endl;
+        else
+            cerr << "Since --force-increasing-times was not enabled, "
+                 << "some samples may have been sorted into a different "
+                 << "order than they were read from the sensor." << endl;
     }
 
     cout << "Excluded " << matcher.numSamplesExcluded() << " samples "
