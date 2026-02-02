@@ -18,6 +18,8 @@ known as [buster].
 
 ## [master] - Unreleased on master branch
 
+## [1.2.6] - 2026-02-02
+
 - `nidsmerge` has had significant changes.  If consecutive samples in a single
   stream are not in time order, then the succeeding sample can be forced into
   time order by adding a microsecond to the preceding sample time. All samples
@@ -319,6 +321,7 @@ This branch includes all the changes done on the branches
 <!-- Versions -->
 [master]: https://github.com/NCAR/nidas
 [buster]: https://github.com/NCAR/nidas/tree/buster
+[1.2.6]: https://github.com/NCAR/nidas/releases/tag/v1.2.6
 [1.2.5]: https://github.com/NCAR/nidas/releases/tag/v1.2.5
 [1.2.4]: https://github.com/NCAR/nidas/releases/tag/v1.2.4
 [1.2.3]: https://github.com/NCAR/nidas/releases/tag/v1.2.3
