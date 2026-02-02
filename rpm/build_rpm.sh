@@ -4,7 +4,7 @@ script=`basename $0`
 dir=`dirname $0`
 
 dopkg=nidas
-buildmodules=true
+buildmodules=false
 destdir=
 
 while [ $# -gt 0 ]; do
