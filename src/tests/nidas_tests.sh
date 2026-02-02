@@ -76,3 +76,27 @@ failed() # message
     echo "FAILED: $@"
     exit 1
 }
+
+run_diff()
+{
+    if ! diff "$@"; then
+        failed "diff $*"
+    fi
+}
+
+# if two dat files differ, then 
+compare_dat_then_stats()  # basepath outpath
+{
+    base="$1"
+    out="$2"
+    testout=$(basename "$base" .dat)
+    outputs=$(dirname "$out")
+    echo Byte-comparing: $base, $out
+    if ! cmp $base $out; then
+        echo "dat files differ, running data_stats comparison..."
+        data_stats "$base" > "$outputs/${testout}_baseline.stats.txt"
+        data_stats "$out" > "$outputs/${testout}.stats.txt"
+        diff "$outputs/${testout}_baseline.stats.txt" "$outputs/${testout}.stats.txt"
+        failed "cmp $base $out"
+    fi
+}

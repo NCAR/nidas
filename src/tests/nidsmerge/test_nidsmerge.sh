@@ -54,13 +54,6 @@ run_sensor_extract() {
     fi
 }
 
-run_diff()
-{
-    if ! diff "$@"; then
-        failed "diff $*"
-    fi
-}
-
 # Merge some simple sample files
 run_merge -i dsm12.dat -i dsm13.dat -o outputs/dsm-both.dat
 
@@ -88,6 +81,14 @@ echo Network stream stats should match the merged stream...
 data_stats isfs_20230731_0401.dat.bz2 > outputs/m2hats_baseline.stats.txt
 data_stats outputs/merged_20230731_0401.dat.bz2 > outputs/m2hats_merged.stats.txt
 run_diff outputs/m2hats_baseline.stats.txt outputs/m2hats_merged.stats.txt
+
+echo Merging the same file multiple times should produce the same file...
+testout=isfs_20230731_0401_null_merge
+# disable verbose logs about duplicates
+run_merge --log verbose,disable --log info \
+          -i isfs_20230731_0401.dat.bz2 -i isfs_20230731_0401.dat.bz2 \
+          -i isfs_20230731_0401.dat.bz2 -o outputs/${testout}.dat.bz2
+compare_dat_then_stats isfs_20230731_0401.dat.bz2 outputs/${testout}.dat.bz2
 
 cat <<EOF
 ...Merge m2hats but exclude the t2 sonic from network stream by first creating
@@ -170,8 +171,7 @@ fi
 echo ...sensor_extract DSM 8 and reassign to 9
 testout=extract_8_to_9
 run_sensor_extract isfs_20230731_0401.dat.bz2  -o outputs/${testout}.dat --samples 8=9
-data_stats outputs/${testout}.dat > outputs/${testout}.dump.txt
-run_diff baseline/${testout}.dump.txt outputs/${testout}.dump.txt
+compare_dat_then_stats baseline/${testout}.dat outputs/${testout}.dat
 
 echo
 echo "OK.  All tests passed."
