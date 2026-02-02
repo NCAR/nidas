@@ -4453,7 +4453,7 @@ static int __init dmd_mmat_init(void)
         if (!board) goto err;
         memset(board,0,numboards * sizeof(struct DMMAT));
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(6,0,0)
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5,14,0)
         dmmat_class = class_create(THIS_MODULE, "dmd_mmat");
 #else
         dmmat_class = class_create("dmd_mmat");

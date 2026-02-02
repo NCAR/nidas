@@ -892,7 +892,7 @@ static int __init mesa_init(void)
         if (!boards) goto err;
         memset(boards, 0, numboards * sizeof(struct MESA_Board));
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(6,0,0)
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5,14,0)
         mesa_class = class_create(THIS_MODULE, DEVNAME_MESA);
 #else
         mesa_class = class_create(DEVNAME_MESA);
