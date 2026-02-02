@@ -1,6 +1,6 @@
 %define nidas_prefix /opt/nidas
 
-%if 0%{?fedora} > 39
+%if 0%{?fedora} > 39 || 0%{?rhel} > 8
 %define scons scons
 %else
 %define scons scons-3

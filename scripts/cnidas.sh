@@ -135,7 +135,8 @@ is named, then the current repo is used.
 EOF
 }
 
-targets=(alma9 centos7 centos8 centos9 vulcan titan pi2 pi3 ubuntu vortex fedora)
+targets=(alma10 alma9 centos7 centos8 centos9 vulcan titan pi2 pi3
+         ubuntu vortex fedora42 fedora43)
 
 # Return the arch for passing to build_dpkg
 get_arch() # alias
@@ -183,6 +184,9 @@ get_build() # alias
 get_image_tag() # alias
 {
     case "$1" in
+        alma10)
+            echo nidas-build-alma-x86_64:alma10
+            ;;
         alma9)
             echo nidas-build-alma-x86_64:alma9
             ;;
@@ -225,8 +229,9 @@ build_image()
     tag=`get_image_tag "$alias"`
     set -x
     case "$alias" in
-        alma9)
-            podman build -t $tag -f docker/Dockerfile.alma9 "$@"
+        alma*)
+            release=${alias/alma/}
+            podman build -t $tag -f docker/Dockerfile.alma --build-arg RELEASE=$release "$@"
             ;;
         centos9)
             podman build -t $tag -f docker/Dockerfile.centos9 "$@"
@@ -256,7 +261,8 @@ build_image()
             podman build -t $tag -f docker/Dockerfile.ubuntu_i386_bionic --build-arg=dolocal=yes "$@"
             ;;
         fedora*)
-            podman build -t $tag -f docker/Dockerfile.fedora "$@"
+            release=${alias/fedora/}
+            podman build -t $tag -f docker/Dockerfile.fedora --build-arg RELEASE=$release "$@"
             ;;
     esac
 }
@@ -325,7 +331,10 @@ build_packages()
         exit 1
     fi
     case "$alias" in
-        centos*|alma*)
+        centos*|alma*|fedora*)
+            # copy xmlrpc++ and any other rpms built into the container
+            run_image rsync -av /root/rpmbuild/RPMS/x86_64/ /packages/ &
+            wait
             run_image /nidas/rpm/build_rpm.sh -d /packages
             ;;
         *)
