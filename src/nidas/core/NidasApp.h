@@ -335,6 +335,54 @@ private:
 };
 
 
+class DumpFormatArg: public NidasAppArg
+{
+public:
+
+    typedef enum
+    {
+        DEFAULT,
+        ASCII,
+        HEX_FMT,
+        SIGNED_SHORT,
+        UNSIGNED_SHORT,
+        FLOAT,
+        IRIG,
+        INT32,
+        ASCII_7,
+        NAKED
+    } dump_format_t;
+
+    DumpFormatArg():
+        NidasAppArg("-A,-7,-F,-H,-n,-I,-L,-S,-U", "", R"(
+Format options for sample data:
+-A: ASCII output of character data (for samples from a serial sensor)
+-7: 7-bit ASCII output
+-F: floating point output (typically for processed output)
+-H: hex output (typically for raw output)
+-n: naked output, unadorned samples written exactly as they were read,
+    useful for ascii serial data to be replayed through sensor_sim
+-I: output of IRIG clock samples. Status of \"SYMPCS\" means sync, year,
+    major-time, PPS, code and esync are OK. Lower case letters indicate not OK.
+    sync and esync (extended status sync) are probably always equal
+-L: ASCII output of signed 32 bit integers
+-S: ASCII output of signed 16 bit integers (useful for samples from an A2D)
+)")
+    {}
+
+    bool parse(const ArgVector& argv, int* argi = 0) override;
+
+    dump_format_t getFormat() const;
+
+    static std::string formatToString(dump_format_t format);
+
+private:
+    dump_format_t _format{DEFAULT};
+
+};
+
+
+
 /**
  * Extend NidasAppArg so the default input specifier and port can be
  * customized, which in turn updates the usage string. Applications which do
@@ -711,6 +759,8 @@ public:
                           "Number of digits in floating point data values.  "
                           "Default 0 means 5 for floats, 10 for doubles",
                           "0"};
+
+    DumpFormatArg DumpFormat{};
 
     /**
      * It is not enough to enable this arg in an app, the app must call

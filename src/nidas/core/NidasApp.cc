@@ -380,6 +380,9 @@ usage(const std::string& indent, bool brief)
   std::string line;
   while (getline(iss, line))
   {
+    // allow leading blank lines used to format initializers
+    if (line.empty())
+      continue;
     if (brief)
     {
       size_t len = oss.str().size();
@@ -1437,6 +1440,81 @@ formatId(dsm_sample_id_t sid)
   out << GET_DSM_ID(sid) << ",";
   formatSampleId(out, sid);
   return out.str();
+}
+
+
+DumpFormatArg::dump_format_t
+DumpFormatArg::
+getFormat() const
+{
+    return _format;
+}
+
+
+std::string
+DumpFormatArg::formatToString(dump_format_t format)
+{
+  switch (format)
+  {
+    case DEFAULT: return "default";
+    case ASCII: return "ascii";
+    case ASCII_7: return "ascii7";
+    case FLOAT: return "float";
+    case HEX_FMT: return "hex";
+    case NAKED: return "naked";
+    case IRIG: return "irig";
+    case INT32: return "int32";
+    case SIGNED_SHORT: return "signed_short";
+    case UNSIGNED_SHORT: return "unsigned_short";
+    default: return "unknown";
+  }
+}
+
+
+bool
+DumpFormatArg::
+parse(const ArgVector& argv, int* argi)
+{
+  if (! NidasAppArg::parse(argv, argi))
+  {
+    return false;
+  }
+  dump_format_t format;
+  char opt_char = getFlag()[1];
+  switch (opt_char)
+  {
+  case 'A':
+      format = ASCII;
+      break;
+  case '7':
+      format = ASCII_7;
+      break;
+  case 'F':
+      format = FLOAT;
+      break;
+  case 'H':
+      format = HEX_FMT;
+      break;
+  case 'n':
+      format = NAKED;
+      break;
+  case 'I':
+      format = IRIG;
+      break;
+  case 'L':
+      format = INT32;
+      break;
+  case 'S':
+      format = SIGNED_SHORT;
+      break;
+  case 'U':
+      format = UNSIGNED_SHORT;
+      break;
+  default:
+      throw NidasAppException("invalid dump format flag: " + getFlag());
+  }
+  _format = format;
+  return true;
 }
 
 
