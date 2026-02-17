@@ -546,7 +546,9 @@ static int StaticYear;
 
 
 /** macros borrowed from glibc/time functions */
+#ifndef SECS_PER_HOUR
 #define SECS_PER_HOUR   (60 * 60)
+#endif
 
 #ifndef SECS_PER_DAY
 #define SECS_PER_DAY    (SECS_PER_HOUR * 24)

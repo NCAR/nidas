@@ -32,7 +32,7 @@
 #include "Logger.h"
 #include "IOTimeoutException.h"
 #include "EOFException.h"
-#include "time_constants.h"
+#include <nidas/linux/types.h>
 
 #include <unistd.h>
 #include <signal.h>

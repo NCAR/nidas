@@ -36,7 +36,7 @@
 #ifdef __KERNEL__
 #include <linux/types.h>
 #else
-#include <cstdint> // uint32_t, int32_t, int64_t
+#include <stdint.h> // uint32_t, int32_t, int64_t
 #endif
 
 /**
@@ -93,12 +93,28 @@ typedef struct dsm_sample {
 #define SIZEOF_DSM_SAMPLE_HEADER \
         (sizeof(dsm_sample_time_t) + sizeof(dsm_sample_length_t))
 
-#ifndef NSECS_PER_SEC
-#define NSECS_PER_SEC 1000000000
+#ifndef SECS_PER_HOUR
+#define SECS_PER_HOUR 3600LL
+#endif
+
+#ifndef SECS_PER_DAY
+#define SECS_PER_DAY (24*SECS_PER_HOUR)
+#endif
+
+#ifndef MSECS_PER_SEC
+#define MSECS_PER_SEC 1000LL
+#endif
+
+#ifndef USECS_PER_MSEC
+#define USECS_PER_MSEC 1000
 #endif
 
 #ifndef NSECS_PER_MSEC
-#define NSECS_PER_MSEC 1000000
+#define NSECS_PER_MSEC 1000000LL
+#endif
+
+#ifndef NSECS_PER_SEC
+#define NSECS_PER_SEC (NSECS_PER_MSEC * MSECS_PER_SEC)
 #endif
 
 /* TMSEC is a tenth of a millisecond */
@@ -110,10 +126,6 @@ typedef struct dsm_sample {
 #define NSECS_PER_USEC 1000
 #endif
 
-#ifndef USECS_PER_MSEC
-#define USECS_PER_MSEC 1000
-#endif
-
 #ifndef USECS_PER_TMSEC
 #define USECS_PER_TMSEC 100
 #endif
@@ -123,27 +135,31 @@ typedef struct dsm_sample {
 #endif
 
 #ifndef USECS_PER_SEC
-#define USECS_PER_SEC 1000000
+#define USECS_PER_SEC 1000000LL
 #endif
 
-#ifndef MSECS_PER_SEC
-#define MSECS_PER_SEC 1000
-#endif
-
+/* Some NIDAS driver modules report time in 1/10 milliseconds */
 #ifndef TMSECS_PER_SEC
-#define TMSECS_PER_SEC 10000
+#define TMSECS_PER_SEC 10000LL
 #endif
 
 #ifndef MSECS_PER_DAY
-#define MSECS_PER_DAY 86400000
+#define MSECS_PER_DAY (SECS_PER_DAY * MSECS_PER_SEC)
+#define MSECS_PER_HALF_DAY (MSECS_PER_DAY / 2)
 #endif
 
 #ifndef TMSECS_PER_DAY
-#define TMSECS_PER_DAY 864000000
+#define TMSECS_PER_DAY (SECS_PER_DAY * TMSECS_PER_SEC)
+#define TMSECS_PER_HALF_DAY (TMSECS_PER_DAY / 2)
 #endif
 
-#ifndef SECS_PER_DAY
-#define SECS_PER_DAY 86400
+#ifndef USECS_PER_HOUR
+#define USECS_PER_HOUR (SECS_PER_HOUR * USECS_PER_SEC)
+#endif
+
+#ifndef USECS_PER_DAY
+#define USECS_PER_DAY (SECS_PER_DAY * USECS_PER_SEC)
+#define USECS_PER_HALF_DAY (USECS_PER_DAY / 2)
 #endif
 
 #endif

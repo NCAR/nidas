@@ -402,6 +402,18 @@ void DSMSensor::init()
 }
 
 
+int DSMSensor::getLagUsecs() const
+{
+    return _lag;
+}
+
+
+double DSMSensor::getLagSecs() const
+{
+    return (double)_lag / USECS_PER_SEC;
+}
+
+
 void DSMSensor::setLagSecs(double val)
 {
     _lag = (int) std::rint(val * USECS_PER_SEC);

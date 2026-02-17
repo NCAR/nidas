@@ -29,7 +29,6 @@
 
 #include <stdexcept>
 #include <nidas/core/Sample.h>
-#include <nidas/util/time_constants.h>
 
 namespace nidas { namespace core {
 

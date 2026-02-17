@@ -170,7 +170,7 @@ int DerivedDataReader::run()
             PLOG(("DerivedDataReader: ") << usock.getLocalSocketAddress().toAddressString() << ": " << e.what());
             // if for some reason we're getting a mess of errors
             // on the socket, take a nap, rather than get in a tizzy.
-	    usleep(USECS_PER_SEC/2);
+            usleep(USECS_PER_SEC/2);
         }
     }
     usock.close();
