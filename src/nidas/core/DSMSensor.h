@@ -1019,18 +1019,13 @@ protected:
      * The DSMSensor::fromDOM() method parses this parameter
      * and sets the value of the lag.
      */
-    virtual int getLagUsecs() const
-    {
-        return _lag;
-    }
+    virtual int getLagUsecs() const;
+
     /**
      * Return the sampling lag for this sensor in seconds.
      * See getLagUsecs().
      */
-    virtual double getLagSecs() const
-    {
-        return (double)_lag / USECS_PER_SEC;
-    }
+    virtual double getLagSecs() const;
 
     /**
      * Set the sampling lag for this sensor in seconds. This lag

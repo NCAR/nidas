@@ -1072,7 +1072,7 @@ void SensorHandler::handlePollingChange()
             int sto = psensor->getTimeoutMsecs();
             // For now, don't check more than once a second
             if (sto > 0 && sto < minTimeoutMsecs)
-                minTimeoutMsecs = std::max(sto,MSECS_PER_SEC);
+                minTimeoutMsecs = std::max(sto, int(MSECS_PER_SEC));
 #if POLLING_METHOD == POLL_PSELECT || POLLING_METHOD == POLL_POLL
             assert(psensor->getFd() >= 0);
             fds.push_back(psensor->getFd());

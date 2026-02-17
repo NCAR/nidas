@@ -29,7 +29,6 @@
 #include "IODevice.h"
 #include <nidas/util/EOFException.h>
 #include <nidas/util/IOTimeoutException.h>
-#include <nidas/util/time_constants.h>
 
 #include <sys/types.h>
 #include <sys/stat.h>

@@ -34,6 +34,7 @@
 #include <sys/select.h>
 #endif
 
+#include <nidas/linux/types.h>
 #include <signal.h>
 
 using namespace nidas::core;

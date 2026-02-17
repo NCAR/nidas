@@ -40,7 +40,7 @@
 #include <cmath> // floor() and rint()
 #include <string>
 
-#include "time_constants.h"
+#include <nidas/linux/types.h>
 
 
 namespace nidas { namespace util {

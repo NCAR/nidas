@@ -606,3 +606,14 @@ bool SampleSorter::receive(const Sample *s) throw()
     return true;
 }
 
+
+void SampleSorter::setLengthSecs(float val)
+{
+    _sorterLengthUsec = (unsigned int)((double)val * USECS_PER_SEC);
+}
+
+
+float SampleSorter::getLengthSecs() const
+{
+    return (double)_sorterLengthUsec / USECS_PER_SEC;
+}

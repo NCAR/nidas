@@ -46,8 +46,6 @@ using namespace std;
 
 namespace n_u = nidas::util;
 
-#define MSECS_PER_HALF_DAY 43200000
-
 /* static */
 bool WisardMote::_functionsMapped = false;
 

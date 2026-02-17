@@ -29,7 +29,7 @@
 #include "Prompt.h"
 
 #include <nidas/util/Logger.h>
-#include <nidas/util/time_constants.h>
+#include <nidas/linux/types.h>
 
 #include <cmath>
 

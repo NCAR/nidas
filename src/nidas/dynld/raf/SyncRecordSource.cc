@@ -86,7 +86,7 @@ SyncInfo::SyncInfo(dsm_sample_id_t i, float r, SyncRecordSource* srs):
     skipMod((int)(1.0 / (1 - (nSlots-rate)))),
     skipModCount(0),
     nEarlySamp(0), nLateSamp(0),
-    outOfSlotMax(std::max(3 * USECS_PER_SEC / dtUsec, 5)),
+    outOfSlotMax(std::max((unsigned int)(3 * USECS_PER_SEC) / dtUsec, 5U)),
     _srs(srs)
 {
 }
@@ -876,7 +876,7 @@ bool SyncRecordSource::checkTime(const Sample* samp,
             else sinfo.overWritten = true;
         }
     }
-    else if (tdiff > std::min(NSLOT_LIMIT * sinfo.dtUsec, USECS_PER_SEC)) {
+    else if (tdiff > std::min(NSLOT_LIMIT * sinfo.dtUsec, (int)USECS_PER_SEC)) {
         // timetag is later than slot time by more than NSLOT_LIMIT
         // sample dt. Need to skip some slots.  Compute index of this
         // sample into the current sync record. This is the result of
