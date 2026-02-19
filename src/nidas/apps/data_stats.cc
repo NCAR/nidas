@@ -52,9 +52,7 @@
 #include <iostream>
 #include <iomanip>
 #include <sys/stat.h>
-#include <boost/filesystem.hpp>
 #include <fstream>
-#include <boost/system/error_code.hpp>
 
 
 #include <unistd.h>
@@ -62,7 +60,6 @@
 
 #include <json/json.h>
 
-namespace fs = boost::filesystem;
 using namespace nidas::core;
 using namespace nidas::dynld;
 using namespace std;
@@ -91,6 +88,69 @@ namespace {
             return Json::Value(value);
         }
     }
+}
+
+namespace fs
+{
+    class path
+    {
+    public:
+        path(const std::string& p = "") : _path(p) {}
+
+        std::string string() const { return _path; }
+
+        bool empty() const { return _path.empty(); }
+
+        path operator/(const path& p2) const
+        {
+            return path(_path + "/" + p2.string());
+        }
+
+        path operator/(const std::string& p2) const
+        {
+            return path(_path + "/" + p2);
+        }
+
+        path& operator+=(const std::string& p2)
+        {
+            _path = _path + "/" + p2;
+            return *this;
+        }
+
+    private:
+        std::string _path;
+    };
+
+    void rename(const path& tmpFilePath, const path& filePath)
+    {
+        if (::rename(tmpFilePath.string().c_str(),
+                     filePath.string().c_str()) != 0)
+        {
+            throw std::runtime_error("Failed to rename file: " +
+                                     std::string(strerror(errno)));
+        }
+    }
+
+    void create_directories(const path& p)
+    {
+        try {
+            nidas::util::FileSet::createDirectory(p.string(), 0755);
+        }
+        catch (const std::exception& e) {
+            throw std::runtime_error("Failed to create directories: " +
+                                     std::string(e.what()));
+        }
+    }
+
+    void remove(const path& p)
+    {
+        if (::remove(p.string().c_str()) != 0)
+        {
+            throw std::runtime_error("Failed to remove file: " +
+                                     std::string(strerror(errno)));
+        }
+    }
+
 }
 
 /**
@@ -2139,7 +2199,7 @@ bool DataStats::writeJsonToFileHelper(const Json::Value& jsonData,
                                       Json::StreamWriter* writer)
 {
     fs::path tmpFilePath = filePath;
-    tmpFilePath += ".tmp"; 
+    tmpFilePath += ".tmp";
     std::ofstream outFile(tmpFilePath.string()); 
 
     if (!outFile.is_open()) {
@@ -2150,13 +2210,13 @@ bool DataStats::writeJsonToFileHelper(const Json::Value& jsonData,
     writer->write(jsonData, &outFile);
     outFile.close();
 
-    boost::system::error_code ec; 
-    fs::rename(tmpFilePath, filePath, ec); 
-
-    if (ec) {
-        ELOG(("Failed to rename temporary JSON file '") << tmpFilePath.string() << "' to '" << filePath.string() << "': " << ec.message());
-        boost::system::error_code remove_ec; 
-        fs::remove(tmpFilePath, remove_ec); 
+    try {
+        fs::rename(tmpFilePath, filePath); 
+    }
+    catch (const std::runtime_error& e)
+    {
+        ELOG(("Failed to rename temporary JSON file '") << tmpFilePath.string() << "' to '" << filePath.string() << "': " << e.what());
+        fs::remove(tmpFilePath); 
         return false;
     }
     return true;
@@ -2182,7 +2242,7 @@ bool DataStats::ensureOutputDirectoriesForPeriod(
             fs::create_directories(out_data_values_path);
         }
         return true; // Success
-    } catch (const fs::filesystem_error& e) {
+    } catch (const std::runtime_error& e) {
         ELOG(("Error creating output directories under '") << current_period_base_path.string() 
              << "': " << e.what());
         return false; // Failure
