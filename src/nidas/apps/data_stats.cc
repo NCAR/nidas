@@ -1609,6 +1609,22 @@ DataStats::sensorOrderCounters()
             push_counter(ti.next()->getId());
         }
     }
+
+    // add counters which do not have a sensor tag ordered by sample id,
+    // conveniently provided by inserting the IDs into a map.  this preserves
+    // historical ordering of raw sample stats.
+    std::map<dsm_sample_id_t, dsm_sample_id_t> id_counters;
+    for (auto si : _samples)
+        id_counters[si.first] = si.first;
+    for (auto itc: id_counters)
+    {
+        SampleCounter* counter = getCounter(itc.first);
+        auto it = std::find(counters.begin(), counters.end(), counter);
+        if (counter && it == counters.end())
+        {
+            counters.push_back(counter);
+        }
+    }
     return counters;
 }
 
