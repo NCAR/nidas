@@ -9,18 +9,18 @@ tlogger
 core
 hardware
 util
-data_dump
 tiostream
 network
 sync_server_dump
 ck_xml
 ck_calfile
 UTime
-sonic
-prep
-dausensor
 trh
 gps""")
+# sonic
+# data_dump
+# dausensor
+# prep
 
 Import('env')
 SConscript(dirs=dirs, exports='env')
