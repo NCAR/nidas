@@ -27,9 +27,6 @@ while [ $# -gt 0 ]; do
     arm64)
         arch=$1
         PKG_CONFIG_PATH=/usr/lib/aarch64-linux-gnu/pkgconfig:/usr/lib/pkgconfig:/usr/share/pkgconfig
-        export CC=aarch64-linux-gnu-gcc
-        export CXX=aarch64-linux-gnu-g++
-        export LINK=aarch64-linux-gnu-g++
         ;;
     amd64)
         arch=$1
