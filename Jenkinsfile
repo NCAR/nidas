@@ -34,26 +34,31 @@ pipeline {
                     filename 'Dockerfile'
                     label 'CentOS9'
                     dir '.'
-                    args '-v $WORKSPACE:/workspase -w /workspace -u root'
+                    args '-v $WORKSPACE:/workspace -w /workspace -u root'
                     // reuseNode true
                 }
             }
             stages {
-                stage('Compile and test') {
+                stage('Compile') {
                     steps {
-                        sh 'bash -lc "pushd src && scons -j$(nproc) --no-cache && popd"'
+                        sh './jenkins.sh compile BUILDS=arm64'
                     }
                 }
                 stage('Build packages') {
                     steps {
-                        sh 'bash -lc "pushd scripts && ./build_dpkg.sh -I bookworm arm64 && popd"'
+                        sh './jenkins.sh build_dsm3_debs'
                     }
                 }
-                stage('Sign and Push packages to EOL repository') {
-                    steps {
-                        sh 'echo "ADD STEP TO PUSH RPi Bookworm packages to EOL Repo"'
-                    }
+            }
+        }
+        stage('Upload packages to repo') {
+            agent {
+                node {
+                    label 'CentOS9'
                 }
+            }
+            steps {
+              sh './jenkins.sh upload_dsm3_debs'
             }
         }
 
