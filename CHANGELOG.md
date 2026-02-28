@@ -18,6 +18,12 @@ known as [buster].
 
 ## [master] - Unreleased on master branch
 
+- Fix `data_stats` so it advances the stats period in real-time mode if the
+  sample times or system time advance beyond the current period.  This fixes a
+  bug where the stats period could be set on a DSM before the system time was
+  corrected to GPS, but then no samples were reported because the stats period
+  was too old.
+
 ## [1.2.6] - 2026-02-02
 
 - `nidsmerge` has had significant changes.  If consecutive samples in a single
