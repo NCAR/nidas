@@ -52,9 +52,7 @@
 #include <iostream>
 #include <iomanip>
 #include <sys/stat.h>
-#include <boost/filesystem.hpp>
 #include <fstream>
-#include <boost/system/error_code.hpp>
 
 
 #include <unistd.h>
@@ -62,7 +60,6 @@
 
 #include <json/json.h>
 
-namespace fs = boost::filesystem;
 using namespace nidas::core;
 using namespace nidas::dynld;
 using namespace std;
@@ -71,6 +68,13 @@ namespace n_u = nidas::util;
 using nidas::util::UTime;
 using nidas::util::Logger;
 using nidas::util::LogScheme;
+
+// testing can use this to insert a different system time, otherwise it
+// defaults to empty to construct UTime with the current system time.
+#ifndef DATA_STATS_UTIME_NOW
+#define DATA_STATS_UTIME_NOW
+#endif
+
 
 namespace {
     inline std::string
@@ -91,6 +95,69 @@ namespace {
             return Json::Value(value);
         }
     }
+}
+
+namespace fs
+{
+    class path
+    {
+    public:
+        path(const std::string& p = "") : _path(p) {}
+
+        std::string string() const { return _path; }
+
+        bool empty() const { return _path.empty(); }
+
+        path operator/(const path& p2) const
+        {
+            return path(_path + "/" + p2.string());
+        }
+
+        path operator/(const std::string& p2) const
+        {
+            return path(_path + "/" + p2);
+        }
+
+        path& operator+=(const std::string& p2)
+        {
+            _path = _path + "/" + p2;
+            return *this;
+        }
+
+    private:
+        std::string _path;
+    };
+
+    void rename(const path& tmpFilePath, const path& filePath)
+    {
+        if (::rename(tmpFilePath.string().c_str(),
+                     filePath.string().c_str()) != 0)
+        {
+            throw std::runtime_error("Failed to rename file: " +
+                                     std::string(strerror(errno)));
+        }
+    }
+
+    void create_directories(const path& p)
+    {
+        try {
+            nidas::util::FileSet::createDirectory(p.string(), 0755);
+        }
+        catch (const std::exception& e) {
+            throw std::runtime_error("Failed to create directories: " +
+                                     std::string(e.what()));
+        }
+    }
+
+    void remove(const path& p)
+    {
+        if (::remove(p.string().c_str()) != 0)
+        {
+            throw std::runtime_error("Failed to remove file: " +
+                                     std::string(strerror(errno)));
+        }
+    }
+
 }
 
 /**
@@ -208,7 +275,6 @@ public:
         }
         if (stag)
         {
-            
             for (auto& var: stag->getVariables())
             {
                 // We need to keep track of two variable names, the fully
@@ -955,9 +1021,12 @@ public:
 
     /**
      * Recalculate statistics as needed based on the current collection of
-     * data and time period.
+     * data and time period.  Return the earliest time of the remaining
+     * accumulated samples, or UTime::MAX if no samples remain.  If no samples
+     * have yet been received for the given period, then the return value will
+     * be greater than @p end.
      **/
-    void
+    UTime
     restartStats(const UTime& start, const UTime& end);
 
     void
@@ -983,6 +1052,18 @@ public:
     void resetResults();
 
     void setStart(const UTime& start);
+
+    void advanceStats();
+
+    void setRealtime(bool realtime);
+
+    bool getRealtime() const;
+
+    void getPeriod(UTime& start, UTime& end) const
+    {
+        start = _period_start;
+        end = _period_end;
+    }
 
 private:
     static const int DEFAULT_PORT = 30000;
@@ -1053,6 +1134,10 @@ private:
     NidasAppArg ShowProblems;
     NidasAppArg RoundStart;
     NidasAppArg JsonOutputDir;
+    NidasAppArg Precision{"--precision", "ndigits",
+                        "Number of digits in floating point data values.  "
+                        "Default 0 means 5 for floats, 10 for doubles",
+                        "0"};
 
     n_u::auto_ptr<Json::StreamWriter> streamWriter;
     n_u::auto_ptr<Json::StreamWriter> headerWriter;
@@ -1182,7 +1267,7 @@ This option is mutually exclusive with --json)"),
                         app.Version | app.InputFiles | FilterArg |
                         app.Help | Period | Update | Count |
                         AllSamples | ShowData | SingleMote | Fullnames |
-                        ShowProblems | RoundStart /*| app.Precision*/);
+                        ShowProblems | RoundStart | Precision);
     app.enableArguments(JsonOutput);
     app.enableArguments(JsonOutputDir);
     app.InputFiles.allowFiles = true;
@@ -1239,7 +1324,7 @@ int DataStats::parseRunstring(int argc, char** argv)
         {
             _period = _update;
         }
-        /* _precision = _app.Precision.asInt(); */
+        _precision = Precision.asInt();
         // default to 5 digits
         _precision = (_precision == 0) ? 5 : _precision;
         _app.parseInputs(args);
@@ -1258,12 +1343,15 @@ int DataStats::usage(const char* argv0)
         "Usage: " << argv0 << " [options] [inputURL] ...\n";
     cerr <<
         "Standard options:\n"
-         << _app.usage() <<
-        "Examples:\n" <<
-        argv0 << " xxx.dat yyy.dat\n" <<
-        argv0 << " file:/tmp/xxx.dat file:/tmp/yyy.dat\n" <<
-        argv0 << " -p -x ads3.xml sock:hyper:30000\n" <<
-        argv0 << " --period 60 --update 5 -a -p -D -F" << endl;
+         << _app.usage();
+    if (/*!_app.briefHelp()*/ true)
+    {
+        cerr << "Examples:\n" <<
+            argv0 << " xxx.dat yyy.dat\n" <<
+            argv0 << " file:/tmp/xxx.dat file:/tmp/yyy.dat\n" <<
+            argv0 << " -p -x ads3.xml sock:hyper:30000\n" <<
+            argv0 << " --period 60 --update 5 -a -p -D -F" << endl;
+    }
     return 1;
 }
 
@@ -1359,7 +1447,7 @@ readSamples(SampleInputStream& sis)
         // Add some slack to the alarm to allow samples to arrive within the
         // period, rounded up.
         int delay = 1; // seconds of lag
-        UTime when;
+        UTime when{DATA_STATS_UTIME_NOW};
         if (when < _period_end)
         {
             when = _period_end - when.toUsecs();
@@ -1548,6 +1636,22 @@ DataStats::sensorOrderCounters()
             push_counter(ti.next()->getId());
         }
     }
+
+    // add counters which do not have a sensor tag ordered by sample id,
+    // conveniently provided by inserting the IDs into a map.  this preserves
+    // historical ordering of raw sample stats.
+    std::map<dsm_sample_id_t, dsm_sample_id_t> id_counters;
+    for (auto si : _samples)
+        id_counters[si.first] = si.first;
+    for (auto itc: id_counters)
+    {
+        SampleCounter* counter = getCounter(itc.first);
+        auto it = std::find(counters.begin(), counters.end(), counter);
+        if (counter && it == counters.end())
+        {
+            counters.push_back(counter);
+        }
+    }
     return counters;
 }
 
@@ -1586,7 +1690,7 @@ receive(const Sample* samp) throw()
     // and updated in the Samplecounter even if the sample is not queue.  We
     // do nothing with samples which are too old.
     dsm_time_t sampt = samp->getTimeTag();
-    if (_start_time.isZero())
+    if (_period_start.isZero())
     {
         // not realtime since start not set yet, so use first sample time.
         setStart(samp->getTimeTag());
@@ -1735,41 +1839,47 @@ void DataStats::printReport(std::ostream& outs)
 }
 
 
-void
+UTime
 DataStats::
 restartStats(const UTime& start, const UTime& end)
 {
     DLOG(("") << "restartStats(" << iso_format(start) << ", "
      << iso_format(end) << ")");
 
-
     sample_queue::iterator it;
     dsm_time_t tstart(start.toUsecs());
+    dsm_time_t tend(end.toUsecs());
     for (it = _sampleq.begin(); it != _sampleq.end(); )
     {
         if ((*it)->getTimeTag() < tstart)
         {
             (*it)->freeReference();
             it = _sampleq.erase(it);
+            continue;
         }
-        else
-        {
-            ++it;
-        }
+        ++it;
     }
 
     resetResults();
 
+    // While iterating samples, pick out the earliest time of all of them,
+    // even those beyond the period.
+    UTime earliest(UTime::MAX);
     for (it = _sampleq.begin(); it != _sampleq.end(); ++it)
     {
         const Sample* samp = *it;
         dsm_time_t sampt = samp->getTimeTag();
-        if (sampt < end.toUsecs())
+        if (sampt < tend)
         {
             SampleCounter* stats = getCounter(samp->getId());
             stats->accumulateSample(samp);
         }
+        if (sampt < earliest.toUsecs())
+        {
+            earliest = sampt;
+        }
     }
+    return earliest;
 }
 
 
@@ -1790,7 +1900,6 @@ void
 DataStats::
 report()
 {
-   
     if (_period > 0)
     {
         ILOG(("") << "Reporting stats from "
@@ -1965,12 +2074,117 @@ void DataStats::setStart(const UTime& start)
         int seconds = RoundStart.asInt();
         _period_start = start.round(seconds*USECS_PER_SEC);
     }
+    // If period is shorter, then the first update comes when a whole period
+    // has filled, and then every update seconds after that.  If update is
+    // shorter, then the period does not fill until enough updates have
+    // passed.
     _period_end = _period_start + _period * USECS_PER_SEC;
     if (_update < _period)
     {
         _period_end = _period_start + _update * USECS_PER_SEC;
     }
-    _start_time = _period_start;
+    // if the overall start time has not been set yet, set it to the start of
+    // the first period.
+    if (_start_time.isZero())
+        _start_time = _period_start;
+    // Any time the period start is reset, log the new period start and update
+    // settings.  Normally this only happens once, either with the current
+    // system time for realtime or the first sample time if not, but it can
+    // also happen if the system time advances beyond the current peiod.
+    if (_period > 0 && _realtime)
+    {
+        ILOG(("") << "... Reporting stats over " << _period << " seconds, "
+                    << "updating " << _update << " seconds, "
+                    << iso_format(_period_start) << " ...");
+    }
+}
+
+
+void
+DataStats::
+advanceStats()
+{
+    // see if start needs to be set
+    if (_period_start.isZero())
+    {
+        // If realtime, the period starts now, since that is when data starts
+        // being collected, and it goes until the next update or next period,
+        // whichever is shorter.  If not realtime, then the sample times will
+        // be used as the "clock".
+        if (_realtime)
+        {
+            setStart(UTime{DATA_STATS_UTIME_NOW});
+        }
+        // either way, this is the first time period, so nothing else to do.
+        return;
+    }
+
+    if (_period == 0)
+        // no period means nothing to advance
+        return;
+
+    // Advance the period end by the update time, but do not
+    // advance the period start until the period is long enough.
+    _period_end += _update * USECS_PER_SEC;
+    if (_period_end - _period * USECS_PER_SEC > _period_start)
+    {
+        _period_start = _period_end - _period * USECS_PER_SEC;
+    }
+    // Reset statistics to start accumulating for the new time period.
+    UTime next = restartStats(_period_start, _period_end);
+
+    // There are a couple possible hiccups to the time period calculation. In
+    // realtime, if the system time advances past the current period due to a
+    // GPS time step, then samples can keep accumulating in the present which
+    // the current period will never reach from the past.  When processing
+    // data files, there could be large gaps, but there could be reasons to
+    // create a report for every empty gap rather than just skipping them. For
+    // now, the realtime case is the big problem.  Since we don't want to drop
+    // any accumulated samples beyond the current period, only advance the
+    // period to the time of the next earliest sample.  (This should be the
+    // first sample assigned with the newly corrected system time.)  If there
+    // are no samples pending but the system time is still beyond the current
+    // period, then use the system time.
+    if (!_realtime)
+    {
+        return;
+    }
+    UTime now{DATA_STATS_UTIME_NOW};
+    if (next.isSet() && next >= _period_end)
+    {
+        ILOG(("Next sample at ") << iso_format(next)
+                << " is beyond period end time "
+                << iso_format(_period_end) << ", resetting period.");
+    }
+    else if (!next.isSet() && now >= _period_end)
+    {
+        ILOG(("No next sample, current time ") << iso_format(now)
+                << " is beyond period end time "
+                << iso_format(_period_end) << ", resetting period.");
+        next = now;
+    }
+    else
+    {
+        next = UTime::MIN;
+    }
+    if (next.isSet())
+    {
+        // force a new start time and restart the stats for the new period
+        setStart(next);
+        restartStats(_period_start, _period_end);
+    }
+}
+
+
+void DataStats::setRealtime(bool realtime)
+{
+    _realtime = realtime;
+}
+
+
+bool DataStats::getRealtime() const
+{
+    return _realtime;
 }
 
 
@@ -2055,43 +2269,11 @@ int DataStats::run()
 
     try
     {
-        // If realtime, set the period being covered now.  The period starts
-        // now, since that is when data starts being collected, and it goes
-        // until the next update or next period, whichever is shorter.  If
-        // period is shorter, then the first update comes when a whole
-        // period has filled, and then every update seconds after that.  If
-        // update is shorter, then the period does not fill until enough
-        // updates have passed.
-        //
-        // If not realtime, then the sample times will be used as the "clock".
-        if (_realtime)
-        {
-            setStart(UTime());
-        }
-        if (_period > 0 && _realtime)
-        {
-            ILOG(("") << "... Reporting stats over "
-                      << _period << " seconds, "
-                      << "updating " << _update
-                      << " seconds, " << iso_format(_period_start)
-                      << " ...");
-        }
         while (!_app.interrupted() && !reportsExhausted(++_nreports))
         {
+            advanceStats();
             readSamples(sis);
             report();
-            if (_period > 0)
-            {
-                // Advance the period end by the update time, but do not
-                // advance the period start until the period is long enough.
-                _period_end += _update * USECS_PER_SEC;
-                if (_period_end - _period * USECS_PER_SEC > _period_start)
-                {
-                    _period_start = _period_end - _period * USECS_PER_SEC;
-                }
-                // Reset statistics to start accumulating for the new time period.
-                restartStats(_period_start, _period_end);
-            }
         }
     }
     catch (n_u::EOFException& e)
@@ -2138,7 +2320,7 @@ bool DataStats::writeJsonToFileHelper(const Json::Value& jsonData,
                                       Json::StreamWriter* writer)
 {
     fs::path tmpFilePath = filePath;
-    tmpFilePath += ".tmp"; 
+    tmpFilePath += ".tmp";
     std::ofstream outFile(tmpFilePath.string()); 
 
     if (!outFile.is_open()) {
@@ -2149,13 +2331,13 @@ bool DataStats::writeJsonToFileHelper(const Json::Value& jsonData,
     writer->write(jsonData, &outFile);
     outFile.close();
 
-    boost::system::error_code ec; 
-    fs::rename(tmpFilePath, filePath, ec); 
-
-    if (ec) {
-        ELOG(("Failed to rename temporary JSON file '") << tmpFilePath.string() << "' to '" << filePath.string() << "': " << ec.message());
-        boost::system::error_code remove_ec; 
-        fs::remove(tmpFilePath, remove_ec); 
+    try {
+        fs::rename(tmpFilePath, filePath); 
+    }
+    catch (const std::runtime_error& e)
+    {
+        ELOG(("Failed to rename temporary JSON file '") << tmpFilePath.string() << "' to '" << filePath.string() << "': " << e.what());
+        fs::remove(tmpFilePath); 
         return false;
     }
     return true;
@@ -2181,14 +2363,16 @@ bool DataStats::ensureOutputDirectoriesForPeriod(
             fs::create_directories(out_data_values_path);
         }
         return true; // Success
-    } catch (const fs::filesystem_error& e) {
+    } catch (const std::runtime_error& e) {
         ELOG(("Error creating output directories under '") << current_period_base_path.string() 
              << "': " << e.what());
         return false; // Failure
     }
 }
 
+#ifndef DATA_STATS_OMIT_MAIN
 int main(int argc, char** argv)
 {
     return DataStats::main(argc, argv);
 }
+#endif
