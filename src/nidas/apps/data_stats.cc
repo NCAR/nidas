@@ -69,6 +69,13 @@ using nidas::util::UTime;
 using nidas::util::Logger;
 using nidas::util::LogScheme;
 
+// testing can use this to insert a different system time, otherwise it
+// defaults to empty to construct UTime with the current system time.
+#ifndef DATA_STATS_UTIME_NOW
+#define DATA_STATS_UTIME_NOW
+#endif
+
+
 namespace {
     inline std::string
     iso_format(const UTime& ut)
@@ -1048,6 +1055,16 @@ public:
 
     void advanceStats();
 
+    void setRealtime(bool realtime);
+
+    bool getRealtime() const;
+
+    void getPeriod(UTime& start, UTime& end) const
+    {
+        start = _period_start;
+        end = _period_end;
+    }
+
 private:
     static const int DEFAULT_PORT = 30000;
 
@@ -1424,7 +1441,7 @@ readSamples(SampleInputStream& sis)
         // Add some slack to the alarm to allow samples to arrive within the
         // period, rounded up.
         int delay = 1; // seconds of lag
-        UTime when;
+        UTime when{DATA_STATS_UTIME_NOW};
         if (when < _period_end)
         {
             when = _period_end - when.toUsecs();
@@ -2090,7 +2107,7 @@ advanceStats()
         // be used as the "clock".
         if (_realtime)
         {
-            setStart(UTime());
+            setStart(UTime{DATA_STATS_UTIME_NOW});
         }
         // either way, this is the first time period, so nothing else to do.
         return;
@@ -2126,7 +2143,7 @@ advanceStats()
     {
         return;
     }
-    UTime now;
+    UTime now{DATA_STATS_UTIME_NOW};
     if (next.isSet() && next >= _period_end)
     {
         ILOG(("Next sample at ") << iso_format(next)
@@ -2150,6 +2167,18 @@ advanceStats()
         setStart(next);
         restartStats(_period_start, _period_end);
     }
+}
+
+
+void DataStats::setRealtime(bool realtime)
+{
+    _realtime = realtime;
+}
+
+
+bool DataStats::getRealtime() const
+{
+    return _realtime;
 }
 
 
@@ -2335,7 +2364,9 @@ bool DataStats::ensureOutputDirectoriesForPeriod(
     }
 }
 
+#ifndef DATA_STATS_OMIT_MAIN
 int main(int argc, char** argv)
 {
     return DataStats::main(argc, argv);
 }
+#endif

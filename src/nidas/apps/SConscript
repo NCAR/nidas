@@ -85,6 +85,9 @@ def jsoncpp(env: Environment):
         raise SCons.Errors.StopError("jsoncpp not found.")
 
 
+Export('jsoncpp')
+
+
 programs = Split("""
 arl-ingest
 raf/arinc_out
