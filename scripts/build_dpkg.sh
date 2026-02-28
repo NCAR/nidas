@@ -56,7 +56,8 @@ while [ $# -gt 0 ]; do
         ;;
     -d)
         shift
-        dest=$1
+        dest=$(realpath "$1")
+        echo "Packages will be moved to $dest"
         ;;
     -c)
         use_chroot=true
@@ -69,17 +70,12 @@ while [ $# -gt 0 ]; do
         binary=true
         ;;
     armel)
-        export CC=arm-linux-gnueabi-gcc
         arch=$1
         ;;
     armhf)
-        export CC=arm-linux-gnueabihf-gcc
         arch=$1
         ;;
     arm64)
-        export CC=aarch64-linux-gnu-gcc
-        export CXX=aarch64-linux-gnu-g++
-        export LINK=aarch64-linux-gnu-g++
         arch=$1
         ;;
     amd64)
@@ -196,11 +192,12 @@ args="$args -us -uc"
 rm -f ../nidas_*.tar.xz ../nidas_*.dsc
 rm -f $(echo ../nidas\*_{$arch,all}.{deb,build,changes})
 
-# I think the way this works is that debuild will tar up the source to
-# build the package from, but the scons clean will not catch *all* the
-# build directories that might exist, so just make a point of removing all
-# of them here.
-rm -rf src/build*
+# I think the way this works is that debuild will tar up the source to build
+# the package from, but the scons clean will not catch *all* the build
+# directories that might exist, so just make a point of removing all of them
+# here.  Removing .sconf_temp seems to help quiet some missing-source
+# warnings.
+rm -rf src/build* src/.sconf_temp
 
 # export DEBUILD_DPKG_BUILDPACKAGE_OPTS="$args"
 
