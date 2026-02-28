@@ -4,6 +4,11 @@
 #   docker build -t xdev:armhf --build-arg HOST_ARCH=armhf .
 #   docker build -t xdev:i386  --build-arg HOST_ARCH=i386  .
 #   docker build -t xdev:amd64 --build-arg HOST_ARCH=amd64 .
+#
+# Or with podman, using the tag name conventions in cnidas.sh:
+#
+#   podman build -t nidas-build-debian-arm64:bookworm --build-arg HOST_ARCH=arm64 -f Dockerfile
+#
 
 FROM debian:12-slim
 
@@ -22,7 +27,7 @@ RUN apt-get update \
   && apt-get install -y --no-install-recommends \
       ca-certificates gnupg dirmngr wget curl git \
       build-essential pkg-config ninja-build make cmake scons \
-      ccache gdb gdb-multiarch file patchelf rsync gawk reprepro \
+      gdb gdb-multiarch file patchelf rsync gawk reprepro \
       python3 python3-pip python3-venv python3-setuptools python3-wheel \
       flex bison libfl-dev \
       libboost-dev \
@@ -56,67 +61,12 @@ RUN set -eu; \
       "libboost-regex-dev:${DEBARCH}" \
       "libfl-dev:${DEBARCH}" \
       "libboost-serialization-dev:${DEBARCH}" \
-      "libboost-iostreams-dev:${DEBARCH}" \
-      qemu-user-static; \
-    rm -rf /var/lib/apt/lists/*; \
-    printf "\n# --- custom ---\nexport CC=${TRIPLE}-gcc \nexport CXX=${TRIPLE}-g++ \nexport LINK=${TRIPLE}-g++ \n" >> /root/.bashrc ; \
-  fi
-
-# ---- pkg-config wrapper for selected cross target (if any) ----
-RUN set -eu; \
-  if [ "$HOST_ARCH" != "amd64" ]; then \
-    case "$HOST_ARCH" in \
-      arm64) TRIPLE=aarch64-linux-gnu;  LIBDIR=aarch64-linux-gnu ;; \
-      armhf) TRIPLE=arm-linux-gnueabihf; LIBDIR=arm-linux-gnueabihf ;; \
-      i386)  TRIPLE=i686-linux-gnu;      LIBDIR=i386-linux-gnu ;; \
-    esac; \
-    printf '%s\n' '#!/bin/sh' \
-      "PKG_CONFIG_LIBDIR=/usr/lib/${LIBDIR}/pkgconfig:/usr/share/pkgconfig exec pkg-config \"\$@\"" \
-      > "/usr/local/bin/${TRIPLE}-pkg-config"; \
-    chmod 0755 "/usr/local/bin/${TRIPLE}-pkg-config"; \
-  fi
-
-# ---- CMake toolchain file for selected cross target (if any) ----
-RUN set -eu; \
-  mkdir -p /opt/toolchains; \
-  if [ "$HOST_ARCH" != "amd64" ]; then \
-    case "$HOST_ARCH" in \
-      arm64) TRIPLE=aarch64-linux-gnu;  LIBDIR=aarch64-linux-gnu;  CPU=aarch64 ;; \
-      armhf) TRIPLE=arm-linux-gnueabihf; LIBDIR=arm-linux-gnueabihf; CPU=arm ;; \
-      i386)  TRIPLE=i686-linux-gnu;      LIBDIR=i386-linux-gnu;      CPU=x86 ;; \
-    esac; \
-    TOOLFILE="/opt/toolchains/${TRIPLE}.cmake"; \
-    { \
-      printf '%s\n' \
-        "# Auto-generated toolchain for ${TRIPLE}" \
-        "set(CMAKE_SYSTEM_NAME Linux)" \
-        "set(CMAKE_SYSTEM_PROCESSOR ${CPU})" \
-        "" \
-        "set(TRIPLE ${TRIPLE})" \
-        "set(CMAKE_C_COMPILER   \${TRIPLE}-gcc)" \
-        "set(CMAKE_CXX_COMPILER \${TRIPLE}-g++)" \
-        "set(CMAKE_ASM_COMPILER \${TRIPLE}-gcc)" \
-        "" \
-        "# Prefer target sysroot/multiarch dirs" \
-        "set(CMAKE_FIND_ROOT_PATH" \
-        "    /usr/\${TRIPLE}" \
-        "    /usr/lib/\${TRIPLE}" \
-        "    /usr/lib/${LIBDIR}" \
-        "    /usr/\${TRIPLE}/lib)" \
-        "" \
-        "set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)" \
-        "set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)" \
-        "set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)" \
-        "" \
-        "# Ensure pkg-config queries the right arch" \
-        "set(ENV{PKG_CONFIG} \${TRIPLE}-pkg-config)"; \
-    } > "${TOOLFILE}"; \
-    chmod 0644 "${TOOLFILE}"; \
+      "libboost-iostreams-dev:${DEBARCH}" ; \
+    rm -rf /var/lib/apt/lists/* ; \
   fi
 
 # ---- Workspace + ccache ----
-ENV CCACHE_DIR=/ccache
-RUN mkdir -p /workspace /ccache
+ RUN mkdir -p /workspace
 
 
 #custom additions below
@@ -138,17 +88,16 @@ WORKDIR /third-party
 
 
 # Local packages
-RUN /bin/bash -c "mkdir -p ublox"
+RUN mkdir -p ublox
 COPY ./scripts/docker/build-ublox.sh ublox
-RUN /bin/bash -c "pushd ublox && ./build-ublox.sh && popd"
+RUN cd ublox && ./build-ublox.sh
 
-RUN /bin/bash -c "mkdir -p xmlrpc-build"
+RUN mkdir -p xmlrpc-build
 COPY ./scripts/docker/build-xmlrpc.sh xmlrpc-build
-RUN /bin/bash -c "pushd xmlrpc-build && ./build-xmlrpc.sh ${HOST_ARCH} && popd"
+RUN cd xmlrpc-build && ./build-xmlrpc.sh ${HOST_ARCH}
 
-RUN /bin/bash -c "mkdir -p ~/.scons/ && \
-        cd ~/.scons && \
-        git clone https://github.com/ncar/eol_scons site_scons " 
+RUN mkdir -p ~/.scons/site_scons && \
+    git -C ~/.scons/site_scons clone https://github.com/ncar/eol_scons
 
 WORKDIR /workspace
 
