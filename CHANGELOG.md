@@ -39,6 +39,13 @@ configuration.
 This does not yet include identifying the kind of sensor attached, NIDAS only
 looks for a response according to the single sensor specified for the port.
 
+## [1.4.2] - 2026-02-28
+
+The latest `data_stats` has been merged from the main development branch into
+the DSM3 release branch.  This includes the JSON file schemes required by the
+latest DSM Dashboard and the fix which advances the stats period when the
+system clock is corrected forward to GPS.
+
 ## [1.4.1] - 2025-07-07
 
 Source now builds on Debian Bookworm aarch64.
@@ -114,6 +121,7 @@ to `v1.2-1721-g1ebc8bcd4`.
 
 <!-- Versions -->
 [buster]: https://github.com/ncareol/nidas/tree/buster
+[1.4.2]: https://github.com/ncareol/nidas/compare/v1.4.1...v1.4.2
 [1.4.1]: https://github.com/ncareol/nidas/compare/v1.4...v1.4.1
 [1.4]: https://github.com/ncareol/nidas/compare/v1.3.253...v1.4
 [1.3.253]: https://github.com/ncareol/nidas/compare/v1.3.235...v1.3.253
