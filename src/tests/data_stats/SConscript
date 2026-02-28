@@ -2,7 +2,8 @@
 
 from SCons.Script import Environment
 
-env = Environment(tools=['default', 'nidasapps'])
+env = Environment(tools=['default', 'nidasapps', 'nidasprogram', 'jsoncpp',
+                         'boost_test'])
 
 data_stats = env.NidasApp('data_stats')
 datasets = env.NidasApp('datasets')
@@ -13,3 +14,9 @@ runtest = env.Command("xtest", depends, ["cd $SOURCE.dir && ./run_test.sh"])
 env.Precious(runtest)
 env.AlwaysBuild(runtest)
 env.Alias('test', runtest)
+
+xprog = env.Program('test_data_stats', "test_data_stats.cc")
+btest = env.Command("btest", xprog, env.ChdirActions(["./$SOURCE.file"]))
+env.Precious(btest)
+env.AlwaysBuild(btest)
+env.Alias('test', btest)
