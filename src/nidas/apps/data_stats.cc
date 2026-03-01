@@ -120,7 +120,7 @@ namespace fs
 
         path& operator+=(const std::string& p2)
         {
-            _path = _path + "/" + p2;
+            _path += p2;
             return *this;
         }
 
