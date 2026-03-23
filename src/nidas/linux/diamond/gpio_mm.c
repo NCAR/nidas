@@ -478,18 +478,18 @@ static int check_timer_interval(struct GPIO_MM*brd, unsigned int usecs)
         int scaler;
 
         /* arbitrary lower limit - actually should be tested. */
-        if (usecs < USECS_PER_SEC / 1000) {
+        if (usecs < USECS_PER_SEC_LONG / 1000) {
                 KLOG_ERR("GPIO-MM board %d, usecs=%d is too small\n",
                     brd->num,usecs);
                 return -EINVAL;
         }
         /* overflows at usecs >= 214,748,364 or 214 seconds */
-        if (2 * usecs > UINT_MAX / GPIO_MM_CT_CLOCK_HZ * USECS_PER_SEC) {
+        if (2 * usecs > UINT_MAX / GPIO_MM_CT_CLOCK_HZ * USECS_PER_SEC_LONG) {
                 KLOG_ERR("GPIO-MM board %d, usecs=%d is too large\n",
                     brd->num,usecs);
                 return -EINVAL;
         }
-        tics = clockHZ / USECS_PER_SEC * usecs;
+        tics = clockHZ / USECS_PER_SEC_LONG * usecs;
 
         /* Compute BCD scaler of F1 clock.
          * Initially we may wait as much as two periods.
@@ -523,7 +523,7 @@ static void set_ticks(struct GPIO_MM_timer* timer,unsigned int usecs,
                 unsigned short initial_tics;
                 unsigned int initial_usecs;
                 initial_usecs = 2 * usecs - usecs_of_day % usecs;
-                initial_tics = clockHZ / USECS_PER_SEC * initial_usecs / timer->scaler;
+                initial_tics = clockHZ / USECS_PER_SEC_LONG * initial_usecs / timer->scaler;
                 *initial_ticsp = initial_tics;
                 timer->tick = (usecs_of_day + initial_usecs - usecs) / usecs;
                 KLOG_DEBUG("usecs=%d,maxUsecs=%d,usecs_of_day=%ld,initial_usecs=%d,initial_tics=%d,tick=%u,tickLimit=%u\n",
@@ -571,7 +571,7 @@ static void start_gpio_timer(struct GPIO_MM_timer* timer,
          * will be slow by X*(38/20000000) = X * 1.9E-6 seconds
          * This is about 1 second in 6 days.
          */
-        tics = clockHZ / USECS_PER_SEC * usecs;
+        tics = clockHZ / USECS_PER_SEC_LONG * usecs;
 
         /* Compute BCD scaler of F1 clock.
          * Initially we may wait as much as two periods.
@@ -1330,7 +1330,7 @@ static int start_fcntr(struct GPIO_MM_fcntr* fcntr,
         struct GPIO_MM* brd = fcntr->brd;
 #endif
 
-        fcntr->latencyJiffies = (cfg->latencyUsecs * HZ) / USECS_PER_SEC;
+        fcntr->latencyJiffies = (cfg->latencyUsecs * HZ) / USECS_PER_SEC_LONG;
         /* If latencyUsecs is a bad value, fallback to 1/4 second */
         if (fcntr->latencyJiffies == 0) fcntr->latencyJiffies = HZ / 4;
         fcntr->lastWakeup = jiffies;
@@ -1605,7 +1605,7 @@ static int start_event(struct GPIO_MM_event* event,
 {
         int result;
 
-        event->latencyJiffies = (cfg->latencyUsecs * HZ) / USECS_PER_SEC;
+        event->latencyJiffies = (cfg->latencyUsecs * HZ) / USECS_PER_SEC_LONG;
         /* If latencyUsecs is a bad value, fallback to 1/4 second */
         if (event->latencyJiffies == 0) event->latencyJiffies = HZ / 4;
         event->lastWakeup = jiffies;
@@ -2364,7 +2364,7 @@ static int __init gpio_mm_init(void)
 
 #ifdef DEBUG_CALLBACKS
         testcbd1.cbh = register_gpio_timer_callback(
-                test_callback,USECS_PER_SEC/1,&testcbd1,&result);
+                test_callback,USECS_PER_SEC_LONG/1,&testcbd1,&result);
         // testcbd2.cbh = register_gpio_timer_callback(
         //         test_callback,1000000,&testcbd2,&result);
         KLOG_INFO("registered test callbacks, result=%d\n",

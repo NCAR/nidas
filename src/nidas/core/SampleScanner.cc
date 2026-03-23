@@ -132,9 +132,7 @@ size_t SampleScanner::readBuffer(DSMSensor* sensor, bool& exhausted,
         FD_SET(sensor->getReadFd(),&fdset);
 #endif
 
-        struct timespec to =
-            { msecTimeout/MSECS_PER_SEC,
-                (msecTimeout % MSECS_PER_SEC) * NSECS_PER_MSEC};
+        struct timespec to = TIMESPEC_MSEC(msecTimeout);
 
         // If the user blocks SIGUSR1 prior to calling readBuffer,
         // then we can catch it here in the pselect/ppoll.

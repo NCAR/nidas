@@ -1408,9 +1408,9 @@ static int configBoard(struct A2DBoard *brd, struct nidas_a2d_config* cfg)
          * the channels.
          */
         brd->scanDeltatMsec =   // compute in microseconds first to avoid trunc
-            (USECS_PER_SEC / brd->scanRate) / USECS_PER_MSEC;
+            (USECS_PER_SEC_LONG / brd->scanRate) / USECS_PER_MSEC;
 
-        brd->latencyJiffies = (cfg->latencyUsecs * HZ) / USECS_PER_SEC;
+        brd->latencyJiffies = (cfg->latencyUsecs * HZ) / USECS_PER_SEC_LONG;
         if (brd->latencyJiffies == 0)
                 brd->latencyJiffies = HZ / 10;
         return ret;
@@ -2138,7 +2138,7 @@ static int startBoard(struct A2DBoard *brd)
          * the channels.
          */
         brd->scanDeltatMsec =   // compute in microseconds first to avoid trunc
-            (USECS_PER_SEC / brd->scanRate) / USECS_PER_MSEC;
+            (USECS_PER_SEC_LONG / brd->scanRate) / USECS_PER_MSEC;
 
         /*
          * Poll deltaT, time in milliseconds between when we poll the A2D fifo.

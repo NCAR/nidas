@@ -65,8 +65,7 @@ size_t UnixIODevice::read(void *buf, size_t len, int msecTimeout)
     FD_SET(_fd, &fdset);
 #endif
 
-    struct timespec tmpto = { msecTimeout / MSECS_PER_SEC,
-        (msecTimeout % MSECS_PER_SEC) * NSECS_PER_MSEC };
+    struct timespec tmpto = TIMESPEC_MSEC(msecTimeout);
 
     int res;
 

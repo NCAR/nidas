@@ -753,7 +753,7 @@ static int configA2D(struct DMMAT_A2D* a2d,
         a2d->latencyMsecs = cfg->latencyUsecs / USECS_PER_MSEC;
         if (a2d->latencyMsecs == 0) a2d->latencyMsecs = 500;
 
-        a2d->latencyJiffies = (cfg->latencyUsecs * HZ) / USECS_PER_SEC;
+        a2d->latencyJiffies = (cfg->latencyUsecs * HZ) / USECS_PER_SEC_LONG;
         if (a2d->latencyJiffies == 0) a2d->latencyJiffies = HZ / 10;
         KLOG_DEBUG("%s: latencyJiffies=%ld, HZ=%d\n",
                     getA2DDeviceName(a2d),a2d->latencyJiffies,HZ);
@@ -1280,7 +1280,7 @@ static void startA2D_MM16AT(struct DMMAT_A2D* a2d)
                 a2d->scanDeltaT * USECS_PER_TMSEC *
                 a2d->fifoThreshold / a2d->nchanScanned;
         screen_timetag_init(&a2d->ttdata, fifoDeltaT_usecs,
-                10 * USECS_PER_SEC);
+                10 * USECS_PER_SEC_LONG);
 
         if (a2d->mode != A2D_NORMAL) return;
 
@@ -1344,7 +1344,7 @@ static void startA2D_MM32XAT(struct DMMAT_A2D* a2d)
                 a2d->scanDeltaT * USECS_PER_TMSEC *
                 a2d->fifoThreshold / a2d->nchanScanned;
         screen_timetag_init(&a2d->ttdata, fifoDeltaT_usecs,
-                10 * USECS_PER_SEC);
+                10 * USECS_PER_SEC_LONG);
 
         if (brd->type != DMM32AT_BOARD) {
                 outb(0x04,brd->addr + 8);	// set page 4

@@ -94,7 +94,7 @@ typedef struct dsm_sample {
         (sizeof(dsm_sample_time_t) + sizeof(dsm_sample_length_t))
 
 #ifndef SECS_PER_HOUR
-#define SECS_PER_HOUR 3600LL
+#define SECS_PER_HOUR 3600
 #endif
 
 #ifndef SECS_PER_DAY
@@ -102,7 +102,7 @@ typedef struct dsm_sample {
 #endif
 
 #ifndef MSECS_PER_SEC
-#define MSECS_PER_SEC 1000LL
+#define MSECS_PER_SEC 1000
 #endif
 
 #ifndef USECS_PER_MSEC
@@ -119,7 +119,7 @@ typedef struct dsm_sample {
 
 /* TMSEC is a tenth of a millisecond */
 #ifndef NSECS_PER_TMSEC
-#define NSECS_PER_TMSEC 100000
+#define NSECS_PER_TMSEC 100000LL
 #endif
 
 #ifndef NSECS_PER_USEC
@@ -138,9 +138,20 @@ typedef struct dsm_sample {
 #define USECS_PER_SEC 1000000LL
 #endif
 
+/**
+ * Use USECS_PER_SEC_LONG on 32-bit targets to do math with USECS_PER_SEC when
+ * the result must fit in a long or long long division must be avoided, like
+ * in a kernel module.  It is tempting to define USECS_PER_SEC as a long on
+ * 32-bit targets, but then lots of other expressions overflow.  This at least
+ * makes it explicit that a more limited type is being used.
+ */
+#ifndef USECS_PER_SEC_LONG
+#define USECS_PER_SEC_LONG 1000000L
+#endif
+
 /* Some NIDAS driver modules report time in 1/10 milliseconds */
 #ifndef TMSECS_PER_SEC
-#define TMSECS_PER_SEC 10000LL
+#define TMSECS_PER_SEC 10000L
 #endif
 
 #ifndef MSECS_PER_DAY
@@ -161,5 +172,19 @@ typedef struct dsm_sample {
 #define USECS_PER_DAY (SECS_PER_DAY * USECS_PER_SEC)
 #define USECS_PER_HALF_DAY (USECS_PER_DAY / 2)
 #endif
+
+/**
+ * Macro to create a timespec from milliseconds. The timespec is the whole
+ * number of seconds in MSEC, then the nanoseconds fields is the remainder, in
+ * nanoseconds.  The NSECS_PER_MSEC is cast to long for 32-bit targets where
+ * tv_nsec is a long, since the remainder in nanoseconds can never overlow a
+ * long anyway.
+ */
+#define TIMESPEC_MSEC(MSEC) \
+    timespec{ \
+        MSEC / MSECS_PER_SEC, \
+        (MSEC % MSECS_PER_SEC) * (long)NSECS_PER_MSEC \
+    }
+
 
 #endif
