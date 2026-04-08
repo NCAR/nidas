@@ -1,0 +1,3 @@
+[submodule "src/nidas/dynld/raf/SPEC-Probe"]
+	path = src/nidas/dynld/raf/SPEC-Probe
+	url = git@github.com:ncar/SPEC-Probe
