@@ -32,7 +32,7 @@
 #include <nidas/core/Variable.h>
 
 #include <nidas/util/Logger.h>
-
+#include <nidas/util/ParseException.h>
 
 
 using namespace std;

@@ -546,7 +546,9 @@ static int StaticYear;
 
 
 /** macros borrowed from glibc/time functions */
+#ifndef SECS_PER_HOUR
 #define SECS_PER_HOUR   (60 * 60)
+#endif
 
 #ifndef SECS_PER_DAY
 #define SECS_PER_DAY    (SECS_PER_HOUR * 24)
@@ -1369,7 +1371,7 @@ static int64_t irigTousec(const struct irigTime *ti)
 
         val = ((int64_t)(y - 1970) * 365 * SECS_PER_DAY +
             (nleap + ti->yday - 1) * SECS_PER_DAY +
-            ti->hour * 3600 + ti->min * 60 + ti->sec) * USECS_PER_SEC +
+            ti->hour * 3600 + ti->min * 60 + ti->sec) * USECS_PER_SEC_LONG +
             ti->msec * USECS_PER_MSEC + ti->usec;
         return val;
 }
@@ -2081,11 +2083,11 @@ static void oneHzFunction(void *ptr)
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(3,17,0)
         osamp->length = offsetof(struct dsm_clock_data_3, end);
         /* snapshot of irig time. Convert to little endian */
-        lltime = (int64_t)ti.tv_sec * USECS_PER_SEC + ti.tv_nsec / NSECS_PER_USEC;
+        lltime = (int64_t)ti.tv_sec * USECS_PER_SEC_LONG + ti.tv_nsec / NSECS_PER_USEC;
         osamp->data.irigt = cpu_to_le64(lltime);
 
         /* snapshot of unix system time. Convert to little endian */
-        lltime = (int64_t)tu.tv_sec * USECS_PER_SEC + tu.tv_nsec / NSECS_PER_USEC;
+        lltime = (int64_t)tu.tv_sec * USECS_PER_SEC_LONG + tu.tv_nsec / NSECS_PER_USEC;
         osamp->data.unixt = cpu_to_le64(lltime);
 
         osamp->data.dummystatus = 0xff;
@@ -2394,11 +2396,11 @@ static long setIRIGclock(int64_t usec)
 
 #if BITS_PER_LONG == 32
 	/* do_div changes dividend in place, returns remainder */
-        ts.tv_nsec = do_div(usec, USECS_PER_SEC) * NSECS_PER_USEC;
+        ts.tv_nsec = do_div(usec, USECS_PER_SEC_LONG) * NSECS_PER_USEC;
         ts.tv_sec = usec;
 #else
-        ts.tv_sec = usec / USECS_PER_SEC;
-        ts.tv_nsec = (usec % USECS_PER_SEC) * NSECS_PER_USEC;
+        ts.tv_sec = usec / USECS_PER_SEC_LONG;
+        ts.tv_nsec = (usec % USECS_PER_SEC_LONG) * NSECS_PER_USEC;
 #endif
 
         timespecToirig(&ts, &ti);
@@ -2499,7 +2501,7 @@ pc104sg_ioctl(struct file *filp, unsigned int cmd,unsigned long arg)
                 ret =
                     copy_from_user(&tv32, userptr, sizeof(tv32)) ? -EFAULT : len;
                 if (ret < 0) break;
-                usec = (int64_t) tv32.tv_sec * USECS_PER_SEC + tv32.tv_usec;
+                usec = (int64_t) tv32.tv_sec * USECS_PER_SEC_LONG + tv32.tv_usec;
                 ret = setIRIGclock(usec);
                 break;
         default:
@@ -2668,7 +2670,7 @@ static int __init pc104sg_init(void)
                 board.lastStatus &= ~(CLOCK_SYNC_NOT_OK | CLOCK_STATUS_NOSYNC);
         board.status.statusOR = board.lastStatus;
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(6,0,0)
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5,14,0)
         board.class = class_create(THIS_MODULE, "irig");
 #else
         board.class = class_create("irig");

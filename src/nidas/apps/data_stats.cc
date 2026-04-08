@@ -47,27 +47,18 @@
 
 #include <set>
 #include <map>
+#include <unordered_map>
 #include <deque>
 #include <iostream>
 #include <iomanip>
 #include <sys/stat.h>
+#include <fstream>
+
 
 #include <unistd.h>
 #include <stdio.h>   // rename()
 
-#ifndef NIDAS_JSONCPP_ENABLED
-#define NIDAS_JSONCPP_ENABLED 1
-#endif
-#if NIDAS_JSONCPP_ENABLED
 #include <json/json.h>
-// Early json versions without StreamWriterBuilder also did not define a
-// version symbol.
-#ifndef JSONCPP_VERSION_STRING
-#define NIDAS_JSONCPP_STREAMWRITER 0
-#else
-#define NIDAS_JSONCPP_STREAMWRITER 1
-#endif
-#endif
 
 using namespace nidas::core;
 using namespace nidas::dynld;
@@ -78,6 +69,13 @@ using nidas::util::UTime;
 using nidas::util::Logger;
 using nidas::util::LogScheme;
 
+// testing can use this to insert a different system time, otherwise it
+// defaults to empty to construct UTime with the current system time.
+#ifndef DATA_STATS_UTIME_NOW
+#define DATA_STATS_UTIME_NOW
+#endif
+
+
 namespace {
     inline std::string
     iso_format(const UTime& ut)
@@ -85,7 +83,6 @@ namespace {
         return ut.format(true, "%Y-%m-%dT%H:%M:%S.%3fZ");
     }
 
-#if NIDAS_JSONCPP_ENABLED
     inline Json::Value
     number_or_null(float value)
     {
@@ -98,9 +95,70 @@ namespace {
             return Json::Value(value);
         }
     }
-#endif
 }
 
+namespace fs
+{
+    class path
+    {
+    public:
+        path(const std::string& p = "") : _path(p) {}
+
+        std::string string() const { return _path; }
+
+        bool empty() const { return _path.empty(); }
+
+        path operator/(const path& p2) const
+        {
+            return path(_path + "/" + p2.string());
+        }
+
+        path operator/(const std::string& p2) const
+        {
+            return path(_path + "/" + p2);
+        }
+
+        path& operator+=(const std::string& p2)
+        {
+            _path += p2;
+            return *this;
+        }
+
+    private:
+        std::string _path;
+    };
+
+    void rename(const path& tmpFilePath, const path& filePath)
+    {
+        if (::rename(tmpFilePath.string().c_str(),
+                     filePath.string().c_str()) != 0)
+        {
+            throw std::runtime_error("Failed to rename file: " +
+                                     std::string(strerror(errno)));
+        }
+    }
+
+    void create_directories(const path& p)
+    {
+        try {
+            nidas::util::FileSet::createDirectory(p.string(), 0755);
+        }
+        catch (const std::exception& e) {
+            throw std::runtime_error("Failed to create directories: " +
+                                     std::string(e.what()));
+        }
+    }
+
+    void remove(const path& p)
+    {
+        if (::remove(p.string().c_str()) != 0)
+        {
+            throw std::runtime_error("Failed to remove file: " +
+                                     std::string(strerror(errno)));
+        }
+    }
+
+}
 
 /**
  * Problem is any issue detected in the data and statistics, distinguished by
@@ -206,10 +264,8 @@ public:
         nnans(),
         rawmsg(),
         values(),
-        times()
-#if NIDAS_JSONCPP_ENABLED
-        ,header()
-#endif
+        times(),
+        header()
     {
         streamid = generateStreamId(sensor);
         if (sensor)
@@ -219,7 +275,6 @@ public:
         }
         if (stag)
         {
-            
             for (auto& var: stag->getVariables())
             {
                 // We need to keep track of two variable names, the fully
@@ -407,7 +462,6 @@ public:
     // Collect the timestamps of all the samples also.
     vector<dsm_time_t> times;
 
-#if NIDAS_JSONCPP_ENABLED
     /**
      * Return a Json::Value node containing all the data in this SampleCounter.
      **/
@@ -432,7 +486,6 @@ public:
 
     // Store stream header metadata.
     Json::Value header;
-#endif
 };
 
 namespace {
@@ -478,7 +531,6 @@ generateStreamId(const DSMSensor* sensor)
     return out.str();
 }
 
-#if NIDAS_JSONCPP_ENABLED
 /**
  * If the metadata string value is not empty, assign that
  * value to the json field named key.
@@ -491,13 +543,11 @@ assign_if_set(Json::Value& object, const std::string& key,
         object[key] = value;
     return value;
 }
-#endif
 
 void
 SampleCounter::
 collectMetadata(const DSMSensor* sensor, const SampleTag* stag)
 {
-#if NIDAS_JSONCPP_ENABLED
     header["streamid"] = streamid;
     // The header specifies a version in case the schema changes for either
     // the header itself or the data streams which reference it.
@@ -532,6 +582,7 @@ collectMetadata(const DSMSensor* sensor, const SampleTag* stag)
 
         const auto& variables = stag->getVariables();
         Json::Value& vmap = header["variables"];
+        Json::Value& vlist = header["variable_list"];
         for (unsigned int i = 0; i < variables.size(); ++i)
         {
             const Variable& v = *variables[i];
@@ -543,9 +594,9 @@ collectMetadata(const DSMSensor* sensor, const SampleTag* stag)
             vmap[vname]["fullname"] = v.getName();
             vmap[vname]["longname"] = v.getLongName();
             vmap[vname]["units"] = v.getUnits();
+            vlist.append(vname);
         }
     }
-#endif
 }
 
 
@@ -772,7 +823,6 @@ printData(std::ostream& outs)
     outs << endl;
 }
 
-#if NIDAS_JSONCPP_ENABLED
 Json::Value
 SampleCounter::
 jsonData()
@@ -897,7 +947,7 @@ jsonStats(std::vector<Problem>& problems)
     }
     return stats;
 }
-#endif
+
 
 class DataStats : public SampleClient
 {
@@ -908,7 +958,7 @@ public:
     {
         clearSampleQueue();
     }
-
+  
     int run();
 
     void readHeader(SampleInputStream& sis);
@@ -943,6 +993,12 @@ public:
     addCounter(const SampleCounter& counter);
 
     /**
+     * Return a vector of DSMSensor pointers in the order they were added.
+     */
+    std::vector<SampleCounter*>
+    sensorOrderCounters();
+
+    /**
      * Return a pointer to the SampleCounter for the given sample id @p sid.
      * If no such counter exists, return null.  Mote sensor sample IDs are
      * hashed into buckets by sensor type and according to the _singlemote
@@ -965,9 +1021,12 @@ public:
 
     /**
      * Recalculate statistics as needed based on the current collection of
-     * data and time period.
+     * data and time period.  Return the earliest time of the remaining
+     * accumulated samples, or UTime::MAX if no samples remain.  If no samples
+     * have yet been received for the given period, then the return value will
+     * be greater than @p end.
      **/
-    void
+    UTime
     restartStats(const UTime& start, const UTime& end);
 
     void
@@ -994,13 +1053,39 @@ public:
 
     void setStart(const UTime& start);
 
+    void advanceStats();
+
+    void setRealtime(bool realtime);
+
+    bool getRealtime() const;
+
+    void getPeriod(UTime& start, UTime& end) const
+    {
+        start = _period_start;
+        end = _period_end;
+    }
+
 private:
     static const int DEFAULT_PORT = 30000;
 
     static bool _alarm;
+    static bool writeJsonToFileHelper(const Json::Value& jsonData,
+                                      const fs::path& filePath, 
+                                      Json::StreamWriter* writer);
+    bool  ensureOutputDirectoriesForPeriod(
+        const fs::path& current_period_base_path, // Input: The fully resolved base path for this period
+        fs::path& out_metadata_path,      // Output: Path to the metadata subdir
+        fs::path& out_statistics_path,    // Output: Path to the statistics subdir
+        fs::path& out_data_values_path    // Output: Path to the data_values subdir (if applicable)
+    );
 
-    typedef map<dsm_sample_id_t, SampleCounter> sample_map_t;
+    // The sample map allows looking up a SampleCounter quickly with a hash
+    // of the sample ID.  The _ordered_counters vector is used to iterate
+    // over the counters in XML sensor order, and it is updated whenever
+    // the map changes, in createCounters() or addCounter().
+    typedef std::unordered_map<dsm_sample_id_t, SampleCounter> sample_map_t;
     sample_map_t _samples;
+    std::vector<SampleCounter*> _ordered_counters;
 
     dsm_sample_id_t
     hashId(dsm_sample_id_t sid);
@@ -1048,26 +1133,8 @@ private:
     NidasAppArg JsonOutput;
     NidasAppArg ShowProblems;
     NidasAppArg RoundStart;
+    NidasAppArg JsonOutputDir;
 
-#if NIDAS_JSONCPP_ENABLED
-#if !NIDAS_JSONCPP_STREAMWRITER
-    n_u::auto_ptr<Json::StyledStreamWriter> streamWriter;
-    n_u::auto_ptr<Json::StyledStreamWriter> headerWriter;
-
-    void
-    createJsonWriters()
-    {
-        if (! streamWriter.get())
-        {
-            Json::StyledStreamWriter* sw = new Json::StyledStreamWriter("");
-            // Can't set precision in the old StyledStreamWriter.
-            streamWriter.reset(sw);
-
-            Json::StyledStreamWriter* hw = new Json::StyledStreamWriter("  ");
-            headerWriter.reset(hw);
-        }
-    }
-#else
     n_u::auto_ptr<Json::StreamWriter> streamWriter;
     n_u::auto_ptr<Json::StreamWriter> headerWriter;
 
@@ -1087,10 +1154,7 @@ private:
             headerWriter.reset(builder.newStreamWriter());
         }
     }
-#endif
-#endif
 };
-
 
 bool DataStats::_alarm(false);
 
@@ -1110,6 +1174,7 @@ DataStats::handleSignal(int signum)
 
 DataStats::DataStats():
     _samples(),
+    _ordered_counters(),
     _reportall(false),
     _reportdata(false),
     _singlemote(false),
@@ -1175,10 +1240,19 @@ R"(Round the start time of each period to the nearest interval of
 length SECONDS.  The period start time is only ever shown in log
 messages and the json output, since the sample statistics always
 show the actual sample times.)"),
-#if NIDAS_JSONCPP_ENABLED
+    JsonOutputDir("--json-output-dir", "<dir_path>",
+R"(Write structured Json output to a directory.
+The directory path can include strptime() time spec.
+This will create:
+    -manifest.json(overall info and links to stream files)
+    -problems.json(all detected data problems)
+    -metadata/<streamid>.json (for each streams header)
+    -statistics/<streamid>.json (for each stream's stats)
+    -data_values/<streamid>.json (if --data enabled for actual values)
+This option is mutually exclusive with --json)"), 
     streamWriter(),
     headerWriter()
-#endif
+
 {
     NidasApp& app = _app;
     app.setApplicationInstance();
@@ -1190,9 +1264,8 @@ show the actual sample times.)"),
                         app.Help | Period | Update | Count |
                         AllSamples | ShowData | SingleMote | Fullnames |
                         ShowProblems | RoundStart | app.Precision);
-#if NIDAS_JSONCPP_ENABLED
     app.enableArguments(JsonOutput);
-#endif
+    app.enableArguments(JsonOutputDir);
     app.InputFiles.allowFiles = true;
     app.InputFiles.allowSockets = true;
     app.InputFiles.setDefaultInput("sock:localhost", DEFAULT_PORT);
@@ -1211,6 +1284,13 @@ int DataStats::parseRunstring(int argc, char** argv)
         {
             return usage(argv[0]);
         }
+
+        if (JsonOutput.specified() && JsonOutputDir.specified())
+        {
+            throw NidasAppException("--json and --json-output-dir are mutually exclusive and cannot be used simultaneously.");
+            
+        }
+
         _period = Period.asInt();
         _update = Update.asInt();
         _count = Count.asInt();
@@ -1361,7 +1441,7 @@ readSamples(SampleInputStream& sis)
         // Add some slack to the alarm to allow samples to arrive within the
         // period, rounded up.
         int delay = 1; // seconds of lag
-        UTime when;
+        UTime when{DATA_STATS_UTIME_NOW};
         if (when < _period_end)
         {
             when = _period_end - when.toUsecs();
@@ -1444,6 +1524,12 @@ addCounter(const SampleCounter& counter)
     SampleCounter& stats = _samples[sid];
     stats.enableData(_reportdata);
     stats.enableJSON(JsonOutput.specified());
+    if (_counters_created)
+    {
+        // as a minor optimization, only update the ordered counters
+        // when not being called by createCounters().
+        _ordered_counters = sensorOrderCounters();
+    }
     return &stats;
 }
 
@@ -1522,6 +1608,45 @@ DataStats::createCounters(const list<DSMSensor*>& sensors)
             }
         }
     }
+    _ordered_counters = sensorOrderCounters();
+}
+
+
+std::vector<SampleCounter*>
+DataStats::sensorOrderCounters()
+{
+    // Iterate over the sensors to create an index of counters in sensor
+    // order.  If this is cached, it must be updated whenever the _samples
+    // map changes, in case that invalidates any SampleCounter pointers.
+    std::vector<SampleCounter*> counters;
+    auto push_counter = [&](dsm_sample_id_t sid) {
+        if (SampleCounter* counter = getCounter(sid))
+            counters.push_back(counter);
+    };
+    for (DSMSensor* sensor: allsensors) {
+        push_counter(sensor->getId());
+        SampleTagIterator ti = sensor->getSampleTagIterator();
+        for ( ; ti.hasNext(); ) {
+            push_counter(ti.next()->getId());
+        }
+    }
+
+    // add counters which do not have a sensor tag ordered by sample id,
+    // conveniently provided by inserting the IDs into a map.  this preserves
+    // historical ordering of raw sample stats.
+    std::map<dsm_sample_id_t, dsm_sample_id_t> id_counters;
+    for (auto si : _samples)
+        id_counters[si.first] = si.first;
+    for (auto itc: id_counters)
+    {
+        SampleCounter* counter = getCounter(itc.first);
+        auto it = std::find(counters.begin(), counters.end(), counter);
+        if (counter && it == counters.end())
+        {
+            counters.push_back(counter);
+        }
+    }
+    return counters;
 }
 
 
@@ -1537,8 +1662,8 @@ receive(const Sample* samp) throw()
 
     if (!_counters_created)
     {
-        _counters_created = true;
         createCounters(allsensors);
+        _counters_created = true;
     }
 
     VLOG(("received and accepted sample ") << _app.formatId(sampid));
@@ -1559,7 +1684,7 @@ receive(const Sample* samp) throw()
     // and updated in the Samplecounter even if the sample is not queue.  We
     // do nothing with samples which are too old.
     dsm_time_t sampt = samp->getTimeTag();
-    if (_start_time.isZero())
+    if (_period_start.isZero())
     {
         // not realtime since start not set yet, so use first sample time.
         setStart(samp->getTimeTag());
@@ -1592,10 +1717,9 @@ void DataStats::printReport(std::ostream& outs)
     int field_width[3] = {5,5,6};
     int dtlog10[2] = {7,7};
 
-    sample_map_t::iterator si;
-    for (si = _samples.begin(); si != _samples.end(); ++si)
+    for (SampleCounter* counter: _ordered_counters)
     {
-        SampleCounter &ss = si->second;
+        SampleCounter &ss = *counter;
         if (ss.nsamps == 0 && !_reportall)
             continue;
         string name = ss.getHeaderLine(_fullnames);
@@ -1633,16 +1757,12 @@ void DataStats::printReport(std::ostream& outs)
          << setw(field_width[0] + field_width[1]) << " minMaxLen totalMB"
          << endl;
 
-#if NIDAS_JSONCPP_ENABLED
     std::vector<Problem> problems;
-#endif
 
-    for (si = _samples.begin(); si != _samples.end(); ++si)
+    for (SampleCounter* counter: _ordered_counters)
     {
-        SampleCounter& ss = si->second;
-#if NIDAS_JSONCPP_ENABLED
+        SampleCounter& ss = *counter;
         Json::Value stats = ss.jsonStats(problems);
-#endif
 
         if (ss.nsamps == 0 && !_reportall)
             continue;
@@ -1703,7 +1823,6 @@ void DataStats::printReport(std::ostream& outs)
             ss.printData(outs);
         }
     }
-#if NIDAS_JSONCPP_ENABLED
     if (ShowProblems.asBool())
     {
         for (auto& p: problems)
@@ -1711,47 +1830,50 @@ void DataStats::printReport(std::ostream& outs)
             outs << "problem: " << p.printout() << std::endl;
         }
     }
-#endif
 }
 
 
-void
+UTime
 DataStats::
 restartStats(const UTime& start, const UTime& end)
 {
     DLOG(("") << "restartStats(" << iso_format(start) << ", "
      << iso_format(end) << ")");
 
-    // Clear out any samples which precede the start time.
     sample_queue::iterator it;
     dsm_time_t tstart(start.toUsecs());
+    dsm_time_t tend(end.toUsecs());
     for (it = _sampleq.begin(); it != _sampleq.end(); )
     {
         if ((*it)->getTimeTag() < tstart)
         {
             (*it)->freeReference();
             it = _sampleq.erase(it);
+            continue;
         }
-        else
-        {
-            ++it;
-        }
+        ++it;
     }
 
-    // Tell all the counters to reset their statistics.
     resetResults();
 
-    // Now replay all the samples from the queue prior to the new end time.
+    // While iterating samples, pick out the earliest time of all of them,
+    // even those beyond the period.
+    UTime earliest(UTime::MAX);
     for (it = _sampleq.begin(); it != _sampleq.end(); ++it)
     {
         const Sample* samp = *it;
         dsm_time_t sampt = samp->getTimeTag();
-        if (sampt < end.toUsecs())
+        if (sampt < tend)
         {
             SampleCounter* stats = getCounter(samp->getId());
             stats->accumulateSample(samp);
         }
+        if (sampt < earliest.toUsecs())
+        {
+            earliest = sampt;
+        }
     }
+    return earliest;
 }
 
 
@@ -1772,7 +1894,6 @@ void
 DataStats::
 report()
 {
-    // Only report the period start and end when it's been set.
     if (_period > 0)
     {
         ILOG(("") << "Reporting stats from "
@@ -1780,119 +1901,162 @@ report()
                 << iso_format(_period_end));
     }
 
-    // Print results to stdout unless json output specified.  For json
-    // output, write the headers and data to a file, and stream the data to
-    // stdout in line-separated json.
-    if (!JsonOutput.specified())
-    {
-        printReport(cout);
-    }
-    else
-    {
-        jsonReport();
+    if (JsonOutputDir.specified() || JsonOutput.specified()) {
+        jsonReport(); 
+    } else {
+        printReport(cout); 
     }
 }
 
-#if NIDAS_JSONCPP_ENABLED
-inline
-Json::Value&
-createObject(Json::Value& value)
-{
-    value = Json::Value(Json::objectValue);
-    return value;
-}
-#endif
 
 void
 DataStats::
 jsonReport()
 {
-#if NIDAS_JSONCPP_ENABLED
-    if (!streamWriter.get())
+    if (!streamWriter.get()|| !headerWriter.get())
     {
         createJsonWriters();
     }
-    std::string jsonname;
-    jsonname = _period_start.format(true, JsonOutput.getValue());
-    ILOG(("writing json to ") << jsonname);
 
-    // Create a json object which contains all the headers and all the
-    // data for all the SampleCounter streams, then write it out.
-    Json::Value root;
-    Json::Value timeperiod(Json::arrayValue);
-    timeperiod.append(iso_format(_period_start));
-    timeperiod.append(iso_format(_period_end));
-    // Create three top-level objects, according to what has been enabled.
-    Json::Value& stats = createObject(root["stats"]);
-    Json::Value data;
-    Json::Value& streams = createObject(root["stream"]);
-    stats["timeperiod"] = timeperiod;
-    stats["update"] = _update;
-    stats["period"] = _period;
-    stats["starttime"] = iso_format(_start_time);
-    Json::Value& streamstats = createObject(stats["streams"]);
+    bool json_output_dir_active = JsonOutputDir.specified();
+    bool json_output_file_active = JsonOutput.specified(); 
 
-    std::vector<Problem> problems;
-    sample_map_t::iterator si;
-    for (si = _samples.begin(); si != _samples.end(); ++si)
+    if (json_output_dir_active)
     {
-        SampleCounter* stream = &si->second;
-        // Use a "stream" field in the top level object to provide a
-        // "namespace" for stream objects.  Keeping "data" and
-        // "stream" namespaces allows writing both into one file or
-        // into different files, without modifying the schema
-        // expected by consumers.
-        streams[stream->streamid] = stream->jsonHeader();
-        // Rewriting the data every time seems excessive, but at the
-        // moment it's an expedient way to provide both headers and
-        // data in one file for web clients.  Later the data could
-        // be written into a different file.  Also, it might be
-        // possible for the set of headers to change as streams come
-        // and go, so writing them all together means they are
-        // always in sync and consistent.  Every data object will
-        // have a corresponding stream header in the same file.
-        if (stream->nsamps > 0 || _reportall)
-        {
-            if (_reportdata)
-                data[stream->streamid] = stream->jsonData();
-            streamstats[stream->streamid] = stream->jsonStats(problems);
+        std::string output_base_path_str_template = JsonOutputDir.getValue();
+        std::string current_period_output_base_str = _period_start.format(true, output_base_path_str_template);
+        fs::path current_period_output_base_path(current_period_output_base_str);
+
+        fs::path actual_metadata_path;
+        fs::path actual_statistics_path;
+        fs::path actual_data_values_path;
+
+        if (ensureOutputDirectoriesForPeriod(current_period_output_base_path,
+                                              actual_metadata_path,
+                                              actual_statistics_path,
+                                              actual_data_values_path)) {
+            ILOG(("Writing full structured JSON output to directory: '") << current_period_output_base_path.string() << "'");
+
+            Json::Value manifest(Json::objectValue);
+            Json::Value& processing_info = manifest["processing_info"];
+            processing_info["timeperiod"] = Json::arrayValue;
+            processing_info["timeperiod"].append(iso_format(_period_start));
+            processing_info["timeperiod"].append(iso_format(_period_end));
+            processing_info["update_interval"] = _update;
+            processing_info["period"] = _period;
+            processing_info["starttime"] = iso_format(_start_time);
+
+            Json::Value& manifest_streams_object = manifest["streams"];
+            Json::Value& manifest_streams_list = manifest["stream_list"];
+            manifest["problems_file"] = "problems.json"; 
+
+            std::vector<Problem> all_problems; // Accumulator for all problems
+
+            for (SampleCounter* stream: _ordered_counters)
+            {
+                const std::string& streamid_str = stream->streamid;
+                std::string safe_streamid_filename = streamid_str; 
+
+                Json::Value stream_links_object(Json::objectValue);
+
+                fs::path metadata_file_rel_path = fs::path("metadata") / (safe_streamid_filename + ".json");
+                stream_links_object["metadata_file"] = metadata_file_rel_path.string();
+                Json::Value header_json = stream->jsonHeader();
+                DataStats::writeJsonToFileHelper(header_json, actual_metadata_path / (safe_streamid_filename + ".json"), headerWriter.get());
+
+                fs::path statistics_file_rel_path = fs::path("statistics") / (safe_streamid_filename + ".json");
+                stream_links_object["statistics_file"] = statistics_file_rel_path.string();
+                Json::Value stats_json_val = stream->jsonStats(all_problems); 
+                DataStats::writeJsonToFileHelper(stats_json_val, actual_statistics_path / (safe_streamid_filename + ".json"), headerWriter.get());
+
+                if (_reportdata && (stream->nsamps > 0 || _reportall)) {
+                    if (!actual_data_values_path.empty()) {
+                        fs::path data_values_file_rel_path = fs::path("data_values") / (safe_streamid_filename + ".json"); 
+                        stream_links_object["data_values_file"] = data_values_file_rel_path.string();
+                        Json::Value data_json_val = stream->jsonData(); 
+                        DataStats::writeJsonToFileHelper(data_json_val, actual_data_values_path / (safe_streamid_filename + ".json"), streamWriter.get());
+                    }
+                }
+                manifest_streams_object[streamid_str] = stream_links_object;
+                manifest_streams_list.append(streamid_str);
+            }
+
+            Json::Value problems_json_array = Problem::asJsonArray(all_problems);
+            fs::path problems_file_path = current_period_output_base_path / "problems.json";
+            DataStats::writeJsonToFileHelper(problems_json_array, problems_file_path, headerWriter.get());
+
+            fs::path manifest_file_path = current_period_output_base_path / "manifest.json";
+            DataStats::writeJsonToFileHelper(manifest, manifest_file_path, headerWriter.get());
+            
+            ILOG(("--- datastats: Multi-file JSON output complete for this period. ---"));
         }
     }
-    if (_reportdata)
-        root["data"] = data;
-    stats["problems"] = Problem::asJsonArray(problems);
 
-    std::ofstream json;
-    // Write to a temporary file first, then move into place.
-    std::string tmpname = jsonname + ".tmp";
-    json.open(tmpname.c_str());
-#if !NIDAS_JSONCPP_STREAMWRITER
-    headerWriter->write(json, root);
-#else
-    headerWriter->write(root, &json);
-#endif
-    json.close();
-    // Now move into place.
-    ::rename(tmpname.c_str(), jsonname.c_str());
-
-    if (_reportdata)
+    if (json_output_file_active) 
     {
-        // Now stream the data to stdout.
-        for (si = _samples.begin(); si != _samples.end(); ++si)
+        std::string jsonname;
+        jsonname = _period_start.format(true, JsonOutput.getValue());
+        ILOG(("writing json to ") << jsonname); 
+
+        Json::Value root; 
+        Json::Value timeperiod(Json::arrayValue);
+        timeperiod.append(iso_format(_period_start));
+        timeperiod.append(iso_format(_period_end));
+        
+        Json::Value& stats_obj = root["stats"];
+        Json::Value data_aggregated; 
+        Json::Value& streams_obj = root["stream"];
+        Json::Value& streams_list = root["stream_list"];
+
+        stats_obj["timeperiod"] = timeperiod;
+        stats_obj["update"] = _update;
+        stats_obj["period"] = _period;
+        stats_obj["starttime"] = iso_format(_start_time);
+        Json::Value& streamstats = stats_obj["streams"];
+
+        std::vector<Problem> problems_for_single_file; 
+        for (SampleCounter* stream: _ordered_counters)
         {
-            SampleCounter* stream = &si->second;
+            streams_obj[stream->streamid] = stream->jsonHeader();
+            streams_list.append(stream->streamid);
             if (stream->nsamps > 0 || _reportall)
             {
-#if !NIDAS_JSONCPP_STREAMWRITER
-                streamWriter->write(std::cout, stream->jsonData());
-#else
-                streamWriter->write(stream->jsonData(), &std::cout);
-#endif
-                std::cout << std::endl;
+                if (_reportdata) {
+                    if (data_aggregated.isNull()) data_aggregated = Json::objectValue;
+                    data_aggregated[stream->streamid] = stream->jsonData();
+                }
+                streamstats[stream->streamid] = stream->jsonStats(problems_for_single_file);
+            }
+        }
+        if (_reportdata)
+            root["data"] = data_aggregated;
+        stats_obj["problems"] = Problem::asJsonArray(problems_for_single_file);
+
+        std::ofstream json_file_stream; 
+        std::string tmpname = jsonname + ".tmp";
+        json_file_stream.open(tmpname.c_str());
+        if (json_file_stream.is_open()) { 
+            headerWriter->write(root, &json_file_stream);
+            json_file_stream.close();
+            if (::rename(tmpname.c_str(), jsonname.c_str()) != 0) {
+                ELOG(("Failed to rename temporary JSON file '") << tmpname << "' to '" << jsonname << "'. Errno: " << errno);
+            }
+        } else {
+            ELOG(("Failed to open temporary JSON file for writing: ") << tmpname);
+        }
+
+        if (_reportdata)
+        {
+            for (SampleCounter* stream: _ordered_counters)
+            {
+                if (stream->nsamps > 0 || _reportall)
+                {
+                    streamWriter->write(stream->jsonData(), &std::cout);
+                    std::cout << std::endl; 
+                }
             }
         }
     }
-#endif
 }
 
 
@@ -1904,12 +2068,117 @@ void DataStats::setStart(const UTime& start)
         int seconds = RoundStart.asInt();
         _period_start = start.round(seconds*USECS_PER_SEC);
     }
+    // If period is shorter, then the first update comes when a whole period
+    // has filled, and then every update seconds after that.  If update is
+    // shorter, then the period does not fill until enough updates have
+    // passed.
     _period_end = _period_start + _period * USECS_PER_SEC;
     if (_update < _period)
     {
         _period_end = _period_start + _update * USECS_PER_SEC;
     }
-    _start_time = _period_start;
+    // if the overall start time has not been set yet, set it to the start of
+    // the first period.
+    if (_start_time.isZero())
+        _start_time = _period_start;
+    // Any time the period start is reset, log the new period start and update
+    // settings.  Normally this only happens once, either with the current
+    // system time for realtime or the first sample time if not, but it can
+    // also happen if the system time advances beyond the current peiod.
+    if (_period > 0 && _realtime)
+    {
+        ILOG(("") << "... Reporting stats over " << _period << " seconds, "
+                    << "updating " << _update << " seconds, "
+                    << iso_format(_period_start) << " ...");
+    }
+}
+
+
+void
+DataStats::
+advanceStats()
+{
+    // see if start needs to be set
+    if (_period_start.isZero())
+    {
+        // If realtime, the period starts now, since that is when data starts
+        // being collected, and it goes until the next update or next period,
+        // whichever is shorter.  If not realtime, then the sample times will
+        // be used as the "clock".
+        if (_realtime)
+        {
+            setStart(UTime{DATA_STATS_UTIME_NOW});
+        }
+        // either way, this is the first time period, so nothing else to do.
+        return;
+    }
+
+    if (_period == 0)
+        // no period means nothing to advance
+        return;
+
+    // Advance the period end by the update time, but do not
+    // advance the period start until the period is long enough.
+    _period_end += _update * USECS_PER_SEC;
+    if (_period_end - _period * USECS_PER_SEC > _period_start)
+    {
+        _period_start = _period_end - _period * USECS_PER_SEC;
+    }
+    // Reset statistics to start accumulating for the new time period.
+    UTime next = restartStats(_period_start, _period_end);
+
+    // There are a couple possible hiccups to the time period calculation. In
+    // realtime, if the system time advances past the current period due to a
+    // GPS time step, then samples can keep accumulating in the present which
+    // the current period will never reach from the past.  When processing
+    // data files, there could be large gaps, but there could be reasons to
+    // create a report for every empty gap rather than just skipping them. For
+    // now, the realtime case is the big problem.  Since we don't want to drop
+    // any accumulated samples beyond the current period, only advance the
+    // period to the time of the next earliest sample.  (This should be the
+    // first sample assigned with the newly corrected system time.)  If there
+    // are no samples pending but the system time is still beyond the current
+    // period, then use the system time.
+    if (!_realtime)
+    {
+        return;
+    }
+    UTime now{DATA_STATS_UTIME_NOW};
+    if (next.isSet() && next >= _period_end)
+    {
+        ILOG(("Next sample at ") << iso_format(next)
+                << " is beyond period end time "
+                << iso_format(_period_end) << ", resetting period.");
+    }
+    else if (!next.isSet() && now >= _period_end)
+    {
+        ILOG(("No next sample, current time ") << iso_format(now)
+                << " is beyond period end time "
+                << iso_format(_period_end) << ", resetting period.");
+        next = now;
+    }
+    else
+    {
+        next = UTime::MIN;
+    }
+    if (next.isSet())
+    {
+        // force a new start time and restart the stats for the new period
+        setStart(next);
+        restartStats(_period_start, _period_end);
+    }
+}
+
+
+void DataStats::setRealtime(bool realtime)
+{
+    _realtime = realtime;
+}
+
+
+bool DataStats::getRealtime() const
+{
+    return _realtime;
 }
 
 
@@ -1994,43 +2263,11 @@ int DataStats::run()
 
     try
     {
-        // If realtime, set the period being covered now.  The period starts
-        // now, since that is when data starts being collected, and it goes
-        // until the next update or next period, whichever is shorter.  If
-        // period is shorter, then the first update comes when a whole
-        // period has filled, and then every update seconds after that.  If
-        // update is shorter, then the period does not fill until enough
-        // updates have passed.
-        //
-        // If not realtime, then the sample times will be used as the "clock".
-        if (_realtime)
-        {
-            setStart(UTime());
-        }
-        if (_period > 0 && _realtime)
-        {
-            ILOG(("") << "... Reporting stats over "
-                      << _period << " seconds, "
-                      << "updating " << _update
-                      << " seconds, " << iso_format(_period_start)
-                      << " ...");
-        }
         while (!_app.interrupted() && !reportsExhausted(++_nreports))
         {
+            advanceStats();
             readSamples(sis);
             report();
-            if (_period > 0)
-            {
-                // Advance the period end by the update time, but do not
-                // advance the period start until the period is long enough.
-                _period_end += _update * USECS_PER_SEC;
-                if (_period_end - _period * USECS_PER_SEC > _period_start)
-                {
-                    _period_start = _period_end - _period * USECS_PER_SEC;
-                }
-                // Reset statistics to start accumulating for the new time period.
-                restartStats(_period_start, _period_end);
-            }
         }
     }
     catch (n_u::EOFException& e)
@@ -2071,7 +2308,65 @@ int DataStats::run()
     return result;
 }
 
+
+bool DataStats::writeJsonToFileHelper(const Json::Value& jsonData,
+                                      const fs::path& filePath,
+                                      Json::StreamWriter* writer)
+{
+    fs::path tmpFilePath = filePath;
+    tmpFilePath += ".tmp";
+    std::ofstream outFile(tmpFilePath.string()); 
+
+    if (!outFile.is_open()) {
+        ELOG(("Failed to open temporary JSON file: ") << tmpFilePath.string()); 
+        return false;
+    }
+
+    writer->write(jsonData, &outFile);
+    outFile.close();
+
+    try {
+        fs::rename(tmpFilePath, filePath); 
+    }
+    catch (const std::runtime_error& e)
+    {
+        ELOG(("Failed to rename temporary JSON file '") << tmpFilePath.string() << "' to '" << filePath.string() << "': " << e.what());
+        fs::remove(tmpFilePath); 
+        return false;
+    }
+    return true;
+}
+
+
+bool DataStats::ensureOutputDirectoriesForPeriod(
+    const fs::path& current_period_base_path,
+    fs::path& out_metadata_path,     // Pass by reference to set them
+    fs::path& out_statistics_path,
+    fs::path& out_data_values_path)
+{
+    out_metadata_path = current_period_base_path / "metadata";
+    out_statistics_path = current_period_base_path / "statistics";
+
+    try {
+        fs::create_directories(current_period_base_path); // Create base for this period if needed
+        fs::create_directories(out_metadata_path);
+        fs::create_directories(out_statistics_path);
+
+        if (_reportdata) { // _reportdata is a member of DataStats
+            out_data_values_path = current_period_base_path / "data_values";
+            fs::create_directories(out_data_values_path);
+        }
+        return true; // Success
+    } catch (const std::runtime_error& e) {
+        ELOG(("Error creating output directories under '") << current_period_base_path.string() 
+             << "': " << e.what());
+        return false; // Failure
+    }
+}
+
+#ifndef DATA_STATS_OMIT_MAIN
 int main(int argc, char** argv)
 {
     return DataStats::main(argc, argv);
 }
+#endif

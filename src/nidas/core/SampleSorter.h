@@ -176,15 +176,9 @@ public:
      */
     size_t size() const { return _samples.size(); }
 
-    void setLengthSecs(float val)
-    {
-        _sorterLengthUsec = (unsigned int)((double)val * USECS_PER_SEC);
-    }
+    void setLengthSecs(float val);
 
-    float getLengthSecs() const
-    {
-        return (double)_sorterLengthUsec / USECS_PER_SEC;
-    }
+    float getLengthSecs() const;
 
     /**
      * Set the maximum amount of heap memory to use for sorting samples.

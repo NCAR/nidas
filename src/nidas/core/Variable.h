@@ -339,39 +339,17 @@ public:
      * Support for this check must be supported by
      * each DSMSensor class.
      */
-    void setMinValue(float val)
-    {
-        _minValue = val;
-        if (std::isnan(_plotRange[0])) _plotRange[0] = val;
-    }
+    void setMinValue(float val);
 
-    float getMinValue() const
-    {
-        return _minValue;
-    }
+    float getMinValue() const;
 
-    void setMaxValue(float val)
-    {
-        _maxValue = val;
-        if (std::isnan(_plotRange[1])) _plotRange[1] = val;
-    }
+    void setMaxValue(float val);
 
-    float getMaxValue() const
-    {
-        return _maxValue;
-    }
+    float getMaxValue() const;
 
-    void setPlotRange(float minv,float maxv)
-    {
-        _plotRange[0] = minv;
-        _plotRange[1] = maxv;
-    }
+    void setPlotRange(float minv,float maxv);
 
-    void getPlotRange(float& minv,float& maxv) const
-    {
-        minv = _plotRange[0];
-        maxv = _plotRange[1];
-    }
+    void getPlotRange(float& minv,float& maxv) const;
 
     /**
      * A dynamic variable is one that can come and go. The

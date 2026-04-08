@@ -3,30 +3,6 @@
 
 namespace nidas { namespace core {
 
-/**
- * maxValue is an overloaded function returning the
- * maximum value of its integer argument.
- */
-inline unsigned int maxValue(unsigned short)
-{
-    return USHRT_MAX;
-}
-
-inline unsigned int maxValue(short)
-{
-    return SHRT_MAX;
-}
-
-inline unsigned int maxValue(int)
-{
-    return INT_MAX;
-}
-
-inline unsigned int maxValue(unsigned int)
-{
-    return UINT_MAX;
-}
-
 typedef enum sampleType {
 	CHAR_ST, UCHAR_ST, SHORT_ST, USHORT_ST,
 	INT32_ST, UINT32_ST, FLOAT_ST, DOUBLE_ST,
@@ -71,13 +47,13 @@ struct sample_type_traits<short>
 };
 
 template <>
-struct sample_type_traits<unsigned int>
+struct sample_type_traits<uint32_t>
 {
     static const sampleType sample_type_enum = UINT32_ST;
 };
 
 template <>
-struct sample_type_traits<int>
+struct sample_type_traits<int32_t>
 {
     static const sampleType sample_type_enum = INT32_ST;
 };
@@ -95,7 +71,7 @@ struct sample_type_traits<double>
 };
 
 template <>
-struct sample_type_traits<long long>
+struct sample_type_traits<int64_t>
 {
     static const sampleType sample_type_enum = INT64_ST;
 };

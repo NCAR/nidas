@@ -97,7 +97,7 @@ size_t IOStream::read()
         _nbytesIn = 0;
     }
     VLOG(("IOStream::read() => ") << l << ", avail=" << available()
-         << "_newInput=" << _newInput);
+         << ", _newInput=" << _newInput);
     return l;
 }
 

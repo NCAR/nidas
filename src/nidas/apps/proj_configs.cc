@@ -30,6 +30,7 @@
 */
 
 #include <nidas/core/ProjectConfigs.h>
+#include <nidas/util/ParseException.h>
 
 #include <iostream>
 

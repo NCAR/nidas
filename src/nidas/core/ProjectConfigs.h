@@ -33,11 +33,8 @@
 #include "XMLParser.h"
 #include "Project.h"
 
-// #include <xercesc/dom/DOMDocument.hpp>
-// #include <xercesc/dom/DOMNode.hpp>
 #include <xercesc/dom/DOMElement.hpp>
 #include <xercesc/dom/DOMException.hpp>
-// #include <xercesc/dom/DOMNamedNodeMap.hpp>
 
 #include <list>
 

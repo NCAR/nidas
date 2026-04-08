@@ -45,6 +45,7 @@ NIDAS_CREATOR_FUNCTION(WxtSensor)
 
 #include "string_token.h"
 #include <cstdio>
+#include <math.h>
 
 WxtSensor::WxtSensor():
     _field_formats(),

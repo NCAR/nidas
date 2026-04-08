@@ -33,16 +33,28 @@
 #include <cstdio>
 #include <cstring>
 #include <cstdlib>
+#include <climits>
 #include <iomanip>
+#include <locale>
+
+#include "ParseException.h"
+#include "IOException.h"
+#include "ThreadSupport.h"
 
 using namespace std;
+
+
+namespace {
+
+nidas::util::Mutex format_mutex;
+
+}
+
 
 namespace nidas {
 namespace util {
 
 
-/* static */
-Mutex UTime::_fmtMutex;
 /* static */
 string UTime::_defaultFormat("%c");
 
@@ -605,13 +617,13 @@ string UTime::format(const std::string& fmt) const
 /* static */
 void UTime::setDefaultFormat(const string& val)
 {
-    Synchronized autolock(_fmtMutex);
+    Synchronized autolock(format_mutex);
     _defaultFormat = val;
 }
 
 const string& UTime::getDefaultFormat()
 {
-    Synchronized autolock(_fmtMutex);
+    Synchronized autolock(format_mutex);
     return _defaultFormat;
 }
 

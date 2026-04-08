@@ -53,7 +53,6 @@
 #include <sys/stat.h>
 
 #include <unistd.h>
-#include <getopt.h>
 
 using namespace nidas::core;
 using namespace nidas::dynld;
@@ -62,24 +61,13 @@ using namespace std;
 
 namespace n_u = nidas::util;
 
+using dump_format_t = DumpFormatArg::dump_format_t;
+
 class DumpClient: public SampleClient
 {
 public:
-    typedef enum format
-    {
-        DEFAULT,
-        ASCII,
-        HEX_FMT,
-        SIGNED_SHORT,
-        UNSIGNED_SHORT,
-        FLOAT,
-        IRIG,
-        INT32,
-        ASCII_7,
-        NAKED
-    } format_t;
 
-    DumpClient(const SampleMatcher&, format_t, ostream&);
+    DumpClient(const SampleMatcher&, dump_format_t, ostream&);
 
     virtual ~DumpClient() {}
 
@@ -92,7 +80,7 @@ public:
 
     void printHeader();
 
-    DumpClient::format_t typeToFormat(sampleType t);
+    dump_format_t typeToFormat(sampleType t);
 
     void
     setWarningTime(float w)
@@ -135,7 +123,7 @@ public:
 private:
     SampleMatcher _samples;
 
-    format_t format;
+    dump_format_t dump_format;
 
     ostream& ostr;
 
@@ -175,10 +163,10 @@ private:
 
 #define DEFTIMEFMT "%Y %m %d %H:%M:%S.%4f"
 
-DumpClient::DumpClient(const SampleMatcher& matcher, format_t fmt,
+DumpClient::DumpClient(const SampleMatcher& matcher, dump_format_t fmt,
                        ostream& outstr):
     _samples(matcher),
-    format(fmt),
+    dump_format(fmt),
     ostr(outstr),
     fromLittle(n_u::EndianConverter::getConverter(
         n_u::EndianConverter::EC_LITTLE_ENDIAN)),
@@ -298,22 +286,22 @@ DumpClient::printHeader()
  * are FLOAT_ST. So this function does not automagically result in raw
  * data being displayed in its natural format.
  */
-DumpClient::format_t
+dump_format_t
 DumpClient::typeToFormat(sampleType t)
 {
-    static std::map<sampleType, DumpClient::format_t> themap;
+    static std::map<sampleType, dump_format_t> themap;
     if (themap.begin() == themap.end())
     {
-        themap[CHAR_ST] = ASCII;
-        themap[UCHAR_ST] = HEX_FMT;
-        themap[SHORT_ST] = SIGNED_SHORT;
-        themap[USHORT_ST] = UNSIGNED_SHORT;
-        themap[INT32_ST] = INT32;
-        themap[UINT32_ST] = HEX_FMT;
-        themap[FLOAT_ST] = FLOAT;
-        themap[DOUBLE_ST] = FLOAT;
-        themap[INT64_ST] = HEX_FMT;
-        themap[UNKNOWN_ST] = HEX_FMT;
+        themap[CHAR_ST] = dump_format_t::ASCII;
+        themap[UCHAR_ST] = dump_format_t::HEX_FMT;
+        themap[SHORT_ST] = dump_format_t::SIGNED_SHORT;
+        themap[USHORT_ST] = dump_format_t::UNSIGNED_SHORT;
+        themap[INT32_ST] = dump_format_t::INT32;
+        themap[UINT32_ST] = dump_format_t::HEX_FMT;
+        themap[FLOAT_ST] = dump_format_t::FLOAT;
+        themap[DOUBLE_ST] = dump_format_t::FLOAT;
+        themap[INT64_ST] = dump_format_t::HEX_FMT;
+        themap[UNKNOWN_ST] = dump_format_t::HEX_FMT;
     }
     return themap[t];
 }
@@ -345,7 +333,7 @@ DumpClient::receive(const Sample* samp) throw()
         return false;
     }
     // Naked format trumps everything.
-    if (format == NAKED)
+    if (dump_format == dump_format_t::NAKED)
     {
         dumpNaked(samp);
         return true;
@@ -389,20 +377,20 @@ DumpClient::receive(const Sample* samp) throw()
     prev_tt = tt;
 
     // Force floating point samples to be printed in FLOAT format.
-    format_t sample_format = format;
+    dump_format_t sample_format = dump_format;
     if (samp->getType() == FLOAT_ST)
-        sample_format = FLOAT;
+        sample_format = dump_format_t::FLOAT;
     else if (samp->getType() == DOUBLE_ST)
-        sample_format = FLOAT;
-    else if (format == DEFAULT)
+        sample_format = dump_format_t::FLOAT;
+    else if (dump_format == dump_format_t::DEFAULT)
     {
         sample_format = typeToFormat(samp->getType());
     }
 
     switch (sample_format)
     {
-    case ASCII:
-    case ASCII_7:
+    case dump_format_t::ASCII:
+    case dump_format_t::ASCII_7:
     {
         const char* cp = (const char*)samp->getConstVoidDataPtr();
         size_t l = samp->getDataByteLength();
@@ -415,14 +403,14 @@ DumpClient::receive(const Sample* samp) throw()
         for (char* xp = cp7; xp < cp7 + l; ++xp, ++cp)
         {
             *xp = *cp;
-            if (sample_format == ASCII_7)
+            if (sample_format == dump_format_t::ASCII_7)
                 *xp = *xp & 0x7f;
         }
         setfield(ostr, "data", 1)
             << n_u::addBackslashSequences(string(cp7, l));
     }
     break;
-    case HEX_FMT:
+    case dump_format_t::HEX_FMT:
     {
         const unsigned char* cp =
             (const unsigned char*)samp->getConstVoidDataPtr();
@@ -432,7 +420,7 @@ DumpClient::receive(const Sample* samp) throw()
         ostr << dec << setfill(' ');
     }
     break;
-    case SIGNED_SHORT:
+    case dump_format_t::SIGNED_SHORT:
     {
         const short* sp = (const short*)samp->getConstVoidDataPtr();
         for (unsigned int i = 0; i < samp->getDataByteLength() / sizeof(short);
@@ -440,7 +428,7 @@ DumpClient::receive(const Sample* samp) throw()
             setfield(ostr, "data", 6) << sp[i];
     }
     break;
-    case UNSIGNED_SHORT:
+    case dump_format_t::UNSIGNED_SHORT:
     {
         const unsigned short* sp =
             (const unsigned short*)samp->getConstVoidDataPtr();
@@ -449,7 +437,7 @@ DumpClient::receive(const Sample* samp) throw()
             setfield(ostr, "data", 6) << sp[i];
     }
     break;
-    case FLOAT:
+    case dump_format_t::FLOAT:
         p = (p != 0) ? p : (samp->getType() == DOUBLE_ST ? 10 : 5);
         ostr << setprecision(p);
         ostr << setfill(' ');
@@ -457,7 +445,7 @@ DumpClient::receive(const Sample* samp) throw()
         for (unsigned int i = 0; i < samp->getDataLength(); i++)
             setfield(ostr, "data") << samp->getDataValue(i);
         break;
-    case IRIG:
+    case dump_format_t::IRIG:
     {
         const unsigned char* statusp = IRIGSensor::getStatusPtr(samp);
         unsigned char status = *statusp++;
@@ -489,7 +477,7 @@ DumpClient::receive(const Sample* samp) throw()
         ostr << setfill(' ');
     }
     break;
-    case INT32:
+    case dump_format_t::INT32:
     {
         const int* lp = (const int*)samp->getConstVoidDataPtr();
         for (unsigned int i = 0; i < samp->getDataByteLength() / sizeof(int);
@@ -497,9 +485,9 @@ DumpClient::receive(const Sample* samp) throw()
             setfield(ostr, "data", 8) << lp[i];
     }
     break;
-    case NAKED:
+    case dump_format_t::NAKED:
         break;
-    case DEFAULT:
+    case dump_format_t::DEFAULT:
         break;
     }
     ostr << endl;
@@ -524,7 +512,7 @@ private:
 
     string xmlFileName;
 
-    DumpClient::format_t format;
+    dump_format_t dump_format;
 
     float warntime;
 
@@ -535,13 +523,19 @@ private:
     NidasAppArg FormatTimeISO;
     NidasAppArg CSV;
     BadSampleFilterArg FilterArg;
+    NidasAppArg TimeFormat{
+        "--timeformat", "<format>",
+        "Specify strftime(3) format for timestamps.  "
+        "Use %.6f for full microsecond resolution.",
+        DEFTIMEFMT
+    };
 };
 
 #define ISOFORMAT "%Y-%m-%dT%H:%M:%S.%4f"
 
 DataDump::DataDump():
     xmlFileName(),
-    format(DumpClient::DEFAULT),
+    dump_format(dump_format_t::DEFAULT),
     warntime(0.0),
     app("data_dump"),
     WarnTime(
@@ -569,18 +563,19 @@ int
 DataDump::parseRunstring(int argc, char** argv)
 {
     app.enableArguments(app.XmlHeaderFile | app.loggingArgs() |
+                        app.DumpFormat |
                         app.FormatHexId | app.FormatSampleId |
                         app.SampleRanges | app.StartTime | app.EndTime |
                         app.Version | app.InputFiles | app.ProcessData |
                         app.Help | app.Version | WarnTime | NoDeltaT | NoLen |
-                        FormatTimeISO | CSV | FilterArg | app.Precision);
+                        FormatTimeISO | CSV | FilterArg | app.Precision |
+                        TimeFormat);
 
     app.InputFiles.allowFiles = true;
     app.InputFiles.allowSockets = true;
     app.InputFiles.setDefaultInput("sock:localhost", DEFAULT_PORT);
     // Use width 4 for decimal sample id format.
     app.setIdFormat(NidasApp::IdFormat().setDecimalWidth(4));
-    app.allowUnrecognized(true);
 
     ArgVector args = app.parseArgs(argc, argv);
     if (app.helpRequested())
@@ -589,46 +584,10 @@ DataDump::parseRunstring(int argc, char** argv)
     }
     warntime = std::abs(WarnTime.asFloat());
 
-    NidasAppArgv left(argv[0], args);
-    int opt_char; /* option character */
-
-    while ((opt_char = getopt(left.argc, left.argv, "A7FHnILSU")) != -1)
-    {
-        switch (opt_char)
-        {
-        case 'A':
-            format = DumpClient::ASCII;
-            break;
-        case '7':
-            format = DumpClient::ASCII_7;
-            break;
-        case 'F':
-            format = DumpClient::FLOAT;
-            break;
-        case 'H':
-            format = DumpClient::HEX_FMT;
-            break;
-        case 'n':
-            format = DumpClient::NAKED;
-            break;
-        case 'I':
-            format = DumpClient::IRIG;
-            break;
-        case 'L':
-            format = DumpClient::INT32;
-            break;
-        case 'S':
-            format = DumpClient::SIGNED_SHORT;
-            break;
-        case 'U':
-            format = DumpClient::UNSIGNED_SHORT;
-            break;
-        case '?':
-            std::cerr << "Use -h to see usage info.\n";
-            return 1;
-        }
-    }
-    app.parseInputs(left.unparsedArgs(optind));
+    dump_format = app.DumpFormat.getFormat();
+    DLOG(("") << "dump format: "
+              << app.DumpFormat.formatToString(dump_format));
+    app.parseInputs(args);
 
     if (app.sampleMatcher().numRanges() == 0)
     {
@@ -642,25 +601,11 @@ DataDump::usage(const char* argv0, bool brief)
 {
     cerr << "\
 Usage: " << argv0
-         << " [options] [-A | -7 | -F | -H | -n | -I | -L | -S]"
+         << " [options]"
          << "[inputURL ...]\n"
          << "\
 Standard options:\n"
-         << app.usage()
-         << "data_dump options:";
-    cerr << R"(
-    -A: ASCII output of character data (for samples from a serial sensor)
-    -7: 7-bit ASCII output
-    -F: floating point output (typically for processed output)
-    -H: hex output (typically for raw output)
-    -n: naked output, unadorned samples written exactly as they were read,
-        useful for ascii serial data to be replayed through sensor_sim
-    -I: output of IRIG clock samples. Status of \"SYMPCS\" means sync, year,
-        major-time, PPS, code and esync are OK. Lower case letters indicate not OK.
-        sync and esync (extended status sync) are probably always equal
-    -L: ASCII output of signed 32 bit integers
-    -S: ASCII output of signed 16 bit integers (useful for samples from an A2D)
-)";
+         << app.usage();
 
     if (brief)
         return 1;
@@ -810,7 +755,7 @@ DataDump::run() throw()
             }
         }
 
-        DumpClient dumper(app.sampleMatcher(), format, cout);
+        DumpClient dumper(app.sampleMatcher(), dump_format, cout);
         dumper.setWarningTime(warntime);
         dumper.setShowDeltaT(!NoDeltaT.asBool());
         dumper.setPrecsion(app.Precision.asInt());
@@ -820,6 +765,9 @@ DataDump::run() throw()
 
         if (FormatTimeISO.asBool())
             dumper.setTimeFormat(ISOFORMAT);
+
+        if (TimeFormat.specified())
+            dumper.setTimeFormat(TimeFormat.getValue());
 
         if (app.processData())
         {
@@ -834,7 +782,7 @@ DataDump::run() throw()
             sis.addSampleClient(&dumper);
         }
 
-        if (format != DumpClient::NAKED)
+        if (dump_format != dump_format_t::NAKED)
             dumper.printHeader();
 
         try

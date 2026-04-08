@@ -7,9 +7,13 @@ env = Environment(tools=['default', 'nidasapps'])
 
 nidsmerge = env.NidasApp('nidsmerge')
 data_stats = env.NidasApp('data_stats')
+data_dump = env.NidasApp('data_dump')
+sensor_extract = env.NidasApp('sensor_extract')
 
-depends = ["test_nidsmerge.sh", nidsmerge, data_stats]
-runtest = env.Command("xtest", depends, ["cd $SOURCE.dir && ./test_nidsmerge.sh"])
+depends = ["test_nidsmerge.sh", nidsmerge, data_stats,
+           data_dump, sensor_extract]
+runtest = env.Command("xtest", depends,
+                      ["cd $SOURCE.dir && ./test_nidsmerge.sh"])
 
 env.Precious(runtest)
 env.AlwaysBuild(runtest)

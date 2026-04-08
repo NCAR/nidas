@@ -30,6 +30,8 @@
 #include <nidas/core/Variable.h>
 #include <nidas/util/Logger.h>
 
+#include <math.h>
+
 using namespace nidas::core;
 using namespace nidas::dynld::raf;
 using namespace std;

@@ -6,6 +6,7 @@ using boost::unit_test_framework::test_suite;
 #include <boost/regex.hpp>
 
 #include <nidas/core/NidasApp.h>
+#include <nidas/util/ParseException.h>
 
 #include <sys/types.h>
 #include <signal.h>
@@ -91,10 +92,10 @@ BOOST_AUTO_TEST_CASE(test_sample_match_all)
 {
   {
     RangeMatcher rm;
-    BOOST_CHECK(rm.dsm1 == 0);
-    BOOST_CHECK(rm.dsm2 == 0);
-    BOOST_CHECK(rm.sid1 == RangeMatcher::MATCH_ALL);
-    BOOST_CHECK(rm.sid2 == RangeMatcher::MATCH_ALL);
+    BOOST_CHECK(rm.dsms.first == 0);
+    BOOST_CHECK(rm.dsms.last == 0);
+    BOOST_CHECK(rm.sids.first == RangeMatcher::MATCH_ALL);
+    BOOST_CHECK(rm.sids.last == RangeMatcher::MATCH_ALL);
     BOOST_CHECK(rm.time1 == UTime::MIN.toUsecs());
     BOOST_CHECK(rm.time2 == UTime::MAX.toUsecs());
     BOOST_CHECK(rm.file_pattern == "");
@@ -374,10 +375,10 @@ BOOST_AUTO_TEST_CASE(test_samples_all_fields_parsing)
   RangeMatcher rm;
   std::string spec = ".,/,file=t35_,[2023-08-10_12:00,]";
   BOOST_REQUIRE_NO_THROW(rm.parse_specifier(spec));
-  BOOST_CHECK_EQUAL(rm.dsm1, RangeMatcher::MATCH_FIRST);
-  BOOST_CHECK_EQUAL(rm.dsm2, RangeMatcher::MATCH_FIRST);
-  BOOST_CHECK_EQUAL(rm.sid1, RangeMatcher::MATCH_ALL);
-  BOOST_CHECK_EQUAL(rm.sid2, RangeMatcher::MATCH_ALL);
+  BOOST_CHECK_EQUAL(rm.dsms.first, RangeMatcher::MATCH_FIRST);
+  BOOST_CHECK_EQUAL(rm.dsms.last, RangeMatcher::MATCH_FIRST);
+  BOOST_CHECK_EQUAL(rm.sids.first, RangeMatcher::MATCH_ALL);
+  BOOST_CHECK_EQUAL(rm.sids.last, RangeMatcher::MATCH_ALL);
   UTime begin(true, 2023, 8, 10, 12, 0, 0);
   BOOST_CHECK_EQUAL(UTime(rm.time1), begin);
   // time2 is left unchanged
@@ -394,15 +395,93 @@ BOOST_AUTO_TEST_CASE(test_samples_all_fields_parsing)
 }
 
 
+BOOST_AUTO_TEST_CASE(test_sample_remap_range)
+{
+  // create RangeMatcher instances with target ID ranges
+  RangeMatcher rm;
+  BOOST_REQUIRE_NO_THROW(rm.parse_specifier("10-12=20-22,1-3=4-6"));
+  BOOST_CHECK_EQUAL(rm.dsms.first, 10);
+  BOOST_CHECK_EQUAL(rm.dsms.last, 12);
+  BOOST_CHECK_EQUAL(rm.sids.first, 1);
+  BOOST_CHECK_EQUAL(rm.sids.last, 3);
+  BOOST_CHECK_EQUAL(rm.target_dsms.first, 20);
+  BOOST_CHECK_EQUAL(rm.target_dsms.last, 22);
+  BOOST_CHECK_EQUAL(rm.target_sids.first, 4);
+  BOOST_CHECK_EQUAL(rm.target_sids.last, 6);
+
+  SampleMatcher sm;
+  sm.addCriteria(rm);
+  SampleT<float> sample;
+  for (int dsm = 10; dsm <= 12; ++dsm)
+  {
+    for (int sid = 1; sid <= 3; ++sid)
+    {
+      sample.setRawId(SampleId(dsm, sid));
+      BOOST_CHECK_EQUAL(sm.match_with_reassign(&sample), true);
+      BOOST_CHECK_EQUAL(sample.getDSMId(), 20 + (dsm - 10));
+      BOOST_CHECK_EQUAL(sample.getSpSId(), 4 + (sid - 1));
+    }
+  }
+}
+
+
+BOOST_AUTO_TEST_CASE(test_sample_remap_one)
+{
+  // create RangeMatcher instances with target ID ranges
+  RangeMatcher rm;
+  BOOST_REQUIRE_NO_THROW(rm.parse_specifier("10-12=20,1-3=5"));
+  BOOST_CHECK_EQUAL(rm.dsms.first, 10);
+  BOOST_CHECK_EQUAL(rm.dsms.last, 12);
+  BOOST_CHECK_EQUAL(rm.sids.first, 1);
+  BOOST_CHECK_EQUAL(rm.sids.last, 3);
+  BOOST_CHECK_EQUAL(rm.target_dsms.first, 20);
+  BOOST_CHECK_EQUAL(rm.target_dsms.last, 20);
+  BOOST_CHECK_EQUAL(rm.target_sids.first, 5);
+  BOOST_CHECK_EQUAL(rm.target_sids.last, 5);
+
+  SampleMatcher sm;
+  sm.addCriteria(rm);
+  SampleT<float> sample;
+  for (int dsm = 10; dsm <= 12; ++dsm)
+  {
+    for (int sid = 1; sid <= 3; ++sid)
+    {
+      sample.setRawId(SampleId(dsm, sid));
+      BOOST_CHECK_EQUAL(sm.match_with_reassign(&sample), true);
+      BOOST_CHECK_EQUAL(sample.getDSMId(), 20);
+      BOOST_CHECK_EQUAL(sample.getSpSId(), 5);
+    }
+  }
+}
+
+
 BOOST_AUTO_TEST_CASE(test_empty_field_parsing)
 {
-  expect_parse_exception("", "empty field not allowed");
-  expect_parse_exception("^", "empty field not allowed");
-  expect_parse_exception("^2,10,file=isfs_,,", "empty field not allowed");
-  expect_parse_exception("^2,10,file=isfs_," , "empty field not allowed");
+  const std::string err_empty = "empty field not allowed";
+  const std::string err_range_length = 
+    "target range must be length 1 or same as source";
+  const std::string err_target_ids = "target range must be explicit ids";
+  const std::string err_order = "first range id is greater than second: ";
+  const std::string err_parse = "cannot convert to int: ";
+  const std::string err_negative = "only negative id allowed is -1";
+  expect_parse_exception("", err_empty);
+  expect_parse_exception("x", err_parse + 'x');
+  expect_parse_exception("^", err_empty);
+  expect_parse_exception("10=", err_parse);
+  expect_parse_exception("=10", err_parse);
+  expect_parse_exception("^2,10,file=isfs_,,", err_empty);
+  expect_parse_exception("^2,10,file=isfs_," , err_empty);
   expect_parse_exception("1,2,x", "unrecognized field: x");
   expect_parse_exception("1,2,3", "unrecognized field: 3");
-  expect_parse_exception("1,2,,file=isfs_", "empty field not allowed");
+  expect_parse_exception("1,2,,file=isfs_", err_empty);
+  expect_parse_exception("10-11=10-12", err_range_length);
+  expect_parse_exception("10-12=10-11", err_range_length);
+  expect_parse_exception("10-12=*", err_target_ids);
+  expect_parse_exception("10-12=-1", err_target_ids);
+  expect_parse_exception("10-5,1", err_order + "10-5");
+  expect_parse_exception("1,5-2", err_order + "5-2");
+  expect_parse_exception("-2,1", err_negative);
+  expect_parse_exception("1,-3", err_negative);
 }
 
 

@@ -28,6 +28,7 @@
 
 #include <nidas/util/Logger.h>
 
+#include <math.h>
 
 using namespace std;
 using namespace nidas::dynld::raf;

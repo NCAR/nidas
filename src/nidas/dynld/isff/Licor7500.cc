@@ -31,6 +31,7 @@
 
 #include <sstream>
 #include <limits>
+#include <cmath>
 
 using namespace nidas::dynld::isff;
 using namespace nidas::core;
@@ -121,9 +122,9 @@ bool Licor7500::process(const Sample* samp,
     if (slen > _tcellIndex) tcell = csamp->getDataValue(_tcellIndex);
 
     // flag h2o,cor if Diag is outside the range _minDiag,_maxDiag
-    if (isnan(diag) || diag < _minDiag || diag > _maxDiag ||
-        isnan(pcell) || pcell < _minPcell || pcell > _maxPcell ||
-        isnan(tcell) || tcell < _minTcell || tcell > _maxTcell) {
+    if (std::isnan(diag) || diag < _minDiag || diag > _maxDiag ||
+        std::isnan(pcell) || pcell < _minPcell || pcell > _maxPcell ||
+        std::isnan(tcell) || tcell < _minTcell || tcell > _maxTcell) {
 
         SampleT<float>* news = getSample<float>(slen);
         news->setTimeTag(csamp->getTimeTag());

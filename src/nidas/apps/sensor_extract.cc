@@ -35,24 +35,37 @@
 #include <nidas/core/FileSet.h>
 #include <nidas/core/Bzip2FileSet.h>
 #include <nidas/core/Socket.h>
+#include <nidas/core/NidasApp.h>
+#include <nidas/core/BadSampleFilter.h>
 #include <nidas/util/Logger.h>
 #include <nidas/util/UTime.h>
 #include <nidas/util/EOFException.h>
 #include <nidas/util/auto_ptr.h>
 
+#include <memory>
 #include <csignal>
 #include <climits>
 
 #include <iomanip>
 
 #include <unistd.h>
-#include <getopt.h>
 
 using namespace nidas::core;
 using namespace nidas::dynld;
 using namespace std;
 
-namespace n_u = nidas::util;
+using nidas::util::Logger;
+using nidas::util::LogScheme;
+using nidas::util::LogConfig;
+
+using nidas::util::Socket;
+using nidas::util::SocketAddress;
+
+using nidas::util::IOException;
+using nidas::util::EOFException;
+
+namespace nu = nidas::util;
+
 
 class SensorExtract: public HeaderSource
 {
@@ -60,493 +73,179 @@ public:
 
     SensorExtract();
 
-    int parseRunstring(int argc, char** argv) throw();
+    int parseRunstring(int argc, char** argv);
 
-    int run() throw();
+    int run();
 
-// static functions
-    static void sigAction(int sig, siginfo_t* siginfo, void*);
-
-    static void setupSignals();
-
-    static int main(int argc, char** argv) throw();
-
-    static int usage(const char* argv0);
-
-    void sendHeader(dsm_time_t,SampleOutput*);
+    void sendHeader(dsm_time_t, SampleOutput*);
 
     /**
      * for debugging.
      */
-    void printHeader();
+    void logHeader();
 
 private:
 
-    static bool interrupted;
-
     list<string> inputFileNames;
-
-    n_u::auto_ptr<n_u::SocketAddress> sockAddr;
-
-    string outputFileName;
-
-    int outputFileLength;
-
+    std::unique_ptr<SocketAddress> sockAddr;
     SampleInputHeader header;
-
-    set<dsm_sample_id_t> includeIds;
-
-    set<dsm_sample_id_t> includeDSMIds;
-
-    set<dsm_sample_id_t> excludeIds;
-
-    set<int> excludeDSMIds;
-
-    map<dsm_sample_id_t,dsm_sample_id_t> newIds;
-
-    map<int,int> newDSMIds;
-
+    NidasApp app;
+    BadSampleFilterArg FilterArg;
 };
 
-int main(int argc, char** argv)
-{
-    n_u::LogConfig lc;
-    lc.level = n_u::LOGGER_INFO;
-    n_u::Logger::getInstance()->setScheme
-          (n_u::LogScheme("sensor_extract").addConfig (lc));
-    return SensorExtract::main(argc,argv);
-}
-
-
-/* static */
-bool SensorExtract::interrupted = false;
-
-/* static */
-void SensorExtract::sigAction(int sig, siginfo_t* siginfo, void*) {
-    cerr <<
-    	"received signal " << strsignal(sig) << '(' << sig << ')' <<
-	", si_signo=" << (siginfo ? siginfo->si_signo : -1) <<
-	", si_errno=" << (siginfo ? siginfo->si_errno : -1) <<
-	", si_code=" << (siginfo ? siginfo->si_code : -1) << endl;
-                                                                                
-    switch(sig) {
-    case SIGHUP:
-    case SIGTERM:
-    case SIGINT:
-            SensorExtract::interrupted = true;
-    break;
-    }
-}
-
-/* static */
-void SensorExtract::setupSignals()
-{
-    sigset_t sigset;
-    sigemptyset(&sigset);
-    sigaddset(&sigset,SIGHUP);
-    sigaddset(&sigset,SIGTERM);
-    sigaddset(&sigset,SIGINT);
-    sigprocmask(SIG_UNBLOCK,&sigset,(sigset_t*)0);
-                                                                                
-    struct sigaction act;
-    sigemptyset(&sigset);
-    act.sa_mask = sigset;
-    act.sa_flags = SA_SIGINFO;
-    act.sa_sigaction = SensorExtract::sigAction;
-    sigaction(SIGHUP,&act,(struct sigaction *)0);
-    sigaction(SIGINT,&act,(struct sigaction *)0);
-    sigaction(SIGTERM,&act,(struct sigaction *)0);
-}
-
-/* static */
-int SensorExtract::usage(const char* argv0)
-{
-    cerr << "\
-Usage: " << argv0 << " [-s dsmids,sensorids[,newdsmid,newsensorid]] [-s ...]\n\
-	[-x dsmid,sensorid] [-x ...] [-l output_file_length] output input ... \n\n\
-    -s dsmids,sensorids[,newdsmid,newsensorid]:\n\
-            Copy samples with ids matching the specified ids.\n\
-            dsmids: a non-negative dsm id, or range of ids separated by a dash\n\
-            sensorids: a sensor id, or range of ids separated by a dash, or\n\
-                -1 for all sensors of a dsm\n\
-	    newdsmid,newsensorid: change the id of samples that match dsmids,sensorids\n\
-                to newdsmid,newsensorid.\n\
-                If sensorid is -1, then only the dsm id can be changed to newdsmid\n\
-            More than one -s option can be specified.\n\
-    -x dsmids[,sensorids]:\n\
-            Exclude samples with ids matching the specified ids.\n\
-            dsmids: a non-negative dsm id, or range of ids separated by a dash\n\
-            sensorids: a sensor id, a range of ids separated by a dash, \n\
-                -1 for all sensors of a dsm. If sensorids is missing the default is -1.\n\
-            More than one -x option can be specified\n\
-    -l output_file_length: length of output files, in seconds\n\
-    output: output file name or file name format\n\
-    input ...: one or more input file name or file name formats, or\n\
-        sock:[hostname:port]  to connect to a socket on hostname, or\n\
-            hostname defaults to \"localhost\", port defaults to " <<
-                NIDAS_RAW_DATA_PORT_TCP << "\n\
-        unix:path to connect to a unix socket on the localhost\n\n\
-    Either -s or -x options can be specified, but not both\n\
-    Any id can start with 0x indicating a hex value, or 0, indicating\n\
-    an octal value\n\
-        \n\
-" << endl;
-    return 1;
-}
-
-/* static */
-int SensorExtract::main(int argc, char** argv) throw()
-{
-    setupSignals();
-
-    SensorExtract merge;
-
-    int res;
-    
-    if ((res = merge.parseRunstring(argc,argv)) != 0) return res;
-
-    return merge.run();
-}
-
-
 SensorExtract::SensorExtract():
-    inputFileNames(),sockAddr(),outputFileName(),
-    outputFileLength(0),header(),
-    includeIds(),includeDSMIds(),
-    excludeIds(),excludeDSMIds(),
-    newIds(),newDSMIds()
+    inputFileNames(),
+    sockAddr(),
+    header(),
+    app("sensor_extract"),
+    FilterArg()
 {
 }
 
-int SensorExtract::parseRunstring(int argc, char** argv) throw()
+int SensorExtract::parseRunstring(int argc, char** argv)
 {
-    extern char *optarg;       /* set by getopt() */
-    extern int optind;       /* "  "     "     */
-    int opt_char;     /* option character */
+    app.enableArguments(app.Help | app.InputFiles | app.OutputFiles |
+                        app.Version | app.SampleRanges | FilterArg |
+                        app.StartTime | app.EndTime |
+                        app.loggingArgs());
 
-    while ((opt_char = getopt(argc, argv, "l:s:x:")) != -1) {
-	switch (opt_char) {
-	case 'l':
-	    outputFileLength = atoi(optarg);
-	    break;
-	case 's':
-            {
-                const char* cp1 = optarg;
-                const char* ep = cp1 + strlen(cp1);
-                char* cp2;
-                const char*d1,*d2;
+    // it might be unusual to use sensor_extract on a socket input, but at one
+    // point it was explicitly added so sensor_extract could be used in
+    // testing as an archiver. however, since file input is much more likely
+    // to be the intention, do not set a default input.
 
-                int dsmid1,dsmid2;
-                int snsid1 = -1,snsid2 = -1;
-
-                int newdsmid = -1;
-                int newsnsid = -1;
-
-                // strtol handles hex in the form 0xXXXX
-
-                // parse dsm id field, with optional dash
-                d1 = strchr(cp1,',');
-                if (!d1) d1 = ep;
-                while (::isspace(*cp1)) cp1++;
-                if ((d2 = strchr(cp1+1,'-')) && d2 < d1) {
-                    dsmid1 = strtol(cp1,&cp2,0);
-                    if (cp2 != d2) return usage(argv[0]);
-                    cp1 = d2 + 1;
-                    dsmid2 = strtol(cp1,&cp2,0);
-                }
-                else {
-                    dsmid1 = dsmid2 = strtol(cp1,&cp2,0);
-                }
-                if (cp2 != d1) return usage(argv[0]);
-
-                if (d1 < ep) {
-                    // parse sensor id field, with optional dash
-                    cp1 = d1 + 1;
-                    d1 = strchr(cp1,',');
-                    if (!d1) d1 = ep;
-                    while (::isspace(*cp1)) cp1++;
-                    if ((d2 = strchr(cp1+1,'-')) && d2 < d1) {
-                        snsid1 = strtol(cp1,&cp2,0);
-                        if (cp2 != d2) return usage(argv[0]);
-                        cp1 = d2 + 1;
-                        snsid2 = strtol(cp1,&cp2,0);
-                    }
-                    else {
-                        snsid1 = snsid2 = strtol(cp1,&cp2,0);
-                    }
-                    if (cp2 != d1) return usage(argv[0]);
-
-                    // parse new dsm and sensor ids, no dashes
-                    if (d1 < ep) {
-                        cp1 = d1 + 1;
-                        d1 = strchr(cp1,',');
-                        if (!d1) d1 = ep;
-                        newdsmid = strtol(cp1,&cp2,0);
-                        if (cp2 != d1) return usage(argv[0]);
-                        if (d1 < ep) {
-                            cp1 = d1 + 1;
-                            d1 = ep;
-                            newsnsid = strtol(cp1,&cp2,0);
-                            if (cp2 != d1) return usage(argv[0]);
-                        }
-                    }
-                }
-                if (cp2 != ep) return usage(argv[0]);
-
-#ifdef DEBUG
-                cerr << "dsmid1=" << dsmid1 << ", dsmid2=" << dsmid2 << ", snsid1=" << snsid1 << ", snsid2=" << snsid2 <<
-                    ", newdsmid=" << newdsmid << ", newsnsid=" << newsnsid << endl;
-#endif
-
-                dsm_sample_id_t sampleId = 0;
-                for (int did = dsmid1; did <= dsmid2; did++) {
-                    if (did < 0) {
-                        cerr << "ERROR: DSM id must be >= 0" << endl;
-                        return usage(argv[0]);
-                    }
-                    sampleId = SET_DSM_ID(sampleId,did);
-                    for (int sid = snsid1; sid <= snsid2; sid++) {
-                        if (sid == -1) {  // all sample ids of this dsm
-                            includeDSMIds.insert(did);
-                            if (newdsmid < 0) newDSMIds[did] = did;
-                            else newDSMIds[did] = newdsmid;
-                        }
-                        else {
-                            sampleId = SET_SPS_ID(sampleId,sid);
-                            includeIds.insert(sampleId);
-
-                            dsm_sample_id_t newid = sampleId;    // by default, don't change
-                            if (newdsmid >= 0) newid = SET_DSM_ID(newid,newdsmid);
-                            if (newsnsid >= 0) newid = SET_SPS_ID(newid,newsnsid);
-                            newIds[sampleId] = newid;
-                        }
-                    }
-                }
-            }
-	    break;
-        case 'x':
-            {
-                const char* cp1 = optarg;
-                const char* ep = cp1 + strlen(cp1);
-                char* cp2;
-                const char*d1,*d2;
-
-                int dsmid1,dsmid2;
-                int snsid1=-1,snsid2=-1;
-
-                // parse dsm id field, with optional dash
-                d1 = strchr(cp1,',');
-                if (!d1) d1 = ep;
-                while (::isspace(*cp1)) cp1++;
-                if ((d2 = strchr(cp1+1,'-')) && d2 < d1) {
-                    dsmid1 = strtol(cp1,&cp2,0);
-                    if (cp2 != d2) return usage(argv[0]);
-                    cp1 = d2 + 1;
-                    dsmid2 = strtol(cp1,&cp2,0);
-                }
-                else {
-                    dsmid1 = dsmid2 = strtol(cp1,&cp2,0);
-                }
-                if (cp2 != d1) return usage(argv[0]);
-
-                if (d1 < ep) {
-                    // parse sensor id field, with optional dash
-                    cp1 = d1 + 1;
-                    d1 = strchr(cp1,',');
-                    if (!d1) d1 = ep;
-                    while (::isspace(*cp1)) cp1++;
-                    if ((d2 = strchr(cp1+1,'-')) && d2 < d1) {
-                        snsid1 = strtol(cp1,&cp2,0);
-                        if (cp2 != d2) return usage(argv[0]);
-                        cp1 = d2 + 1;
-                        snsid2 = strtol(cp1,&cp2,0);
-                    }
-                    else {
-                        snsid1 = snsid2 = strtol(cp1,&cp2,0);
-                    }
-                    if (cp2 != d1) return usage(argv[0]);
-                }
-                if (cp2 != ep) return usage(argv[0]);
-
-                for (int did = dsmid1; did <= dsmid2; did++) {
-                    if (did < 0) return usage(argv[0]);
-                    for (int sid = snsid1; sid <= snsid2; sid++) {
-                        if (sid == -1)  // all sample ids of this dsm
-                            excludeDSMIds.insert(did);
-                        else {
-                            dsm_sample_id_t sampleId = 0;
-                            sampleId = SET_DSM_ID(sampleId,did);
-                            sampleId = SET_SPS_ID(sampleId,sid);
-                            excludeIds.insert(sampleId);
-                        }
-                    }
-                }
-
-            }
-            break;
-	case '?':
-	    return usage(argv[0]);
-	}
+    ArgVector args = app.parseArgs(argc, argv);
+    if (app.helpRequested())
+    {
+        cout << "Usage: " << app.getName()
+             << " [options] {input-spec} {output-spec}\n"
+             << app.usage();
+        return 1;
     }
-    if (optind < argc) outputFileName = argv[optind++];
-    for ( ;optind < argc; )
-        inputFileNames.push_back(argv[optind++]);
-    if (inputFileNames.size() == 0) return usage(argv[0]);
-
-    if (inputFileNames.size() == 1) {
-        string url = inputFileNames.front();
-        if (url.substr(0,5) == "sock:") {
-            url = url.substr(5);
-	    string hostName = "127.0.0.1";
-            int port = NIDAS_RAW_DATA_PORT_TCP;
-	    if (url.length() > 0) {
-		size_t ic = url.find(':');
-		hostName = url.substr(0,ic);
-		if (ic < string::npos) {
-		    istringstream ist(url.substr(ic+1));
-		    ist >> port;
-		    if (ist.fail()) {
-			cerr << "Invalid port number: " << url.substr(ic+1) << endl;
-			return usage(argv[0]);
-		    }
-		}
-	    }
-            try {
-                n_u::Inet4Address addr = n_u::Inet4Address::getByName(hostName);
-                sockAddr.reset(new n_u::Inet4SocketAddress(addr,port));
-            }
-            catch(const n_u::UnknownHostException& e) {
-                cerr << e.what() << endl;
-                return usage(argv[0]);
-            }
-	}
-	else if (url.substr(0,5) == "unix:") {
-	    url = url.substr(5);
-            sockAddr.reset(new n_u::UnixSocketAddress(url));
-	}
+    app.parseInputs(args);
+    if (!app.inputsProvided())
+    {
+        throw NidasAppException("Input is missing.");
     }
-    if ((!includeIds.empty() || !includeDSMIds.empty() > 0) &&
-            (!excludeIds.empty() || !excludeDSMIds.empty())) return usage(argv[0]);
+    app.validateOutput();
+    SampleMatcher& matcher = app.sampleMatcher();
+    matcher.setStartTime(app.getStartTime());
+    matcher.setEndTime(app.getEndTime());
     return 0;
 }
 
-void SensorExtract::sendHeader(dsm_time_t,SampleOutput* out)
+void SensorExtract::sendHeader(dsm_time_t, SampleOutput* out)
 {
-    printHeader();
+    logHeader();
     header.write(out);
 }
 
-void SensorExtract::printHeader()
+void SensorExtract::logHeader()
 {
-    cerr << "ArchiveVersion:" << header.getArchiveVersion() << endl;
-    cerr << "SoftwareVersion:" << header.getSoftwareVersion() << endl;
-    cerr << "ProjectName:" << header.getProjectName() << endl;
-    cerr << "SystemName:" << header.getSystemName() << endl;
-    cerr << "ConfigName:" << header.getConfigName() << endl;
-    cerr << "ConfigVersion:" << header.getConfigVersion() << endl;
+    ILOG(("") << "Writing header to output:");
+    ILOG(("") << "ArchiveVersion:" << header.getArchiveVersion());
+    ILOG(("") << "SoftwareVersion:" << header.getSoftwareVersion());
+    ILOG(("") << "ProjectName:" << header.getProjectName());
+    ILOG(("") << "SystemName:" << header.getSystemName());
+    ILOG(("") << "ConfigName:" << header.getConfigName());
+    ILOG(("") << "ConfigVersion:" << header.getConfigVersion());
 }
 
-int SensorExtract::run() throw()
+int SensorExtract::run()
 {
+    app.setupSignals();
     bool outOK = true;
     try {
-	nidas::core::FileSet* outSet = 0;
-        if (outputFileName.find(".bz2") != string::npos) {
-#ifdef HAVE_BZLIB_H
-            outSet = new nidas::core::Bzip2FileSet();
-#else
-            cerr << "Sorry, no support for Bzip2 files on this system" << endl;
-            exit(1);
-#endif
-        }
-        else
-            outSet = new nidas::core::FileSet();
 
-	outSet->setFileName(outputFileName);
-	outSet->setFileLengthSecs(outputFileLength);
-
+        // create the output FileSet, with this instance as the HeaderSource
+        nidas::core::FileSet* outSet = 0;
+        outSet = FileSet::createFileSet(app.outputFileName());
+        outSet->setFileLengthSecs(app.outputFileLength());
         SampleOutputStream outStream(outSet);
         outStream.setHeaderSource(this);
 
+        // create the input channel, from either a FileSet or a socket 
         IOChannel* iochan = 0;
-
-        if (sockAddr.get()) {
-
-            n_u::Socket* sock = 0;
-            for (int i = 0; !sock && !interrupted; i++) {
+        if (app.dataFileNames().size() > 0)
+        {
+            nidas::core::FileSet* fset =
+                nidas::core::FileSet::getFileSet(app.dataFileNames());
+            iochan = fset->connect();
+        }
+        else
+        {
+            // retries on socket connect allow for this to be started before
+            // the server is ready, such as when used as an archiver.
+            nu::Socket* sock = 0;
+            while (!sock && !app.interrupted())
+            {
                 try {
-                    sock = new n_u::Socket(*sockAddr.get());
+                    sock = new nu::Socket(*app.socketAddress());
                 }
-                catch(const n_u::IOException& e) {
-                    if (i > 2)
-                        n_u::Logger::getInstance()->log(LOG_WARNING,
-                        "%s: retrying",e.what());
+                catch(const IOException& e) {
+                    WLOG(("%s: retrying in 10 seconds...", e.what()));
                     sleep(10);
                 }
             }
             iochan = new nidas::core::Socket(sock);
         }
-        else {
-            iochan = 
-                nidas::core::FileSet::getFileSet(inputFileNames);
-        }
 
         // RawSampleInputStream owns the iochan ptr.
         RawSampleInputStream input(iochan);
-
-        input.setMaxSampleLength(32768);
+        input.setBadSampleFilter(FilterArg.getFilter());
 
         input.readInputHeader();
         // save header for later writing to output
         header = input.getInputHeader();
 
-        n_u::UTime screenTime(true,2001,1,1,0,0,0);
-
+        // just keep reading samples and writing them to output, using the
+        // SampleMatcher to select samples and reassign ids.
         try {
-            for (;;) {
-
+            while (outOK && !app.interrupted())
+            {
                 Sample* samp = input.readSample();
-                if (interrupted) break;
+                if (app.interrupted())
+                    break;
 
-                if (samp->getTimeTag() < screenTime.toUsecs()) continue;
-
-                dsm_sample_id_t id = samp->getId();
-
-		if (!includeIds.empty() || !includeDSMIds.empty()) {
-		    if (includeIds.find(id) != includeIds.end()) {
-			dsm_sample_id_t newid = newIds[id];
-			samp->setId(newid);
-			if (!(outOK = outStream.receive(samp))) break;
-		    }
-                    else if (includeDSMIds.find(GET_DSM_ID(id)) != includeDSMIds.end()) {
-                        int dsm = GET_DSM_ID(id);
-			int newdsm = newDSMIds[dsm];
-                        id = SET_DSM_ID(id,newdsm);
-			samp->setId(id);
-			if (!(outOK = outStream.receive(samp))) break;
-		    }
-                }
-		else {
-                    int dsmid = GET_DSM_ID(id);
-                    if (excludeIds.find(id) == excludeIds.end() &&
-                                excludeDSMIds.find(dsmid) == excludeDSMIds.end()) 
-			if (!(outOK = outStream.receive(samp))) break;
+                if (app.sampleMatcher().match_with_reassign(samp))
+                {
+                    outOK = outStream.receive(samp);
                 }
                 samp->freeReference();
             }
         }
-        catch (n_u::EOFException& ioe) {
+        catch (EOFException& ioe) {
             cerr << ioe.what() << endl;
         }
 
-	outStream.flush();
-	outStream.close();
+        outStream.flush();
+        outStream.close();
     }
-    catch (n_u::IOException& ioe) {
+    catch (IOException& ioe)
+    {
         cerr << ioe.what() << endl;
-	return 1;
+        return 1;
     }
-    if (!outOK) return 1;
-    return 0;
+    return !outOK;
 }
 
+
+int main(int argc, char** argv)
+{
+    LogConfig lc;
+    lc.level = nidas::util::LOGGER_INFO;
+    Logger::getInstance()->setScheme
+          (LogScheme("sensor_extract").addConfig (lc));
+
+    SensorExtract merge;
+    int res;
+    try {
+        if ((res = merge.parseRunstring(argc,argv)) != 0)
+            return res;
+        return merge.run();
+    }
+    catch (std::exception& e) {
+        cerr << e.what() << endl;
+    }
+    return 1;
+}

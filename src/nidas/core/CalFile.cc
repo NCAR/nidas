@@ -30,6 +30,8 @@
 #include "Project.h"
 #include <nidas/util/Logger.h>
 #include <nidas/util/util.h>
+#include <nidas/util/ParseException.h>
+#include <nidas/util/IOException.h>
 
 #include <sys/stat.h>
 

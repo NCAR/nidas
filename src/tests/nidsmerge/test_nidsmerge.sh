@@ -15,6 +15,20 @@ PATH=$dir:$PATH
 source ../nidas_tests.sh
 check_executable nidsmerge
 check_executable data_stats
+check_executable data_dump
+check_executable sensor_extract
+
+options="--track-origins=no --num-callers=30 --show-below-main=no"
+options="$options --error-exitcode=1"
+options="$options --errors-for-leak-kinds=definite"
+memcheck="--tool=memcheck --leak-check=full"
+valgrind="valgrind $memcheck $options"
+
+if [ "$1" = "--no-valgrind" ]; then
+    valgrind=""
+    shift
+fi
+
 
 clean() {
     mkdir -p outputs
@@ -25,47 +39,56 @@ clean
 
 run_merge() {
     # use --no-keep-opening since a file which cannot be opened is a problem
-    logging="--log debug"
-    logging=
-    if ! nidsmerge $logging -r 300 --no-keep-opening "$@"; then
+    logging="--logfields level,message --log verbose,file=nidsmerge.cc"
+    echo nidsmerge $logging -r 300 --no-keep-opening "$@"
+    if ! $valgrind nidsmerge $logging -r 300 --no-keep-opening "$@"; then
         failed "nidsmerge $*"
     fi
 }
 
-run_diff()
-{
-    if ! diff "$@"; then
-        failed "diff $*"
+run_sensor_extract() {
+    logging="--logfields level,message --log info"
+    echo sensor_extract $logging "$@"
+    if ! $valgrind sensor_extract $logging "$@"; then
+        failed "sensor_extract $*"
     fi
 }
 
 # Merge some simple sample files
 run_merge -i dsm12.dat -i dsm13.dat -o outputs/dsm-both.dat
 
-# Stats output on individual inputs should be the same as for merged
+echo Stats output on individual inputs should be the same as for merged...
 data_stats dsm12.dat dsm13.dat > outputs/baseline.stats.txt
 data_stats outputs/dsm-both.dat > outputs/merged.stats.txt
 run_diff outputs/baseline.stats.txt outputs/merged.stats.txt
 
-# Run the merge including only one dsm at a time
+echo Run the merge including only one dsm at a time...
 run_merge -i dsm12.dat -i dsm13.dat --samples 12 -o outputs/dsm12.out.dat
 run_merge -i dsm12.dat -i dsm13.dat --samples 13 -o outputs/dsm13.out.dat
 
-# The merges should match the inputs
+echo The merges should match the inputs...
 run_diff dsm12.dat outputs/dsm12.out.dat
 run_diff dsm13.dat outputs/dsm13.out.dat
 
-# in M2HATS excerpts, all t2 samples should also be in the network stream
+echo M2HATS excerpts: all t2 samples should also be in the network stream...
 run_merge -i isfs_20230731_0401.dat.bz2 -i t2_20230731_0401.dat.bz2 -o outputs/merged_20230731_0401.dat.bz2 || exit 1
 data_stats t2_20230731_0401.dat.bz2 > outputs/t2_baseline.stats.txt
 data_stats --samples 2 outputs/merged_20230731_0401.dat.bz2 > outputs/t2_merged.stats.txt
 run_diff outputs/t2_baseline.stats.txt outputs/t2_merged.stats.txt
 
-# the full stats in the network stream should match the merged stream, ie,
 # everything in the t2 usb stream is already in the network stream
+echo Network stream stats should match the merged stream...
 data_stats isfs_20230731_0401.dat.bz2 > outputs/m2hats_baseline.stats.txt
 data_stats outputs/merged_20230731_0401.dat.bz2 > outputs/m2hats_merged.stats.txt
 run_diff outputs/m2hats_baseline.stats.txt outputs/m2hats_merged.stats.txt
+
+echo Merging the same file multiple times should produce the same file...
+testout=isfs_20230731_0401_null_merge
+# disable verbose logs about duplicates
+run_merge --log verbose,disable --log info \
+          -i isfs_20230731_0401.dat.bz2 -i isfs_20230731_0401.dat.bz2 \
+          -i isfs_20230731_0401.dat.bz2 -o outputs/${testout}.dat.bz2
+compare_dat_then_stats isfs_20230731_0401.dat.bz2 outputs/${testout}.dat.bz2
 
 cat <<EOF
 ...Merge m2hats but exclude the t2 sonic from network stream by first creating
@@ -94,6 +117,18 @@ run_merge $times -i outputs/t2_20230731_0401_no_sonic.dat.bz2 -i isfs_20230731_0
 data_stats outputs/merged_20230731_0401_no_usb_sonic.dat.bz2 > outputs/m2hats_merged_no_usb_sonic.stats.txt
 run_diff outputs/m2hats_baseline.stats.txt outputs/m2hats_merged_no_usb_sonic.stats.txt
 
+echo ...no-sonic usb merged with network stream without start time
+testout=merged_20230731_0401_no_usb_sonic_no_start
+run_merge -i outputs/t2_20230731_0401_no_sonic.dat.bz2 -i isfs_20230731_0401.dat.bz2 -o outputs/${testout}.dat.bz2
+data_stats outputs/${testout}.dat.bz2 > outputs/${testout}.stats.txt
+run_diff outputs/m2hats_baseline.stats.txt outputs/${testout}.stats.txt
+
+echo ...no-sonic usb merged with network stream without start time, 10 sec readahead
+testout=merged_20230731_0401_no_usb_sonic_no_start_10_secs
+run_merge -r 10 -i outputs/t2_20230731_0401_no_sonic.dat.bz2 -i isfs_20230731_0401.dat.bz2 -o outputs/${testout}.dat.bz2
+data_stats outputs/${testout}.dat.bz2 > outputs/${testout}.stats.txt
+run_diff outputs/m2hats_baseline.stats.txt outputs/${testout}.stats.txt
+
 # Now merging t2 and isfs while excluding sonic from network should be the
 # same as merging with the network sonic already excluded.  since the samples
 # in t2_ are explicitly included, the rest of the samples in isfs_ files have
@@ -103,6 +138,40 @@ echo ...merge t2 and network while excluding sonic from network
 run_merge $times --samples ^2,10,file=isfs_ --samples /,file=isfs_ --samples /,file=t2_ -i isfs_20230731_0401.dat.bz2 -i t2_20230731_0401.dat.bz2 -o outputs/merged_20230731_0401_filter_network_sonic.dat.bz2
 data_stats outputs/merged_20230731_0401_filter_network_sonic.dat.bz2 > outputs/m2hats_merged_filter_network_sonic.stats.txt
 run_diff outputs/m2hats_baseline.stats.txt outputs/m2hats_merged_filter_network_sonic.stats.txt
+
+# Two samples in the output will be adjusted forward to offsets of 1 and 2
+# microseconds.
+testout=channel2_20230920_005950_merged
+dumpfile=${testout}.dump.txt
+echo ...merge single file with non-increasing times and non-char samples
+run_merge --force-increasing-times -i channel2_20230920_005950.dat -o outputs/${testout}.dat >& outputs/${testout}.log
+data_dump -i /,501 -i /,512 --timeformat "%Y-%m-%d_%H:%M:%S.%6f" outputs/${testout}.dat > outputs/$dumpfile
+run_diff baseline/$dumpfile outputs/$dumpfile
+if ! grep "Warning: Found 6 samples with non-increasing times!" outputs/${testout}.log > /dev/null; then
+    failed "expected warning about non-increasing time tags"
+fi
+if ! grep "Sample times were adjusted to force increasing times." outputs/${testout}.log > /dev/null; then
+    failed "expected warning about non-increasing time tags"
+fi
+
+# Same operation but without forcing increasing times, there should still be a
+# warning about non-increasing times.
+testout=channel2_20230920_005950_merged_noninc
+dumpfile=${testout}.dump.txt
+echo ...merge single file with non-increasing times, check warning
+run_merge -i channel2_20230920_005950.dat -o outputs/${testout}.dat >& outputs/${testout}.log
+# dump should show all the samples sorted in time order, with 2 extra samples
+# at :03 and :04 seconds.  there should be 6 non-increasing time tags.
+data_dump -i /,501 -i /,512 --timeformat "%Y-%m-%d_%H:%M:%S.%6f" outputs/${testout}.dat > outputs/$dumpfile
+run_diff baseline/$dumpfile outputs/$dumpfile
+if ! grep "Warning: Found 6 samples with non-increasing times!" outputs/${testout}.log > /dev/null; then
+    failed "expected warning about non-increasing time tags"
+fi
+
+echo ...sensor_extract DSM 8 and reassign to 9
+testout=extract_8_to_9
+run_sensor_extract isfs_20230731_0401.dat.bz2  -o outputs/${testout}.dat --samples 8=9
+compare_dat_then_stats baseline/${testout}.dat outputs/${testout}.dat
 
 echo
 echo "OK.  All tests passed."

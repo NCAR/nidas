@@ -335,43 +335,99 @@ private:
 };
 
 
+class DumpFormatArg: public NidasAppArg
+{
+public:
+
+    typedef enum
+    {
+        DEFAULT,
+        ASCII,
+        HEX_FMT,
+        SIGNED_SHORT,
+        UNSIGNED_SHORT,
+        FLOAT,
+        IRIG,
+        INT32,
+        ASCII_7,
+        NAKED
+    } dump_format_t;
+
+    DumpFormatArg():
+        NidasAppArg("-A,-7,-F,-H,-n,-I,-L,-S,-U", "", R"(
+Format options for sample data:
+-A: ASCII output of character data (for samples from a serial sensor)
+-7: 7-bit ASCII output
+-F: floating point output (typically for processed output)
+-H: hex output (typically for raw output)
+-n: naked output, unadorned samples written exactly as they were read,
+    useful for ascii serial data to be replayed through sensor_sim
+-I: output of IRIG clock samples. Status of \"SYMPCS\" means sync, year,
+    major-time, PPS, code and esync are OK. Lower case letters indicate not OK.
+    sync and esync (extended status sync) are probably always equal
+-L: ASCII output of signed 32 bit integers
+-S: ASCII output of signed 16 bit integers (useful for samples from an A2D)
+)")
+    {}
+
+    bool parse(const ArgVector& argv, int* argi = 0) override;
+
+    dump_format_t getFormat() const;
+
+    static std::string formatToString(dump_format_t format);
+
+private:
+    dump_format_t _format{DEFAULT};
+
+};
+
+
+
 /**
  * Extend NidasAppArg so the default input specifier and port can be
- * customized, which in turn updates the usage string.
+ * customized, which in turn updates the usage string. Applications which do
+ * not allow either network or file inputs should set the allowFiles and
+ * allowSockets members accordingly.  The usage info is updated to reflect
+ * which input types are allowed and any defaults that are specified.  By
+ * default, there is no default input setting.  Applications which want
+ * sock:localhost:30000 to be the default input should set that by calling
+ * setDefaultInput() with no arguments.
  **/
 class NidasAppInputFilesArg : public NidasAppArg
 {
 public:
+
     bool allowFiles;
     bool allowSockets;
 
     /**
+     * The usual default input is a localhost socket on port 30000, for which
+     * the default specifier is "sock:localhost".
+     */
+    static const std::string DEFAULT_INPUT_SPEC;
+
+    /**
+     * Most uses of NidasAppInputFilesArg use this value as the default port
+     * for socket inputs, but for backwards compatibility the default must
+     * still be set explicitly with NidasAppInputFilesArg::setDefaultInput().
+     */
+    static const int DEFAULT_INPUT_PORT = 30000;
+
+    /**
      * Set a default input.  Typically @p spec is a default hostname or
-     * address, and a default port can be passed in @p default_port.  Set
-     * just a default port by passing an empty string in @p spec, in which
-     * case there is no valid default input, but a socket input string
-     * specified without a port (like sock:localhost) will use the default
-     * port.
+     * address, and a default port can be passed in @p default_port.  Set just
+     * a default port by passing an empty string in @p spec, in which case
+     * there is no valid default input, but a socket input string specified
+     * without a port (like sock:localhost) will use the default port.  Pass 0
+     * in @p port to disable the default port.
      **/
     void
-    setDefaultInput(const std::string& spec, int port=0)
-    {
-        default_input = spec;
-        if (port)
-            default_port = port;
-        updateUsage();
-    }
+    setDefaultInput(const std::string& spec=DEFAULT_INPUT_SPEC,
+                    int port=DEFAULT_INPUT_PORT);
 
 private:
 
-    NidasAppInputFilesArg() :
-        NidasAppArg("", "input-url [...]"),
-        allowFiles(true),
-        allowSockets(true),
-        default_input(),
-        default_port(0)
-    {
-    }
+    NidasAppInputFilesArg();
 
     void
     updateUsage();
@@ -685,6 +741,13 @@ public:
     NidasAppArg Version;
     NidasAppInputFilesArg InputFiles;
     NidasAppArg OutputFiles;
+    NidasAppArg OutputFileLength{"-l,--length", "seconds",
+        "Set length of output files in seconds.  This option is deprecated\n"
+        "since it conflicts with the standard -l option for logging.\n"
+        "Instead, use the @<seconds> output file name suffix to specify\n"
+        "the output file length. The @ specifier takes precedence.\n"
+        "Output file length is required if the output filename contains\n"
+        "time specifiers."};
     NidasAppArg Username;
     NidasAppArg Hostname;
     NidasAppArg DebugDaemon;
@@ -697,9 +760,11 @@ public:
                           "Default 0 means 5 for floats, 10 for doubles",
                           "0"};
 
+    DumpFormatArg DumpFormat{};
+
     /**
-     * It is not enough to enable this arg in an app, the app must must
-     * call checkPidFile() as well.
+     * It is not enough to enable this arg in an app, the app must call
+     * checkPidFile() as well.
      **/
     NidasAppArg PidFile;
 
@@ -990,18 +1055,16 @@ public:
 
     /**
      * Parse one or more input URLs from a list of non-option command-line
-     * arguments.  The @p default_input and @p default_port can be passed
-     * here to override the defaults set in the InputFiles argument
-     * instance.  If no inputs are provided, then the defaults are used.
-     * If no default is specified, then inputsProvided() will return false.
-     * An exception is not thrown just because no inputs were provided.
+     * arguments.  If no inputs are provided, then a default is taken from the
+     * InputFiles member.  If no default was specified, then inputsProvided()
+     * will return false.  Throw an exception on invalid input syntax, such as
+     * an invalid socket port or unknown host name, but do not throw an
+     * exception if no inputs are provided.
      *
      * @throws NidasAppException
      **/
     void
-    parseInputs(const std::vector<std::string>& inputs,
-                std::string default_input = "",
-                int default_port = 0);
+    parseInputs(const std::vector<std::string>& inputs);
 
     /**
      **/
@@ -1019,6 +1082,14 @@ public:
      **/
     void
     parseOutput(const std::string& optarg);
+
+    /**
+     * Verify that an output has been specified, and if the output filename
+     * contains time specifiers, then the output file length must be greather
+     * than zero.  Otherwise, throw NidasAppException.
+     */
+    void
+    validateOutput();
 
     /**
      * Return just the output file pattern specified by an output option,
@@ -1340,7 +1411,7 @@ public:
      * If parseInputs() parsed a network socket specifier, then this method
      * returns a pointer to the corresponding SocketAddress.  Otherwise it
      * returns null.  The NidasApp instance owns the pointer.
-     **/    
+     **/
     nidas::util::SocketAddress*
     socketAddress()
     {

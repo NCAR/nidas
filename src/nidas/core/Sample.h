@@ -35,15 +35,9 @@
 #include "SampleLengthException.h"
 #include <nidas/util/ThreadSupport.h>
 #include <nidas/util/MutexCount.h>
-#include <nidas/util/time_constants.h>
 #include <nidas/linux/types.h>
 
-#include <climits>
-#include <iostream>
-#include <cstring>
 #include <initializer_list>
-
-#include <cmath>
 
 #include "sample_type_traits.h"
 
@@ -152,10 +146,10 @@ public:
 
     static unsigned int getSizeOf()
     {
-        return sizeof(dsm_time_t) + sizeof(dsm_sample_length_t) +
-		sizeof(dsm_sample_id_t); }
+        return sizeof(SampleHeader);
+    }
 
-    static unsigned int getMaxDataLength() { return maxValue(dsm_sample_length_t()); }
+    static unsigned int getMaxDataLength();
 
 protected:
 
@@ -301,13 +295,13 @@ public:
      * Set the value of data element i to a double.
      * No range checking of i is done.
      */
-    virtual void setDataValue(unsigned int i,double val) = 0;
+    virtual void setDataValue(unsigned int i, double val) = 0;
 
     /**
      * Set the value of data element i to a float.
      * No range checking is of i done.
      */
-    virtual void setDataValue(unsigned int i,float val) = 0;
+    virtual void setDataValue(unsigned int i, float val) = 0;
 
     /**
      * Get number of elements allocated in data portion of sample.
@@ -419,17 +413,7 @@ public:
     {}
 
     void
-    setValues(std::initializer_list<DataT> values)
-    {
-        unsigned int len = values.size();
-        allocateData(len);
-        setDataLength(len);
-        unsigned int i = 0;
-        for (auto v : values)
-        {
-            setDataValue(i++, (DataT)v);
-        }
-    }
+    setValues(std::initializer_list<DataT> values);
 
     /**
      * Construct a SampleT from an initializer list.  @see setValues().
@@ -439,72 +423,55 @@ public:
      * SampleT<float> sample { 1, 2, 3, 4 };
      * @endcode
      */
-    SampleT(std::initializer_list<DataT> values) :
-        Sample(sample_type_traits<DataT>::sample_type_enum),
-        _data(0),_allocLen(0)
-    {
-        setValues(values);
-    }
+    SampleT(std::initializer_list<DataT> values);
 
-    ~SampleT() { delete [] _data; }
+    ~SampleT();
 
-    sampleType getType() const { return getSampleType(_data); }
+    sampleType getType() const override;
 
     /**
      * Get number of elements of type DataT in data.
      */
-    unsigned int getDataLength() const
-    {
-        return getDataByteLength() / sizeof(DataT);
-    }
+    unsigned int getDataLength() const;
 
     /**
      * Set the number of elements of type DataT in data.
      * @param val: number of elements.
      */
-    void setDataLength(unsigned int val)
-    {
-	if (val > getAllocLength())
-	    throw SampleLengthException(
-		"SampleT::setDataLength:",val,getAllocLength());
-	_header.setDataByteLength(val * sizeof(DataT));
-    }
+    void setDataLength(unsigned int val) override;
 
     /**
-     * Maximum number of elements in data.
+     * Maximum number of data values possible in this SampleT. The number of
+     * data values is limited by the maximum data byte length that can be held
+     * in the SampleHeader length.
      */
-    static unsigned int getMaxDataLength()
+    static unsigned int getMaxDataLength();
+
+    void* getVoidDataPtr() override
     {
-	return SampleHeader::getMaxDataLength() / sizeof(DataT);
+        return (void*) _data;
     }
 
-    void* getVoidDataPtr() { return (void*) _data; }
-    const void* getConstVoidDataPtr() const { return (const void*) _data; }
+    const void* getConstVoidDataPtr() const override
+    {
+        return (const void*) _data;
+    }
 
     DataT* getDataPtr() { return _data; }
 
     const DataT* getConstDataPtr() const { return _data; }
 
-    /**
-     * Implementation of virtual method.
-     */
-    double getDataValue(unsigned int i) const
+    double getDataValue(unsigned int i) const override
     {
         return (double)_data[i];
     }
 
-    /**
-     * Implementation of virtual method.
-     */
-    void setDataValue(unsigned int i, double val)
+    void setDataValue(unsigned int i, double val) override
     {
         _data[i] = (DataT)val;
     }
 
-    /**
-     * Implementation of virtual method.
-     */
-    void setDataValue(unsigned int i, float val)
+    void setDataValue(unsigned int i, float val) override
     {
         _data[i] = (DataT)val;
     }
@@ -512,45 +479,36 @@ public:
     /**
      * Get number of elements allocated in data portion of sample.
      */
-    unsigned int getAllocLength() const { return _allocLen / sizeof(DataT); }
+    unsigned int getAllocLength() const override
+    {
+        return _allocLen / sizeof(DataT);
+    }
 
     /**
      * Get number of bytes allocated in data portion of sample.
      */
-    unsigned int getAllocByteLength() const { return _allocLen; }
+    unsigned int getAllocByteLength() const override
+    {
+        return _allocLen;
+    }
 
     /**
      * Allocate data.
-     * @param val: number of DataT's to allocated.
+     * @param val: number of DataT values to allocate.
+     * 
+     * @throws SampleLengthException if the number of bytes for @p val DataT's
+     * is larger than the maximum value of dsm_sample_length_t.
      */
-    void allocateData(unsigned int val) {
-	if (val  > getMaxDataLength())
-	    throw SampleLengthException(
-		"SampleT::allocateData:",val,getMaxDataLength());
-	if (_allocLen < val * sizeof(DataT)) {
-	  delete [] _data;
-	  _data = new DataT[val];
-	  _allocLen = val * sizeof(DataT);
-	  setDataLength(0);
-	}
-    }
+    void allocateData(unsigned int val) override;
 
     /**
      * Re-allocate data, space, keeping contents.
-     * @param val: number of DataT's to allocated.
+     * @param val: number of DataT values to allocate.
+     * 
+     * @throws SampleLengthException if the number of bytes for @p val DataT's
+     * is larger than the maximum value of dsm_sample_length_t.
      */
-    void reallocateData(unsigned int val) {
-	if (val  > getMaxDataLength())
-	    throw SampleLengthException(
-		"SampleT::reallocateData:",val,getMaxDataLength());
-	if (_allocLen < val * sizeof(DataT)) {
-	  DataT* newdata = new DataT[val];
-      std::memcpy(newdata,_data,_allocLen);
-	  delete [] _data;
-	  _data = newdata;
-	  _allocLen = val * sizeof(DataT);
-	}
-    }
+    void reallocateData(unsigned int val) override;
 
     static int sizeofDataType() { return sizeof(DataT); }
 
@@ -603,7 +561,7 @@ public:
     *   // When you're completely done with it, call freeReference().
     *   samp->freeReference();
     */
-    void freeReference() const;
+    void freeReference() const override;
 
 protected:
 
@@ -636,19 +594,15 @@ public:
      *
      * @param buffer null-terminated array of chars
      */
-    SampleChar(const char* buffer)
-    {
-        unsigned int len = strlen(buffer) + 1;
-        allocateData(len);
-        setDataLength(len);
-        strcpy(getDataPtr(), buffer);
-    }
+    SampleChar(const char* buffer);
 };
 
 /**
- * A convienence method for getting a sample of an
- * enumerated type from a pool.
- * Returns NULL if type is unknown or len is out of range.
+ * A convienence method for getting a sample of an enumerated type from a
+ * pool. Returns NULL if type is unknown or len is out of range.
+ * 
+ * @p len is the _byte length_ of the data and _not_ the data length.
+ * It is divided by the data type size to get the data length.
  */
 Sample* getSample(sampleType type, unsigned int len);
 

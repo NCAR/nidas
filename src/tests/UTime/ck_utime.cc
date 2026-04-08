@@ -415,3 +415,15 @@ BOOST_AUTO_TEST_CASE(test_rounding)
     BOOST_TEST(ut.round(0) == ut);
     BOOST_TEST(ut.earlier(0) == ut);
 }
+
+
+BOOST_AUTO_TEST_CASE(test_dsm_time_constants)
+{
+    // this expression should not overflow 
+    // _period_start + _update * USECS_PER_SEC;
+
+    UTime when = UTime::parse(true, "2019-11-07T16:10:55.001");
+    int period = 3600; // 1 hour
+    when = when + period * USECS_PER_SEC; // add an hour
+    BOOST_TEST(when == UTime::parse(true, "2019-11-07T17:10:55.001"));
+}

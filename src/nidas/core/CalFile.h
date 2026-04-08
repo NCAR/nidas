@@ -31,6 +31,7 @@
 #include <nidas/util/UTime.h>
 #include <nidas/util/IOException.h>
 #include <nidas/util/EOFException.h>
+#include <nidas/util/ThreadSupport.h>
 
 #include <vector>
 #include <fstream>
