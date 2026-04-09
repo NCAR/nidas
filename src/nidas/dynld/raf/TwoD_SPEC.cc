@@ -39,7 +39,7 @@
 #include <sstream>
 #include <iomanip>
 
-#include "/home/local/SPECINC/SPEC-RLE.hh"
+#include "SPEC-Probe/SPEC-RLE.hh"
 
 
 using namespace std;
