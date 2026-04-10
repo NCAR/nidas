@@ -111,6 +111,7 @@ void TwoD_USB::close()
 void TwoD_USB::init()
 {
     DSMSensor::init();
+    init_parameters();
     _processor = new TwoD_Processing(_name, NumberOfDiodes(), this);
     _processor->init();
 }
