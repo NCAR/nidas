@@ -66,6 +66,8 @@ public:
      * @returns whether samples were output.
      */
     bool process(const Sample * samp, std::list < const Sample * >&results);
+    bool processHousekeeping(const Sample * samp, std::list < const Sample * >&results);
+    bool processImageRecord(const Sample * samp, std::list < const Sample * >&results);
 
     /**
      * Number of diodes in the probe array.  This is also the bits-per-slice

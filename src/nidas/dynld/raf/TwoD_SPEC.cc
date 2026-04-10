@@ -84,12 +84,29 @@ void TwoD_SPEC::init()
 /*---------------------------------------------------------------------------*/
 bool TwoD_SPEC::process(const Sample * samp, list < const Sample * >&results)
 {
-    const unsigned char *cp = (unsigned char *)samp->getConstVoidDataPtr();
+    const char *input = (const char*) samp->getConstVoidDataPtr();
+    bool result = false;
 
-    // Leave if this is housekeeping, or add the processing here at a later
-    // date....
-    if (memcmp(cp, "SPEC2D", 6) == 0)
-        return false;
+    unsigned nbytes = samp->getDataByteLength();
+
+//    const unsigned char* ip = input;
+//    const unsigned char* eoi = input + nbytes;
+
+    DLOG( ("raf.TwoDS: nBytes = ") << nbytes );
+
+
+    if (!strncmp(input, "SPEC2D,", 6) || !strncmp(input, "SPECHVPS,", 8))
+        result = processHousekeeping(samp, results);    // len == ~250
+    else
+        result = processImageRecord(samp, results); // len == 4121
+
+    return result;
+}
+
+/*---------------------------------------------------------------------------*/
+bool TwoD_SPEC::processImageRecord(const Sample * samp, list < const Sample * >&results)
+{
+    const unsigned char *cp = (unsigned char *)samp->getConstVoidDataPtr();
 
     // slen is coming in as 4098 bytes for image buffer, no timestamp or cksum.
     unsigned slen = samp->getDataByteLength();
@@ -201,6 +218,12 @@ bool TwoD_SPEC::process(const Sample * samp, list < const Sample * >&results)
     _processor->saveBuffer(cp, eod);
 
     return !results.empty();
+}
+
+/*---------------------------------------------------------------------------*/
+bool TwoD_SPEC::processHousekeeping(const Sample * samp, list < const Sample * >&results)
+{
+    return !CharacterSensor::process(samp, results);
 }
 
 /*---------------------------------------------------------------------------*/
