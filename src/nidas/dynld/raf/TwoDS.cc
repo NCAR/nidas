@@ -236,7 +236,7 @@ bool TwoDS::process(const Sample * samp, list < const Sample * >&results)
     DLOG( ("raf.TwoDS: nBytes = ") << nbytes );
 
 
-    if (!strncmp(input, "SPEC2D,", 7))
+    if (!strncmp(input, "SPEC2D,", 6))
         result = processHousekeeping(samp, results);    // len == ~250
     else
         result = processImageRecord(samp, results); // len == 4121

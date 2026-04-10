@@ -229,7 +229,7 @@ bool HVPS::process(const Sample * samp, list < const Sample * >&results)
     const char *input = (const char*) samp->getConstVoidDataPtr();
     bool result = false;
 
-    if (!strncmp(input, "SPEC2D,", 7))
+    if (!strncmp(input, "SPECHVPS,", 8))
         result = processHousekeeping(samp, results);    // len == ~250
     else
         result = processImageRecord(samp, results); // len == 4121
