@@ -153,9 +153,9 @@ bool TwoD64_USB_v3::processSOR(const Sample * samp,
 	cp = ::strchr(input, sep);
 
         if (sscanf(input, "%f", &data) == 1){
-            dout[iout++] = double(data);
+            dout[iout++] = data;
         } else
-            dout[iout++] = double(NAN);
+            dout[iout++] = NAN;
     }
     list<SampleTag*> tags = getSampleTags();
     applyConversions(tags.front(), outs);
