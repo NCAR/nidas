@@ -27,6 +27,7 @@
 #ifndef _nidas_dynld_raf_twod_spec_h_
 #define _nidas_dynld_raf_twod_spec_h_
 
+#include <nidas/dynld/raf/TwoD_Processing.h>
 #include <nidas/dynld/UDPSocketSensor.h>
 
 #include <nidas/util/InvalidParameterException.h>
@@ -39,7 +40,6 @@ class SpecDecompress;
 
 namespace nidas { namespace dynld { namespace raf {
 
-class TwoD_Processing;
 
 /**
  * Base class for SPEC optical array probe on a UDP interface.
@@ -76,6 +76,15 @@ public:
      * @returns the number of bits per data slice.
      */
     virtual int NumberOfDiodes() const { return 128; }
+
+    /**
+     * The probe resolution in micrometers.  Probe resolution is also the diameter
+     * of the each diode.  Typical values are 25 for the 2DC and 200
+     * micrometers for the 2DP.
+     * @returns The probe resolution in micrometers.
+     */
+    unsigned int getResolutionMicron() const { return _processor->getResolutionMicron(); }
+
 
     /**
      * Called by post-processing code

@@ -109,6 +109,8 @@ public:
 
     virtual int NumberOfDiodes() const = 0;
 
+    unsigned int getResolutionMicron() const { return _processor->getResolutionMicron(); }
+
 
 protected:
 

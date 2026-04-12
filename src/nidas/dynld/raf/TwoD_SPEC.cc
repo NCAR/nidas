@@ -26,8 +26,6 @@
 
 #include "TwoD_SPEC.h"
 
-#include <nidas/dynld/raf/TwoD_Processing.h>
-
 #include <nidas/core/Parameter.h>
 #include <nidas/core/SampleTag.h>
 #include <nidas/core/Variable.h>
@@ -70,6 +68,8 @@ TwoD_SPEC::~TwoD_SPEC()
 
 void TwoD_SPEC::init()
 {
+    UDPSocketSensor::init();
+
     // Post processing only.
 
     _processor = new TwoD_Processing(_name, NumberOfDiodes(), this);
@@ -95,10 +95,10 @@ bool TwoD_SPEC::process(const Sample * samp, list < const Sample * >&results)
     DLOG( ("raf.TwoDS: nBytes = ") << nbytes );
 
 
-    if (!strncmp(input, "SPEC2D,", 6) || !strncmp(input, "SPECHVPS,", 8))
+    if (!strncmp(input, "SPEC2D,", 7) || !strncmp(input, "SPECHVPS,", 8))
         result = processHousekeeping(samp, results);    // len == ~250
     else
-        result = processImageRecord(samp, results); // len == 4121
+        result = processImageRecord(samp, results); // len == 4111
 
     return result;
 }
@@ -223,7 +223,7 @@ bool TwoD_SPEC::processImageRecord(const Sample * samp, list < const Sample * >&
 /*---------------------------------------------------------------------------*/
 bool TwoD_SPEC::processHousekeeping(const Sample * samp, list < const Sample * >&results)
 {
-    return !CharacterSensor::process(samp, results);
+    return CharacterSensor::process(samp, results);
 }
 
 /*---------------------------------------------------------------------------*/

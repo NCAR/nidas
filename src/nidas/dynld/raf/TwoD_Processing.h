@@ -54,7 +54,7 @@ public:
      * and the Fast2DC has 64.
      * @returns the number of bits per data slice.
      */
-    virtual size_t NumberOfDiodes() const { return _nDiodes; }
+    virtual int NumberOfDiodes() const { return _nDiodes; }
 
     /**
      * The probe resolution in meters.  Probe resolution is also the diameter
