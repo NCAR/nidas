@@ -171,7 +171,7 @@ bool TwoD64_USB::processImageRecord(const Sample * samp,
     //scanForMissalignedSyncWords(samp, (unsigned char *)dp);
 
     float tas = 0.0;
-    if (stype == TWOD_IMGv2_TYPE||stype == TWOD_IMGv3_TYPE){ //IMG v2 and v3 type
+    if (stype == TWOD_IMGv2_TYPE || stype == TWOD_IMGv3_TYPE) { //IMG v2 and v3 type
         Tap2D tap;
         memcpy(&tap,cp,sizeof(tap));
         cp += sizeof(Tap2D);
