@@ -133,7 +133,9 @@ void TwoD_Processing::createSamples(dsm_time_t nextTimeTag,list < const Sample *
     SampleT < float >*outs;
     float * dout;
 
+    // bail out if we havn't reached end of second, most calls will hit this.
     if (nextTimeTag < _histoEndTime) return;
+
     if (_histoEndTime == 0) {
         _histoEndTime = nextTimeTag + USECS_PER_SEC - (int)(nextTimeTag % USECS_PER_SEC);
         return;
