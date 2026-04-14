@@ -110,6 +110,7 @@ bool TwoD_SPEC::processImageRecord(const Sample * samp, list < const Sample * >&
 
     // slen is coming in as 4098 bytes for image buffer, no timestamp or cksum.
     unsigned slen = samp->getDataByteLength();
+cout << "TwoDS::processImage, slen=" << slen << "\n";
 
     _processor->_totalRecords++;
     _processor->_recordsPerSecond++;
@@ -140,8 +141,10 @@ bool TwoD_SPEC::processImageRecord(const Sample * samp, list < const Sample * >&
             // we want to make sure the buffer is discarded, there is no more data
             DLOG( ("NL flush @ idx = ") << j );
             _processor->createSamples(samp->getTimeTag(), results);
+/* really?  rest of buffer is empty/flush, right.  cjwj 4/2026
             eod = cp;
             _processor->saveBuffer(cp, eod);
+*/
             return !results.empty();
         }
 
@@ -208,7 +211,6 @@ bool TwoD_SPEC::processImageRecord(const Sample * samp, list < const Sample * >&
 
             _processor->countParticle(0);
             _processor->createSamples(thisParticleTime, results);
-
         }
     }
 
