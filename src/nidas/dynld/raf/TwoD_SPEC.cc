@@ -45,7 +45,7 @@ using namespace nidas::dynld::raf;
 
 namespace n_u = nidas::util;
 
-const unsigned char TwoD_SPEC::_syncString[] = { 0xaa, 0xaa };
+const unsigned char TwoD_SPEC::_syncString[] = { 0xaa, 0xaa, 0xaa, 0xaa };
 const unsigned char TwoD_SPEC::_blankString[] =
     { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
 
@@ -191,8 +191,17 @@ cout << "TwoDS::processImage, slen=" << slen << "\n";
             _processor->_particle.zero();
             _processor->_totalParticles++;
             size_t nSlices = _spec->decompressParticle(_compressedParticle, _uncompressedParticle);
+
+            // Error in particle
+            if (nSlices == 0)
+                continue;
+
+            // if no sync/timing word, then we are dropping multi-packet image.
+            // This is where to fix it, buffer them up
+            if (memcmp((void *)_uncompressedParticle[nSlices*16+8], _syncString, 4))
+                continue;
+
             // nSlices-1, since timing word is being counted.
-// no -1 if no timing word, so maybe get rid of -1 and check for 0xaaaa in the loop and break
             for (size_t k = 0; k < nSlices-1; ++k)
             {
                 _processor->processParticleSlice(&_uncompressedParticle[k*16]);
