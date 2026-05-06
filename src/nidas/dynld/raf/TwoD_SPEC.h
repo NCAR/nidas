@@ -116,6 +116,9 @@ protected:
 
     unsigned long long _timingWordMask;
 
+    /// This used for arithmetic.  Type32 is 2 words, Type48 is 3 words.
+    int _timingWordSize;
+
 //@{
     /**
      * Sync and overload words/masks.

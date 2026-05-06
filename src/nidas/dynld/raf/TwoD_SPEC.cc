@@ -53,7 +53,7 @@ const unsigned char TwoD_SPEC::_blankString[] =
 TwoD_SPEC::TwoD_SPEC(std::string name)
     : _name(name), _processor(0), _spec(0),
       _compressedParticle(0), _uncompressedParticle(0),
-      _prevParticleID(0), _timingWordMask(0x00000000ffffffffULL)
+      _prevParticleID(0), _timingWordMask(0x00000000ffffffffULL), _timingWordSize(2)
 {
 
 }
@@ -75,7 +75,7 @@ void TwoD_SPEC::init()
     _processor = new TwoD_Processing(_name, NumberOfDiodes(), this);
     _processor->init();
 
-    _spec = new SpecDecompress();
+    _spec = new SpecDecompress(_timingWordSize, true);
     _compressedParticle = new uint16_t[1024];
     _uncompressedParticle = new uint8_t[8192];
 }
@@ -95,10 +95,14 @@ bool TwoD_SPEC::process(const Sample * samp, list < const Sample * >&results)
     DLOG( ("raf.TwoDS: nBytes = ") << nbytes );
 
 
-    if (!strncmp(input, "SPEC2D,", 7) || !strncmp(input, "SPECHVPS,", 8))
+    if (!strncmp(input, "SPEC2D,", 7) || !strncmp(input, "SPECHVPS,", 9))
         result = processHousekeeping(samp, results);    // len == ~250
     else
+    {
+        _processor->_totalRecords++;
+        _processor->_recordsPerSecond++;
         result = processImageRecord(samp, results); // len == 4111
+    }
 
     return result;
 }
@@ -111,9 +115,6 @@ bool TwoD_SPEC::processImageRecord(const Sample * samp, list < const Sample * >&
     // slen is coming in as 4098 bytes for image buffer, no timestamp or cksum.
     unsigned slen = samp->getDataByteLength();
 cout << "TwoDS::processImage, slen=" << slen << "\n";
-
-    _processor->_totalRecords++;
-    _processor->_recordsPerSecond++;
 
 
     // Use DSM time tags, since we don't have probe timestamps.
@@ -141,7 +142,7 @@ cout << "TwoDS::processImage, slen=" << slen << "\n";
             // we want to make sure the buffer is discarded, there is no more data
             DLOG( ("NL flush @ idx = ") << j );
             _processor->createSamples(samp->getTimeTag(), results);
-/* really?  rest of buffer is empty/flush, right.  cjwj 4/2026
+/* really?  rest of buffer is empty/flush, right.  cjw 4/2026
             eod = cp;
             _processor->saveBuffer(cp, eod);
 */
@@ -190,13 +191,17 @@ cout << "TwoDS::processImage, slen=" << slen << "\n";
             _processor->_particle.zero();
             _processor->_totalParticles++;
             size_t nSlices = _spec->decompressParticle(_compressedParticle, _uncompressedParticle);
-            for (size_t k = 0; k < nSlices; ++k)
+            // nSlices-1, since timing word is being counted.
+// no -1 if no timing word, so maybe get rid of -1 and check for 0xaaaa in the loop and break
+            for (size_t k = 0; k < nSlices-1; ++k)
             {
                 _processor->processParticleSlice(&_uncompressedParticle[k*16]);
             }
 
             // Get time
-            long long thisTimeWord = ((unsigned long *)&_compressedParticle[nImgWords-3])[0] & _timingWordMask;
+            unsigned long long thisTimeWord = 0;
+            memcpy(&thisTimeWord, &_compressedParticle[5 + nImgWords - _timingWordSize], _timingWordSize*2);
+            thisTimeWord &= _timingWordMask;
 //                        (bigEndian->int64Value(cp) & _timeWordMask) /_probeClockRate;
 // @TODO  equivelant of probe clock rate???
 //   freq = probe.resolution / (1.0e6 * tas);

@@ -45,6 +45,7 @@ TwoDS::TwoDS() : TwoD_SPEC("Fast2DS")
 {
     // SPEC Data File Format Type48 (new)
     _timingWordMask = 0x0000ffffffffffffULL;
+    _timingWordSize = 3;
 }
 
 
