@@ -234,7 +234,6 @@ BOOST_AUTO_TEST_CASE(test_near_epoch)
 
     BOOST_TEST_MESSAGE("Checking formatting and parsing of "
                        "times around 1970 Jan 1 UTC ... ");
-    int ncheck = 0;
 
     vector<int> useconds { 0, 1, 9, 499, 499999, 500001, 999000, 999999 };
     for (long long sec = -86400 * 3 / 2; sec <= 86400 * 3 / 2; sec += 3599) {
@@ -249,8 +248,6 @@ BOOST_AUTO_TEST_CASE(test_near_epoch)
             utx.setFormat("%Y-%m-%d,%H:%M:%S.%6f");
             utx2.setFormat("%Y-%m-%d,%H:%M:%S.%6f");
             BOOST_TEST(utx == utx2, "checking " << utx << "==" << utx2);
-
-            ncheck++;
         }
     }
 }
