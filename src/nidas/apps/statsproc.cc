@@ -461,7 +461,7 @@ int StatsProcess::run() throw()
                 _xmlFileName = n_u::Process::expandEnvVars(cfg->getXMLName());
             }
             n_u::Socket* sock = 0;
-            for (int i = 0; !sock && !_app.interrupted(); i++) {
+            while (!sock && !_app.interrupted()) {
                 try {
                     sock = new n_u::Socket(*_app.socketAddress());
                 }

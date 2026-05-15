@@ -27,17 +27,7 @@
 #ifndef NIDAS_UTIL_TERMIOS_H
 #define NIDAS_UTIL_TERMIOS_H
 
-/*
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-*/
 #include <termios.h>
-#include <sys/ioctl.h>
-
-#include "IOException.h"
-
 #include <string>
 
 namespace nidas { namespace util {

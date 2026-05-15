@@ -815,6 +815,7 @@ bool SyncRecordSource::checkTime(const Sample* samp,
 {
     bool ret = true;
     slog(stracer, "before checkTime: ", samp, sinfo);
+    static LogContext logallskips(LOG_VERBOSE, "logallskips");
 
     if (sinfo.getSlotIndex() == 0) sinfo.minDiff = sinfo.minDiffInit;
 
@@ -890,8 +891,7 @@ bool SyncRecordSource::checkTime(const Sample* samp,
         if (di < 0) di += sinfo.nSlots;
         sinfo.skipped += di;
 
-#ifdef LOG_ALL_SKIPS
-        if (!(sinfo.nskips++ % warn_times_interval)) {
+        if (logallskips.active() && !(sinfo.nskips++ % warn_times_interval)) {
             ostringstream ost;
             ost << "timetag > slot time=" <<
                 format_time(tn,"%H:%M:%S.%4f") <<
@@ -899,7 +899,6 @@ bool SyncRecordSource::checkTime(const Sample* samp,
                 di << " slots";
             log(lc, ost.str(), samp, sinfo);
         }
-#endif
         ret = true;
     }
     else {
@@ -911,8 +910,9 @@ bool SyncRecordSource::checkTime(const Sample* samp,
                 int ns = 0;
                 if (sinfo.incrementSlot()) ns++;
                 sinfo.skipped++;
-#ifdef LOG_ALL_SKIPS
-                if (!(sinfo.nskips++ % warn_times_interval)) {
+                if (logallskips.active() &&
+                    !(sinfo.nskips++ % warn_times_interval))
+                {
                     ostringstream ost;
                     ost << "timetag > slot time=" <<
                         format_time(tn,"%H:%M:%S.%4f") <<
@@ -920,7 +920,6 @@ bool SyncRecordSource::checkTime(const Sample* samp,
                         " sec, skipped " << ns << " slot";
                     log(lc, ost.str(), samp, sinfo);
                 }
-#endif
                 tn = _syncTime[sinfo.getRecordIndex()] + sinfo.getSlotIndex() * sinfo.dtUsec;
                 tdiff = samp->getTimeTag() - tn;
                 sinfo.minDiff = std::min(sinfo.minDiff, tdiff);
@@ -937,8 +936,9 @@ bool SyncRecordSource::checkTime(const Sample* samp,
                     if (!sinfo.incrementSlot()) break;
                 }
                 sinfo.skipped += ni;
-#ifdef LOG_ALL_SKIPS
-                if (!(sinfo.nskips++ % warn_times_interval)) {
+                if (logallskips.active() &&
+                    !(sinfo.nskips++ % warn_times_interval))
+                {
                     ostringstream ost;
                     ost << "timetag > slot time=" <<
                         format_time(tn,"%H:%M:%S.%4f") <<
@@ -946,7 +946,6 @@ bool SyncRecordSource::checkTime(const Sample* samp,
                         " sec, skipped " << ns << " slots";
                     log(lc, ost.str(), samp, sinfo);
                 }
-#endif
                 tn = _syncTime[sinfo.getRecordIndex()] + sinfo.getSlotIndex() * sinfo.dtUsec;
                 tdiff = samp->getTimeTag() - tn;
                 sinfo.minDiff = std::min(sinfo.minDiff, tdiff);
