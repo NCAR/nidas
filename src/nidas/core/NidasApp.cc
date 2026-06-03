@@ -1244,7 +1244,19 @@ void
 NidasApp::
 setupSignals(void (*callback)(int signum))
 {
-  addSignal(SIGHUP, callback);
+  struct sigaction sigact;
+  sigaction(SIGHUP, NULL, &sigact);
+
+  // Don't change SIGHUP handler if it is other than SIG_DFL.
+  // It is set to SIG_IGN, by nohup, and we'll assume
+  // the user probably doesn't want that changed.
+  if (sigact.sa_handler == SIG_DFL) {
+      DLOG(("Installing nidas handler for SIGHUP"));
+      addSignal(SIGHUP, callback);
+  }
+  else if (sigact.sa_handler == SIG_IGN)
+      DLOG(("No change: SIGHUP will be ignored"));
+
   addSignal(SIGTERM, callback);
   addSignal(SIGINT, callback);
 }
