@@ -140,10 +140,10 @@ get_arch() # alias
         centos*)
             echo x86_64
             ;;
-        pi*)
+        pi[23])
             echo armhf
             ;;
-        arm64)
+        arm64|pi5)
             echo arm64
             ;;
         titan)
@@ -162,10 +162,10 @@ get_builds() # alias
         centos*|ubuntu*)
             echo host
             ;;
-        arm64)
+        arm64|pi5)
             echo arm64
             ;;
-        pi*)
+        pi[23])
             echo armhf
             ;;
         titan)
@@ -194,6 +194,9 @@ get_image_tag() # alias
             ;;
         arm64)
             echo nidas-build-debian-arm64:bookworm
+            ;;
+        pi5)
+            echo nidas-build-debian-arm64:trixie
             ;;
         titan)
             echo nidas-build-debian-armel:jessie
@@ -226,7 +229,10 @@ build_image()
             podman build -t $tag -f docker/Dockerfile.buster_cross_arm --build-arg hostarch=armhf "$@"
             ;;
         arm64)
-            podman build -t $tag -f docker/Dockerfile.bookworm_cross_arm64 "$@"
+            podman build -t $tag -f docker/Dockerfile.debian_cross_arm64 --build-arg CODENAME=bookworm "$@"
+            ;;
+        pi5)
+            podman build -t $tag -f docker/Dockerfile.debian_cross_arm64 --build-arg CODENAME=trixie "$@"
             ;;
         titan)
             podman build -t $tag -f docker/Dockerfile.cross_arm --build-arg hostarch=armel "$@"
@@ -340,6 +346,11 @@ push_packages() # path
     packages=`ls "$path"/*.deb | egrep -v dbgsym`
     echo $packages
     case "$alias" in
+        pi5)
+            repo="ncareol/isfs-testing/debian/trixie"
+            (set -x
+            package_cloud push $repo $packages)
+            ;;
         arm64)
             repo="ncareol/isfs-testing/debian/bookworm"
             (set -x

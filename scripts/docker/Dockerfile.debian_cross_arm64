@@ -1,6 +1,7 @@
 ARG hostarch=arm64
+ARG CODENAME=trixie
 
-FROM docker.io/debian:bookworm-slim AS base
+FROM docker.io/debian:${CODENAME}-slim AS base
 LABEL organization="NCAR EOL"
 
 USER root
