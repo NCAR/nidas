@@ -59,8 +59,10 @@ struct CSI_IRGA_Fields
     float SSco2 { floatNAN };
     float SSh2o { floatNAN };
     float dPirga { floatNAN };
-    float Tsource { floatNAN };
-    float Tdetector { floatNAN };
+    // these are not actually in the record any more, as of ages ago
+    // float Tsource { floatNAN };
+    // float Tdetector { floatNAN };
+    u_int32_t counter { 0 };
 
     /// Number of valid fields (when unpacked from a sonic message)
     int nvals { 0 };
@@ -116,6 +118,11 @@ public:
      */
     static unsigned short signature(const unsigned char* buf, const unsigned char* eob);
 
+    // max value of counter that can be preserved in a 32-bit float variable
+    // with a 23-bit mantissa and an implied 1 leading bit.  this is the value
+    // at which the counter will roll over to zero.
+    static constexpr uint32_t MAX_COUNTER = ((1U << 24) - 1);
+
 private:
 
     typedef nidas::core::VariableIndex VariableIndex;
@@ -154,6 +161,9 @@ private:
     VariableIndex _co2;
     VariableIndex _Pirga;
     VariableIndex _Tirga;
+
+    VariableIndex _Tirga_src;
+    VariableIndex _Tirga_det;
 
     /**
      * Campbell has provided custom firmware on the EC100 logger box so that

@@ -57,6 +57,8 @@ CSI_IRGA_Sonic::CSI_IRGA_Sonic():
     _co2(),
     _Pirga(),
     _Tirga(),
+    _Tirga_src(),
+    _Tirga_det(),
     _binary(false),
     _endian(nidas::util::EndianConverter::EC_LITTLE_ENDIAN),
     _converter(0),
@@ -151,6 +153,8 @@ void CSI_IRGA_Sonic::checkSampleTags()
     _co2 = findVariableIndex("co2");
     _Pirga = findVariableIndex("Pirga");
     _Tirga = findVariableIndex("Tirga");
+    _Tirga_src = findVariableIndex("Tirga_src");
+    _Tirga_det = findVariableIndex("Tirga_det");
 
     if (_numParsed  < 5)
         throw InvalidParameterException(getName() +
@@ -168,14 +172,32 @@ void CSI_IRGA_Sonic::checkSampleTags()
 
     if (!ok)
         throw InvalidParameterException(getName() +
-                " CSI_IRGA_Sonic derived variables must be at the end of the list");
+            " CSI_IRGA_Sonic derived variables must be at the end of the list");
 
-     const std::list<AsciiSscanf*>& sscanfers = getScanfers();
-     if (sscanfers.empty()) {
-         _binary = true;
-         _converter = EndianConverter::getConverter(_endian,
-            EndianConverter::getHostEndianness());
-     }
+    const std::list<AsciiSscanf*>& sscanfers = getScanfers();
+    if (sscanfers.empty()) {
+        _binary = true;
+        _converter = EndianConverter::getConverter(_endian,
+           EndianConverter::getHostEndianness());
+    }
+
+    auto check_variable = [this](VariableIndex& vi)
+    {
+        if (_binary && vi.valid())
+        {
+            std::ostringstream msg;
+            msg << getName() << ": variable " << vi.variable()->getName()
+                << " will always be NaN because it does not "
+                << "exist in the EC150 binary "
+                << "message; it should be removed from the sensor config.";
+            NLOG(("") << msg.str());
+        }
+    };
+
+    // If the sample tag includes Tirga_src and Tirga_det, then give notice
+    // they will not be parsed.
+    check_variable(_Tirga_src);
+    check_variable(_Tirga_det);
 }
 
 void CSI_IRGA_Sonic::updateAttributes()
@@ -253,8 +275,7 @@ void CSI_IRGA_Fields::visit(F& f)
     f.visit(SSco2);
     f.visit(SSh2o);
     f.visit(dPirga);
-    f.visit(Tsource);
-    f.visit(Tdetector);
+    f.visit(counter);
 }
 
 
@@ -502,7 +523,7 @@ bool CSI_IRGA_Sonic::process(const Sample* samp,
         }
         if (bptr + sizeof(uint32_t) <= eob) {
             pvector[nvals++] = _converter->uint32Value(bptr);   // diagnostic
-            bptr += sizeof(int);
+            bptr += sizeof(uint32_t);
         }
         for (int i = 0; bptr + sizeof(float) <= eob && i < 2 && nvals < nbinvals; i++) {
             pvector[nvals++] = _converter->floatValue(bptr);      // co2, h2o
@@ -510,23 +531,48 @@ bool CSI_IRGA_Sonic::process(const Sample* samp,
         }
         if (bptr + sizeof(uint32_t) <= eob && nvals < nbinvals) {
             pvector[nvals++] = _converter->uint32Value(bptr);   // IRGA diagnostic
-            bptr += sizeof(int);
+            bptr += sizeof(uint32_t);
         }
-        for ( ; bptr + sizeof(float) <= eob && nvals < nbinvals; ) {
-            // cell temp and pressure, co2 sig, h2o sig, diff press, source temp, detector temp
+        for (int i = 0; i < 5 && bptr + sizeof(float) <= eob && nvals < nbinvals; ++i) {
+            // cell temp and pressure, co2 sig, h2o sig, diff press
             pvector[nvals++] = _converter->floatValue(bptr);
             bptr += sizeof(float);
         }
-#ifdef UNPACK_COUNTER
-        if (bptr + sizeof(uint32_t) <= eob) {
-            unsigned int counter = _converter->uint32Value(bptr);   // counter
-            bptr += sizeof(int);
-            ILOG(("%s: counter=%u",getName().c_str(),counter));
+        // Tirga_src and Tirga_det may exist in the sample tag, but they do
+        // not exist in the binary record, so they are now skipped here and if
+        // a 14th variable is present, it is extracted as the counter. If the
+        // 14th variable in the sample tag is Tirga_src or Tirga_det, then it
+        // will be replaced with NaN below.  This allows configs to extract
+        // the counter by replacing Tirga_src with a counter variable.
+        // Configs that are not updated to remove Tirga_src and Tirga_det will
+        // still work, but those variables will always be NaN.
+        if (bptr + sizeof(uint32_t) <= eob && nvals < nbinvals) {
+            uint32_t counter = _converter->uint32Value(bptr);
+            // we have to store the counter in a 32-bit float with a 23-bit
+            // mantissa with an implied 1 leading bit, so only the lowest 24
+            // bits can be preserved.  this should be ok as far as analyzing
+            // for dropped samples, since it just means this counter will roll
+            // over more often than the full 32-bit counter. an alternative is
+            // to return Sample<double>, but that seems like overkill just for
+            // the counter.
+            uint32_t counter_masked = counter & MAX_COUNTER;
+            VLOG(("") << getName() << ": counter=" << counter
+                 << ", counter_masked=" << counter_masked);
+            pvector[nvals++] = counter_masked;
+            bptr += sizeof(uint32_t);
         }
-#endif
 
         for ( ; nvals < nbinvals; nvals++) pvector[nvals] = floatNAN;
         pdata = &pvector[0];
+
+        if (_Tirga_src.valid())
+        {
+            _Tirga_src.set(pvector.data(), floatNAN);
+        }
+        if (_Tirga_det.valid())
+        {
+            _Tirga_det.set(pvector.data(), floatNAN);
+        }
 
         // Also apply any conversions or calibrations, same as is done by
         // the base class process() for ascii sensors.
