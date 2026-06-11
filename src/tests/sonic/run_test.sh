@@ -65,7 +65,7 @@ test_csi_irga 0.16 normal      false false csi_irga_shadow_cor_only.txt
 
 # repeat the basic test with counter variable, which requires more precision
 csi_irga_xml=config/test_counter.xml
-data_dump="data_dump --precision 7 -l 6"
+data_dump="data_dump --precision 6 -l 6"
 test_csi_irga 0.00 normal      false false csi_irga_counter.txt
 data_dump="data_dump --precision 4 -l 6"
 

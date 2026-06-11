@@ -798,7 +798,8 @@ BOOST_AUTO_TEST_CASE(test_wind3d_counter_rollover)
     // sanity checks on binary math used to mask the counter
     BOOST_TEST(((1U << 24) - 1) == 16777215);
     BOOST_TEST(0xffffff == 16777215);
-    BOOST_TEST(CSI_IRGA_Sonic::MAX_COUNTER == 16777215);
+    auto MAX_COUNTER = CSI_IRGA_Sonic::MAX_COUNTER;
+    BOOST_TEST(MAX_COUNTER == 16777215);
 
     // start the counter at max value and verify rollover. use last_counter to
     // check that each computed counter stored in processed_data is exactly 1
