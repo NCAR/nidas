@@ -59,8 +59,10 @@ struct CSI_IRGA_Fields
     float SSco2 { floatNAN };
     float SSh2o { floatNAN };
     float dPirga { floatNAN };
-    float Tsource { floatNAN };
-    float Tdetector { floatNAN };
+    // these are not actually in the record any more, as of ages ago
+    // float Tsource { floatNAN };
+    // float Tdetector { floatNAN };
+    u_int32_t counter { 0 };
 
     /// Number of valid fields (when unpacked from a sonic message)
     int nvals { 0 };
@@ -69,6 +71,79 @@ struct CSI_IRGA_Fields
     void visit(F& f);
 };
 
+
+struct SonicStatistics
+{
+    /**
+     * Initialize all counts to zero, and set restart_counter to true.
+     * @param name A name or other identifier for these statistics, such as
+     * the sensor device.
+     */
+    SonicStatistics(const std::string& name = "");
+
+    /**
+     * Increase message count and set the message time.
+     */
+    void addMessage(dsm_time_t message_time);
+
+    /**
+     * Return a string representation of the time of the most recent message.
+     */
+    std::string timeString() const;
+
+    /**
+     * Check the sequence counter for continuity, update statistics, and
+     * return the masked counter suitable for assigning to a float variable.
+     */
+    uint32_t
+    checkCounter(uint32_t sonic_counter);
+
+    /**
+     * Add to the bad CRC count, logging the current count periodically.
+     * Return false.
+     * @param reason A reason for the bad CRC to include in the log message.
+     */
+    bool reportBadCRC(const std::string& reason = "checksum failure");
+
+    /**
+     * Return a string with the current statistics.
+     */
+    std::string toString() const;
+
+    /**
+     * Log the current statistics.  If there are bad CRCs or missed messages,
+     * then log as a warning, otherwise log as info.  This can be called
+     * periodically and upon sensor destruction to log the statistics.
+     */
+    void logStatistics() const;
+
+    std::string name {};
+
+    /// @brief Number of messages processed by this sensor, including those
+    /// with bad CRC signatures.
+    unsigned int nmessages {0};
+
+    /// @brief Time of the most recent message received.
+    dsm_time_t message_time {0};
+
+    /// @brief Number of messages which failed checksums.
+    unsigned int badCRCs {0};
+
+    /// @brief The most recent counter value seen from this sensor.
+    unsigned int counter {0};
+
+    /// @brief Number of missed messages based on missing counters.
+    unsigned int missed_messages {0};
+
+    /**
+     * When true, take the next counter as the start of a new sequence rather
+     * than checking for continuity with the previous counter.  This is set at
+     * startup before the initial counter is valid, but it could also be set
+     * after significant time delays or any indication that the sonic or data
+     * stream were restarted.
+     */
+    bool restart_counter {true};
+};
 
 
 /**
@@ -112,15 +187,23 @@ public:
     packBinary(const CSI_IRGA_Fields& fields, std::vector<char>& buf);
 
     /**
+     * Return the current statistics for this sonic sensor.
+     */
+    SonicStatistics getStatistics();
+
+    /**
      * Calculate the CRC signature of a data record. From EC150 manual.
      */
     static unsigned short signature(const unsigned char* buf, const unsigned char* eob);
 
+    // max value of counter that can be preserved in a 32-bit float variable
+    // with a 23-bit mantissa and an implied 1 leading bit.  this is the value
+    // at which the counter will roll over to zero.
+    static constexpr uint32_t MAX_COUNTER = ((1U << 24) - 1);
+
 private:
 
     typedef nidas::core::VariableIndex VariableIndex;
-
-    bool reportBadCRC();
 
     /**
      * Requested number of output variables.
@@ -141,10 +224,7 @@ private:
      */
     int _timeDelay;
 
-    /**
-     * Counter of the number of records with incorrect CRC signatures.
-     */
-    unsigned int _badCRCs;
+    SonicStatistics _stats;
 
     /// integer mask for IRGA diagnostic bits to ignore
     unsigned int _irgaDiagMask;
@@ -154,6 +234,9 @@ private:
     VariableIndex _co2;
     VariableIndex _Pirga;
     VariableIndex _Tirga;
+
+    VariableIndex _Tirga_src;
+    VariableIndex _Tirga_det;
 
     /**
      * Campbell has provided custom firmware on the EC100 logger box so that

@@ -54,7 +54,10 @@ BOOST_TEST_GLOBAL_FIXTURE(LogFixture);
 // comes along.
 
 #define TEST_CLOSE(got, expected, tolerance) \
-    BOOST_CHECK_SMALL(std::abs((got) - (expected)), (tolerance))
+    do { \
+        BOOST_TEST_MESSAGE("got: " << got << ", expected: " << expected); \
+        BOOST_CHECK_SMALL(std::abs((got) - (expected)), (tolerance)); \
+    } while(0)
 
 
 namespace testing {
@@ -488,8 +491,10 @@ const int IXTCFLAG = 19;
 
 static void
 process_wind3d_samples(CSI_IRGA_Sonic& wind,
-    const std::vector<SonicSample>& samples)
+    const std::vector<SonicSample>& samples,
+    const std::vector<unsigned int>& check_indexes = {})
 {
+    auto& ck = check_indexes;
     int nsample = 0;
     for (const auto& sample : samples)
     {
@@ -518,7 +523,12 @@ process_wind3d_samples(CSI_IRGA_Sonic& wind,
         }
 
         BOOST_TEST(psamp->getDataLength() == sample.processed_data.size());
-        for (size_t i = 0; i < sample.processed_data.size(); ++i) {
+        for (size_t i = 0; i < sample.processed_data.size(); ++i)
+        {
+            if (!ck.empty() && std::find(ck.begin(), ck.end(), i) == ck.end())
+            {
+                continue;
+            }
             float tolerance = 0.001;
             if (despiked && i <= IXTC && xpd[i+IXUFLAG])
                 tolerance = 0.1;
@@ -636,6 +646,9 @@ BOOST_AUTO_TEST_CASE(test_wind3d_unpacker)
     CSI_IRGA_Sonic wind;
     setup_wind3d(wind, irga_xml, false);
 
+    // counter bytes: 9a f6 dc 00
+    uint32_t counter = 0x00dcf69a;
+
     for (const auto& sample : test_samples) {
         SampleT<char>* samp = sample.getSample();
 
@@ -652,8 +665,7 @@ BOOST_AUTO_TEST_CASE(test_wind3d_unpacker)
         TEST_CLOSE(values.w, sample.processed_data[2], 0.001f);
         TEST_CLOSE(values.tc, sample.processed_data[3], 0.001f);
         TEST_CLOSE(values.dPirga, sample.processed_data[12], 0.001f);
-        BOOST_TEST(!isnanf(values.Tsource));
-        BOOST_TEST(isnanf(values.Tdetector));
+        BOOST_TEST(values.counter == counter++);
 
         // and it should work to pack it back to binary
         std::vector<char> outbuf;
@@ -739,4 +751,145 @@ BOOST_AUTO_TEST_CASE(test_adaptive_despiker)
     BOOST_TEST(result == vspike);
     BOOST_TEST(spike == false);
     BOOST_TEST(despiker.numPoints() == 1);
+}
+
+
+static const char* irga_xml_counter = R"XML(
+    <serialSensor class="isff.CSI_IRGA_Sonic" ID="CSAT3_IRGA_BIN"
+        baud="115200" parity="none" databits="8" stopbits="1"
+        devicename="/dev/ttyDSM1" id="4">
+        <parameter name="bandwidth" type="float" value="5"/>
+        <parameter type="float" name="shadowFactor" value="0"/>
+        <parameter type="bool" name="despike" value="${CSAT3_DESPIKE}"/>
+        <sample id="1" rate="20">
+            <variable name="u" units="m/s" longname="Wind U component, CSAT3"/>
+            <variable name="v" units="m/s" longname="Wind V component, CSAT3"/>
+            <variable name="w" units="m/s" longname="Wind W component, CSAT3"/>
+            <variable name="tc" units="degC" longname="Virtual air temperature from speed of sound, CSAT3"/>
+            <variable name="diagbits" units="" longname="CSAT3 diagnostic sum, 1=low sig,2=high sig,4=no lock,8=path diff,16=skipped samp"/>
+            <variable name="co2" units="mg/m^3" longname="CO2 density from CSI IRGA">
+                <linear units="g/m^3" slope="0.001" intercept="0.0"/>
+            </variable>
+            <variable name="h2o" units="g/m^3" longname="Water vapor density from CSI IRGA" minValue="-1.00" maxValue="10.0"/>
+            <variable name="irgadiag" units="" longname="CSI IRGA diagnostic" plotrange="$DIAG_RANGE"/>
+            <variable name="Tirga" units="degC" longname="CSI IRGA temperature"/>
+            <variable name="Pirga" units="kPa" longname="CSI IRGA pressure">
+                <linear units="mb" slope="10" intercept="0.0"/>
+            </variable>
+            <variable name="SSco2" units="" longname="CSI IRGA CO2 signal strength"/>
+            <variable name="SSh2o" units="" longname="CSI IRGA H2O signal strength"/>
+            <variable name="dPirga" units="mb" longname="CSI IRGA differential pressure"/>
+            <variable name="counter" units="" longname="CSI IRGA record counter"/>
+        </sample>
+        <message separator="\x55\xaa" position="end" length="58"/>
+    </serialSensor>
+)XML";
+
+
+BOOST_AUTO_TEST_CASE(test_wind3d_counter_rollover)
+{
+    CSI_IRGA_Sonic wind;
+
+    // first try the standard processing, without despiking and without flags
+    setup_wind3d(wind, irga_xml_counter, false);
+    std::vector<SonicSample> rollover_samples;
+    uint32_t counter = 0xfffffff0;
+
+    // sanity checks on binary math used to mask the counter
+    BOOST_TEST(((1U << 24) - 1) == 16777215);
+    BOOST_TEST(0xffffff == 16777215);
+    auto MAX_COUNTER = CSI_IRGA_Sonic::MAX_COUNTER;
+    BOOST_TEST(MAX_COUNTER == 16777215);
+
+    // start the counter at max value and verify rollover. use last_counter to
+    // check that each computed counter stored in processed_data is exactly 1
+    // more than the previous.
+    uint64_t last_counter;
+    for (uint32_t i = 0; i < 32; ++i)
+    {
+        SonicSample ss = test_samples[i % test_samples.size()];
+        CSI_IRGA_Fields fields;
+        wind.unpackBinary(ss.raw_data.data(),
+                          ss.raw_data.data() + ss.raw_data.size(),
+                          fields);
+        fields.counter = counter + i;
+        ss.processed_data.resize(14);
+        ss.processed_data[13] = (counter + i) & CSI_IRGA_Sonic::MAX_COUNTER;
+        if (i > 0) {
+            auto xcounter = (last_counter + 1) % (CSI_IRGA_Sonic::MAX_COUNTER + 1);
+            BOOST_TEST(ss.processed_data[13] == xcounter);
+        }
+        last_counter = ss.processed_data[13];
+        wind.packBinary(fields, ss.raw_data);
+        rollover_samples.push_back(ss);
+    }
+    process_wind3d_samples(wind, rollover_samples, {13});
+}
+
+
+// test that the SonicStatistics class handles counter rollovers and missed
+// message counts correctly.
+BOOST_AUTO_TEST_CASE(test_sonic_statistics)
+{
+    SonicStatistics stats("test");
+
+    // first check does nothing
+    BOOST_TEST(stats.nmessages == 0);
+    BOOST_TEST(stats.missed_messages == 0);
+    BOOST_TEST(stats.counter == 0);
+    BOOST_TEST(stats.badCRCs == 0);
+    BOOST_TEST(stats.name == "test");
+    BOOST_TEST(stats.restart_counter == true);
+
+    uint32_t counter;
+    // this is not a skip because restart_counter is true, but it should set
+    // the counter to 5
+    ++stats.nmessages;
+    counter = stats.checkCounter(5);
+    BOOST_TEST(counter == 5);
+    BOOST_TEST(stats.nmessages == 1);
+    BOOST_TEST(stats.missed_messages == 0);
+    BOOST_TEST(stats.restart_counter == false);
+
+    // next counter passes check
+    ++stats.nmessages;
+    counter = stats.checkCounter(6);
+    BOOST_TEST(counter == 6);
+    BOOST_TEST(stats.nmessages == 2);
+    BOOST_TEST(stats.missed_messages == 0);
+
+    // miss one counter
+    ++stats.nmessages;
+    counter = stats.checkCounter(8);
+    BOOST_TEST(counter == 8);
+    BOOST_TEST(stats.nmessages == 3);
+    BOOST_TEST(stats.missed_messages == 1);
+
+    // restart counter, eg due to a large time jump, but missed_messages does
+    // not reset
+    stats.restart_counter = true;
+    ++stats.nmessages;
+    counter = CSI_IRGA_Sonic::MAX_COUNTER - 5;
+    counter = stats.checkCounter(counter);
+    BOOST_TEST(stats.missed_messages == 1);
+
+    // now roll over the counter with skips.  if the next counter seen is 5,
+    // then the number missed should increase by 9.
+    ++stats.nmessages;
+    counter = stats.checkCounter(5);
+    BOOST_TEST(stats.missed_messages == 1 + 9);
+
+    // a normal rollover should not cause a missed message
+    stats = SonicStatistics("test");
+    stats.nmessages = 1;
+    counter = stats.checkCounter(CSI_IRGA_Sonic::MAX_COUNTER);
+    BOOST_TEST(counter == CSI_IRGA_Sonic::MAX_COUNTER);
+    BOOST_TEST(stats.counter == counter);
+    BOOST_TEST(stats.missed_messages == 0);
+
+    ++stats.nmessages;
+    counter = stats.checkCounter(counter + 1);
+    BOOST_TEST(counter == 0);
+    BOOST_TEST(stats.counter == counter);
+    BOOST_TEST(stats.missed_messages == 0);
 }
