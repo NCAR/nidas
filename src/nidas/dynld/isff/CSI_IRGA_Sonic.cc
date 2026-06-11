@@ -31,6 +31,7 @@
 #include <nidas/core/AsciiSscanf.h>
 #include <nidas/core/TimetagAdjuster.h>
 #include <nidas/util/Logger.h>
+#include <nidas/util/UTime.h>
 #include <limits>
 
 using namespace std;
@@ -39,6 +40,8 @@ using nidas::util::InvalidParameterException;
 using nidas::util::EndianConverter;
 using nidas::util::dirFromUV;
 using nidas::util::LogContext;
+using nidas::util::Logger;
+using nidas::util::UTime;
 
 NIDAS_CREATOR_FUNCTION_NS(isff,CSI_IRGA_Sonic)
 
@@ -50,13 +53,15 @@ CSI_IRGA_Sonic::CSI_IRGA_Sonic():
     CSAT3_Sonic(),
     _numOut(0),
     _timeDelay(0),
-    _badCRCs(0),
+    _stats(),
     _irgaDiagMask(0),
     _irgaDiag(),
     _h2o(),
     _co2(),
     _Pirga(),
     _Tirga(),
+    _Tirga_src(),
+    _Tirga_det(),
     _binary(false),
     _endian(nidas::util::EndianConverter::EC_LITTLE_ENDIAN),
     _converter(0),
@@ -70,6 +75,9 @@ CSI_IRGA_Sonic::~CSI_IRGA_Sonic()
         _ttadjust->log(nidas::util::LOGGER_INFO, this);
     }
     delete _ttadjust;
+    // only report stats if this sensor processed any messages.
+    if (_stats.nmessages)
+        _stats.logStatistics();
 }
 
 void CSI_IRGA_Sonic::open(int flags)
@@ -151,6 +159,8 @@ void CSI_IRGA_Sonic::checkSampleTags()
     _co2 = findVariableIndex("co2");
     _Pirga = findVariableIndex("Pirga");
     _Tirga = findVariableIndex("Tirga");
+    _Tirga_src = findVariableIndex("Tirga_src");
+    _Tirga_det = findVariableIndex("Tirga_det");
 
     if (_numParsed  < 5)
         throw InvalidParameterException(getName() +
@@ -168,14 +178,32 @@ void CSI_IRGA_Sonic::checkSampleTags()
 
     if (!ok)
         throw InvalidParameterException(getName() +
-                " CSI_IRGA_Sonic derived variables must be at the end of the list");
+            " CSI_IRGA_Sonic derived variables must be at the end of the list");
 
-     const std::list<AsciiSscanf*>& sscanfers = getScanfers();
-     if (sscanfers.empty()) {
-         _binary = true;
-         _converter = EndianConverter::getConverter(_endian,
-            EndianConverter::getHostEndianness());
-     }
+    const std::list<AsciiSscanf*>& sscanfers = getScanfers();
+    if (sscanfers.empty()) {
+        _binary = true;
+        _converter = EndianConverter::getConverter(_endian,
+           EndianConverter::getHostEndianness());
+    }
+
+    auto check_variable = [this](VariableIndex& vi)
+    {
+        if (_binary && vi.valid())
+        {
+            std::ostringstream msg;
+            msg << getName() << ": variable " << vi.variable()->getName()
+                << " will always be NaN because it does not "
+                << "exist in the EC150 binary "
+                << "message; it should be removed from the sensor config.";
+            NLOG(("") << msg.str());
+        }
+    };
+
+    // If the sample tag includes Tirga_src and Tirga_det, then give notice
+    // they will not be parsed.
+    check_variable(_Tirga_src);
+    check_variable(_Tirga_det);
 }
 
 void CSI_IRGA_Sonic::updateAttributes()
@@ -228,14 +256,6 @@ unsigned short CSI_IRGA_Sonic::signature(const unsigned char* buf, const unsigne
     return (unsigned short)((msb << 8) + lsb);
 }
 
-bool CSI_IRGA_Sonic::reportBadCRC()
-{
-    if (!(_badCRCs++ % 1000))
-            WLOG(("%s (CSI_IRGA_Sonic): %d CRC signature errors so far",
-                        getName().c_str(),_badCRCs));
-    return false;
-}
-
 
 template <typename F>
 void CSI_IRGA_Fields::visit(F& f)
@@ -253,8 +273,7 @@ void CSI_IRGA_Fields::visit(F& f)
     f.visit(SSco2);
     f.visit(SSh2o);
     f.visit(dPirga);
-    f.visit(Tsource);
-    f.visit(Tdetector);
+    f.visit(counter);
 }
 
 
@@ -367,22 +386,19 @@ unpackBinary(const char* buf, const char* eob, CSI_IRGA_Fields& fields)
     const char* bptr = eob;
     bptr -= sizeof(short);
     // check for 55AA at end
-    bool buf_ok = (bptr >= buf + sizeof(short));
-    buf_ok = buf_ok && (::memcmp(bptr, "\x55\xaa", 2) == 0);
-    if (buf_ok)
-    {
-        bptr -= sizeof(short);  // 2 byte signature
-        unsigned short sigval = _converter->uint16Value(bptr);
-        // calculated signature from buffer contents
-        auto calcsig = signature((const unsigned char*)buf,
-                                 (const unsigned char*)bptr);
-        buf_ok = (calcsig == sigval);
-    }
-    if (!buf_ok)
-    {
-        reportBadCRC();
-        return 0;
-    }
+    if (!(bptr >= buf + sizeof(short)))
+        return _stats.reportBadCRC("message too short for terminator");
+    if (::memcmp(bptr, "\x55\xaa", 2) != 0)
+        return _stats.reportBadCRC("0x55aa terminator not found");
+    if (!(bptr >= buf + sizeof(short)))
+        return _stats.reportBadCRC("message too short for signature");
+    bptr -= sizeof(short);  // 2 byte signature
+    unsigned short sigval = _converter->uint16Value(bptr);
+    // calculated signature from buffer contents
+    auto calcsig = signature((const unsigned char*)buf,
+                             (const unsigned char*)bptr);
+    if (calcsig != sigval)
+        return _stats.reportBadCRC("checksum mismatch");
 
     eob = bptr;
     BufferConverter converter(_converter, (char*)buf, (char*)eob);
@@ -441,6 +457,15 @@ std::vector<float> fields_to_floats(CSI_IRGA_Fields& fields)
 bool CSI_IRGA_Sonic::process(const Sample* samp,
 	std::list<const Sample*>& results)
 {
+    if (_stats.nmessages == 0)
+    {
+        // set the name in the statistics
+        ostringstream ss;
+        ss << "CSI_IRGA_Sonic stats " << getName();
+        ss << " (" << samp->getDSMId() << "," << samp->getSpSId() << ")";
+        _stats.name = ss.str();
+    }
+    _stats.addMessage(samp->getTimeTag());
 
     const char* buf = (const char*) samp->getConstVoidDataPtr();
     unsigned int len = samp->getDataByteLength();
@@ -452,33 +477,40 @@ bool CSI_IRGA_Sonic::process(const Sample* samp,
     unsigned short sigval;  // signature value in data buffer
     if (_binary) {
         bptr -= sizeof(short);
-        if (bptr < buf) return reportBadCRC();
-        if (::memcmp(bptr,"\x55\xaa",2)) return reportBadCRC();    // 55AA not found
+        if (bptr < buf)
+            return _stats.reportBadCRC("message too short for terminator");
+        if (::memcmp(bptr,"\x55\xaa",2))  // 55AA not found
+            return _stats.reportBadCRC("0x55aa terminator not found");
 
         bptr -= sizeof(short);  // 2 byte signature
-        if (bptr < buf) return reportBadCRC();
+        if (bptr < buf)
+            return _stats.reportBadCRC("message too short for signature");
         sigval = _converter->uint16Value(bptr);
         eob = bptr;
     }
     else {
         bptr--;
         if (*bptr == '\0') bptr--;
-        if (bptr >= buf && ::isspace(*bptr)) bptr--;   // carriage return, linefeed
+        // carriage return, linefeed
+        if (bptr >= buf && ::isspace(*bptr)) bptr--;
         if (bptr >= buf && ::isspace(*bptr)) bptr--;
         if (bptr - 4 < buf) return false;
 
         bptr -= 4;
-        if (*bptr != ',') return reportBadCRC();
+        if (*bptr != ',')
+            return _stats.reportBadCRC("expected comma before signature");
 
         char* resptr;
         sigval = (unsigned short) ::strtol(bptr+1,&resptr,16);
-        if (resptr != bptr + 5) return reportBadCRC();
+        if (resptr != bptr + 5)
+            return _stats.reportBadCRC("missing 4-digit hex signature");
     }
 
     // calculated signature from buffer contents
     unsigned short calcsig = signature((const unsigned char*)buf,(const unsigned char*)bptr);
 
-    if (calcsig != sigval) return reportBadCRC();
+    if (calcsig != sigval)
+        return _stats.reportBadCRC("checksum mismatch");
 
     const Sample* psamp = 0;
     unsigned int nvals;
@@ -502,7 +534,7 @@ bool CSI_IRGA_Sonic::process(const Sample* samp,
         }
         if (bptr + sizeof(uint32_t) <= eob) {
             pvector[nvals++] = _converter->uint32Value(bptr);   // diagnostic
-            bptr += sizeof(int);
+            bptr += sizeof(uint32_t);
         }
         for (int i = 0; bptr + sizeof(float) <= eob && i < 2 && nvals < nbinvals; i++) {
             pvector[nvals++] = _converter->floatValue(bptr);      // co2, h2o
@@ -510,23 +542,45 @@ bool CSI_IRGA_Sonic::process(const Sample* samp,
         }
         if (bptr + sizeof(uint32_t) <= eob && nvals < nbinvals) {
             pvector[nvals++] = _converter->uint32Value(bptr);   // IRGA diagnostic
-            bptr += sizeof(int);
+            bptr += sizeof(uint32_t);
         }
-        for ( ; bptr + sizeof(float) <= eob && nvals < nbinvals; ) {
-            // cell temp and pressure, co2 sig, h2o sig, diff press, source temp, detector temp
+        for (int i = 0; i < 5 && bptr + sizeof(float) <= eob && nvals < nbinvals; ++i) {
+            // cell temp and pressure, co2 sig, h2o sig, diff press
             pvector[nvals++] = _converter->floatValue(bptr);
             bptr += sizeof(float);
         }
-#ifdef UNPACK_COUNTER
-        if (bptr + sizeof(uint32_t) <= eob) {
-            unsigned int counter = _converter->uint32Value(bptr);   // counter
-            bptr += sizeof(int);
-            ILOG(("%s: counter=%u",getName().c_str(),counter));
+        // Tirga_src and Tirga_det may exist in the sample tag, but they do
+        // not exist in the binary record, so they are now skipped here and if
+        // a 14th variable is present, it is extracted as the counter. If the
+        // 14th variable in the sample tag is Tirga_src or Tirga_det, then it
+        // will be replaced with NaN below.  This allows configs to extract
+        // the counter by replacing Tirga_src with a counter variable.
+        // Configs that are not updated to remove Tirga_src and Tirga_det will
+        // still work, but those variables will always be NaN.
+        if (bptr + sizeof(uint32_t) <= eob && nvals < nbinvals) {
+            uint32_t counter = _converter->uint32Value(bptr);
+            // we have to store the counter in a 32-bit float with a 23-bit
+            // mantissa with an implied 1 leading bit, so only the lowest 24
+            // bits can be preserved.  this should be ok as far as analyzing
+            // for dropped samples, since it just means this counter will roll
+            // over more often than the full 32-bit counter. an alternative is
+            // to return Sample<double>, but that seems like overkill just for
+            // the counter.
+            pvector[nvals++] = _stats.checkCounter(counter);
+            bptr += sizeof(uint32_t);
         }
-#endif
 
         for ( ; nvals < nbinvals; nvals++) pvector[nvals] = floatNAN;
         pdata = &pvector[0];
+
+        if (_Tirga_src.valid())
+        {
+            _Tirga_src.set(pvector.data(), floatNAN);
+        }
+        if (_Tirga_det.valid())
+        {
+            _Tirga_det.set(pvector.data(), floatNAN);
+        }
 
         // Also apply any conversions or calibrations, same as is done by
         // the base class process() for ascii sensors.
@@ -650,5 +704,118 @@ bool CSI_IRGA_Sonic::process(const Sample* samp,
     results.push_back(wsamp);
     return true;
 }
+
+
+SonicStatistics
+CSI_IRGA_Sonic::getStatistics()
+{
+    return _stats;
+}
+
+
+SonicStatistics::
+SonicStatistics(const std::string& name):
+    name(name)
+{}
+
+
+bool SonicStatistics::reportBadCRC(const std::string& reason)
+{
+    static unsigned int badcrc_log_interval =
+        Logger::getScheme().getParameterT("badcrc_log_interval", 1000U);
+    if (badcrc_log_interval && (badCRCs++ % badcrc_log_interval) == 0)
+    {
+        WLOG(("") << name << ": " << reason << " at " << timeString()
+                  << ", "
+                  << badCRCs << " checksum errors so far");
+    }
+    // not going to restart the counter check on a bad checksum, because
+    // multiple counters could be missed between two good checksums.
+    //
+    // restart_counter = true;
+    return false;
+}
+
+
+uint32_t
+SonicStatistics::checkCounter(uint32_t sonic_counter)
+{
+    auto& MAX_COUNTER = CSI_IRGA_Sonic::MAX_COUNTER;
+    uint32_t counter_masked = sonic_counter & MAX_COUNTER;
+    VLOG(("") << name << ": " << timeString()
+              << ", counter=" << sonic_counter
+              << ", counter_masked=" << counter_masked);
+    // do the checks against the masked counter value, since it matches what
+    // will be stored in the counter variable.
+    uint32_t expected_counter = (counter + 1) & MAX_COUNTER;
+    if (restart_counter)
+    {
+        restart_counter = false;
+    }
+    else if (counter_masked != expected_counter)
+    {
+        // account for rollover
+        if (counter_masked < expected_counter)
+            missed_messages += (MAX_COUNTER - expected_counter) + counter_masked;
+        else
+            missed_messages += counter_masked - expected_counter;
+        // not sure if a warning is warranted here, and if we want to log it
+        // every time, to guard against spamming the logs.  for now, hide it
+        // in favor of printing the statistics periodically or upon sensor
+        // destruction.
+        DLOG(("") << name << ": " << timeString()
+                  << ", expected counter " << expected_counter
+                  << ", got " << counter_masked
+                  << ", missed counters so far: " << missed_messages);
+    }
+    counter = counter_masked;
+    return counter;
+}
+
+
+std::string
+SonicStatistics::timeString() const
+{
+    return UTime(message_time).format(true, "%Y-%m-%d_%H:%M:%S.%6f");
+}
+
+
+std::string
+SonicStatistics::toString() const
+{
+    std::ostringstream oss;
+    oss << name << ": "
+        << "as of sample time " << timeString() << ", "
+        << nmessages << " messages, "
+        << "counter=" << counter << ", "
+        << badCRCs << " bad CRCs, "
+        << missed_messages << " missed messages";
+    return oss.str();
+}
+
+
+void
+SonicStatistics::
+logStatistics() const
+{
+    if (missed_messages || badCRCs)
+    {
+        WLOG(("") << toString());
+    }
+    else
+    {
+        ILOG(("") << toString());
+    }
+}
+
+
+void
+SonicStatistics::addMessage(dsm_time_t message_time)
+{
+    ++nmessages;
+    this->message_time = message_time;
+}
+
+
 
 }}} // namespace nidas::dynld::isff
