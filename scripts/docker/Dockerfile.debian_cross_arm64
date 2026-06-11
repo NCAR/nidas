@@ -1,90 +1,74 @@
-ARG hostarch=arm64
+# Build a container for cross-compiling NIDAS on Debian Bookworm or Trixie. It
+# is usually used to cross-compile for arm64, but it might also work for
+# amd64.
+
+ARG HOST_ARCH=arm64
 ARG CODENAME=trixie
 
-FROM docker.io/debian:${CODENAME}-slim AS base
+FROM debian:${CODENAME}-slim
 LABEL organization="NCAR EOL"
 
 USER root
 
-# FROM line above "consumes" hostarch arg, unless we re-declare it here
+# FROM line above "consumes" HOST_ARCH arg, unless we re-declare it here
 # But don't re-assign it!!!
-ARG hostarch
+ARG HOST_ARCH
 
-RUN echo "hostarch == $hostarch"
+RUN echo "HOST_ARCH == $HOST_ARCH"
 
-RUN dpkg --add-architecture ${hostarch}
+# Ensure all packages are up-to-date to reduce vulnerabilities
+RUN apt-get update && apt-get upgrade -y && rm -rf /var/lib/apt/lists/*
 
-# sudo is not technically needed, but there are other scripts which expect it,
-# like build-xmlrpc.
+ENV DEBIAN_FRONTEND=noninteractive
+ENV HOST_ARCH=${HOST_ARCH}
+
+# sudo is not technically needed, but there are other scripts which expect to
+# be able to call it, like build-xmlrpc.
 RUN apt-get -y update && \
     apt-get install -y --no-install-recommends gnupg wget cmake apt-utils \
-    sudo vim nano curl git ca-certificates build-essential fakeroot \
-    libncurses-dev bc dh-make quilt rsync crossbuild-essential-${hostarch} \
-    flex libfl-dev gawk devscripts pkg-config libbz2-dev:${hostarch} \
-    libgsl0-dev:${hostarch} libcap-dev:${hostarch} \
-    libxerces-c-dev:${hostarch} libbluetooth-dev:${hostarch} \
-    libnetcdf-dev:${hostarch} reprepro \
-    libjsoncpp-dev:${hostarch} lsb-release \
-    xsltproc docbook-xsl \
-    libxml2-dev \
+    sudo vim nano curl git ca-certificates build-essential \
+    libncurses-dev bc rsync flex libfl-dev gawk pkg-config  \
+    lsb-release \
+    xsltproc docbook-xsl libxml2-dev \
     valgrind net-tools less \
-    python3 python3-pip scons
+    python3 python3-pip scons \
+    # Debian packaging
+    devscripts quilt debhelper dpkg-dev fakeroot reprepro lintian dh-make equivs \
+    && rm -rf /var/lib/apt/lists/*
 
-# libgsl0ldbl is now in libgsl0-dev??
-#RUN apt-get install -y --no-install-recommends libgsl0ldbl:${hostarch} 
-
-# Add the eol repo first
-# But need to allow apt to use ftp, since Buster doesn't allow it by default
-# RUN touch /etc/apt/apt.conf
-# RUN echo '// allow ftp for eol repo' >> /etc/apt/apt.conf
-# RUN echo 'dir::bin::methods::ftp "ftp";' >> /etc/apt/apt.conf
-# RUN cat /etc/apt/apt.conf
-# RUN echo "deb ftp://ftp.eol.ucar.edu/pub/archive/software/debian/ buster main" > /etc/apt/sources.list.d/eol.list
-# RUN curl ftp://ftp.eol.ucar.edu/pub/archive/software/debian/conf/eol-prog.gpg.key | apt-key add -
-
-# Also, backports has moved to archive, so fix that -- PEO still true for stretch??
-# RUN echo "deb http://deb.debian.org/debian buster-backports main" >> /etc/apt/sources.list
-#RUN echo "Acquire::Check-Valid-Until no;" > /etc/apt/apt.conf.d/99no-check-valid-until
-
-# Even though container builds can use a locally mounted eol_scons, it is
-# still a build dependency, and it would be required if building nidas on a
-# stock system without the eol_scons mount.
-
-# However, until there is a buster EOL repo, do without it.  Actually, this
-# and the xmlrpc++ dependency below should be installed from the
-# packagecloud repo if that's where the nidas packages are going to end up.
-
-# RUN apt-get -y install eol-scons
 
 # boost_thread and boost_system are only needed by ubloxbin, which itself is
 # set for the chopping block, so there is room here to remove some
 # dependencies...
 
-# need a few boost libraries
-RUN apt-get -y update && apt-get -y --no-install-recommends install \
-    libboost-filesystem-dev:${hostarch} \
-    libboost-system-dev:${hostarch} \
-    libboost-regex-dev:${hostarch} \
-    libboost-thread-dev:${hostarch} \
-    libboost-test-dev:${hostarch}
+# install architecture-dependent packages for NIDAS build dependencies
+RUN dpkg --add-architecture ${HOST_ARCH} && \
+    apt-get -y update && \
+    apt-get -y --no-install-recommends \
+    -o Dpkg::Options::="--force-overwrite" install \
+    libboost-filesystem-dev:${HOST_ARCH} \
+    libboost-system-dev:${HOST_ARCH} \
+    libboost-regex-dev:${HOST_ARCH} \
+    libboost-thread-dev:${HOST_ARCH} \
+    libboost-test-dev:${HOST_ARCH} \
+    libxerces-c-dev:${HOST_ARCH} \
+    libcap-dev:${HOST_ARCH} \
+    libxerces-c-dev:${HOST_ARCH} \
+    libbluetooth-dev:${HOST_ARCH} \
+    libnetcdf-dev:${HOST_ARCH} \
+    libjsoncpp-dev:${HOST_ARCH} \
+    libftdi1-dev:${HOST_ARCH} \
+    crossbuild-essential-${HOST_ARCH} \
+    libbz2-dev:${HOST_ARCH} \
+    libgsl0-dev:${HOST_ARCH} \
+    libcap-dev:${HOST_ARCH} \
+    libxerces-c-dev:${HOST_ARCH} \
+    libbluetooth-dev:${HOST_ARCH} \
+    libnetcdf-dev:${HOST_ARCH} \
+    && rm -rf /var/lib/apt/lists/*
 
-# get and install ftdi 1.4 and depends libusb-1.0
-#RUN apt-get -y install libusb-1.0:amd64 libusb-1.0:${hostarch} libusb-1.0-0-dev 
-#RUN apt-get -y remove libftdi1=0.20-4
-RUN apt-get -y update && apt-get -y --no-install-recommends \
-    -o Dpkg::Options::="--force-overwrite" install libftdi1-dev:${hostarch}
 
-ENV CROSS_ARCH=$hostarch
-
-# It can be helpful to have package_cloud available in the container.
-RUN apt-get -y --no-install-recommends install ruby ruby-dev
-
-# The rake gem has to be installed first, else the package_cloud install gets an
-# error.
-RUN gem install rake
-RUN gem install package_cloud
-
-WORKDIR /root
+WORKDIR /build-dependencies
 
 # Local packages
 RUN mkdir -p ublox
@@ -93,4 +77,25 @@ RUN cd ublox && ./build-ublox.sh
 
 RUN mkdir -p xmlrpc-build
 COPY ./build-xmlrpc.sh xmlrpc-build
-RUN cd xmlrpc-build && ./build-xmlrpc.sh ${hostarch}
+RUN cd xmlrpc-build && ./build-xmlrpc.sh ${HOST_ARCH}
+
+# when cnidas.sh runs the container for development, this will be replaced
+# with a mount.  but for Jenkins builds, it needs to exist in the container.
+RUN mkdir -p ~/.scons/site_scons && \
+    git -C ~/.scons/site_scons clone https://github.com/ncar/eol_scons
+
+WORKDIR /workspace
+
+# ---- Default: print versions and open a shell ----
+CMD bash -lc '\
+  echo "HOST_ARCH=${HOST_ARCH}"; \
+  echo "Native GCC:"; gcc -v || true; \
+  echo "CMake:"; cmake --version; echo "SCons:"; scons --version; \
+  echo "Python:"; python3 --version; \
+  if [ "${HOST_ARCH}" != "amd64" ]; then \
+    case "${HOST_ARCH}" in \
+      arm64) T=aarch64-linux-gnu ;; armhf) T=arm-linux-gnueabihf ;; i386) T=i686-linux-gnu ;; esac; \
+    echo "Cross GCC (${HOST_ARCH}):"; ${T}-g++ -v || true; \
+    echo "Toolchain file: /opt/toolchains/${T}.cmake"; \
+  fi; \
+  exec bash'

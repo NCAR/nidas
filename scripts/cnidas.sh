@@ -3,18 +3,8 @@
 # Script functions related to building NIDAS with containers for various
 # architectures and OS releases.
 
-# These are the standard targets (OS/arch) for NIDAS builds:
-#
-# fedora 31 x86_64 (native)
-# centos 7  x86_64 (native)
-# centos 8  x86_64 (native)
-# buster    amd64 (native) (This would be a new one, but something we may as well support.)
-# jessie    amd64 (native) (I think we build this on the debian VM, but no one ever used it?)
-# jessie armbe Vulcan (cross-compiled on Fedora25)
-# jessie armhf Raspberry Pi 2B (cross)
-# jessie armel Viper Titan (cross)
-# buster armhf Raspberry Pi 3B (cross)
-# ubuntu amd64
+# See read_targets function for the list of supported targets and their
+# associated containers.
 #
 # Here is the naming convention for NIDAS build container images:
 #
@@ -22,19 +12,6 @@
 #
 # Where <dist> is {centos,fedora,debian} and <arch> is
 # {x86_64,amd64,armel,armbe,armhf}, and not all combinations are relevant.
-# So here are the build container images we need for the target list above.
-# The first column is an alias for that target, associated with the
-# particular platform that target would run on.
-#
-# fedora31 nidas-build-fedora-x86_64:fedora31
-# centos7  nidas-build-centos-x86_64:centos7   Dockerfile.centos7
-# centos8  nidas-build-centos-x86_64:centos8   Dockerfile.centos8
-# buster   nidas-build-debian-amd64:buster
-# vulcan   nidas-build-debian-armbe:jessie     Dockerfile.cross_ael_armbe
-# titan    nidas-build-debian-armel:jessie     Dockerfile.cross_arm hostarch=armel
-# pi2      nidas-build-debian-armhf:jessie     Dockerfile.cross_arm hostarch=armhf
-# pi3      nidas-build-debian-armhf:buster     Dockerfile.buster_cross_arm hostarch=armhf (on the buster branch)
-# ubuntu   nidas-build-ubuntu-amd64:latest     Dockerfile.ubuntu_amd64
 #
 # I think Titan is equivalent to Viper, except for the
 # nidas-modules-titan and nidas-modules-viper packages, since the
@@ -45,20 +22,16 @@
 # Debian Jessie, but the NIDAS binaries are cross-compiled on a fedora25
 # container.
 #
-# The original container approach created a separate user called
-# 'builder', and then tried to map the user running the container to
-# that user, with hardcoded group permissions for eol.  This really
-# complicated things.  With rootless podman containers, the user
-# running the container maps to the root user in the container, and
-# the container has no more privileges in the host OS than that user.
-# So all that's necessary is that the mounted source and install
-# directories are writable by the user running the container.
-# Technically, by running as root the build could seriously and
-# unexpectedly break the container, and builds definitely should not
-# usually run that way.  Also, there might be permissions bugs in the
-# build which get missed by container builds.  However, containers are
-# meant to be transient, disposable wrappers, so none of that is worth
-# hardcoding non-root users in the containers.
+# With rootless podman containers, the user running the container maps to the
+# root user in the container, and the container has no more privileges in the
+# host OS than that user. So all that's necessary is that the mounted source
+# and install directories are writable by the user running the container.
+# Technically, by running as root the build could seriously and unexpectedly
+# break the container, and builds definitely should not usually run that way.
+# Also, there might be permissions bugs in the build which get missed by
+# container builds.  However, containers are meant to be transient, disposable
+# wrappers, so none of that seems to justify hardcoding non-root users in the
+# containers.
 
 usage()
 {
@@ -107,10 +80,6 @@ that source:
     Run the script which builds packages for the alias, and copy the
     packages into <work>/packages/<alias>.
 
-  push
-    Push packages to the cloud for alias from the given path.  The
-    packages must be in <work>/packages/<alias>.
-
 If --tag is given, it can be HEAD, tag, branch, or any git commit.
 That commit of the target source is first shallow cloned before
 continuing with the build.
@@ -121,8 +90,8 @@ Packages: <work>/packages/<alias>
 Clones: <work>/clones/nidas-<tag>
 
 The packages path is mounted in the container at path /nidas/packages.
-Packages will be moved there after being built, or else will be pushed
-from there.  The work path by default is /tmp/cnidas.
+Packages will be moved there after being built.
+The work path by default is /tmp/cnidas.
 
 If no tag is given, then no clone is performed and the compile (and
 possibly package build) happens inside the source tree.  If no source
@@ -131,119 +100,74 @@ is named, then the current repo is used.
 EOF
 }
 
-targets=(centos7 centos8 vulcan titan pi2 pi3 arm64 ubuntu)
+
+# alias arch image_tag containerfile [build args]
+read_targets()
+{
+    header=`cat <<EOF
+_alias_  _arch_ _tag_                             _containerfile_               _buildargs_
+EOF`
+    cat <<EOF
+centos7  x86_64 nidas-build-centos-x86_64:centos7 Dockerfile.centos7
+centos8  x86_64 nidas-build-centos-x86_64:centos8 Dockerfile.centos8
+pi2      armhf  nidas-build-debian-armhf:jessie   Dockerfile.cross_arm          hostarch=armhf
+pi3      armhf  nidas-build-debian-armhf:buster   Dockerfile.buster_cross_arm   hostarch=armhf
+arm64    arm64  nidas-build-debian-arm64:bookworm Dockerfile.debian_cross_arm64 HOST_ARCH=arm64 CODENAME=bookworm
+pi5      arm64  nidas-build-debian-arm64:trixie   Dockerfile.debian_cross_arm64 HOST_ARCH=arm64 CODENAME=trixie
+titan    armel  nidas-build-debian-armel:jessie   Dockerfile.cross_arm          hostarch=armel
+vulcan   armbe  nidas-build-debian-armbe:jessie   Dockerfile.cross_ael_armbe
+ubuntu   amd64  nidas-build-ubuntu-amd64:latest   Dockerfile.ubuntu_amd64
+EOF
+}
+
 
 # Return the arch for passing to build_dpkg
 get_arch() # alias
 {
-    case "$1" in
-        centos*)
-            echo x86_64
-            ;;
-        pi[23])
-            echo armhf
-            ;;
-        arm64|pi5)
-            echo arm64
-            ;;
-        titan)
-            echo armel
-            ;;
-        vulcan)
-            echo armbe
-            ;;
-    esac
+    while read -r name arch image_tag containerfile buildargs; do
+        if [ "$name" == "$1" ]; then
+            echo $arch
+            return
+        fi
+    done < <(read_targets)
 }
 
-# Return the BUILDS setting for the given alias
+# Return the BUILDS setting for the given alias, same as the arch.
 get_builds() # alias
 {
-    case "$1" in
-        centos*|ubuntu*)
-            echo host
-            ;;
-        arm64|pi5)
-            echo arm64
-            ;;
-        pi[23])
-            echo armhf
-            ;;
-        titan)
-            echo armel
-            ;;
-        vulcan)
-            echo armbe
-            ;;
-    esac
+    while read -r name arch image_tag containerfile buildargs; do
+        if [ "$name" == "$1" ]; then
+            echo $arch
+            return
+        fi
+    done < <(read_targets)
 }
 
 get_image_tag() # alias
 {
-    case "$1" in
-        centos8)
-            echo nidas-build-centos-x86_64:centos8
-            ;;
-        centos7)
-            echo nidas-build-centos-x86_64:centos7
-            ;;
-        pi2)
-            echo nidas-build-debian-armhf:jessie
-            ;;
-        pi3)
-            echo nidas-build-debian-armhf:buster
-            ;;
-        arm64)
-            echo nidas-build-debian-arm64:bookworm
-            ;;
-        pi5)
-            echo nidas-build-debian-arm64:trixie
-            ;;
-        titan)
-            echo nidas-build-debian-armel:jessie
-            ;;
-        vulcan)
-            echo nidas-build-debian-armbe:jessie
-            ;;
-        ubuntu)
-            echo nidas-build-ubuntu-amd64:latest
-            ;;
-    esac
+    while read -r name arch image_tag containerfile buildargs; do
+        if [ "$name" == "$1" ]; then
+            echo $image_tag
+            return
+        fi
+    done < <(read_targets)
 }
 
 
 build_image()
 {
-    tag=`get_image_tag "$alias"`
-    set -x
-    case "$alias" in
-        centos8)
-            podman build -t $tag -f docker/Dockerfile.centos8 "$@"
-            ;;
-        centos7)
-            podman build -t $tag -f docker/Dockerfile.centos7 "$@"
-            ;;
-        pi2)
-            podman build -t $tag -f docker/Dockerfile.cross_arm --build-arg hostarch=armhf "$@"
-            ;;
-        pi3)
-            podman build -t $tag -f docker/Dockerfile.buster_cross_arm --build-arg hostarch=armhf "$@"
-            ;;
-        arm64)
-            podman build -t $tag -f docker/Dockerfile.debian_cross_arm64 --build-arg CODENAME=bookworm "$@"
-            ;;
-        pi5)
-            podman build -t $tag -f docker/Dockerfile.debian_cross_arm64 --build-arg CODENAME=trixie "$@"
-            ;;
-        titan)
-            podman build -t $tag -f docker/Dockerfile.cross_arm --build-arg hostarch=armel "$@"
-            ;;
-        vulcan)
-            podman build -t $tag -f docker/Dockerfile.cross_ael_armbe "$@"
-            ;;
-        ubuntu)
-            podman build -t $tag -f docker/Dockerfile.ubuntu_amd64 "$@"
-            ;;
-    esac
+    while read -r name arch image_tag containerfile buildargs; do
+        if [ "$name" == "$alias" ]; then
+            if [ -n "$buildargs" ]; then
+                for arg in $buildargs; do
+                    set -- --build-arg $arg "$@"
+                done
+            fi
+            set -x
+            podman build -t $image_tag -f docker/$containerfile "$@"
+            break
+        fi
+    done < <(read_targets)
 }
 
 
@@ -331,60 +255,6 @@ install_packages()
 }
 
 
-# Push packages to the cloud for the given alias located in the given
-# path.  Explicitly avoid uploading dbgsym packages.
-
-push_packages() # path
-{
-    # list the specific package files that need to be uploaded, ie, not
-    # debug symbols
-    path="$1"
-    if [ -z "$path" ]; then
-        echo "push <path>"
-        exit 1
-    fi
-    packages=`ls "$path"/*.deb | egrep -v dbgsym`
-    echo $packages
-    case "$alias" in
-        pi5)
-            repo="ncareol/isfs-testing/debian/trixie"
-            (set -x
-            package_cloud push $repo $packages)
-            ;;
-        arm64)
-            repo="ncareol/isfs-testing/debian/bookworm"
-            (set -x
-            package_cloud push $repo $packages)
-            ;;
-        pi3)
-            repo="ncareol/isfs-testing/raspbian/buster"
-            (set -x
-            package_cloud push $repo $packages)
-            ;;
-        pi2)
-            # This code runs in the debian container with the repo and
-            # packages mounted.
-            codename=$(source /etc/os-release ; echo "$VERSION" | sed -e 's/.*(//' -e 's/).*//')
-            repo=/debian
-            arch=armhf
-            tmplog=$(mktemp)
-            trap "{ rm -f $tmplog; }" EXIT
-            status=0
-            set -x
-            flock $repo sh -c "reprepro -V -b $repo -C main -A $arch --keepunreferencedfiles includedeb $codename $packages" 2> $tmplog || status=$?
-            set +x
-            if [ $status -ne 0 ]; then
-                cat $tmplog
-            if grep -E -q "(can only be included again, if they are the same)|(is already registered with different checksums)" $tmplog; then
-                echo "One or more package versions are already present in the repository. Continuing"
-            else
-                exit $status
-            fi
-            fi
-            ;;
-    esac
-}
-
 # We don't need shallow clone since git automatically optimizes local
 # clones with hard links to repo object files, and that way the cloned repo
 # still has history for generating the changelog file.
@@ -445,6 +315,8 @@ clone_local() # tag source dest
 scripts=$(realpath `dirname $0`/..)
 scripts="$scripts/scripts"
 
+# Global variables.  Since alias is the name for the target to build, avoid
+# using a variable named alias when parsing the target list.
 source=$(realpath `dirname $0`/..)
 tag=""
 workpath=""
@@ -537,20 +409,13 @@ case "$1" in
 
     list)
         shift
-        # list all the target aliases and their container image tags
-        for target in ${targets[*]}; do
-            echo "$target" `get_image_tag "$target"`
-        done
+        echo "$header"
+        read_targets
         ;;
 
     clone)
         shift
         clone_local "$tag" "$source" "$workpath/clones/nidas-$tag"
-        ;;
-
-    push)
-        shift
-        push_packages "$@"
         ;;
 
     install_packages)
