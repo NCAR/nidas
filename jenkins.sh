@@ -85,7 +85,7 @@ build_dsm3_debs()
 upload_dsm3_debs()
 {
     (set -x
-     ~/eol-repo/scripts/upload_packages.sh upload "$@" "$arm64_dpkg_dir")
+     ~/eol-repo/scripts/upload_packages.sh "$@" upload "$arm64_dpkg_dir")
 }
 
 
