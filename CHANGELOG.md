@@ -18,6 +18,8 @@ known as [buster].
 
 ## [master] - Unreleased on master branch
 
+## [1.2.7] - 2026-06-10
+
 - The `CSI_IRGA_Sonic` sensor class now extracts the sequence counter from
   EC150 binary message.  The `Tirga_src` and `Tirga_det` variables have not
   existed in the message for a long time, so if those variables are requested
@@ -337,6 +339,7 @@ This branch includes all the changes done on the branches
 <!-- Versions -->
 [master]: https://github.com/NCAR/nidas
 [buster]: https://github.com/NCAR/nidas/tree/buster
+[1.2.7]: https://github.com/NCAR/nidas/releases/tag/v1.2.7
 [1.2.6]: https://github.com/NCAR/nidas/releases/tag/v1.2.6
 [1.2.5]: https://github.com/NCAR/nidas/releases/tag/v1.2.5
 [1.2.4]: https://github.com/NCAR/nidas/releases/tag/v1.2.4
