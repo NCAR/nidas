@@ -804,7 +804,7 @@ BOOST_AUTO_TEST_CASE(test_wind3d_counter_rollover)
     // start the counter at max value and verify rollover. use last_counter to
     // check that each computed counter stored in processed_data is exactly 1
     // more than the previous.
-    uint64_t last_counter;
+    uint64_t last_counter { 0 };
     for (uint32_t i = 0; i < 32; ++i)
     {
         SonicSample ss = test_samples[i % test_samples.size()];
