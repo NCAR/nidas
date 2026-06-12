@@ -103,9 +103,7 @@ case "$method" in
         ;;
 
     push_rpms)
-        source $YUM_REPOSITORY/scripts/repo_funcs.sh
-        pkgs=`cat src/rpms.txt`
-        push_eol_repo $pkgs
+        $HOME/eol-repo/scripts/upload_packages.sh upload `cat src/rpms.txt`
         ;;
 
     update_rpms)
