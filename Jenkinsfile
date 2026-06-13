@@ -1,5 +1,14 @@
 pipeline {
 
+  // This pipeline uses the NIDAS_UPDATE_HOST environment variable to
+  // determine whether to update the local host with the newly built packages.
+  // Set NIDAS_UPDATE_HOST to true in the Jenkins Node configuration to enable
+  // this step for a specific node.
+  //
+  // Manage Jenkins -> Nodes -> <node name> -> Configure -> Node Properties
+  // 
+  // Add NIDAS_UPDATE_HOST environment variable with value true.
+
   agent none
 
   options {
