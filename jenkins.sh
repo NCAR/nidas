@@ -68,16 +68,26 @@ build_rpms()
 # $1 is list of packages to refresh
 update_local_packages()
 {
+    # convert rpm files to package names, and leave package names alone.
+    # technically the rpm files might include SRPMS, but that shouldn't matter
+    # as long as the name matches an installed package.
+    package_names=""
+    for pkg in "$@" ; do
+        case "$pkg" in
+            *.rpm)
+                pkg=$(rpm -q --qf "%{name}\n" -p "$pkg")
+                ;;
+        esac
+        package_names="$package_names $pkg"
+    done
+
     # These commands must be matched by a NOPWCMDS setting in /etc/sudoers.
-    # Since centos7 does not support --refresh, we cannot use the more
-    # convenient combined command.
-    yum="yum -y --disablerepo=* --enablerepo=eol"
-    if false ; then
-        sudo -n $yum --refresh -- update $1
-    else
-        sudo -n $yum -- clean expire-cache
-        sudo -n $yum -- update $1
-    fi
+    # Use install to either install a new package or update an existing one.
+    # As of CentOS 8, dnf supports --refresh.  This could also use --repo=eol
+    # in place of the usage below, but this is the usage that matches the
+    # NOPWCMDS setting.
+    dnf="dnf -y --disablerepo=* --enablerepo=eol --refresh --"
+    (set -x; sudo -n $dnf install $package_names)
 }
 
 
@@ -107,8 +117,7 @@ case "$method" in
         ;;
 
     update_rpms)
-        pkgs='nc_server-lib nc_server-devel nc_server-clients nc_server'
-        update_local_packages $pkgs
+        update_local_packages `cat src/rpms.txt`
         ;;
 
     *)
