@@ -110,7 +110,7 @@ bool TwoD_SPEC::process(const Sample * samp, list < const Sample * >&results)
 /*---------------------------------------------------------------------------*/
 bool TwoD_SPEC::processImageRecord(const Sample * samp, list < const Sample * >&results)
 {
-    const unsigned char *cp = (unsigned char *)samp->getConstVoidDataPtr();
+    const unsigned char *cp = (const unsigned char *)samp->getConstVoidDataPtr();
 
     // slen is coming in as 4098 bytes for image buffer, no timestamp or cksum.
     unsigned slen = samp->getDataByteLength();
@@ -127,7 +127,9 @@ cout << "TwoDS::processImage, slen=" << slen << "\n";
     long long firstTimeWord = 0;
 
     // Restore any saved buffer from previous call.
-    _processor->setupBuffer(&cp, &eod);
+// Since we don't have all the data from the probe, we can't wrap around
+// buffers treat each buffer as standalone
+//    _processor->setupBuffer(&cp, &eod);
 
 
     uint16_t *wp = (uint16_t *)cp;
@@ -141,11 +143,11 @@ cout << "TwoDS::processImage, slen=" << slen << "\n";
         {
             // we want to make sure the buffer is discarded, there is no more data
             DLOG( ("NL flush @ idx = ") << j );
+            cout << "NL flush @ idx = " << j << "\n";
             _processor->createSamples(samp->getTimeTag(), results);
-/* really?  rest of buffer is empty/flush, right.  cjw 4/2026
-            eod = cp;
-            _processor->saveBuffer(cp, eod);
-*/
+
+//            eod = cp;
+//            _processor->saveBuffer(cp, eod);
             return !results.empty();
         }
 
@@ -198,7 +200,7 @@ cout << "TwoDS::processImage, slen=" << slen << "\n";
 
             // if no sync/timing word, then we are dropping multi-packet image.
             // This is where to fix it, buffer them up
-            if (memcmp((void *)_uncompressedParticle[nSlices*16+8], _syncString, 4))
+            if (memcmp((void *)&_uncompressedParticle[nSlices*16+8], &_syncString, 4))
                 continue;
 
             // nSlices-1, since timing word is being counted.
@@ -231,7 +233,7 @@ cout << "TwoDS::processImage, slen=" << slen << "\n";
     _processor->createSamples(samp->getTimeTag(), results);
 
     /* Data left in image block, save it in order to pre-pend to next image block */
-    _processor->saveBuffer(cp, eod);
+//    _processor->saveBuffer(cp, eod);
 
     return !results.empty();
 }
