@@ -129,12 +129,8 @@ bool ParoSci_202BG_T::process(const Sample* insamp,list<const Sample*>& results)
 
     results.push_back(osamp);
 
-    // Originally _presSensor->createPressureSample(results)
-    // was called here.  I now don't think it's necessary, it
-    // is called by the pressure sensor on receipt of a pressure
-    // sample, which then calls getPeriodUsec(_sampleTime) on 
-    // this temperature sensor.
-    // _presSensor->createPressureSample(results);
+    // Pressure sample may appear before or after temperaature sample.
+    _presSensor->createPressureSample(results);
 
     return true;
 }
