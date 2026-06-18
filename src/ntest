@@ -6,7 +6,8 @@ script=$0
 dir=${script%/*}
 
 [ -f /etc/os-release ] && . /etc/os-release
-variant_dir=build/$(uname -m)_${ID}${VERSION_ID}
+# remove minor number from VERSION_ID
+variant_dir=build/$(uname -m)_${ID}${VERSION_ID%%.*}
 
 export LD_LIBRARY_PATH=$dir/$variant_dir/lib
 echo LD_LIBRARY_PATH=$LD_LIBRARY_PATH
@@ -25,6 +26,7 @@ usage() {
 [ $# -lt 1 ] && usage
 
 valg=false
+gdb=false
 
 case $1 in
 -v)
@@ -40,19 +42,33 @@ case $1 in
     [ $# -lt 1 ] && usage
     app=$1
     ;;
+-g)
+    gdb=true
+    shift
+    [ $# -lt 1 ] && usage
+    app=$1
+    ;;
 *)
     app=$1
     ;;
 esac
 
+which $app
+
 shift
+
+# set -x
 
 # Display the shared libraries so user can be certain the ones 
 # in the build directory are being used.
 [ -x $dir/$variant_dir/bin/$app ] && ldd $dir/$variant_dir/bin/$app
 
 if $valg; then
+    # 8388608
+    # valgrind --main-stacksize=1000000008 $valargs $app "$@"
     valgrind $valargs $app "$@"
+elif $gdb; then
+    gdb --args $app "$@"
 else
     nice $app "$@"
 fi
