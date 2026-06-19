@@ -1,14 +1,20 @@
 /* groovylint-disable NestedBlockDepth */
+
+// Run this pipeline and the containers it contains on mercury, where the
+// jenkins home directory (and thus default workspace and default podman
+// storage) are on a large local disk.  Each container build specifies a
+// custom workspace so the build artifacts, especially package files, cannot
+// interfere with each other.
+
+def CONTAINER_LABEL = 'CentOS8'
+
 pipeline {
-  environment {
-    CONTAINER_NODE = 'CentOS8'
-  }
-  // Everything runs on the container node, especially the containers.
-  agent {
-    node {
-      label "${env.CONTAINER_NODE}"
-    }
-  }
+
+  // it is helpful to not have a top-level agent, otherwise it is allocated to
+  // an executor for the entire duration of the pipeline, preventing the
+  // parallel stages from running in parallel if there are only two executors
+  // on the node.
+  agent none
 
   options {
     buildDiscarder(
@@ -25,6 +31,12 @@ pipeline {
     stage('Build NIDAS for Raspberry Pi') {
       parallel {
         stage('Bookworm') {
+          agent {
+            node {
+              label CONTAINER_LABEL
+              customWorkspace "${env.JOB_BASE_NAME}-bookworm"
+            }
+          }
           stages {
             stage('Checkout NCAR Nidas') {
               steps {
@@ -35,12 +47,11 @@ pipeline {
             stage('Build in bookworm container') {
               agent {
                 dockerfile {
-                  label "${env.CONTAINER_NODE}"
+                  reuseNode true
                   dir 'scripts/docker'
                   filename 'Dockerfile.debian_cross_arm64'
                   args '-v $WORKSPACE:/workspace -w /workspace -u root'
                   additionalBuildArgs '--build-arg HOST_ARCH=arm64 --build-arg CODENAME=bookworm'
-                  // reuseNode true
                 }
               }
               stages {
@@ -65,6 +76,12 @@ pipeline {
         } // stage('Bookworm')
 
         stage('Trixie') {
+          agent {
+            node {
+              label CONTAINER_LABEL
+              customWorkspace "${env.JOB_BASE_NAME}-trixie"
+            }
+          }
           stages {
             stage('Checkout NCAR Nidas') {
               steps {
@@ -75,12 +92,11 @@ pipeline {
             stage('Build in trixie container') {
               agent {
                 dockerfile {
-                  label "${env.CONTAINER_NODE}"
+                  reuseNode true
                   dir 'scripts/docker'
                   filename 'Dockerfile.debian_cross_arm64'
                   args '-v $WORKSPACE:/workspace -w /workspace -u root'
                   additionalBuildArgs '--build-arg HOST_ARCH=arm64 --build-arg CODENAME=trixie'
-                  // reuseNode true
                 }
               }
               stages {
