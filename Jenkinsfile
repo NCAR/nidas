@@ -6,7 +6,7 @@ pipeline {
   // Everything runs on the container node, especially the containers.
   agent {
     node {
-      label "${CONTAINER_NODE}"
+      label "${env.CONTAINER_NODE}"
     }
   }
 
@@ -35,7 +35,7 @@ pipeline {
             stage('Build in bookworm container') {
               agent {
                 dockerfile {
-                  label "${CONTAINER_NODE}"
+                  label "${env.CONTAINER_NODE}"
                   dir 'scripts/docker'
                   filename 'Dockerfile.debian_cross_arm64'
                   args '-v $WORKSPACE:/workspace -w /workspace -u root'
@@ -75,7 +75,7 @@ pipeline {
             stage('Build in trixie container') {
               agent {
                 dockerfile {
-                  label "${CONTAINER_NODE}"
+                  label "${env.CONTAINER_NODE}"
                   dir 'scripts/docker'
                   filename 'Dockerfile.debian_cross_arm64'
                   args '-v $WORKSPACE:/workspace -w /workspace -u root'
