@@ -1,6 +1,10 @@
 /* groovylint-disable NestedBlockDepth */
 pipeline {
-  agent none
+  agent {
+    // only mercury has enough local disk space to build the containers, so
+    // this hopefully forces the entire pipeline to run on mercury
+    label 'CentOS8'
+  }
   options {
     buildDiscarder(
       logRotator(
