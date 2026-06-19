@@ -1,10 +1,15 @@
 /* groovylint-disable NestedBlockDepth */
 pipeline {
-  agent {
-    // only mercury has enough local disk space to build the containers, so
-    // this hopefully forces the entire pipeline to run on mercury
-    label 'CentOS8'
+  environment {
+    CONTAINER_NODE = 'CentOS8'
   }
+  // Everything runs on the container node, especially the containers.
+  agent {
+    node {
+      label "${CONTAINER_NODE}"
+    }
+  }
+
   options {
     buildDiscarder(
       logRotator(
@@ -22,11 +27,6 @@ pipeline {
         stage('Bookworm') {
           stages {
             stage('Checkout NCAR Nidas') {
-              agent {
-                node {
-                  label 'CentOS9'
-                }
-              }
               steps {
                 // Clone NCAR/nidas repository, branch 'buster'
                 git url: 'https://github.com/NCAR/nidas.git', branch: 'buster'
@@ -35,11 +35,11 @@ pipeline {
             stage('Build in bookworm container') {
               agent {
                 dockerfile {
-                  filename 'scripts/docker/Dockerfile.debian_cross_arm64'
-                  label 'CentOS9'
-                  dir '.'
-                  additionalBuildArgs '--build-arg HOST_ARCH=arm64 --build-arg CODENAME=bookworm'
+                  label "${CONTAINER_NODE}"
+                  dir 'scripts/docker'
+                  filename 'Dockerfile.debian_cross_arm64'
                   args '-v $WORKSPACE:/workspace -w /workspace -u root'
+                  additionalBuildArgs '--build-arg HOST_ARCH=arm64 --build-arg CODENAME=bookworm'
                   // reuseNode true
                 }
               }
@@ -56,12 +56,7 @@ pipeline {
                 }
               }
             }
-            stage('Upload packages to repo') {
-              agent {
-                  node {
-                      label 'CentOS9'
-                  }
-              }
+            stage('Upload Bookworm packages to repo') {
               steps {
                 sh './jenkins.sh upload_dsm3_debs codename=bookworm'
               }
@@ -72,11 +67,6 @@ pipeline {
         stage('Trixie') {
           stages {
             stage('Checkout NCAR Nidas') {
-              agent {
-                node {
-                  label 'CentOS9'
-                }
-              }
               steps {
                 // Clone NCAR/nidas repository, branch 'buster'
                 git url: 'https://github.com/NCAR/nidas.git', branch: 'buster'
@@ -85,11 +75,11 @@ pipeline {
             stage('Build in trixie container') {
               agent {
                 dockerfile {
-                  filename 'scripts/docker/Dockerfile.debian_cross_arm64'
-                  label 'CentOS9'
-                  dir '.'
-                  additionalBuildArgs '--build-arg HOST_ARCH=arm64 --build-arg CODENAME=trixie'
+                  label "${CONTAINER_NODE}"
+                  dir 'scripts/docker'
+                  filename 'Dockerfile.debian_cross_arm64'
                   args '-v $WORKSPACE:/workspace -w /workspace -u root'
+                  additionalBuildArgs '--build-arg HOST_ARCH=arm64 --build-arg CODENAME=trixie'
                   // reuseNode true
                 }
               }
@@ -106,12 +96,7 @@ pipeline {
                 }
               }
             } // stage('Build in trixie container')
-            stage('Upload packages to repo') {
-              agent {
-                node {
-                  label 'CentOS9'
-                }
-              }
+            stage('Upload Trixie packages to repo') {
               steps {
                 sh './jenkins.sh upload_dsm3_debs codename=trixie'
               }
