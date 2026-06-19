@@ -16,6 +16,7 @@ pipeline {
     stage('Build NIDAS for Raspberry Pi') {
       parallel {
         stage('Bookworm') {
+          stages {
           stage('Checkout NCAR Nidas') {
             agent {
               node {
@@ -33,7 +34,8 @@ pipeline {
                 filename 'scripts/docker/Dockerfile.debian_cross_arm64'
                 label 'CentOS9'
                 dir '.'
-                args '-v $WORKSPACE:/workspace -w /workspace -u root HOST_ARCH=arm64 CODENAME=bookworm'
+                additionalBuildArgs '--build-arg HOST_ARCH=arm64 --build-arg CODENAME=bookworm'
+                args '-v $WORKSPACE:/workspace -w /workspace -u root'
                 // reuseNode true
               }
             }
@@ -60,9 +62,11 @@ pipeline {
               sh './jenkins.sh upload_dsm3_debs codename=bookworm'
             }
           }
+          } // stages
         } // stage('Bookworm')
 
         stage('Trixie') {
+          stages {
           stage('Checkout NCAR Nidas') {
             agent {
               node {
@@ -80,7 +84,8 @@ pipeline {
                 filename 'scripts/docker/Dockerfile.debian_cross_arm64'
                 label 'CentOS9'
                 dir '.'
-                args '-v $WORKSPACE:/workspace -w /workspace -u root HOST_ARCH=arm64 CODENAME=trixie'
+                additionalBuildArgs '--build-arg HOST_ARCH=arm64 --build-arg CODENAME=trixie'
+                args '-v $WORKSPACE:/workspace -w /workspace -u root'
                 // reuseNode true
               }
             }
@@ -107,6 +112,7 @@ pipeline {
               sh './jenkins.sh upload_dsm3_debs codename=trixie'
             }
           }
+          } // stages
         } // stage('Trixie')
       } // parallel
     } // build for raspberry pi
