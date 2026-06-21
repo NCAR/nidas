@@ -62,17 +62,17 @@ protected:
     void scanForMissalignedSyncWords(const Sample * samp, const unsigned char * sp) const;
 
     /**
-     * Process a single 2D record generating size-distribution data.  Two
-     * size-distribution data are generated: a) the 1D array emulates a 260X,
-     * height only and any particle touching the edge is rejected. b) 2D
-     * array uses max(widht, height) of particle for particles which do not
-     * touch the edge and the center-in method for reconstructing particles
-     * which do touch an edge diode.
+     * Process a single 2D record generating a histogram of counts data.  Two
+     * histograms of data are generated, using different algorithms: a) the 1D
+     * array emulates a 260X, height only and any particle touching the edge
+     * is rejected. b) 2D array uses max(widht, height) of particle for
+     * particles which do not touch the edge and the center-in method for
+     * reconstructing particles which do touch an edge diode.
      *
      * @param samp is the sample data.
      * @param results is the output result array.
-     * @see _size_dist_1D
-     * @see _size_dist_2D
+     * @see _counts_1D
+     * @see _counts_2D
      * @returns whether samples were output.
      */
     bool processImageRecord(const Sample * samp,

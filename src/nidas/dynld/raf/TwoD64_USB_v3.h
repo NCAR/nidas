@@ -62,9 +62,10 @@ protected:
     /**
      * Process the Shadow-OR sample from the probe.
      */
-   virtual bool processSOR(const Sample * samp, std::list < const Sample * >&results)
+    virtual bool processSOR(const Sample * samp, std::list < const Sample * >&results)
         throw();
 };
 
 }}}       // namespace nidas namespace dynld namespace raf
+
 #endif

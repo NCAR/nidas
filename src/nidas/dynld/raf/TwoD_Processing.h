@@ -28,6 +28,7 @@
 #define _nidas_dynld_raf_2d_processing_h_
 
 #include <nidas/core/Sample.h>
+#include <nidas/core/DSMSensor.h>
 
 
 namespace nidas { namespace dynld { namespace raf {
@@ -35,29 +36,29 @@ namespace nidas { namespace dynld { namespace raf {
 using namespace nidas::core;
 
 /**
- * Base class for SPEC 2DS optical array probe on a USB interface.
- * Perhaps can be split out into a base class and sub-classes for
- * 2DS & HVPS.
+ * Base class for SPEC optical array probe processing.
  */
 class TwoD_Processing
 {
 
 public:
-    TwoD_Processing();
+    TwoD_Processing(std::string name, size_t nDiodes, DSMSensor *sensor);
     virtual ~TwoD_Processing();
+
+    void init();
+    void init_parameters();
 
     /**
      * Number of diodes in the probe array.  This is also the bits-per-slice
-     * value.  Traditional 2D probes have 32 diodes, the HVPS has 128 and
-     * the Fast2DC has 64.
+     * value.  Traditional 2D probes have 32 diodes, the SPEC probes have 128,
+     * and the Fast2DC has 64.
      * @returns the number of bits per data slice.
      */
-    virtual int NumberOfDiodes() const = 0;
+    virtual int NumberOfDiodes() const { return _nDiodes; }
 
     /**
      * The probe resolution in meters.  Probe resolution is also the diameter
-     * of the each diode.  Typical values are 25 for the 2DC and 200
-     * micrometers for the 2DP.
+     * of the each diode.
      * @returns The probe resolution in meters.
      */
     float getResolution() const { return _resolutionMeters; }
@@ -65,13 +66,13 @@ public:
     /**
      * The probe resolution in micrometers.  Probe resolution is also the diameter
      * of the each diode.  Typical values are 25 for the 2DC and 200
-     * micrometers for the 2DP.
+     * micrometers for the 2DP.  Ten um for SPEC 2DS and 150 for SPEC HVPS.
      * @returns The probe resolution in micrometers.
      */
     unsigned int getResolutionMicron() const { return _resolutionMicron; }
 
 
-protected:
+//protected:
     class Particle
     {
     public:
@@ -102,21 +103,28 @@ protected:
         bool dofReject;
     } ;
 
+    /// Probe name
+    std::string _name;
+
+    size_t _nDiodes;
+
+    /// Parent sensor
+    DSMSensor *_sensor;
+
     /**
      * Process a slice and update the Particle struct area, edgeTouch, width
      * and height.
-     * @param p is particle info class.
      * @param slice is a pointer to the start of the slice, in big-endian and
      * uncomplemented.
      */
-    virtual void processParticleSlice(Particle& p, const unsigned char * slice);
+    virtual void processParticleSlice(const unsigned char * slice);
 
     /**
      * Look at particle stats/info and decide whether to accept or reject.
      * @param p is the particle information.
      * @param resolutionUsec is the current probe clocking rate.
      */
-    virtual void countParticle(const Particle& p, float resolutionUsec);
+    virtual void countParticle(float resolutionUsec);
 
 //@{
     /**
@@ -140,7 +148,7 @@ protected:
     virtual void createSamples(dsm_time_t nextTimeTag,std::list<const Sample *>&results) throw();
 
     /**
-     * Clear size_dist arrays.
+     * Clear counts arrays.
      */
     virtual void clearData();
 //@}
@@ -173,8 +181,8 @@ protected:
     /**
      * Arrays for size-distribution histograms.
      */
-    unsigned int * _size_dist_1D;
-    unsigned int * _size_dist_2D;
+    unsigned int * _counts_1D;
+    unsigned int * _counts_2D;
 
     /**
      * Amount of time probe was inactive or amount of time consumed by rejected
