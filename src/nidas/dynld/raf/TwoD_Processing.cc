@@ -154,9 +154,12 @@ void TwoD_Processing::createSamples(dsm_time_t nextTimeTag,list < const Sample *
         for (int i = 1; i < NumberOfDiodes(); ++i)
             *dout++ = (float)_counts_1D[i];
 
+        // with zeroth bin removal, we need to add a zero to the end to pad out to 64 or 128.
+        *dout++ = 0;
+
         *dout++ = _dead_time / 1000;      // Dead Time, return milliseconds.
         if (_nextraValues > 1)
-            *dout++ = _recordsPerSecond;
+            *dout++ = (float)_recordsPerSecond;
 
         if (_nextraValues > 2)
             *dout++ = (float)_totalPixelsShadowed * std::pow(1.0e-3 * _resolutionMicron, 2.0);
