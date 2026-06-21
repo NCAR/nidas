@@ -41,6 +41,7 @@
 #include <sys/timepps.h>
 #endif
 #include <linux/tty.h>
+#include <sys/ioctl.h>
 
 #include <vector>
 #include <list>

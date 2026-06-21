@@ -18,6 +18,18 @@ known as [buster].
 
 ## [master] - Unreleased on master branch
 
+## [1.2.7] - 2026-06-10
+
+- The `CSI_IRGA_Sonic` sensor class now extracts the sequence counter from
+  EC150 binary message.  The `Tirga_src` and `Tirga_det` variables have not
+  existed in the message for a long time, so if those variables are requested
+  in the sensor config, then they will be filled with `NaN`.  (Before this,
+  `Tirga_src` was always garbage, because it was extracted as a float from the
+  integer counter field, and `Tirga_det` was always `NaN` because there were
+  not 15 fields in the record.)  Sensor configs should remove `Tirga_src` and
+  `Tirga_det`. If the counter is desired, then it should be added as the 14th
+  variable.
+
 - Fix `data_stats` so it advances the stats period in real-time mode if the
   sample times or system time advance beyond the current period.  This fixes a
   bug where the stats period could be set on a DSM before the system time was
@@ -327,6 +339,7 @@ This branch includes all the changes done on the branches
 <!-- Versions -->
 [master]: https://github.com/NCAR/nidas
 [buster]: https://github.com/NCAR/nidas/tree/buster
+[1.2.7]: https://github.com/NCAR/nidas/releases/tag/v1.2.7
 [1.2.6]: https://github.com/NCAR/nidas/releases/tag/v1.2.6
 [1.2.5]: https://github.com/NCAR/nidas/releases/tag/v1.2.5
 [1.2.4]: https://github.com/NCAR/nidas/releases/tag/v1.2.4

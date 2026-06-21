@@ -1,0 +1,61 @@
+<!-- Copyright 2005 UCAR, NCAR, All Rights Reserved -->
+
+<project
+    xmlns="http://www.eol.ucar.edu/nidas"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns:xi="http://www.w3.org/2001/XInclude"
+    name="CentNet"
+    system="ISFF">
+
+    <parameter name="wind3d_horiz_rotation" type="bool" value="$WIND3D_HORIZ_ROTATION"/>
+    <parameter name="wind3d_tilt_correction" type="bool" value="$WIND3D_TILT_CORRECTION"/>
+
+    <sensorcatalog>
+
+        <!-- CSAT3 with IRGA, binary output, with counter variable -->
+        <serialSensor class="isff.CSI_IRGA_Sonic" ID="CSAT3_IRGA_BIN_COUNTER"
+            baud="115200" parity="none" databits="8" stopbits="1">
+            <parameter name="bandwidth" type="float" value="5"/>
+            <!--
+            <parameter type="float" name="shadowFactor" value="$CSAT3_SHADOW_FACTOR"/>
+            -->
+            <calfile path="$PWD/cal_files" file="csatirga.dat"/>
+            <calfile name="abc2uvw" path="$PWD/cal_files" file="csat3_abc2uvw_default.dat"/>
+            <sample id="1">
+                <variable name="u" units="m/s" longname="Wind U component from CSAT3"/>
+                <variable name="v" units="m/s" longname="Wind V component from CSAT3"/>
+                <variable name="w" units="m/s" longname="Wind W component from CSAT3"/>
+                <variable name="tc" units="degC" longname="Virtual air temperature from speed of sound, CSAT3"/>
+                <variable name="diagbits" units=""
+                    longname="CSAT3 diagnostic sum, 1=low sig,2=high sig,4=no lock,8=path diff,16=skipped samp"/>
+                <variable name="co2" units="mg/m^3" longname="CO2 density from CSI IRGA">
+                    <linear units="g/m^3" slope="0.001" intercept="0.0"/>
+                </variable>
+                <variable name="h2o" units="g/m^3" longname="Water vapor density from CSI IRGA"/>
+                <variable name="irgadiag" units="" longname="CSI IRGA diagnostic"/>
+                <variable name="Tirga" units="degC" longname="CSI IRGA temperature"/>
+                <variable name="Pirga" units="kPa" longname="CSI IRGA pressure">
+                    <linear units="mb" slope="10.0" intercept="0.0"/>
+                </variable>
+                <variable name="SSco2" units="" longname="CSI IRGA CO2 signal strength"/>
+                <variable name="SSh2o" units="" longname="CSI IRGA H2O signal strength"/>
+                <variable name="dPirga" units="mb" longname="CSI IRGA differential pressure"/>
+                <variable name="counter" units="" longname="CSI IRGA record counter, lowest 24 bits"/>
+                <!-- derived variables ldiag, spd, dir should be at the end of the sample -->
+                <variable name="ldiag" units="" longname="CSAT3 logical diagnostic, 0=OK, 1=(diagbits!=0)"/>
+                <variable name="spd" units="m/s" longname="CSAT3 horizontal wind speed"/>
+                <variable name="dir" units="deg" longname="CSAT3 wind direction"/>
+            </sample>
+            <message separator="\x55\xaa" position="end" length="58"/>
+        </serialSensor>
+
+    </sensorcatalog>
+
+    <site name="test" class="isff.GroundStation">
+        <dsm rserialPort="30002" name="test-dsm2" id="1">
+            <serialSensor IDREF="CSAT3_IRGA_BIN_COUNTER" suffix=".csi_irga"
+                devicename="/dev/ttyS1" id="40">
+            </serialSensor>
+        </dsm>
+    </site>
+</project>
