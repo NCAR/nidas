@@ -38,6 +38,11 @@ pipeline {
             }
           }
           stages {
+            stage('Update submodules') {
+              steps {
+                sh 'git submodule update --init --recursive'
+              }
+            }
             stage('Compile and test') {
               steps {
                 sh './jenkins.sh test'
@@ -74,6 +79,11 @@ pipeline {
             }
           }
           stages {
+            stage('Update submodules') {
+              steps {
+                sh 'git submodule update --init --recursive'
+              }
+            }
             stage('Compile and test') {
               steps {
                 sh './jenkins.sh test'
@@ -112,11 +122,11 @@ pipeline {
 
           stages {
 
-//            stage('Compile and test') {
-//              steps {
-//                sh './jenkins.sh test'
-//              }
-//            }
+            stage('Update submodules') {
+              steps {
+                sh 'git submodule update --init --recursive'
+              }
+            }
 
             stage('Build Debian packages') {
               steps {
@@ -134,6 +144,13 @@ pipeline {
             }
           }
           stages {
+
+            stage('Update submodules') {
+              steps {
+                sh 'git submodule update --init --recursive'
+              }
+            }
+
             stage('Compile and test') {
               steps {
                 sh './jenkins.sh test'
