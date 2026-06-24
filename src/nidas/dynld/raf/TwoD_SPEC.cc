@@ -123,7 +123,7 @@ cout << "TwoDS::processImage, slen=" << slen << "\n";
 
     if (startTime == 0) return false;
 
-    const unsigned char * eod = cp + slen;
+//    const unsigned char * eod = cp + slen;
     long long firstTimeWord = 0;
 
     // Restore any saved buffer from previous call.
