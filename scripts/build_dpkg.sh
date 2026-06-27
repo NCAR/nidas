@@ -160,7 +160,7 @@ pkgs=($(awk '/Checksums-Sha1/,/Checksums-Sha256/ { if (NF > 2) print $3 }' $chng
 # Dispatch the packages unless neither -d nor -i were specified.
 if [ -n "$dest" ]; then
     echo "moving results to $dest"
-    (set -x; mv -f nidas_*_$arch.build nidas_*.dsc nidas_*.tar.xz nidas*_all.deb nidas*_$arch.deb $chngs $dest)
+    (set -x; mv -f nidas_*_$arch.build nidas_*.dsc nidas_*.tar.xz nidas*_$arch.deb $chngs $dest)
 else
     echo "build results are in $PWD"
 fi
