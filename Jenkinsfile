@@ -130,8 +130,13 @@ pipeline {
 
             stage('Build Debian packages') {
               steps {
-//                sh 'scripts/build_dpkg.sh -I bionic i386'
-                sh 'src/nidas/scripts/start_podman bionic /root/current/scripts/build_dpkg.sh -I bionic i386'
+                sh './jenkins.sh build_bionic'
+              }
+            }
+
+            stage('Upload Debian packages to EOL repository') {
+              steps {
+                sh './jenkins.sh upload_bionic'
               }
             }
           }

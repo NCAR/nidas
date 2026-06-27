@@ -57,12 +57,14 @@ build_rpms()
 }
 
 
-# [RpmSignPlugin] - Starting signing RPMs ...
-# [nc-server-rhel7] $ gpg --fingerprint eol-prog@eol.ucar.edu
-# pub   2048R/3376B2DC 2014-08-29
-#       Key fingerprint = 80C3 C53F 0D89 4192 CF7B  77A5 DE26 CBC0 3376 B2DC
-# uid                  NCAR EOL Software <eol-prog@eol.ucar.edu>
-# sub   2048R/1857091F 2014-08-29
+PKGDIR_BIONIC='src/build/packages-bionic-i386'
+
+build_bionic()
+{
+    rm -rf ${PKGDIR_BIONIC}
+    mkdir -p ${PKGDIR_BIONIC}
+    src/nidas/scripts/start_podman bionic /root/current/scripts/build_dpkg.sh -d /root/current/${PKGDIR_BIONIC} i386
+}
 
 
 # $1 is list of packages to refresh
@@ -120,11 +122,19 @@ case "$method" in
         update_local_packages `cat src/rpms.txt`
         ;;
 
+    build_bionic)
+        build_bionic "$@"
+        ;;
+
+    upload_bionic)
+        $HOME/eol-repo/scripts/upload_packages.sh codename=bionic upload ${PKGDIR_BIONIC}
+        ;;
+
     *)
         if [ "$method" != "help" ]; then
-            echo Unknown command "$1".
+            echo Unknown command "$method".
         fi
-        echo Available commands: build_rpms, sign_rpms, push_rpms, update_rpms.
+        echo Available commands: build_rpms, sign_rpms, push_rpms, update_rpms, build_bionic, upload_bionic.
         exit 1
         ;;
 
