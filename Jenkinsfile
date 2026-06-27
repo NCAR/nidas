@@ -122,4 +122,16 @@ pipeline {
       } // parallel
     } // build for raspberry pi
   } // stages
+
+  post {
+    changed
+    {
+      emailext from: "granger@ucar.edu",
+        to: "granger@ucar.edu",
+        recipientProviders: [developers(), requestor()],
+        subject: "Jenkins build ${env.JOB_NAME}: ${currentBuild.currentResult}",
+        body: "Job ${env.JOB_NAME}: ${currentBuild.currentResult}\n${env.BUILD_URL}"
+    }
+  }
+
 } // pipeline
