@@ -44,7 +44,7 @@ pipeline {
           agent {
             node {
               label CONTAINER_LABEL
-              customWorkspace "${env.JOB_BASE_NAME}-bookworm"
+              customWorkspace "workspace/${env.JOB_BASE_NAME}-bookworm"
             }
           }
           stages {
@@ -88,7 +88,7 @@ pipeline {
           agent {
             node {
               label CONTAINER_LABEL
-              customWorkspace "${env.JOB_BASE_NAME}-trixie"
+              customWorkspace "workspace/${env.JOB_BASE_NAME}-trixie"
             }
           }
           stages {
