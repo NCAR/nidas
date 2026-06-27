@@ -6,6 +6,16 @@
 // custom workspace so the build artifacts, especially package files, cannot
 // interfere with each other.
 
+// The Jenkins job configuration uses SCM polling to trigger builds on new
+// revisions, using a GitHub URL and branch set in the config. Since each
+// parallel container build needs a separate workspace, it makes sense that
+// separate checkouts are needed in this pipeline, but I've never tried
+// without them. The 'checkout scm' steps ensure that the same URL and branch
+// are checked out as used by the SCM polling.  If an explicit git URL is used
+// instead, then it must match exactly the polling URL, otherwise Jenkins
+// keeps triggering on the configured URL because no builds have matched it
+// yet.  It seems much safer and more concise to use 'checkout scm' instead.
+
 def CONTAINER_LABEL = 'CentOS8'
 
 pipeline {
@@ -40,8 +50,7 @@ pipeline {
           stages {
             stage('Checkout NCAR Nidas') {
               steps {
-                // Clone NCAR/nidas repository, branch 'buster'
-                git url: 'https://github.com/NCAR/nidas.git', branch: 'buster'
+                checkout scm
               }
             } // stage('Checkout NCAR Nidas')
             stage('Build in bookworm container') {
@@ -85,8 +94,7 @@ pipeline {
           stages {
             stage('Checkout NCAR Nidas') {
               steps {
-                // Clone NCAR/nidas repository, branch 'buster'
-                git url: 'https://github.com/NCAR/nidas.git', branch: 'buster'
+                checkout scm
               }
             } // stage('Checkout NCAR Nidas')
             stage('Build in trixie container') {
