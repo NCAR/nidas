@@ -66,14 +66,9 @@ run_podman.sh [-p] [ armel | armhf | armbe | xenial | bionic ]
 ```
 
 ```plain
-build_dpkg.sh [-c] [-I codename] [-i repo] arch
+build_dpkg.sh arch
     Build debian packages of NIDAS for the specified architecture
-    -c: build package under a chroot.  Not necessary from within docker/podman containers
-    -I codename: install packages to /net/www/docs/software/debian/codename-<codename>
-    -i repo: install debian packages to the given repository
     arch is armel, armhf, amd64 or i386 (vortex)
-    codename is jessie (for armel), bionic (for vortex) or whatever distribution has been enabled
-    /net/www/docs/software/debian
 ```
 
 ## cnidas.sh
@@ -108,7 +103,7 @@ the EOL repository:
 To use the container to build the EOL packages before they are available, pass
 `dolocal=no`:
 
-    ./cnidas.sh vortext build --build-arg=dolocal=no
+    ./cnidas.sh vortex build --build-arg=dolocal=no
 
 The container can also be used to test the `ads-daq` and related packages.
 Clone `embedded-daq` somewhere in the nidas source directory so it will be
@@ -152,23 +147,3 @@ and `root` accounts passwords allows logins to those accounts from the
 only if `setup_users=yes` is passed as a build arg when the image is built:
 
     ./cnidas.sh vortex build --build-arg=setup_users=yes
-
-The `cnidas.sh` script will also mount the EOL Debian repository if it exists
-when running the container, so the container can be used to manage the
-repository.  Below is an example of listing all the packages known to the
-repository.  Note that it must be run as the `jenkins` user to have
-permissions to create a lock file in the repository:
-
-    [jenkins@eol-rosetta scripts]$ ./cnidas.sh vortex run reprepro -V -b /debian/codename-bionic -C main --keepunreferencedfiles list bionic
-    Source tree path: /var/lib/jenkins/workspace/NIDAS
-    Top of nidas source tree: /var/lib/jenkins/workspace/NIDAS
-    + exec podman run --rm -i -t --volume /net/www/docs/software/debian:/debian:rw,Z --volume /var/lib/jenkins/workspace/NIDAS:/nidas:rw,Z --volume /tmp/cnidas/install/vortex:/opt/nidas:rw,Z --volume /tmp/cnidas/packages/vortex:/packages:rw,Z --volume /var/lib/jenkins/workspace/NIDAS/scripts:/nidas/scripts:rw,Z nidas-build-ubuntu-i386:bionic reprepro -V -b /debian/codename-bionic -C main --keepunreferencedfiles list bionic
-    WARNING: image platform (linux/386) does not match the expected platform (linux/amd64)
-    bionic|main|i386: ads-daq 1.0-453
-    bionic|main|i386: ads-daq2 1.0+453
-    bionic|main|i386: ads-vortex 1.0-424
-    ...
-    bionic|main|source: nidas 1.2.3+118
-    bionic|main|source: uio48 1.0+10
-    bionic|main|source: wdt-vortex 1.0+10
-

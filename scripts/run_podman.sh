@@ -31,7 +31,7 @@ usage() {
     # Run shell under Ubuntu bionic
     $0 bionic 
     # Run package build script, non-interactive
-    $0 bionic /root/nidas/scripts/build_dpkg.sh -I bionic i386
+    $0 bionic /root/nidas/scripts/build_dpkg.sh i386
     "
 
     exit 1
@@ -41,7 +41,6 @@ dopull=false
 grpopt="--group-add=keep-groups"
 dockerns=ncar   # namespace on docker.io
 cmd=/bin/bash
-gpgsockbind=true
 
 # interactive options for podman run:
 # -i: interactive, keep stdin open
@@ -54,13 +53,11 @@ while [ $# -gt 0 ]; do
 case $1 in
     armel | viper | titan)
         image=$dockerns/nidas-build-debian-armel:jessie_v2
-        gpgsockbind=false
         shift
         break
         ;;
     armhf | rpi2)
         image=$dockerns/nidas-build-debian-armhf:jessie_v2
-        gpgsockbind=false
         shift
         break
         ;;
@@ -152,77 +149,11 @@ daqdir=$PWD/../embedded-daq
 ncsdir=$PWD/../nc-server
 [ -d $ncsdir ] && ncsvol="--volume $ncsdir:$destmnt/${ncsdir##*/}:rw$zopt"
 
-# check for EOL Debian repo
-repo=/net/www/docs/software/debian
-[ -d $repo ] && repovol="--volume $repo:$repo:rw$zopt"
-
-#####################################################################
-# For info on using gpg-agent for signing from containers, see:
-# https://wiki.ucar.edu/display/SEW/FrontPage
-# https://wiki.ucar.edu/pages/viewpage.action?pageId=458588376
-#####################################################################
-
-# If local user has a .gnupg, mount it in the container
-gnupg=$(eval realpath ~)/.gnupg
-[ -d $gnupg ] && gpgvol="--volume $gnupg:$destmnt/${gnupg##*/}:rw$zopt"
-
-# Get location of gpg-agent socket on the host:
-hostsock=$(gpgconf --list-dirs agent-socket)
-# For RedHat servers it is:
-#   /run/user/<uid>/gnupg/S.gpg-agent
-# It may be the same on Debian servers.  But in containers, perhaps
-# because /run is a tmpfs and /run/user/<uid> doesn't exist in the container
-# the socket is on the $HOME directory, for both RedHat and Debian:
-#   $HOME/.gnupg/S.gpg-agent
-
-# start gpg-agent on the host if the socket doesn't exist
-[ -S $hostsock ] || gpg-connect-agent /bye
-
-# Detect version mismatch between gpg2/reprepro
-# in the container and gpg-agent on the host.
-# If running gpg2 2.1 and later in the container it can talk to
-# gpg-agent on the host if it is also version 2.1 and later.
-# A version mismatch results in:
-#     gpg: WARNING: server 'gpg-agent' is older than us (2.0.22 < 2.1.11)
-# It is likely that all gpg2 on hosts is at least version 2.1 so
-# this check is not necessary.
-gpgver=$(gpg2 --version | head -n 1 | awk '{print $NF}')
-if [[ $gpgver == 2.0* ]]; then
-    echo "Shutting down gpg-agent on the host"
-    echo killagent | gpg-connect-agent
-fi
-
-# gpg2 v2.0 in the container (e.g. Debian jessie) does not seem to
-# be forward # compatible with v2.1 on the host, one will always
-# have to enter the passphrase in the container.
-
-contsock=.gnupg/S.gpg-agent
-
-# Request a bind mount of the host socket to the container socket
-gpgsock=
-if $gpgsockbind; then
-    if [ "$hostsock" != "$HOME/$contsock" ]; then
-        gpgsock="--volume $hostsock:$destmnt/$contsock:rw$zopt"
-        rm -f $HOME/$contsock
-    fi
-else
-    # Remove unused $HOME/.gnupg/S.gpg-agent, may be
-    # old versions of gpg2 v2.0
-    [ "$hostsock" != "$HOME/$contsock" ] && rm -f $HOME/$contsock
-fi
-
 echo "Volumes will be mounted to $destmnt in the container"
-
-# Every keystroke is logged to systemd on the host!!!!!
-# Set --log-driver=none to suppress this
-logopts=--log-driver=none
 
 # --rm: remove container when it exits
 
 set -x
 
-exec podman run $interops --rm $logopts $useropt $grpopt \
-    $nidasvol $repovol $embvol $daqvol \
-    $cmig3vol $esconsvol $ncsvol $gpgvol $gpgsock \
-    $image $cmd
-
+exec podman run $interops --rm $useropt $grpopt \
+    $nidasvol $embvol $daqvol $cmig3vol $esconsvol $ncsvol $image $cmd

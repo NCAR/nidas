@@ -9,8 +9,9 @@ LABEL organization="NCAR EOL"
 # Copy to system with docker installed, e.g. steam, start a container.
 # Note that the container could be an earlier version (e.g. xenial) of ubuntu.
 # nidas/scripts/run_docker.sh vortex
-# From within the container
-# reprepro -b /net/www/docs/software/debian/codename-bionic includedeb bionic linux-headers-4.15.18-vortex86dx3_i386.deb
+#
+# $HOME/eol-repo/scripts/upload_packages.sh codename=bionic upload linux-headers-4.15.18-vortex86dx3_i386.deb
+#
 # old header package:  linux-headers-4.4.6
 
 # kmod provides modinfo command for querying modules
@@ -18,7 +19,7 @@ LABEL organization="NCAR EOL"
 RUN apt-get update && \
     apt-get install -y --no-install-recommends apt-utils vim curl \
     build-essential fakeroot libncurses-dev bc dh-make ca-certificates \
-    git ssh systemd scons doxygen graphviz gnupg2 reprepro flex gawk \
+    git ssh systemd scons doxygen graphviz flex gawk \
     devscripts lintian pkg-config libbz2-dev libgsl23 libgsl-dev \
     libcap-dev libcap2-bin libxerces-c-dev libbluetooth-dev libnetcdf-dev \
     libxmlrpcpp-dev libjsoncpp-dev xmlto libxerces-c-dev kmod rsync quilt \

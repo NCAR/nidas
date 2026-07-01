@@ -44,7 +44,7 @@ RUN apt-get update && apt-get -y --no-install-recommends --allow-unauthenticated
 # RUN apt-get -y --no-install-recommends --allow-unauthenticated install libftdi-dev:${hostarch}
 
 # 12/3/22: As with wget above, add :amd64 to the package name for rsync
-RUN apt-get update && apt-get -y install --no-install-recommends --allow-unauthenticated reprepro xmlto rsync:amd64 lintian
+RUN apt-get update && apt-get -y install --no-install-recommends --allow-unauthenticated xmlto rsync:amd64 lintian
 
 # ENV CROSS_ARCH=$hostarch
 

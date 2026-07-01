@@ -22,8 +22,9 @@ RUN apt-get -y update && \
     flex libfl-dev gawk devscripts pkg-config libbz2-dev:${hostarch} \
     libgsl0-dev:${hostarch} libcap-dev:${hostarch} \
     libxerces-c-dev:${hostarch} libbluetooth-dev:${hostarch} \
-    libnetcdf-dev:${hostarch} reprepro \
-    libjsoncpp-dev:${hostarch} lsb-release \
+    libnetcdf-dev:${hostarch} \
+    libjsoncpp-dev:${hostarch} \
+    lsb-release \
     xsltproc docbook-xsl \
     libxml2-dev \
     libi2c-dev \

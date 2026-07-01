@@ -4,7 +4,7 @@
 
 # TOPDIR is the path to the top of the rpmbuild output tree.  We have to set
 # it here so that each step uses the same value.  Packages are written there
-# after being built, then signed, then pushed to the EOL package repository.
+# after being built, then uploaded to the EOL package repository.
 
 # If the Jenkins WORKSPACE environment variable is set, then use it to set
 # TOPDIR.  Otherwise use the default that build_rpm.sh would use.
@@ -13,17 +13,8 @@ if [ -n "$WORKSPACE" ]; then
 fi
 export TOPDIR=${TOPDIR:-$(rpmbuild --eval %_topdir)_$(hostname)}
 
-# In EOL Jenkins, these are global properties set in Manage Jenkins ->
-# Configure System.  Provide defaults here to test outside of Jenkins.
-DEBIAN_REPOSITORY="${DEBIAN_REPOSITORY:-/net/www/docs/software/debian}"
-YUM_REPOSITORY="${YUM_REPOSITORY:-/net/www/docs/software/rpms}"
-export DEBIAN_REPOSITORY YUM_REPOSITORY
-export GPGKEY="NCAR EOL Software <eol-prog2@eol.ucar.edu>"
-
 echo WORKSPACE=$WORKSPACE
 echo TOPDIR=$TOPDIR
-echo DEBIAN_REPOSITORY=$DEBIAN_REPOSITORY
-echo YUM_REPOSITORY=$YUM_REPOSITORY
 
 
 compile()
@@ -134,7 +125,7 @@ case "$method" in
         if [ "$method" != "help" ]; then
             echo Unknown command "$method".
         fi
-        echo Available commands: build_rpms, sign_rpms, push_rpms, update_rpms, build_bionic, upload_bionic.
+        echo Available commands: build_rpms, push_rpms, update_rpms, build_bionic, upload_bionic.
         exit 1
         ;;
 

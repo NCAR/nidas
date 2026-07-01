@@ -6,10 +6,9 @@ set -e
 
 usage() {
     cat <<EOF
-Usage: ${1##*/} [-i repository ] [ -I codename ] arch
+Usage: ${1##*/} [options] arch
 -b: just build binary, not source (faster)
 -f: faster, i.e. don't do scons --config=force
--i repo: install packages with reprepro to repo
 -n: don't clean source tree, passing -nc to dpkg-buildpackage, implies -b
 -d: move the final packages in the given directory
 arch is armel, armhf, amd64 or i386
@@ -40,10 +39,6 @@ args="--prepend-path=/usr/local/bin:/root/.pyenv/shims:/root/.pyenv/bin"
 
 while [ $# -gt 0 ]; do
     case $1 in
-    -i)
-        shift
-        repo=$1
-        ;;
     -b)
         binary=true
         ;;

@@ -67,7 +67,7 @@
 usage()
 {
     cat <<EOF
-Usage: $0 [options] <alias> {list|build|clone|run|scons|package|push}
+Usage: $0 [options] <alias> {list|build|clone|run|scons|package}
 
 Options:
   --source <path>
@@ -111,10 +111,6 @@ that source:
     Run the script which builds packages for the alias, and copy the
     packages into <work>/packages/<alias>.
 
-  push
-    Push packages to the cloud for alias from the given path.  The
-    packages must be in <work>/packages/<alias>.
-
 If --tag is given, it can be HEAD, tag, branch, or any git commit.
 That commit of the target source is first shallow cloned before
 continuing with the build.
@@ -125,8 +121,8 @@ Packages: <work>/packages/<alias>
 Clones: <work>/clones/nidas-<tag>
 
 The packages path is mounted in the container at path /nidas/packages.
-Packages will be moved there after being built, or else will be pushed
-from there.  The work path by default is /tmp/cnidas.
+Packages will be moved there after being built.
+The work path by default is /tmp/cnidas.
 
 If no tag is given, then no clone is performed and the compile (and
 possibly package build) happens inside the source tree.  If no source
@@ -292,13 +288,7 @@ run_image() # command...
     if [ -z "$1" ]; then
         set /bin/bash
     fi
-    # If the repository is available on this host, then mount that
-    # too.
-    DEBIAN_REPOSITORY=/net/www/docs/software/debian
     mounts=""
-    if [ -d $DEBIAN_REPOSITORY ]; then
-        mounts="$mounts --volume ${DEBIAN_REPOSITORY}:/debian:rw,Z"
-    fi
     if [ -d "$HOME/.scons" ]; then
         mounts="$mounts --volume $HOME/.scons:/root/.scons:rw,Z"
     fi
@@ -343,50 +333,6 @@ build_packages()
     esac
 }
 
-
-# Push packages to the cloud for the given alias located in the given
-# path.  Explicitly avoid uploading dbgsym packages.
-
-push_packages() # path
-{
-    # list the specific package files that need to be uploaded, ie, not
-    # debug symbols
-    path="$1"
-    if [ -z "$path" ]; then
-        echo "push <path>"
-        exit 1
-    fi
-    packages=`ls "$path"/*.deb | grep -E -v dbgsym`
-    echo $packages
-    case "$alias" in
-        pi3)
-            repo="ncareol/isfs-testing/raspbian/buster"
-            (set -x
-            package_cloud push $repo $packages)
-            ;;
-        pi2)
-            # This code runs in the debian container with the repo and
-            # packages mounted.
-            codename=$(source /etc/os-release ; echo "$VERSION" | sed -e 's/.*(//' -e 's/).*//')
-            repo=/debian
-            arch=armhf
-            tmplog=$(mktemp)
-            trap "{ rm -f $tmplog; }" EXIT
-            status=0
-            set -x
-            flock $repo sh -c "reprepro -V -b $repo -C main -A $arch --keepunreferencedfiles includedeb $codename $packages" 2> $tmplog || status=$?
-            set +x
-            if [ $status -ne 0 ]; then
-                cat $tmplog
-            if grep -E -q "(can only be included again, if they are the same)|(is already registered with different checksums)" $tmplog; then
-                echo "One or more package versions are already present in the repository. Continuing"
-            else
-                exit $status
-            fi
-            fi
-            ;;
-    esac
-}
 
 # We don't need shallow clone since git automatically optimizes local
 # clones with hard links to repo object files, and that way the cloned repo
@@ -435,7 +381,7 @@ clone_local() # tag source dest
 
 # To build armhf jessie packages:
 #
-# scripts/build_dpkg.sh -c -s -i $DEBIAN_REPOSITORY armhf
+# scripts/build_dpkg.sh -c -s armhf
 
 # Seems like debuild has to clean up the source tree first to tar
 # everything up, where it makes more sense to me to clone the git repo into
@@ -476,7 +422,7 @@ while [ $# -gt 0 ]; do
             break
             ;;
 
-        build|run|scons|package|clone|push)
+        build|run|scons|package|clone)
             if [ -z "$alias" ]; then
             echo "Alias is required for $1."
             exit 1
@@ -549,11 +495,6 @@ case "$1" in
     clone)
         shift
         clone_local "$tag" "$source" "$workpath/clones/nidas-$tag"
-        ;;
-
-    push)
-        shift
-        push_packages "$@"
         ;;
 
     *)
