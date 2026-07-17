@@ -166,6 +166,8 @@ cout << "TwoDS::processImage, slen=" << slen << "\n";
             if (nImgWords == 0 || nImgWords > 950) // seems runaway @ 960ish
                 reject = true;
 
+if ((wp[j+1] & 0x0FFF) == 0) reject = true;  // Horizontal only at this time.
+
             // I am choosing not to deal with multi-packet particles.  If you do, then
             // make sure to understand that only the last packet has a timing word.
             if (_compressedParticle[_spec->ID] == _prevParticleID || _spec->_multiPacketParticle)
