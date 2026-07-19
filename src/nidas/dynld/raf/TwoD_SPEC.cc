@@ -75,7 +75,7 @@ void TwoD_SPEC::init()
     _processor = new TwoD_Processing(_name, NumberOfDiodes(), this);
     _processor->init();
 
-    _spec = new SpecDecompress(_timingWordSize, true);
+    _spec = new SpecDecompress(_timingWordSize, false);
     _compressedParticle = new uint16_t[1024];
     _uncompressedParticle = new uint8_t[8192];
 }
@@ -128,7 +128,7 @@ cout << "TwoDS::processImage, slen=" << slen << "\n";
 
     // Restore any saved buffer from previous call.
 // Since we don't have all the data from the probe, we can't wrap around
-// buffers treat each buffer as standalone
+// buffers, treat each buffer as standalone
 //    _processor->setupBuffer(&cp, &eod);
 
 
