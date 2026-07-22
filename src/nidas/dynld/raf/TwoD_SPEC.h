@@ -71,16 +71,15 @@ public:
 
     /**
      * Number of diodes in the probe array.  This is also the bits-per-slice
-     * value.  Traditional PMS 2D probes have 32 diodes, the SPEC probes have
-     * 128, and the NCAR Fast2DC has 64.
+     * value.  SPEC probes have 128 diodes.
      * @returns the number of bits per data slice.
      */
     virtual int NumberOfDiodes() const { return 128; }
 
     /**
      * The probe resolution in micrometers.  Probe resolution is also the diameter
-     * of the each diode.  Typical values are 25 for the 2DC and 200
-     * micrometers for the 2DP.
+     * of the each diode.  Typical values are 10 for the 2DS and 150
+     * micrometers for the HVPS.
      * @returns The probe resolution in micrometers.
      */
     unsigned int getResolutionMicron() const { return _processor->getResolutionMicron(); }
@@ -116,7 +115,10 @@ protected:
 
     unsigned long long _timingWordMask;
 
-    /// This used for arithmetic.  Type32 is 2 words, Type48 is 3 words.
+    /// probe timingword frequency = probe_um / (1.06 * tas)
+    double _freq;
+
+    /// This is used for arithmetic.  Type32 is 2 words, Type48 is 3 words.
     int _timingWordSize;
 
 //@{
