@@ -53,7 +53,8 @@ const unsigned char TwoD_SPEC::_blankString[] =
 TwoD_SPEC::TwoD_SPEC(std::string name)
     : _name(name), _processor(0), _spec(0),
       _compressedParticle(0), _uncompressedParticle(0),
-      _prevParticleID(0), _timingWordMask(0x00000000ffffffffULL), _timingWordSize(2)
+      _prevParticleID(0), _timingWordMask(0x00000000ffffffffULL),
+      _freq(0), _timingWordSize(2)
 {
 
 }
