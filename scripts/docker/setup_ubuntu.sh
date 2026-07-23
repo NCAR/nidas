@@ -12,7 +12,7 @@ apt-get install -y --no-install-recommends \
     flex libfl-dev gawk devscripts pkg-config \
     libbz2-dev libgsl-dev libgslcblas0 libcap-dev \
     libxerces-c-dev libbluetooth-dev libnetcdf-dev \
-    rsync quilt lsb-release reprepro libjsoncpp-dev libxmlrpcpp-dev
+    rsync quilt lsb-release libjsoncpp-dev libxmlrpcpp-dev
 
 # net-tools is for netstat, used in tests, also valgrind
 apt-get install -y --no-install-recommends \
