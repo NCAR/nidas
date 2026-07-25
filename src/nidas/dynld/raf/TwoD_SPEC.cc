@@ -76,9 +76,14 @@ void TwoD_SPEC::init()
     _processor = new TwoD_Processing(_name, NumberOfDiodes(), this);
     _processor->init();
 
+    float tas = 200.0;  // Hack for now, since we have no access to a TAS.
+    _freq = (double)getResolutionMicron() / tas;    // In microseconds.
+
     _spec = new SpecDecompress(_timingWordSize, false);
     _compressedParticle = new uint16_t[1024];
-    _uncompressedParticle = new uint8_t[8192];
+
+    // 564 is the largest number of slices I've seen.  575 * 16 = 9200
+    _uncompressedParticle = new uint8_t[9200];
 }
 
 
@@ -125,7 +130,7 @@ cout << "TwoDS::processImage, slen=" << slen << "\n";
     if (startTime == 0) return false;
 
 //    const unsigned char * eod = cp + slen;
-    long long firstTimeWord = 0;
+    dsm_time_t firstTimeWord = 0;
 
     // Restore any saved buffer from previous call.
 // Since we don't have all the data from the probe, we can't wrap around
@@ -213,20 +218,33 @@ if ((wp[j+1] & 0x0FFF) == 0) reject = true;  // Horizontal only at this time.
             }
 
             // Get time
-            unsigned long long thisTimeWord = 0;
+            dsm_time_t thisTimeWord = 0;
             memcpy(&thisTimeWord, &_compressedParticle[5 + nImgWords - _timingWordSize], _timingWordSize*2);
             thisTimeWord &= _timingWordMask;
 //                        (bigEndian->int64Value(cp) & _timeWordMask) /_probeClockRate;
-// @TODO  equivelant of probe clock rate???
-//   freq = probe.resolution / (1.0e6 * tas);
-
 
             if (firstTimeWord == 0)
                 firstTimeWord = thisTimeWord;
 
             // Record time tag minus approx microseconds since start of record.
-            long long thisParticleTime = startTime + (thisTimeWord - firstTimeWord);
+            double diffTimeLine = 0.0;
 
+            if (firstTimeWord <= thisTimeWord)
+            {
+              diffTimeLine = (double)(thisTimeWord - firstTimeWord) * _freq;
+            }
+            else
+            {
+              ELOG( ("TwoD_SPEC: thisTimeWord < firstTime; negative diff, tWord rollover?") );
+              ELOG( ("  thisTimeLine = ") << thisTimeWord << ", firstTimeWord = " << firstTimeWord
+                     << "  diff = " << (thisTimeWord - firstTimeWord) );
+            }
+/*
+cout << "firstTimeLine = " << firstTimeWord << ", thisTimeWord = " << thisTimeWord << "\n";
+cout << "  diff = " << thisTimeWord - firstTimeWord << " - " << diffTimeLine << "\n";
+cout << "  diff TimeLine = " << diffTimeLine << " - " << (dsm_time_t)diffTimeLine << "\n";
+*/
+            dsm_time_t thisParticleTime = startTime + (dsm_time_t)diffTimeLine;
 
             _processor->countParticle(0);
             _processor->createSamples(thisParticleTime, results);
