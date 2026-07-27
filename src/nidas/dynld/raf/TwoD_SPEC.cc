@@ -82,7 +82,7 @@ void TwoD_SPEC::init()
     _spec = new SpecDecompress(_timingWordSize, false);
     _compressedParticle = new uint16_t[1024];
 
-    // 1024 slices time 16 bytes per slice.
+    // 1024 slices times 16 bytes per slice.
     _uncompressedParticle = new uint8_t[1024*16];
 }
 
@@ -211,7 +211,7 @@ if ((wp[j+1] & 0x0FFF) == 0) reject = true;  // Horizontal only at this time.
             // Error in particle
             if (nSlices == 0)
                 continue;
-if (nSlices > 575) cout << _name << "- nSlices = " << nSlices << "  !!!n";
+if (nSlices > 575) cout << _name << "- nSlices = " << nSlices << "  !!!\n";
             // if no sync/timing word, then we are dropping multi-packet image.
             // This is where to fix it, buffer them up
             if (memcmp((void *)&_uncompressedParticle[nSlices*16+8], &_syncString, 4))
