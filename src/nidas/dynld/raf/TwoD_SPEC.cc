@@ -82,8 +82,8 @@ void TwoD_SPEC::init()
     _spec = new SpecDecompress(_timingWordSize, false);
     _compressedParticle = new uint16_t[1024];
 
-    // 564 is the largest number of slices I've seen.  575 * 16 = 9200
-    _uncompressedParticle = new uint8_t[9200];
+    // 1024 slices time 16 bytes per slice.
+    _uncompressedParticle = new uint8_t[1024*16];
 }
 
 
@@ -120,7 +120,7 @@ bool TwoD_SPEC::processImageRecord(const Sample * samp, list < const Sample * >&
 
     // slen is coming in as 4098 bytes for image buffer, no timestamp or cksum.
     unsigned slen = samp->getDataByteLength();
-cout << "TwoDS::processImage, slen=" << slen << "\n";
+cout << _name << "::processImage, slen=" << slen << "\n";
 
 
     // Use DSM time tags, since we don't have probe timestamps.
@@ -164,6 +164,9 @@ cout << "TwoDS::processImage, slen=" << slen << "\n";
             std::cout << " start of particle, j=" << j << " NH/NV=" << wp[j+1] << ", "
                     << wp[j+2] << std::endl;
 
+            // Do not process multi-packet images.
+            if (wp[j+1] & 0x1000 || wp[j+2] & 0x1000) break;
+
             memcpy(_compressedParticle, &wp[j], 5 * sizeof(uint16_t));
             j += 5;
             nImgWords = _spec->extractNimageWords(_compressedParticle); // get number of image words to copy
@@ -171,6 +174,9 @@ cout << "TwoDS::processImage, slen=" << slen << "\n";
             bool reject = false;
             if (nImgWords == 0 || nImgWords > 950) // seems runaway @ 960ish
                 reject = true;
+
+            // Skip particles where FIFO goes into overload
+            if (wp[j+1] & 0x8000 || wp[j+2] & 0x8000) reject = true;
 
 if ((wp[j+1] & 0x0FFF) == 0) reject = true;  // Horizontal only at this time.
 
@@ -205,7 +211,7 @@ if ((wp[j+1] & 0x0FFF) == 0) reject = true;  // Horizontal only at this time.
             // Error in particle
             if (nSlices == 0)
                 continue;
-
+if (nSlices > 575) cout << _name << "- nSlices = " << nSlices << "  !!!n";
             // if no sync/timing word, then we are dropping multi-packet image.
             // This is where to fix it, buffer them up
             if (memcmp((void *)&_uncompressedParticle[nSlices*16+8], &_syncString, 4))
