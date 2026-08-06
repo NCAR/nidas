@@ -168,7 +168,12 @@ pipeline {
               }
             }
 
-            // skip signing and pushing rpms to EOL repo for now
+            stage('Sign and Push RPM packages to EOL repository') {
+              steps {
+                sh './jenkins.sh push_rpms'
+              }
+            }
+
           }
         }
 
