@@ -582,12 +582,13 @@ Examples:
                "floating point seconds (optional)", "5.0"),
   PidFile
   ("--pid", "<pidfile>",
-   "Write the PID to <pidfile>, or exit if <pidfile> already exists.\n"
-   "The directory will be created if it does not exist.\n"
-   "The pid file is checked even with the --debug option, to prevent\n"
-   "interference with an already running nidas service. If it is\n"
-   "necessary to start multiple processes, then a unique pid file path\n"
-   "must be set with --pid."),
+   R"(Write the PID to <pidfile>, or exit if <pidfile> already exists.
+The directory will be created if it does not exist.
+The pid file is checked even with the --debug option, to prevent
+interference with an already running nidas service. If it is
+necessary to start multiple processes, then a unique pid file path
+must be set with --pid.  Setting an empty value disables the pid file check.
+)"),
   _appname(name),
   _argv0(),
   _processData(false),
@@ -1851,7 +1852,7 @@ checkPidFile()
   {
     string pidname = PidFile.getValue();
     if (pidname.empty())
-      throw NidasAppException("pidfile cannot be empty");
+      return 0;
     string piddir = n_u::FileSet::getDirPortion(pidname);
     mode_t mask = ::umask(0);
     if (piddir != ".")

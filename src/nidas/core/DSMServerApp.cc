@@ -89,7 +89,7 @@ int DSMServerApp::parseRunstring(int argc, char** argv)
 {
     _app.enableArguments(_app.Help | _app.ConfigsArg |
                          _app.Username | _app.Hostname | _app.DebugDaemon |
-                         _app.DatasetName |
+                         _app.DatasetName | _app.PidFile |
                          ExternalControl | OptionalProcessing |
                          _app.loggingArgs() | _app.Version);
     ArgVector args = _app.parseArgs(argc, argv);

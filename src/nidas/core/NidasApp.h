@@ -1510,17 +1510,17 @@ public:
 
     /**
      * Create a pid file for this process and return 0.  If the pid file
-     * already exists, then return 1.  The path to the PID file is set by
-     * the PidFile NidasAppArg, which defaults to
-     * /tmp/run/nidas/<appname>.pid.  The path can be changed on the
-     * command-line if the PidFile argument has been enabled.  The
-     * directory for the pid file is created if necessary.  Usually an app
-     * calls this method after the setupDaemon() and setupProcess() calls.
-     * This method checks for the pid file even if DebugDaemon is enabled.
-     * Otherwise it is possible to create multiple instances of a nidas
-     * service on a host which interfere with each other.  If it is
-     * necessary to start multiple processes, then the --pid argument must
-     * be used change the pid file path.
+     * already exists, then return 1.  The path to the PID file is set by the
+     * PidFile NidasAppArg, which defaults to /tmp/run/nidas/<appname>.pid.
+     * The path can be changed on the command-line if the PidFile argument has
+     * been enabled.  The directory for the pid file is created if necessary.
+     * Usually an app calls this method after the setupDaemon() and
+     * setupProcess() calls. This method checks for the pid file even if
+     * DebugDaemon is enabled. Otherwise it is possible to create multiple
+     * instances of a nidas service on a host which interfere with each other.
+     * If it is necessary to start multiple processes, then the --pid argument
+     * must be used change the pid file path.  If PidFile is empty, as when
+     * passing --pid "", then a pid file is not checked nor created.
      **/
     int
     checkPidFile();

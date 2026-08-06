@@ -18,6 +18,14 @@ known as [buster].
 
 ## [master] - Unreleased on master branch
 
+- The `--pid` argument to daemon processes `dsm` and `dsm_server` can be set
+  to an empty string, as in `--pid ""`, to disable pid file checks.  This is
+  useful when those processes are running as `systemd` services.  `systemd`
+  can manage multiple services each running a NIDAS daemon and ensure that
+  only one process runs for each service.  Likely the default for `--pid` will
+  eventually be empty, once `systemd` is used in most places to manage NIDAS
+  daemons.  
+
 ## [1.2.7] - 2026-06-10
 
 - The `CSI_IRGA_Sonic` sensor class now extracts the sequence counter from
