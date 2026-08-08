@@ -46,6 +46,7 @@ HVPS::HVPS() : TwoD_SPEC("HVPS")
     // SPEC Data File format Type32 (older).
     _timingWordMask = 0x00000000ffffffffULL;
     _timingWordSize = 2;
+    _timingWordMSWFirst = true;
 }
 
 

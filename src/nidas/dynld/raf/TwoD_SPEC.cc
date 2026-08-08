@@ -54,7 +54,7 @@ TwoD_SPEC::TwoD_SPEC(std::string name)
     : _name(name), _processor(0), _spec(0),
       _compressedParticle(0), _uncompressedParticle(0),
       _prevParticleID(0), _timingWordMask(0x00000000ffffffffULL),
-      _freq(0), _timingWordSize(2)
+      _freq(0), _timingWordSize(2), _timingWordMSWFirst(true)
 {
 
 }
@@ -98,7 +98,7 @@ bool TwoD_SPEC::process(const Sample * samp, list < const Sample * >&results)
 //    const unsigned char* ip = input;
 //    const unsigned char* eoi = input + nbytes;
 
-    DLOG( ("raf.TwoDS: nBytes = ") << nbytes );
+    DLOG( ("") << _name << ": nBytes = " << nbytes );
 
 
     if (!strncmp(input, "SPEC2D,", 7) || !strncmp(input, "SPECHVPS,", 9))
@@ -120,7 +120,7 @@ bool TwoD_SPEC::processImageRecord(const Sample * samp, list < const Sample * >&
 
     // slen is coming in as 4098 bytes for image buffer, no timestamp or cksum.
     unsigned slen = samp->getDataByteLength();
-cout << _name << "::processImage, slen=" << slen << "\n";
+//cout << _name << "::processImage, slen=" << slen << "\n";
 
 
     // Use DSM time tags, since we don't have probe timestamps.
@@ -148,8 +148,8 @@ cout << _name << "::processImage, slen=" << slen << "\n";
         if (wp[j] == _spec->FlushWord)          // NL flush buffer
         {
             // we want to make sure the buffer is discarded, there is no more data
-            DLOG( ("NL flush @ idx = ") << j );
-            cout << "NL flush @ idx = " << j << "\n";
+            DLOG( ("") << _name << ": NL flush @ idx = " << j );
+//            cout << "NL flush @ idx = " << j << "\n";
             _processor->createSamples(samp->getTimeTag(), results);
 
 //            eod = cp;
@@ -161,8 +161,7 @@ cout << _name << "::processImage, slen=" << slen << "\n";
         // Start of particle
         if ( _spec->isParticleSyncWord(&wp[j]) )
         {
-            std::cout << " start of particle, j=" << j << " NH/NV=" << wp[j+1] << ", "
-                    << wp[j+2] << std::endl;
+//            cout << " start of particle, j=" << j << " NH/NV=" << wp[j+1] << ", " << wp[j+2] << endl;
 
             // Do not process multi-packet images.
             if (wp[j+1] & 0x1000 || wp[j+2] & 0x1000) break;
@@ -196,7 +195,7 @@ if ((wp[j+1] & 0x0FFF) == 0) reject = true;  // Horizontal only at this time.
             if (j + nImgWords > 2048)   // Crosses into next buffer
             {
                 // Save off and leave.
-                DLOG( (" short image, j=") << j << ", n=" << nImgWords);
+                DLOG( ("") << _name << ": short image, j=" << j << ", n=" << nImgWords);
                 break;
             }
 
@@ -211,7 +210,7 @@ if ((wp[j+1] & 0x0FFF) == 0) reject = true;  // Horizontal only at this time.
             // Error in particle
             if (nSlices == 0)
                 continue;
-if (nSlices > 575) cout << _name << "- nSlices = " << nSlices << "  !!!\n";
+if (nSlices > 575) WLOG( ("") <<_name << " - nSlices = " << nSlices << "  !!!");
             // if no sync/timing word, then we are dropping multi-packet image.
             // This is where to fix it, buffer them up
             if (memcmp((void *)&_uncompressedParticle[nSlices*16+8], &_syncString, 4))
@@ -223,16 +222,30 @@ if (nSlices > 575) cout << _name << "- nSlices = " << nSlices << "  !!!\n";
                 _processor->processParticleSlice(&_uncompressedParticle[k*16]);
             }
 
-            // Get time
+            // Get time.  Type32 stores the timing word most-significant-word-first;
+            // Type48 stores it least-significant-word-first.
             dsm_time_t thisTimeWord = 0;
-            memcpy(&thisTimeWord, &_compressedParticle[5 + nImgWords - _timingWordSize], _timingWordSize*2);
+            const uint16_t *tw = &_compressedParticle[5 + nImgWords - _timingWordSize];
+            for (int w = 0; w < _timingWordSize; ++w)
+            {
+                int shift = _timingWordMSWFirst ? (_timingWordSize - 1 - w) : w;
+                thisTimeWord |= (dsm_time_t)tw[w] << (16 * shift);
+            }
             thisTimeWord &= _timingWordMask;
-//                        (bigEndian->int64Value(cp) & _timeWordMask) /_probeClockRate;
 
             if (firstTimeWord == 0)
                 firstTimeWord = thisTimeWord;
 
             // Record time tag minus approx microseconds since start of record.
+            // The probe's timing word counter can roll over in the middle of
+            // an image record (e.g. every ~54 minutes for Type32), so correct
+            // for a single wrap of the counter.  A genuine rollover always
+            // yields a small corrected offset, bounded by how much real time
+            // one image record can span.  Type48's counter is wide enough that
+            // it essentially never rolls over within a flight, so a backward
+            // jump there is almost always a corrupt timing word, not a wrap;
+            // guard against "correcting" that into a bogus far-future time.
+            static const double maxPlausibleRecordUsec = 120.0e6;   // 120 sec
             double diffTimeLine = 0.0;
 
             if (firstTimeWord <= thisTimeWord)
@@ -241,9 +254,19 @@ if (nSlices > 575) cout << _name << "- nSlices = " << nSlices << "  !!!\n";
             }
             else
             {
-              ELOG( ("TwoD_SPEC: thisTimeWord < firstTime; negative diff, tWord rollover?") );
-              ELOG( ("  thisTimeLine = ") << thisTimeWord << ", firstTimeWord = " << firstTimeWord
-                     << "  diff = " << (thisTimeWord - firstTimeWord) );
+              dsm_time_t counterRange = (dsm_time_t)_timingWordMask + 1;
+              double wrapped = (double)(thisTimeWord + counterRange - firstTimeWord) * _freq;
+
+              if (wrapped <= maxPlausibleRecordUsec)
+              {
+                diffTimeLine = wrapped;
+                ILOG( ("") << _name << ": timing word rollover in image record, corrected" );
+              }
+              else
+              {
+                ELOG( ("") << _name << ": thisTimeWord < firstTime; implausible rollover, ignoring offset" );
+                ELOG( ("") << _name << ":   thisTimeLine = " << thisTimeWord << ", firstTimeWord = " << firstTimeWord );
+              }
             }
 /*
 cout << "firstTimeLine = " << firstTimeWord << ", thisTimeWord = " << thisTimeWord << "\n";

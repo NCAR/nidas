@@ -121,6 +121,14 @@ protected:
     /// This is used for arithmetic.  Type32 is 2 words, Type48 is 3 words.
     int _timingWordSize;
 
+    /**
+     * Word order of the timing word appended to each image particle.
+     * Type32 (HVPS) stores it most-significant-word-first; Type48 (2D-S)
+     * stores it least-significant-word-first.  Confirmed against sample
+     * data from both probe generations.
+     */
+    bool _timingWordMSWFirst;
+
 //@{
     /**
      * Sync and overload words/masks.
