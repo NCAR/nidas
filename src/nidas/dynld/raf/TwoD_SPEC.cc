@@ -119,7 +119,7 @@ bool TwoD_SPEC::processImageRecord(const Sample * samp, list < const Sample * >&
     const unsigned char *cp = (const unsigned char *)samp->getConstVoidDataPtr();
 
     // slen is coming in as 4098 bytes for image buffer, no timestamp or cksum.
-    unsigned slen = samp->getDataByteLength();
+//    unsigned slen = samp->getDataByteLength();
 //cout << _name << "::processImage, slen=" << slen << "\n";
 
 
