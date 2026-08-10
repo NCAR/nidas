@@ -55,6 +55,9 @@
 #include <linux/sockios.h>
 
 #include <iostream>
+#include "FileSet.h"
+
+using nidas::util::FileSet;
 
 using namespace nidas::util;
 using namespace std;
@@ -186,6 +189,28 @@ void SocketImpl::bind(const Inet4Address& addr,int port)
 
 void SocketImpl::bind(const SocketAddress& sockaddr)
 {
+    if (sockaddr.getFamily() == AF_UNIX)
+    {
+        // for unix paths, delete the socket if it already exists, and try to
+        // create the directory in case it doesn't exist
+        string sockpath = sockaddr.toString();
+        if (sockpath.substr(0,6) == "unix:/") {
+            sockpath = sockpath.substr(5);
+        }
+        struct stat statbuf;
+        if (::stat(sockpath.c_str(), &statbuf) == 0 &&
+            S_ISSOCK(statbuf.st_mode))
+        {
+            ILOG(("unlinking: ") << sockpath);
+            ::unlink(sockpath.c_str());
+        }
+        auto pos = sockpath.find_last_of('/');
+        if (pos != string::npos)
+        {
+            string dir = sockpath.substr(0, pos);
+            FileSet::createDirectory(dir, 0755);
+        }
+    }
     // The range of dynamic ports on IPV4 is supposed to be is 49152 to 65536, according to RFC6335.
     // http://www.iana.org/assignments/service-names-port-numbers/service-names-port-numbers.xml
     //
