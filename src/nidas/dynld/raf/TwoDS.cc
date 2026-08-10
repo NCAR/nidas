@@ -47,6 +47,7 @@ TwoDS::TwoDS() : TwoD_SPEC("Fast2DS")
     _timingWordMask = 0x0000ffffffffffffULL;
     _timingWordSize = 3;
     _timingWordMSWFirst = false;
+    _twoDS = true;
 }
 
 

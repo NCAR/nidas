@@ -51,7 +51,7 @@ const unsigned char TwoD_SPEC::_blankString[] =
 
 
 TwoD_SPEC::TwoD_SPEC(std::string name)
-    : _name(name), _processor(0), _spec(0),
+    : _name(name), _twoDS(false), _processor(0), _spec(0),
       _compressedParticle(0), _uncompressedParticle(0),
       _prevParticleID(0), _timingWordMask(0x00000000ffffffffULL),
       _freq(0), _timingWordSize(2), _timingWordMSWFirst(true)
@@ -165,7 +165,7 @@ bool TwoD_SPEC::processImageRecord(const Sample * samp, list < const Sample * >&
 
 //            cout << " start of particle, j=" << j << " NH/NV=" << wp[j+1] << ", " << wp[j+2] << endl;
 
-if ((wp[j+1] & 0x0FFF) == 0) continue;  // Horizontal only at this time.
+if (_twoDS && (wp[j+1] & 0x0FFF) == 0) continue;  // Horizontal only at this time.
 
             // Do not process multi-packet images.
             if (wp[j+1] & 0x1000 || wp[j+2] & 0x1000) break;

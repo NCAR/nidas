@@ -100,6 +100,8 @@ protected:
     /// Probe nick name.
     std::string _name;
 
+    /// The 2DS will have special real-time checks since it is really two probes, so flag it.
+    bool _twoDS;
 
     TwoD_Processing *_processor;
 
