@@ -161,29 +161,30 @@ bool TwoD_SPEC::processImageRecord(const Sample * samp, list < const Sample * >&
         // Start of particle
         if ( _spec->isParticleSyncWord(&wp[j]) )
         {
+            bool reject = false;
+
 //            cout << " start of particle, j=" << j << " NH/NV=" << wp[j+1] << ", " << wp[j+2] << endl;
+
+if ((wp[j+1] & 0x0FFF) == 0) continue;  // Horizontal only at this time.
 
             // Do not process multi-packet images.
             if (wp[j+1] & 0x1000 || wp[j+2] & 0x1000) break;
 
             memcpy(_compressedParticle, &wp[j], 5 * sizeof(uint16_t));
-            j += 5;
             nImgWords = _spec->extractNimageWords(_compressedParticle); // get number of image words to copy
 
-            bool reject = false;
             if (nImgWords == 0 || nImgWords > 950) // seems runaway @ 960ish
                 reject = true;
 
             // Skip particles where FIFO goes into overload
             if (wp[j+1] & 0x8000 || wp[j+2] & 0x8000) reject = true;
 
-if ((wp[j+1] & 0x0FFF) == 0) reject = true;  // Horizontal only at this time.
-
             // I am choosing not to deal with multi-packet particles.  If you do, then
             // make sure to understand that only the last packet has a timing word.
             if (_compressedParticle[_spec->ID] == _prevParticleID || _spec->_multiPacketParticle)
                 reject = true;
 
+            j += 5;
             _prevParticleID = _compressedParticle[_spec->ID];
 
             if (reject)
