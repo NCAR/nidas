@@ -178,21 +178,21 @@ void
 PortConfig::
 update_termios()
 {
-    if (!termios.getLocal()) {
-        VLOG(("PortConfig::PortConfig(devName, fd): CLOCAL wasn't set, so set it now..."));
-        termios.setLocal(true);
-    }
-    else {
-        VLOG(("PortConfig::PortConfig(devName, fd): CLOCAL *was* set already..."));
-    }
+    // ensure some important required settings for all port configs, to
+    // override the Termios defaults which are not appropriate for reading
+    // sensor data from serial ports.
+    termios.setLocal(true);
+    termios.setFlowControl(Termios::NOFLOWCONTROL);
 
-    if (termios.getFlowControl() != Termios::NOFLOWCONTROL) {
-        VLOG(("PortConfig::PortConfig(devName, fd): Flow control  wasn't turned off, so set it now..."));
-        termios.setFlowControl(Termios::NOFLOWCONTROL);
-    }
-    else {
-        VLOG(("PortConfig::PortConfig(devName, fd): Flow control *was* turned off..."));
-    }
+    // These should probably be set here also, but for now preserve the
+    // previous behavior, just in case there is code using PortConfig which
+    // relies on the original defaults.  Callers can still change the termios
+    // settings through direct access to the termios member.  See the comment
+    // in SerialSensor::setPortConfig().
+
+    // termios.setRaw(true);
+    // termios.setRawLength(1);
+    // termios.setRawTimeout(0);
 }
 
 

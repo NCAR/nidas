@@ -107,7 +107,10 @@ public:
     /**
      * Construct from an opened serial port.
      */
-    Termios(int fd,const std::string& devname);
+    Termios(int fd, const std::string& devname);
+
+    Termios(const Termios&) = default;
+    Termios& operator=(const Termios&) = default;
 
     virtual ~Termios() {}
 
@@ -210,6 +213,12 @@ public:
     } bauds[];
 
     void setDefaultTermios();
+
+    /**
+     * Generate a string representation of the termios settings on one line,
+     * suitable for logging.
+     */
+    std::string toString() const;
 
 private:
 

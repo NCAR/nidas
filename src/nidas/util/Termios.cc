@@ -99,25 +99,30 @@ Termios::Termios(): _tio(),_rawlen(0),_rawtimeout(0)
     setDefaultTermios();
 }
 
-Termios::Termios(const struct termios* termios_p): _tio(*termios_p),
-    _rawlen(0),_rawtimeout(0)
+Termios::Termios(const struct termios* termios_p):
+    _tio(*termios_p),
+    _rawlen(0),
+    _rawtimeout(0)
 {
     _tio = *termios_p;
     if (!(_tio.c_lflag & ICANON)) {
         _rawlen = _tio.c_cc[VMIN];
         _rawtimeout = _tio.c_cc[VTIME];
     }
+    VLOG(("Termios::Termios(const struct termios*): ") << toString());
 }
 
-Termios::Termios(int fd,const std::string& name):
+Termios::Termios(int fd, const std::string& name):
     _tio(),_rawlen(0),_rawtimeout(0)
 {
     if (::tcgetattr(fd, &_tio) < 0)
-        throw IOException(name ,"tcgetattr",errno);
+        throw IOException(name, "tcgetattr", errno);
     if (!(_tio.c_lflag & ICANON)) {
         _rawlen = _tio.c_cc[VMIN];
         _rawtimeout = _tio.c_cc[VTIME];
     }
+    DLOG(("Termios::Termios(") << fd << "," << name
+         << ") tcgetattr: " << toString());
 }
 
 // accessed in tests/tserialsensor.cc to turn off tcsetattr below
@@ -128,10 +133,11 @@ void Termios::apply(int fd, const std::string& name)
     if (!autoConfigUnitTest) {
         if (::tcsetattr(fd, TCSANOW, &_tio) < 0) {
             DLOG(("Termios::apply(): tcsetattr() failure for fd: ") << fd);
-            throw IOException(name,"tcsetattr",errno);
+            throw IOException(name, "tcsetattr", errno);
         }
         else {
-            VLOG(("Termios::apply(): successful"));
+            DLOG(("Termios::apply(") << fd << "," << name
+                 << ") tcsetattr: " << toString());
         }
     }
 }
@@ -148,6 +154,7 @@ void Termios::set(const struct termios* termios_p)
         _rawlen = _tio.c_cc[VMIN];
         _rawtimeout = _tio.c_cc[VTIME];
     }
+    DLOG(("Termios::set(): ") << toString());
 }
 
 void Termios::setDefaultTermios()
@@ -163,11 +170,11 @@ void Termios::setDefaultTermios()
     _tio.c_cc[VKILL] = '\025';
     _tio.c_cc[VEOF] = '\004';
     _tio.c_cc[VEOL] = 0;
-    cfsetispeed(&_tio,B9600);
-    cfsetospeed(&_tio,B9600);
+    cfsetispeed(&_tio, B9600);
+    cfsetospeed(&_tio, B9600);
     _rawlen = 0;
     _rawtimeout = 0;
-    // std::cerr << "cbaud=" << std::oct << (_tio.c_cflag & (CBAUD | CBAUDEX)) << std::dec << std::endl;
+    VLOG(("Termios::setDefaultTermios(): ") << toString());
 }
 
 bool
@@ -336,6 +343,7 @@ Termios::getFlowControl() const
 void
 Termios::setRaw(bool val)
 {
+    DLOG(("Termios::setRaw(") << val << ")");
     if (val) {
         _tio.c_iflag |= IGNBRK;
         /*
@@ -410,6 +418,54 @@ std::string Termios::getFlowControlString() const
     }
     return "unknown";
 }
+
+
+struct tcflag
+{
+    tcflag(unsigned int flags): flags(flags) {}
+    unsigned int flags;
+};
+
+
+std::ostream&
+operator<<(std::ostream& out, tcflag flags)
+{
+    // write flags in octal to match the definitions in the header files, eg
+    // /usr/include/bits/termios-c_iflag.h.
+    out << "0o" << std::oct << flags.flags << std::dec;
+    return out;
+}
+
+
+std::string Termios::toString() const
+{
+    ostringstream ost;
+
+    // maybe this should be more like stty -a output, using a minus in front
+    // of flags which are not set, but showing the flag values allows
+    // comparison with the flag definitions to verify that bit masking works
+    // as expected.
+    ost << "baud=" << getBaudRate() << ":" << getBitsString() << ", ";
+    ost << "local=" << getLocal() << ", ";
+    ost << "flowcontrol=" << getFlowControl() << ", ";
+    ost << "raw=" << getRaw() << ", ";
+    ost << "icanon=" << tcflag(_tio.c_lflag & ICANON) << ", ";
+    if (! (_tio.c_lflag & ICANON)) {
+        ost << "cc[VMIN]=" << (int)_tio.c_cc[VMIN] << ", ";
+        ost << "cc[VTIME]=" << (int)_tio.c_cc[VTIME] << ", ";
+    }
+    ost << "(rawlen=" << (int)getRawLength() << ", ";
+    ost << "rawtimeout=" << (int)getRawTimeout() << "), ";
+    ost << "iflag=" << tcflag(getIflag()) << ", ";
+    ost << "icrnl=" << tcflag(_tio.c_iflag & ICRNL) << ", ";
+    ost << "ignbrk=" << tcflag(_tio.c_iflag & IGNBRK) << ", ";
+    ost << "oflag=" << tcflag(getOflag()) << ", ";
+    ost << "opost=" << tcflag(_tio.c_oflag & OPOST);
+
+    return ost.str();
+}
+
+
 
 bool
 Termios::

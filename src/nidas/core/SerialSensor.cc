@@ -262,12 +262,25 @@ replacePortConfigs(const PortConfigList& pconfigs)
 void SerialSensor::setPortConfig(const PortConfig& pc)
 {
     _portconfig = pc;
+
+    // These should probably be enforced consistently everywhere in the
+    // PortConfig class, since they cannot be changed through the XML and no
+    // other settings have been needed.  And it makes the API confusing to
+    // pass in a PortConfig to activate and then modify it, when normally the
+    // PortConfig being activated is one that already exists in the
+    // _portconfigs list.  It's only necessary because the Termios class
+    // applies different defaults, presumably defaults intended for terminal
+    // devices and not for reading serial sensors. For now, though, enforce
+    // them here since all serial sensors have relied on these settings. The
+    // crux here is that the modified portconfig is passed to the
+    // SerialPortIODevice, not the portconfig passed into this method!
+
     _portconfig.termios.setRaw(true);
     _portconfig.termios.setRawLength(1);
     _portconfig.termios.setRawTimeout(0);
 
     if (_serialDevice) {
-        _serialDevice->setPortConfig(pc);
+        _serialDevice->setPortConfig(_portconfig);
     }
     else
     {
@@ -517,7 +530,9 @@ void SerialSensor::fromDOMElement(
         {
             // insert this port config in the front of any built-in configs.
             addPortConfig(portconfig);
-            DLOG(("") << "added port config from sensor element: " << portconfig);
+            DLOG(("") << getName()
+                      << ": added port config from sensor element: "
+                      << portconfig);
         }
     }
 
@@ -618,7 +633,8 @@ bool SerialSensor::findWorkingSerialPortConfig()
     // Iterate through the available port configs looking for one that works.
     for (auto& pc : _portconfigs)
     {
-        DLOG(("checking for working port config:") << pc);
+        DLOG(("") << getName()
+                  << ": checking for working port config: " << pc);
         setPortConfig(pc);
         applyPortConfig();
 
