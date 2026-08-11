@@ -24,17 +24,12 @@
  ********************************************************************
 */
 
-#ifdef GPP_2_95_2
-#include <strstream>
-#else
-#include <sstream>
-#endif
+#include <cerrno>  // errno
+#include <cstring> // memset
 
-#include "Logger.h"
 #include "Termios.h"
-#include <sys/ioctl.h>
-#include <cerrno>
-#include <cstring>
+#include "Logger.h"
+#include "IOException.h"
 
 using namespace std;
 
@@ -78,6 +73,27 @@ Termios::baudtable Termios::bauds[] = {
     { B0,  -1}
 };
 
+
+namespace {
+
+void
+baudRateError(speed_t cbaud, int baud)
+{
+    static LogContext log(LOG_ERR);
+    LogMessage msg(&log);
+    msg << "baud rate not found for cbaud=" << cbaud
+        << " (0o" << std::oct << cbaud << std::dec
+        << "), baud=" << baud << "; ";
+    msg << "available rates cbaud,baud:";
+    auto& bauds = Termios::bauds;
+    for (int i = 0; bauds[i].rate >= 0; i++)
+        msg << " " << bauds[i].cbaud << "," << bauds[i].rate << ";";
+    msg.log();
+}
+
+}
+
+
 Termios::Termios(): _tio(),_rawlen(0),_rawtimeout(0)
 {
     setDefaultTermios();
@@ -93,7 +109,7 @@ Termios::Termios(const struct termios* termios_p): _tio(*termios_p),
     }
 }
 
-Termios::Termios(int fd,const std::string& name) throw(IOException):
+Termios::Termios(int fd,const std::string& name):
     _tio(),_rawlen(0),_rawtimeout(0)
 {
     if (::tcgetattr(fd, &_tio) < 0)
@@ -107,7 +123,7 @@ Termios::Termios(int fd,const std::string& name) throw(IOException):
 // accessed in tests/tserialsensor.cc to turn off tcsetattr below
 bool autoConfigUnitTest = false;
 
-void Termios::apply(int fd, const std::string& name) throw(IOException)
+void Termios::apply(int fd, const std::string& name)
 {
     if (!autoConfigUnitTest) {
         if (::tcsetattr(fd, TCSANOW, &_tio) < 0) {
@@ -157,32 +173,32 @@ void Termios::setDefaultTermios()
 bool
 Termios::setBaudRate(int val)
 {
-
     int i;
-    speed_t cbaud = B9600;
-    for (i = 0; bauds[i].rate >= 0; i++)
+    speed_t cbaud = B0;
+    for (i = 0; bauds[i].rate >= 0; i++) {
         if (bauds[i].rate == val) {
             cbaud = bauds[i].cbaud;
             break;
         }
-    if (bauds[i].rate < 0) return false;
+    }
+    if (bauds[i].rate < 0) {
+        baudRateError(cbaud, val);
+        return false;
+    }
 
-    _tio.c_cflag &= ~(CBAUD | CBAUDEX);
-    _tio.c_cflag |= cbaud;
-
-    // std::cerr << "cbaud=" << std::oct << (_tio.c_cflag & (CBAUD | CBAUDEX)) << std::dec << std::endl;
-    cfsetispeed(&_tio,cbaud);
-    cfsetospeed(&_tio,cbaud);
+    cfsetispeed(&_tio, cbaud);
+    cfsetospeed(&_tio, cbaud);
     return true;
 }
 
 int Termios::getBaudRate() const
-{ 
+{
     speed_t cbaud = cfgetispeed(&_tio);
-    cbaud = _tio.c_cflag & (CBAUD | CBAUDEX);
-    int i;
-    for (i = 0; bauds[i].rate >= 0; i++)
-        if (bauds[i].cbaud == cbaud) return bauds[i].rate;
+    for (int i = 0; bauds[i].rate >= 0; i++) {
+        if (bauds[i].cbaud == cbaud)
+            return bauds[i].rate;
+    }
+    baudRateError(cbaud, 0);
     return 0;
 }
 

@@ -51,6 +51,7 @@
 #include <time.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <sys/ioctl.h>
 
 #include <nidas/core/NidasApp.h>
 #include <nidas/core/HardwareInterface.h>
