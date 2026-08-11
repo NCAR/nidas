@@ -94,7 +94,10 @@ baudRateError(speed_t cbaud, int baud)
 }
 
 
-Termios::Termios(): _tio(),_rawlen(0),_rawtimeout(0)
+Termios::Termios():
+    _tio(),
+    _rawlen(0),
+    _rawtimeout(0)
 {
     setDefaultTermios();
 }
@@ -159,9 +162,9 @@ void Termios::set(const struct termios* termios_p)
 
 void Termios::setDefaultTermios()
 {
-    memset(&_tio,0,sizeof(_tio));
+    memset(&_tio, 0, sizeof(_tio));
     _tio.c_iflag = IGNBRK | ICRNL;
-    _tio.c_cflag = CS8 | CLOCAL | CREAD | B9600;
+    _tio.c_cflag = CS8 | CLOCAL | CREAD;
     _tio.c_oflag = OPOST | ONLCR;
     _tio.c_lflag = ICANON | ISIG | ECHOE | ECHOCTL | IEXTEN;
     _tio.c_cc[VINTR] = '\003';
