@@ -54,27 +54,6 @@ PortConfig(const int baudRate, const int dataBits, const Parity parity,
     termios.setStopBits(stopBits);
 }
 
-PortConfig::
-PortConfig(const PortConfig& rInitPortConfig):
-    termios(rInitPortConfig.termios),
-    port_type(rInitPortConfig.port_type),
-    port_term(rInitPortConfig.port_term),
-    rts485(rInitPortConfig.rts485)
-{
-    update_termios();
-}
-
-PortConfig&
-PortConfig::
-operator=(const PortConfig& rInitPortConfig)
-{
-    termios = rInitPortConfig.termios;
-    port_type = rInitPortConfig.port_type;
-    port_term = rInitPortConfig.port_term;
-    rts485 = rInitPortConfig.rts485;
-    update_termios();
-    return *this;
-}
 
 PortConfig::
 PortConfig():
@@ -93,6 +72,7 @@ operator!=(const PortConfig& rRight) const
 {
     return !((*this) == rRight);
 }
+
 
 bool
 PortConfig::
@@ -184,15 +164,15 @@ update_termios()
     termios.setLocal(true);
     termios.setFlowControl(Termios::NOFLOWCONTROL);
 
-    // These should probably be set here also, but for now preserve the
-    // previous behavior, just in case there is code using PortConfig which
-    // relies on the original defaults.  Callers can still change the termios
-    // settings through direct access to the termios member.  See the comment
-    // in SerialSensor::setPortConfig().
+    // There were not originally set here, but all known callers of PortConfig
+    // expect these settings.  So set them here so the settings do not need to
+    // be duplicated everywhere else a PortConfig is created. Callers can
+    // still change the termios settings through direct access to the termios
+    // member.  See the comment in SerialSensor::setPortConfig().
 
-    // termios.setRaw(true);
-    // termios.setRawLength(1);
-    // termios.setRawTimeout(0);
+    termios.setRaw(true);
+    termios.setRawLength(1);
+    termios.setRawTimeout(0);
 }
 
 

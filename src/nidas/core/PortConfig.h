@@ -32,6 +32,16 @@ namespace nidas { namespace core {
 
 struct PortConfig
 {
+    /**
+     * PortConfig defaults to raw mode, no termination, port type RS232, no
+     * hardware flow control, and no modem control signals (CLOCAL).
+     */
+    PortConfig();
+
+    /**
+     * Construct a default PortConfig then override the given settings. See
+     * PortConfig::PortConfig().
+     */
     PortConfig(int baudRate, int dataBits,
                nidas::util::Parity parity,
                int stopBits,
@@ -39,11 +49,9 @@ struct PortConfig
                PortTermination term=NO_TERM,
                int initRts485=0);
 
-    PortConfig(const PortConfig& rInitPortConfig);
+    PortConfig(const PortConfig& rInitPortConfig) = default;
 
-    PortConfig& operator=(const PortConfig& rInitPortConfig);
-
-    PortConfig();
+    PortConfig& operator=(const PortConfig& rInitPortConfig) = default;
 
     bool operator!=(const PortConfig& rRight) const;
     bool operator==(const PortConfig& rRight) const;
@@ -57,13 +65,13 @@ struct PortConfig
      * 
      * @verbatim 
      * termination: NO_TERM, TERM_ON, TERM_120_OHM
-     * porttype: RS232, RS422, RS485_HALF, RS458_FULL
+     * porttype: RS232, RS422, RS485_HALF, RS485_FULL
      * rts485: TRUE, FALSE, -1, 0, 1
      * baud: rate as a number, like 9600 or 115200
      * parity: ODD, EVEN, NONE, or O, E, N
      * databits: 6, 7, 8
      * stopbits: 1, 2
-     * @verbatim
+     * @endverbatim
      * 
      * Values can be upper or lower case.  Return true if attribute @p name
      * was recognized and parsed, false if not found.  Throws an exception

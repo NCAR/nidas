@@ -261,23 +261,30 @@ replacePortConfigs(const PortConfigList& pconfigs)
 
 void SerialSensor::setPortConfig(const PortConfig& pc)
 {
+    // When findWorkingPortConfig() calls this the first time, it is likely
+    // starting out with the same PortConfig as was used to first open the
+    // device, in which case it is not necessary to re-apply those settings.
+    // However, until that can be thought out more carefully, and the
+    // successful application of the settings can be verified, there is no
+    // real harm in applying the same settings again.
     _portconfig = pc;
 
-    // These should probably be enforced consistently everywhere in the
-    // PortConfig class, since they cannot be changed through the XML and no
-    // other settings have been needed.  And it makes the API confusing to
-    // pass in a PortConfig to activate and then modify it, when normally the
-    // PortConfig being activated is one that already exists in the
-    // _portconfigs list.  It's only necessary because the Termios class
-    // applies different defaults, presumably defaults intended for terminal
-    // devices and not for reading serial sensors. For now, though, enforce
-    // them here since all serial sensors have relied on these settings. The
-    // crux here is that the modified portconfig is passed to the
-    // SerialPortIODevice, not the portconfig passed into this method!
+    // These originally were enforced here and also duplicated elsewhere, but
+    // instead they are now set in one place in the PortConfig class.  They
+    // cannot be changed through the XML and no other settings have been
+    // needed, so there is no need to keep enforcing the same settings.  And
+    // it makes the API confusing to pass in a PortConfig to activate and then
+    // modify it, when normally the PortConfig being activated is one that
+    // already exists in the _portconfigs list.  The PortConfig defaults are
+    // different from the Termios defaults, presumably because the Termios
+    // defaults were intended for terminal devices and not for reading serial
+    // sensors.  The crux here is that the current portconfig is passed to the
+    // SerialPortIODevice, with any modifications, not the portconfig passed
+    // into this method!
 
-    _portconfig.termios.setRaw(true);
-    _portconfig.termios.setRawLength(1);
-    _portconfig.termios.setRawTimeout(0);
+    // _portconfig.termios.setRaw(true);
+    // _portconfig.termios.setRawLength(1);
+    // _portconfig.termios.setRawTimeout(0);
 
     if (_serialDevice) {
         _serialDevice->setPortConfig(_portconfig);
