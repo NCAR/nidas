@@ -227,21 +227,3 @@ void SerialOptions::parse(const string& input) throw(ParseException)
     imtch++;
 
 }
-
-string SerialOptions::toString() const {
-    ostringstream ost;
-
-    ost << "baud=" << _termios.getBaudRate() << endl;
-    ost << "parity=" << _termios.getParity() << endl;
-    ost << "databits=" << _termios.getDataBits() << endl;
-    ost << "stopbits=" << _termios.getStopBits() << endl;
-    ost << "local=" << _termios.getLocal() << endl;
-    ost << "flowcontrol=" <<
-        ((_termios.getFlowControl() == Termios::NOFLOWCONTROL) ? "none" :
-         ((_termios.getFlowControl() == Termios::HARDWARE) ? "hard " : "soft")) << endl;
-    ost << "raw=" << _termios.getRaw() << endl;
-    ost << "iflag=" << hex << _termios.getIflag() << endl;
-    ost << "oflag=" << hex << _termios.getOflag() << endl;
-
-    return ost.str();
-}

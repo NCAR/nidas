@@ -54,27 +54,6 @@ PortConfig(const int baudRate, const int dataBits, const Parity parity,
     termios.setStopBits(stopBits);
 }
 
-PortConfig::
-PortConfig(const PortConfig& rInitPortConfig):
-    termios(rInitPortConfig.termios),
-    port_type(rInitPortConfig.port_type),
-    port_term(rInitPortConfig.port_term),
-    rts485(rInitPortConfig.rts485)
-{
-    update_termios();
-}
-
-PortConfig&
-PortConfig::
-operator=(const PortConfig& rInitPortConfig)
-{
-    termios = rInitPortConfig.termios;
-    port_type = rInitPortConfig.port_type;
-    port_term = rInitPortConfig.port_term;
-    rts485 = rInitPortConfig.rts485;
-    update_termios();
-    return *this;
-}
 
 PortConfig::
 PortConfig():
@@ -93,6 +72,7 @@ operator!=(const PortConfig& rRight) const
 {
     return !((*this) == rRight);
 }
+
 
 bool
 PortConfig::
@@ -178,21 +158,21 @@ void
 PortConfig::
 update_termios()
 {
-    if (!termios.getLocal()) {
-        VLOG(("PortConfig::PortConfig(devName, fd): CLOCAL wasn't set, so set it now..."));
-        termios.setLocal(true);
-    }
-    else {
-        VLOG(("PortConfig::PortConfig(devName, fd): CLOCAL *was* set already..."));
-    }
+    // ensure some important required settings for all port configs, to
+    // override the Termios defaults which are not appropriate for reading
+    // sensor data from serial ports.
+    termios.setLocal(true);
+    termios.setFlowControl(Termios::NOFLOWCONTROL);
 
-    if (termios.getFlowControl() != Termios::NOFLOWCONTROL) {
-        VLOG(("PortConfig::PortConfig(devName, fd): Flow control  wasn't turned off, so set it now..."));
-        termios.setFlowControl(Termios::NOFLOWCONTROL);
-    }
-    else {
-        VLOG(("PortConfig::PortConfig(devName, fd): Flow control *was* turned off..."));
-    }
+    // There were not originally set here, but all known callers of PortConfig
+    // expect these settings.  So set them here so the settings do not need to
+    // be duplicated everywhere else a PortConfig is created. Callers can
+    // still change the termios settings through direct access to the termios
+    // member.  See the comment in SerialSensor::setPortConfig().
+
+    termios.setRaw(true);
+    termios.setRawLength(1);
+    termios.setRawTimeout(0);
 }
 
 

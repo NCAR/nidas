@@ -83,8 +83,6 @@ public:
 
     const Termios& getTermios() const { return _termios; }
 
-    std::string toString() const;
-
     static const char* usage();
 
 private:

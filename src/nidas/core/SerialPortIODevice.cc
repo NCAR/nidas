@@ -52,8 +52,7 @@ namespace nidas { namespace core {
 
 std::ostream& operator <<(std::ostream& rOutStrm, const PortConfig& rObj)
 {
-    rOutStrm << "Termios: baud: " << rObj.termios.getBaudRate()
-         << " word: " << rObj.termios.getBitsString() << "; ";
+    rOutStrm << "Termios: " << rObj.termios.toString() << "; ";
     rOutStrm << "RTS485: " << rObj.rts485 << "; ";
     rOutStrm << "port_type: " << rObj.port_type << "; ";
     rOutStrm << "port_term: " << rObj.port_term;
@@ -64,18 +63,12 @@ SerialPortIODevice::SerialPortIODevice():
     UnixIODevice(), _portconfig(),
     _usecsperbyte(0), _state(OK), _savep(0), _savebuf(0), _savelen(0), _savealloc(0), _blocking(false)
 {
-    _portconfig.termios.setRaw(true);
-    _portconfig.termios.setRawLength(1);
-    _portconfig.termios.setRawTimeout(0);
 }
 
 SerialPortIODevice::SerialPortIODevice(const std::string& name, PortConfig initPortConfig):
     UnixIODevice(name), _portconfig(initPortConfig),
     _usecsperbyte(0), _state(OK), _savep(0),_savebuf(0),_savelen(0),_savealloc(0),_blocking(false)
 {
-    _portconfig.termios.setRaw(true);
-    _portconfig.termios.setRawLength(1);
-    _portconfig.termios.setRawTimeout(0);
 }
 
 SerialPortIODevice::~SerialPortIODevice()
@@ -92,34 +85,20 @@ void SerialPortIODevice::open(int flags) throw(n_u::IOException)
     applyPortConfig();
     setBlocking(_blocking);
 
-    // Not sure why rts485 had to be forced to -1 on ports that did not have
-    // serial transceiver control.  Seems like this code should always do what
-    // the config specifies.  For DSM3 ports that do have transceiver control,
-    // then rts485 should not have any effect anyway.
-#ifdef notdef
-    // Set rts485 flag RS422/RS485 to always xmit for full RS422/485
-    if (!_pXcvrCtrl) {
-        if ( getPortType() == RS422) {
-            DLOG(("RS422/485_FULL: forcing rts485 to -1, should get a high level on the line."));
-            setRTS485(-1);
-        }
-
-        else {
-#endif
-            // set RTS according to how it's been set by the client regardless of the port type.
-            // However, if the port type is RS485 half duplex, then the user needs to be sure of
-            // how it needs to be set for the particular device.
-            std::stringstream dStrm;
-            dStrm << "Setting rts485 to as specified by client: " << getRTS485()
-                      << ((getRTS485() < 0) ? ": should get a high level on the line." :
-                          (getRTS485() > 0  ? ": should get a low level on the line." :
-                          " RTS is \"do not care\""));
-            DLOG((dStrm.str().c_str()));
-            setRTS485(getRTS485());
-#ifdef notdef
-        }
+    // Set RTS according to how it's been set by the client regardless of the
+    // port type. However, if the port type is RS485 half duplex, then the
+    // user needs to be sure of how it needs to be set for the particular
+    // device.
+    static LogContext lp(LOG_DEBUG);
+    if (lp.active())
+    {
+        lp.log() 
+            << "Setting rts485 to as specified by client: " << getRTS485()
+            << ((getRTS485() < 0) ? ": should get a high level on the line." :
+                (getRTS485() > 0  ? ": should get a low level on the line." :
+                " RTS is \"do not care\""));
     }
-#endif
+    setRTS485(getRTS485());
 
     VLOG(("SerialPortIODevice::open : exit"));
 }

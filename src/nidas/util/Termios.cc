@@ -24,17 +24,12 @@
  ********************************************************************
 */
 
-#ifdef GPP_2_95_2
-#include <strstream>
-#else
-#include <sstream>
-#endif
+#include <cerrno>  // errno
+#include <cstring> // memset
 
-#include "Logger.h"
 #include "Termios.h"
-#include <sys/ioctl.h>
-#include <cerrno>
-#include <cstring>
+#include "Logger.h"
+#include "IOException.h"
 
 using namespace std;
 
@@ -78,44 +73,74 @@ Termios::baudtable Termios::bauds[] = {
     { B0,  -1}
 };
 
-Termios::Termios(): _tio(),_rawlen(0),_rawtimeout(0)
+
+namespace {
+
+void
+baudRateError(speed_t cbaud, int baud)
+{
+    static LogContext log(LOG_ERR);
+    LogMessage msg(&log);
+    msg << "baud rate not found for cbaud=" << cbaud
+        << " (0o" << std::oct << cbaud << std::dec
+        << "), baud=" << baud << "; ";
+    msg << "available rates cbaud,baud:";
+    auto& bauds = Termios::bauds;
+    for (int i = 0; bauds[i].rate >= 0; i++)
+        msg << " " << bauds[i].cbaud << "," << bauds[i].rate << ";";
+    msg.log();
+}
+
+}
+
+
+Termios::Termios():
+    _tio(),
+    _rawlen(0),
+    _rawtimeout(0)
 {
     setDefaultTermios();
 }
 
-Termios::Termios(const struct termios* termios_p): _tio(*termios_p),
-    _rawlen(0),_rawtimeout(0)
+Termios::Termios(const struct termios* termios_p):
+    _tio(*termios_p),
+    _rawlen(0),
+    _rawtimeout(0)
 {
     _tio = *termios_p;
     if (!(_tio.c_lflag & ICANON)) {
         _rawlen = _tio.c_cc[VMIN];
         _rawtimeout = _tio.c_cc[VTIME];
     }
+    VLOG(("Termios::Termios(const struct termios*): ") << toString());
 }
 
-Termios::Termios(int fd,const std::string& name) throw(IOException):
+Termios::Termios(int fd, const std::string& name):
     _tio(),_rawlen(0),_rawtimeout(0)
 {
     if (::tcgetattr(fd, &_tio) < 0)
-        throw IOException(name ,"tcgetattr",errno);
+        throw IOException(name, "tcgetattr", errno);
     if (!(_tio.c_lflag & ICANON)) {
         _rawlen = _tio.c_cc[VMIN];
         _rawtimeout = _tio.c_cc[VTIME];
     }
+    DLOG(("Termios::Termios(") << fd << "," << name
+         << ") tcgetattr: " << toString());
 }
 
 // accessed in tests/tserialsensor.cc to turn off tcsetattr below
 bool autoConfigUnitTest = false;
 
-void Termios::apply(int fd, const std::string& name) throw(IOException)
+void Termios::apply(int fd, const std::string& name)
 {
     if (!autoConfigUnitTest) {
         if (::tcsetattr(fd, TCSANOW, &_tio) < 0) {
             DLOG(("Termios::apply(): tcsetattr() failure for fd: ") << fd);
-            throw IOException(name,"tcsetattr",errno);
+            throw IOException(name, "tcsetattr", errno);
         }
         else {
-            VLOG(("Termios::apply(): successful"));
+            DLOG(("Termios::apply(") << fd << "," << name
+                 << ") tcsetattr: " << toString());
         }
     }
 }
@@ -132,13 +157,14 @@ void Termios::set(const struct termios* termios_p)
         _rawlen = _tio.c_cc[VMIN];
         _rawtimeout = _tio.c_cc[VTIME];
     }
+    DLOG(("Termios::set(): ") << toString());
 }
 
 void Termios::setDefaultTermios()
 {
-    memset(&_tio,0,sizeof(_tio));
+    memset(&_tio, 0, sizeof(_tio));
     _tio.c_iflag = IGNBRK | ICRNL;
-    _tio.c_cflag = CS8 | CLOCAL | CREAD | B9600;
+    _tio.c_cflag = CS8 | CLOCAL | CREAD;
     _tio.c_oflag = OPOST | ONLCR;
     _tio.c_lflag = ICANON | ISIG | ECHOE | ECHOCTL | IEXTEN;
     _tio.c_cc[VINTR] = '\003';
@@ -147,42 +173,42 @@ void Termios::setDefaultTermios()
     _tio.c_cc[VKILL] = '\025';
     _tio.c_cc[VEOF] = '\004';
     _tio.c_cc[VEOL] = 0;
-    cfsetispeed(&_tio,B9600);
-    cfsetospeed(&_tio,B9600);
+    cfsetispeed(&_tio, B9600);
+    cfsetospeed(&_tio, B9600);
     _rawlen = 0;
     _rawtimeout = 0;
-    // std::cerr << "cbaud=" << std::oct << (_tio.c_cflag & (CBAUD | CBAUDEX)) << std::dec << std::endl;
+    VLOG(("Termios::setDefaultTermios(): ") << toString());
 }
 
 bool
 Termios::setBaudRate(int val)
 {
-
     int i;
-    speed_t cbaud = B9600;
-    for (i = 0; bauds[i].rate >= 0; i++)
+    speed_t cbaud = B0;
+    for (i = 0; bauds[i].rate >= 0; i++) {
         if (bauds[i].rate == val) {
             cbaud = bauds[i].cbaud;
             break;
         }
-    if (bauds[i].rate < 0) return false;
+    }
+    if (bauds[i].rate < 0) {
+        baudRateError(cbaud, val);
+        return false;
+    }
 
-    _tio.c_cflag &= ~(CBAUD | CBAUDEX);
-    _tio.c_cflag |= cbaud;
-
-    // std::cerr << "cbaud=" << std::oct << (_tio.c_cflag & (CBAUD | CBAUDEX)) << std::dec << std::endl;
-    cfsetispeed(&_tio,cbaud);
-    cfsetospeed(&_tio,cbaud);
+    cfsetispeed(&_tio, cbaud);
+    cfsetospeed(&_tio, cbaud);
     return true;
 }
 
 int Termios::getBaudRate() const
-{ 
+{
     speed_t cbaud = cfgetispeed(&_tio);
-    cbaud = _tio.c_cflag & (CBAUD | CBAUDEX);
-    int i;
-    for (i = 0; bauds[i].rate >= 0; i++)
-        if (bauds[i].cbaud == cbaud) return bauds[i].rate;
+    for (int i = 0; bauds[i].rate >= 0; i++) {
+        if (bauds[i].cbaud == cbaud)
+            return bauds[i].rate;
+    }
+    baudRateError(cbaud, 0);
     return 0;
 }
 
@@ -320,6 +346,7 @@ Termios::getFlowControl() const
 void
 Termios::setRaw(bool val)
 {
+    DLOG(("Termios::setRaw(") << val << ")");
     if (val) {
         _tio.c_iflag |= IGNBRK;
         /*
@@ -394,6 +421,54 @@ std::string Termios::getFlowControlString() const
     }
     return "unknown";
 }
+
+
+struct tcflag
+{
+    tcflag(unsigned int flags): flags(flags) {}
+    unsigned int flags;
+};
+
+
+std::ostream&
+operator<<(std::ostream& out, tcflag flags)
+{
+    // write flags in octal to match the definitions in the header files, eg
+    // /usr/include/bits/termios-c_iflag.h.
+    out << "0o" << std::oct << flags.flags << std::dec;
+    return out;
+}
+
+
+std::string Termios::toString() const
+{
+    ostringstream ost;
+
+    // maybe this should be more like stty -a output, using a minus in front
+    // of flags which are not set, but showing the flag values allows
+    // comparison with the flag definitions to verify that bit masking works
+    // as expected.
+    ost << "baud=" << getBaudRate() << ":" << getBitsString() << ", ";
+    ost << "local=" << getLocal() << ", ";
+    ost << "flowcontrol=" << getFlowControl() << ", ";
+    ost << "raw=" << getRaw() << ", ";
+    ost << "icanon=" << tcflag(_tio.c_lflag & ICANON) << ", ";
+    if (! (_tio.c_lflag & ICANON)) {
+        ost << "cc[VMIN]=" << (int)_tio.c_cc[VMIN] << ", ";
+        ost << "cc[VTIME]=" << (int)_tio.c_cc[VTIME] << ", ";
+    }
+    ost << "(rawlen=" << (int)getRawLength() << ", ";
+    ost << "rawtimeout=" << (int)getRawTimeout() << "), ";
+    ost << "iflag=" << tcflag(getIflag()) << ", ";
+    ost << "icrnl=" << tcflag(_tio.c_iflag & ICRNL) << ", ";
+    ost << "ignbrk=" << tcflag(_tio.c_iflag & IGNBRK) << ", ";
+    ost << "oflag=" << tcflag(getOflag()) << ", ";
+    ost << "opost=" << tcflag(_tio.c_oflag & OPOST);
+
+    return ost.str();
+}
+
+
 
 bool
 Termios::

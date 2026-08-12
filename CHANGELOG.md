@@ -7,7 +7,7 @@ This file summarizes notable changes to NIDAS source.  The format is based on
 
 This is the development and production branch for the DSM3, a DSM based on
 Raspberry Pi 3 and a custom serial interface card with software control for
-sensor power and serial transciever modes.  Following are the main changes on
+sensor power and serial transceiver modes.  Following are the main changes on
 the buster branch.
 
 ### Hardware Configuration
@@ -36,8 +36,18 @@ the sensor serial comms are detected, some sensors can then be switched
 automatically to use the serial communication settings set in the XML
 configuration.
 
-This does not yet include identifying the kind of sensor attached, NIDAS only
+This does not yet include identifying the kind of sensor attached.  NIDAS only
 looks for a response according to the single sensor specified for the port.
+
+## [1.4.3] - Pending
+
+A bug was fixed in port configuration settings.  Sensors with `autoconfig`
+enabled in the XML would start checking port configs looking for a response
+from the sensor, but the port configs applied to the serial device were
+missing the raw mode setting.  This meant serial ports had unexpected settings
+like `ICRNL` and `ICANON`, so TRH sensor messages would have two newlines
+`\n\n` at the end of a message instead of `\r\n`. All `PortConfig` instances
+now default to raw mode.
 
 ## [1.4.2] - 2026-02-28
 

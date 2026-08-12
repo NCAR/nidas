@@ -27,17 +27,7 @@
 #ifndef NIDAS_UTIL_TERMIOS_H
 #define NIDAS_UTIL_TERMIOS_H
 
-/*
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-*/
 #include <termios.h>
-#include <sys/ioctl.h>
-
-#include "IOException.h"
-
 #include <string>
 
 namespace nidas { namespace util {
@@ -117,8 +107,10 @@ public:
     /**
      * Construct from an opened serial port.
      */
-    Termios(int fd,const std::string& devname)
-        throw(IOException);
+    Termios(int fd, const std::string& devname);
+
+    Termios(const Termios&) = default;
+    Termios& operator=(const Termios&) = default;
 
     virtual ~Termios() {}
 
@@ -128,8 +120,7 @@ public:
     /**
      * Set the termios options on a serial port.
      */
-    void apply(int fd,const std::string& devname)
-        throw(IOException);
+    void apply(int fd,const std::string& devname);
 
     /**
      * Set all Termios parameters from the contents of struct termios.
@@ -222,6 +213,12 @@ public:
     } bauds[];
 
     void setDefaultTermios();
+
+    /**
+     * Generate a string representation of the termios settings on one line,
+     * suitable for logging.
+     */
+    std::string toString() const;
 
 private:
 
