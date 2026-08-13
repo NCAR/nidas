@@ -77,7 +77,12 @@ void TwoD_SPEC::init()
     _processor->init();
 
     float tas = 200.0;  // Hack for now, since we have no access to a TAS.
+    const Parameter * p = getParameter("AVERAGE_TAS");
+    if (p) {
+        tas = p->getNumericValue(0);
+    }
     _freq = (double)getResolutionMicron() / tas;    // In microseconds.
+    ILOG( ("") << _name << ": tas = " << tas << ", freq = " << _freq );
 
     _spec = new SpecDecompress(_timingWordSize, false);
     _compressedParticle = new uint16_t[1024];
