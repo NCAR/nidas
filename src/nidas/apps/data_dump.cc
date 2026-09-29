@@ -162,6 +162,9 @@ private:
 };
 
 #define DEFTIMEFMT "%Y %m %d %H:%M:%S.%4f"
+#define ISOFORMAT "%Y-%m-%dT%H:%M:%S.%4f"
+#define ISO_FULL_FORMAT "%Y-%m-%dT%H:%M:%S.%6f"
+
 
 DumpClient::DumpClient(const SampleMatcher& matcher, dump_format_t fmt,
                        ostream& outstr):
@@ -525,13 +528,14 @@ private:
     BadSampleFilterArg FilterArg;
     NidasAppArg TimeFormat{
         "--timeformat", "<format>",
-        "Specify strftime(3) format for timestamps.  "
-        "Use %.6f for full microsecond resolution.",
+"Specify strftime(3) format for timestamps, or an alias.\n"
+"Use .%6f for full microsecond resolution.  Aliases:\n"
+"   iso: " ISOFORMAT "\n"
+"   isofull: " ISO_FULL_FORMAT "\n"
+"   default: " DEFTIMEFMT "\n",
         DEFTIMEFMT
     };
 };
-
-#define ISOFORMAT "%Y-%m-%dT%H:%M:%S.%4f"
 
 DataDump::DataDump():
     xmlFileName(),
@@ -767,7 +771,16 @@ DataDump::run() throw()
             dumper.setTimeFormat(ISOFORMAT);
 
         if (TimeFormat.specified())
-            dumper.setTimeFormat(TimeFormat.getValue());
+        {
+            if (TimeFormat.getValue() == "iso")
+                dumper.setTimeFormat(ISOFORMAT);
+            else if (TimeFormat.getValue() == "isofull")
+                dumper.setTimeFormat(ISO_FULL_FORMAT);
+            else if (TimeFormat.getValue() == "default")
+                dumper.setTimeFormat(DEFTIMEFMT);
+            else
+                dumper.setTimeFormat(TimeFormat.getValue());
+        }
 
         if (app.processData())
         {
