@@ -44,7 +44,8 @@ build_rpms()
         (set -x; rm -rf "$TOPDIR/RPMS"; rm -rf "$TOPDIR/SRPMS")
     fi
     # this conveniently creates a list of built rpm files in src/rpms.txt.
-    (set -x; scons -C src build_rpm ../rpm/nidas.spec "$@")
+    (set -x
+     cd src && $HOME/eol-repo/scripts/build_rpm.sh ../rpm/nidas.spec "$@")
 }
 
 
