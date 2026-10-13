@@ -128,27 +128,9 @@ int SensorOpener::run() throw(n_u::Exception)
         _sensors.pop_front();
     }
     else {
-        // Don't pound on the recalcitrant sensors too fast.
-            //
-            // There was some implication in VERTEX that bluetooth devices
-            // (btspp:) could take more than 10 seconds to recover, so I
-            // considered hardcoding a longer delay here, like 30 seconds.
-            // However, that was never implemented, so this comment remains
-            // for future reference.  It might be nicer to use a back-off
-            // delay scheme, so the delay can start at 10 seconds for
-            // sensors which respond that quickly.  Another option is to
-            // use a longer delay only if sensor->getDeviceName() starts
-            // with "btspp:". Yet another option is to check for the
-            // "Operation now in progress" (EINPROGRESS) error in
-            // BluetoothRFCommSocketIODevice::open() from the connect()
-            // call, and at that point sleep for a longer time before
-            // trying again.
-
-        _sensorCond.unlock();
-        struct timespec sleepPeriod = {10,0};
-        nanosleep(&sleepPeriod,0);
-        _sensorCond.lock();
-
+        // It is now up to the config to specify how fast is too fast to
+        // reopen problem sensors, and how quickly to back off on reopen
+        // attempts.
         sensor = _problemSensors.front();
         _problemSensors.pop_front();
     }
@@ -157,6 +139,31 @@ int SensorOpener::run() throw(n_u::Exception)
         _sensorCond.unlock();
 
         try {
+            // First wait for the adjusted delay.  There is no delay if this
+            // sensor has never timed out, ie, it is being opened for the
+            // first time.
+            auto timeouts = sensor->getTimeouts();
+
+            if (timeouts.getDelayMsecs() > 0) {
+                DLOG(("") << sensor->getName() << " delaying opening: "
+                          << timeouts.getDelayMsecs() << " ms");
+                timeouts.nanosleep_msecs(timeouts.getDelayMsecs());
+            }
+
+            // If the sensor was turned off and it has a warmup time, then
+            // turn it back on here and give it time to power up before
+            // opening it.  If there is no warmup time needed, then leave the
+            // sensor off and let it be powered on in the open() call if the
+            // device open succeeds.
+            auto serial = dynamic_cast<SerialSensor*>(sensor);
+            if (serial && timeouts.cyclePowerThisTimeout() &&
+                timeouts.getWarmupMsecs() > 0)
+            {
+                serial->powerOn();
+                DLOG(("") << sensor->getName() << " warmup delay: "
+                          << timeouts.getWarmupMsecs() << " ms");
+                timeouts.nanosleep_msecs(timeouts.getWarmupMsecs());
+            }
             sensor->open(sensor->getDefaultMode());
 
             // sensor->open might take a while, so check for interrupted again.

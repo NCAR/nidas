@@ -111,11 +111,10 @@ DSMSensor::DSMSensor() :
     _latency(0.1),	// default sensor latency, 0.1 secs
     _parameters(),_constParameters(),
     _calFiles(),_typeName(),
-    _timeoutMsecs(0),
+    _timeouts(),
     _duplicateIdOK(false),
     _applyVariableConversions(),
     _driverTimeTagUsecs(USECS_PER_TMSEC),
-    _nTimeouts(0),
 	_lag(0),_station(-1),
 	_manufMetaData(), _configMetaData(),
 	_nSamplesToTest(DEFAULT_NUM_SAMPLES_TO_TEST),
@@ -399,7 +398,9 @@ void DSMSensor::open(int flags)
 
 void DSMSensor::close() throw(n_u::IOException)
 {
-    NLOG(("closing: %s, #timeouts=%d", getDeviceName().c_str(), getTimeoutCount()));
+    NLOG(("") << "closing: " << getDeviceName() 
+              << ", #timeouts=" << _timeouts.getNumTimeouts() 
+              << ", #cycles=" << _timeouts.getNumPowerCycles());
     if (_iodev) _iodev->close();
 
     setSensorState(SENSOR_CLOSED);
@@ -802,6 +803,96 @@ const string DSMSensor::getClassName(const xercesc::DOMElement* node,const Proje
     return project->expandString(xnode.getAttributeValue("class"));
 }
 
+
+void DSMSensor::setTimeoutMsecs(int val)
+{
+    _timeouts.setTimeoutMsecs(val);
+}
+
+
+int DSMSensor::getTimeoutMsecs() const
+{
+    return _timeouts.getTimeoutMsecs();
+}
+
+
+void DSMSensor::incrementTimeoutCount()
+{
+    _timeouts.incrementTimeouts();
+}
+
+
+Timeouts& DSMSensor::getTimeouts()
+{
+    return _timeouts;
+}
+
+
+int DSMSensor::getTimeoutCount() const
+{
+    return _timeouts.getNumTimeouts();
+}
+
+
+// If the next character is a comma, then accept it as part of the current
+// field and parse it.  If a number is not present, ok is set to false.
+bool parse_optional(istringstream& ist, bool& ok, float& value)
+{
+    if (ok && ist.peek() == ',') {
+        ist.get();
+        ok = bool(ist >> value);
+        return ok;
+    }
+    // the value was not present and should not be changed
+    return false;
+}
+
+
+bool parse_optional_msecs(istringstream& ist, bool& ok, int& msecs)
+{
+    float value{0};
+    if (parse_optional(ist, ok, value))
+    {
+        msecs = Timeouts::seconds_to_msecs(value);
+        return true;
+    }
+    return false;
+}
+
+
+bool Timeouts::parse(const std::string& value)
+{
+    // Need at least one value for the timeout in seconds.
+    istringstream ist(value);
+    float timeout{0};
+    bool ok = bool(ist >> timeout);
+    if (ok) {
+        timeout_msecs = seconds_to_msecs(timeout);
+    }
+    parse_optional_msecs(ist, ok, delay_msecs);
+    if (parse_optional(ist, ok, backoff_rate))
+    {
+        if (backoff_rate < 0)
+        {
+            backoff_rate = 0;
+            ok = false;
+        }
+    }
+    parse_optional_msecs(ist, ok, maxdelay_msecs);
+
+    // Now should either be at the end or a power cycle field.
+    if (ok && !(ist >> cycle_n_timeouts)) {
+        ok = ist.eof();
+    }
+    if (cycle_n_timeouts < 0) {
+        cycle_n_timeouts = 0;
+        ok = false;
+    }
+    parse_optional_msecs(ist, ok, warmup_msecs);
+    return ok;
+}
+
+
 void DSMSensor::fromDOMElement(const xercesc::DOMElement* node)
     throw(n_u::InvalidParameterException)
 {
@@ -932,11 +1023,9 @@ void DSMSensor::fromDOMElement(const xercesc::DOMElement* node)
                 setDuplicateIdOK(val);
             }
             else if (aname == "timeout") {
-                istringstream ist(aval);
-                float val;
-                ist >> val;
-                if (ist.fail()) throw n_u::InvalidParameterException(getName(),aname,aval);
-                setTimeoutMsecs((int)rint(val * MSECS_PER_SEC));
+                if (!_timeouts.parse(aval))
+                    throw n_u::InvalidParameterException(getName(),
+                                                         "timeout", aval);
             }
             else if (aname == "readonly") {
                 istringstream ist(aval);

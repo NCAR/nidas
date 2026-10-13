@@ -157,6 +157,166 @@ struct SensorConfigMetaData : public MetaDataBase
 
 
 /**
+ * Timeouts contains settings and state to implement sensor timeouts.
+ * If a sensor does not report any data after the timeout period, stored in milliseconds,
+ * then it can be reopened according to the other settings in this class.
+ * 
+ * There is a counter for the number of timeouts so  counters for both kinds of timeouts, one to
+ * trigger a reopen and one to trigger a power cycle.
+ */
+class Timeouts
+{
+public:
+
+    void incrementTimeouts()
+    {
+        ++n_timeouts;
+    }
+
+    void setTimeoutMsecs(int val)
+    {
+        timeout_msecs = (val < 0 ? 0 : val);
+    }
+
+    /**
+     * Return true if the sensor should be power cycled on this timeout, false
+     * otherwise.  For example, if the cycle_n_timeouts is set to 3, the
+     * sensor should be power cycled on every third timeout.  The expected
+     * states are timeout -> power off -> wait for getDelayMsecs() -> power on
+     * -> wait for getWarmupMsecs() -> reopen.
+     */
+    bool cyclePowerThisTimeout() const
+    {
+        return n_timeouts > 0 && cycle_n_timeouts > 0 &&
+            n_timeouts % cycle_n_timeouts == 0;
+    }
+
+    int getNumTimeouts() const
+    {
+        return n_timeouts;
+    }
+
+    int getTimeoutMsecs() const
+    {
+        return timeout_msecs;
+    }
+
+    int getCycleNumTimeouts() const
+    {
+        return cycle_n_timeouts;
+    }
+
+    /**
+     * Get the milliseconds to delay before a reopen after a timeout.  This is
+     * adjusted according to the backoff rate, number of timeouts so far, and
+     * the maximum allowed delay.  If there have been no timeouts, then the
+     * delay is zero.
+     */
+    int getDelayMsecs() const
+    {
+        // on the first timeout, the delay is just the initial delay
+        // (delay_msecs).
+        float delay{0};
+        if (n_timeouts > 0)
+            delay = (backoff_rate * (n_timeouts - 1) + 1.0) * delay_msecs;
+        if (delay > maxdelay_msecs) {
+            delay = maxdelay_msecs;
+        }
+        if (delay > MAXDELAY_LIMIT_MSECS) {
+            delay = MAXDELAY_LIMIT_MSECS;
+        }
+        return static_cast<int>(delay);
+    }
+
+    /**
+     * Return an additional delay in milliseconds to wait after powering on
+     * the sensor before opening the device.
+     */
+    int getWarmupMsecs() const
+    {
+        return warmup_msecs;
+    }
+
+    /**
+     * Parse a string @p value containing timeout settings in this syntax:
+     * 
+     * <timeout>[,<delay>[,<backoff>[,<maxdelay>]]] [<cycle_n_timeouts>[,<warmup>]]
+     * 
+     * The timeout, delay, and warmup times are specified in floating point
+     * seconds and will be converted to integer milliseconds.  As much as
+     * possible of the string is parsed and modifies this object, even if the
+     * parsing eventually fails.  Additional fields are ignored to allow
+     * forward compatibility.
+     *
+     * @return True if the parsing was successful, false otherwise.
+     */
+    bool parse(const std::string& value);
+
+    static int seconds_to_msecs(float seconds)
+    {
+        return (int)rint(seconds * MSECS_PER_SEC);
+    }
+
+    void nanosleep_msecs(int msecs)
+    {
+        if (msecs <= 0)
+            return;
+        struct timespec ts;
+        ts.tv_sec = msecs / MSECS_PER_SEC;
+        ts.tv_nsec = (msecs % MSECS_PER_SEC) * NSECS_PER_MSEC;
+        nanosleep(&ts, 0);
+    }
+
+    static const int MAXDELAY_LIMIT_MSECS{300*MSECS_PER_SEC};
+
+private:
+    /**
+     * Timeout period in milliseconds. If the sensor does not report any data
+     * within this period, it may be reopened.
+     */
+    int timeout_msecs{0};
+
+    /**
+     * Cycle the sensor power after every interval of this many timeouts.
+     */
+    int cycle_n_timeouts{0};
+
+    /**
+     * Number of timeouts that have occurred.
+     */
+    int n_timeouts{0};
+
+    /**
+     * Initial delay before attempting to reopen the sensor after a timeout.
+     */
+    int delay_msecs{0};
+
+    /**
+     * Backoff rate for increasing the delay between successive reopen
+     * attempts.
+     */
+    float backoff_rate{1.0};
+
+    /**
+     * Maximum delay between successive reopen attempts.  This is currently
+     * limited to MAXDELAY_LIMIT_MSECS, which is hardcoded at 5 minutes,
+     * because all the reopens run in the same thread. Delaying one sensor
+     * reopen too long could also delay other reopens.
+     */
+    int maxdelay_msecs{MAXDELAY_LIMIT_MSECS};
+
+    /**
+     * How long to delay opening the sensor device after powering it back on.
+     * There is no harm in this being short unless the sensor requires an init
+     * string and must reach a state to read it.  The shorter the warmup, the
+     * more likely the sensor startup messages can be recorded.
+     */
+    int warmup_msecs{0};
+
+};
+
+
+/**
  * DSMSensor provides the basic support for reading, processing
  * and distributing samples from a sensor attached to a DSM.
  *
@@ -645,25 +805,15 @@ public:
      * so setting it to less than 1000 milliseconds will likely not
      * reduce the time before a sensor timeout is detected.
      */
-    virtual void setTimeoutMsecs(int val)
-    {
-        _timeoutMsecs = val;
-    }
+    void setTimeoutMsecs(int val);
 
-    virtual int getTimeoutMsecs() const
-    {
-        return _timeoutMsecs;
-    }
+    int getTimeoutMsecs() const;
 
-    int getTimeoutCount() const
-    {
-        return _nTimeouts;
-    }
+    int getTimeoutCount() const;
 
-    void incrementTimeoutCount()
-    {
-        _nTimeouts++;
-    }
+    void incrementTimeoutCount();
+
+    Timeouts& getTimeouts();
 
     /**
      * Add a parameter to this DSMSensor. DSMSensor
@@ -678,7 +828,7 @@ public:
      */
     const std::list<const Parameter*>& getParameters() const
     {
-	return _constParameters;
+        return _constParameters;
     }
 
     /**
@@ -1526,21 +1676,13 @@ private:
 
     std::string _typeName;
 
-    int _timeoutMsecs;
+    Timeouts _timeouts;
 
     bool _duplicateIdOK;
 
     bool _applyVariableConversions;
 
     int _driverTimeTagUsecs;
-
-    /*
-     * This is incremented once every 10 times that SensorHandler calls derived class PolledDSMSensor::checkTimeout()
-     * when no data has been received. However, SensorHandler only does this at most once per second and the
-     * counter which PolledDSMSensor uses is reset when data does arrive. This means that if one data sample gets through
-     * once every 10 seconds, then no warning of any kind would be issued - ever.
-     */
-    int _nTimeouts;
 
     static Looper* _looper;
 
