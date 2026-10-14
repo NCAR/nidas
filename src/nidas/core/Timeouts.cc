@@ -33,6 +33,12 @@
 
 namespace nidas { namespace core {
 
+// Definitions for the static constants initialized in the class declaration,
+// needed when they are bound to a reference.
+const int Timeouts::MAXDELAY_LIMIT_MSECS;
+const int Timeouts::DELAY_MSECS_DEFAULT;
+const int Timeouts::MINDELAY_LIMIT_MSECS;
+
 Timeouts::Timeouts(int timeoutMsecs, int delayMsecs, float backoffRate,
                    int maxDelayMsecs, int cycleNumTimeouts,
                    int warmupMsecs, int nTimeouts):
@@ -52,6 +58,7 @@ Timeouts& Timeouts::setPowerCycle(int cycleNumTimeouts, int warmupMsecs)
 {
     cycle_n_timeouts = cycleNumTimeouts;
     warmup_msecs = warmupMsecs;
+    checkValid();
     return *this;
 }
 
@@ -62,7 +69,8 @@ void Timeouts::incrementTimeouts()
 
 void Timeouts::setTimeoutMsecs(int val)
 {
-    timeout_msecs = (val < 0 ? 0 : val);
+    timeout_msecs = val;
+    checkValid();
 }
 
 bool Timeouts::cyclePowerThisTimeout() const
@@ -94,7 +102,8 @@ int Timeouts::getCycleNumTimeouts() const
 int Timeouts::getDelayMsecs() const
 {
     // on the first timeout, the delay is just the initial delay
-    // (delay_msecs).
+    // (delay_msecs).  i think it's safe to assume this will never overflow,
+    // but that's a good reason to keep the minimum delay check here.
     float delay{0};
     if (n_timeouts > 0)
         delay = (backoff_rate * (n_timeouts - 1) + 1.0) * delay_msecs;
@@ -117,13 +126,21 @@ int Timeouts::getWarmupMsecs() const
 
 namespace {
 
-// If the next character is a comma, then accept it as part of the current
-// field and parse it.  If a number is not present, ok is set to false.
+// If the next character is a comma (after skipping whitespace), then accept
+// it as part of the current field and parse it.  If a number is not present,
+// ok is set to false.
 bool parse_optional(std::istringstream& ist, bool& ok, float& value)
 {
-    if (ok && ist.peek() == ',') {
+    if (ok && std::isspace(ist.peek())) {
         ist.get();
-        ok = bool(ist >> value);
+    }
+    if (ok && ist.peek() == ',') {
+        float temp;
+        ist.get();
+        ok = bool(ist >> temp);
+        if (ok) {
+            value = temp;
+        }
         return ok;
     }
     // the value was not present and should not be changed
@@ -157,10 +174,12 @@ bool Timeouts::parse(const std::string& value)
     parse_optional_msecs(ist, ok, maxdelay_msecs);
 
     // Now should either be at the end or a power cycle field.
-    if (ok && !(ist >> cycle_n_timeouts)) {
+    int temp;
+    if (ok && !(ist >> temp)) {
         ok = ist.eof();
     }
-    else {
+    else if (ok) {
+        cycle_n_timeouts = temp;
         parse_optional_msecs(ist, ok, warmup_msecs);
     }
     // force all fields to be valid, but fail if any were not

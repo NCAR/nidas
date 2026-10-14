@@ -45,9 +45,9 @@ namespace nidas { namespace core {
 class Timeouts
 {
 public:
-    static const int MAXDELAY_LIMIT_MSECS{300*MSECS_PER_SEC};
-    static const int DELAY_MSECS_DEFAULT{10*MSECS_PER_SEC};
-    static const int MINDELAY_LIMIT_MSECS{1*MSECS_PER_SEC};
+    static constexpr int MAXDELAY_LIMIT_MSECS{300*MSECS_PER_SEC};
+    static constexpr int DELAY_MSECS_DEFAULT{10*MSECS_PER_SEC};
+    static constexpr int MINDELAY_LIMIT_MSECS{1*MSECS_PER_SEC};
 
     /**
      * Construct a Timeouts instance.
