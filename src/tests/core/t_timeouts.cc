@@ -108,11 +108,7 @@ BOOST_AUTO_TEST_CASE(test_timeouts_power_cycle)
     for (int i = 1; i <= 6; ++i) {
         timeouts.incrementTimeouts();
         BOOST_CHECK_EQUAL(timeouts.getNumTimeouts(), i);
-        if (i % 3 == 0) {
-            BOOST_CHECK(timeouts.cyclePowerThisTimeout());
-        } else {
-            BOOST_CHECK(!timeouts.cyclePowerThisTimeout());
-        }
+        BOOST_CHECK_EQUAL(timeouts.cyclePowerThisTimeout(), !(i % 3));
     }
 
     BOOST_CHECK_EQUAL(timeouts.getTotalNumPowerCycles(), 2);
@@ -136,6 +132,9 @@ BOOST_AUTO_TEST_CASE(test_timeouts_delay)
     for (auto xdelay: std::vector<int>{2000, 5000, 6000, 6000}) {
         timeouts.incrementTimeouts();
         BOOST_CHECK_EQUAL(timeouts.getAdjustedDelayMsecs(), xdelay);
+        // also just make extra sure power cycles are never enabled on any
+        // timeouts
+        BOOST_CHECK_EQUAL(timeouts.cyclePowerThisTimeout(), false);
     }
 
     timeouts = Timeouts(1000, 2000, .5, 5000);
