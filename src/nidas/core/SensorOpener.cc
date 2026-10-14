@@ -144,7 +144,7 @@ int SensorOpener::run() throw(n_u::Exception)
             Timeouts& timeouts = sensor->getTimeouts();
             int delay = timeouts.getAdjustedDelayMsecs();
             if (delay > 0) {
-                DLOG(("") << sensor->getName() << " delaying opening: "
+                ILOG(("") << sensor->getName() << " open delay: "
                           << delay << " ms");
                 timeouts.nanosleep_msecs(delay);
             }
@@ -159,7 +159,7 @@ int SensorOpener::run() throw(n_u::Exception)
                 timeouts.getWarmupMsecs() > 0)
             {
                 serial->powerOn();
-                DLOG(("") << sensor->getName() << " warmup delay: "
+                ILOG(("") << sensor->getName() << " warmup delay: "
                           << timeouts.getWarmupMsecs() << " ms");
                 timeouts.nanosleep_msecs(timeouts.getWarmupMsecs());
             }
