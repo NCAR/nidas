@@ -59,9 +59,9 @@ BOOST_AUTO_TEST_CASE(test_parse_timeouts)
         BOOST_CHECK_EQUAL(timeouts, test.xtimeouts);
     }
 
-    BOOST_CHECK_EQUAL(Timeouts::DELAY_MSECS_DEFAULT, 10000);
+    BOOST_CHECK_EQUAL(Timeouts::DELAY_MSECS_DEFAULT, 1000);
     BOOST_CHECK_EQUAL(Timeouts::MINDELAY_LIMIT_MSECS, 1000);
-    BOOST_CHECK_EQUAL(Timeouts::MAXDELAY_LIMIT_MSECS, 300000);
+    BOOST_CHECK_EQUAL(Timeouts::MAXDELAY_LIMIT_MSECS, 60000);
 
     // whatever parses is modified, even if parsing fails.
     Timeouts timeouts;
@@ -123,27 +123,33 @@ BOOST_AUTO_TEST_CASE(test_timeouts_delay)
 {
     Timeouts timeouts(1000, 200, 1.5, 5000);
 
-    // initial delay can never be less than the minimum
-    BOOST_CHECK_EQUAL(timeouts.getDelayMsecs(),
+    // no timeouts yet means zero delay
+    BOOST_CHECK_EQUAL(timeouts.getAdjustedDelayMsecs(), 0);
+
+    // initial delay (after the first timeout)can never be less than the
+    // minimum
+    timeouts.incrementTimeouts();
+    BOOST_CHECK_EQUAL(timeouts.getAdjustedDelayMsecs(),
                       Timeouts::MINDELAY_LIMIT_MSECS);
 
     timeouts = Timeouts(1000, 2000, 1.5, 6000);
+    for (auto xdelay: std::vector<int>{2000, 5000, 6000, 6000}) {
+        timeouts.incrementTimeouts();
+        BOOST_CHECK_EQUAL(timeouts.getAdjustedDelayMsecs(), xdelay);
+    }
 
-    // after one timeout, delay should be the initial delay
-    timeouts.incrementTimeouts();
-    BOOST_CHECK_EQUAL(timeouts.getDelayMsecs(), 2000);
+    timeouts = Timeouts(1000, 2000, .5, 5000);
+    for (auto xdelay: std::vector<int>{2000, 3000, 4000, 5000, 5000}) {
+        timeouts.incrementTimeouts();
+        BOOST_CHECK_EQUAL(timeouts.getAdjustedDelayMsecs(), xdelay);
+    }
 
-    // after two timeouts, delay should increase
-    timeouts.incrementTimeouts();
-    BOOST_CHECK_EQUAL(timeouts.getDelayMsecs(), 5000);
-
-    // after three timeouts, delay should increase but not exceed maxdelay_msecs
-    timeouts.incrementTimeouts();
-    BOOST_CHECK_EQUAL(timeouts.getDelayMsecs(), 6000);
-
-    // after more timeouts, delay should still be capped at maxdelay_msecs
-    timeouts.incrementTimeouts();
-    BOOST_CHECK_EQUAL(timeouts.getDelayMsecs(), 6000);
+    // default backoff rate of 1.0 and default maximum delay
+    timeouts = Timeouts(1000, 15000);
+    for (auto xdelay: std::vector<int>{15000, 30000, 45000, 60000, 60000}) {
+        timeouts.incrementTimeouts();
+        BOOST_CHECK_EQUAL(timeouts.getAdjustedDelayMsecs(), xdelay);
+    }
 }
 
 
@@ -166,4 +172,41 @@ BOOST_AUTO_TEST_CASE(test_timeouts_reset)
     BOOST_CHECK_EQUAL(timeouts.getNumTimeouts(), 1);
     BOOST_CHECK_EQUAL(timeouts.getTotalNumTimeouts(), 6);
     BOOST_CHECK_EQUAL(timeouts.getTotalNumPowerCycles(), 2);
+}
+
+
+BOOST_AUTO_TEST_CASE(test_timeouts_set_delay)
+{
+    Timeouts timeouts;
+
+    // set a delay below the minimum limit
+    timeouts.setDelayMsecs(0);
+    BOOST_CHECK_EQUAL(timeouts.getDelayMsecs(), Timeouts::MINDELAY_LIMIT_MSECS);
+
+    // set a delay above the maximum limit
+    timeouts.setDelayMsecs(Timeouts::MAXDELAY_LIMIT_MSECS + 1000);
+    BOOST_CHECK_EQUAL(timeouts.getDelayMsecs(), Timeouts::MAXDELAY_LIMIT_MSECS);
+
+    // set a new delay without a timeout, as if this is a forced delay after a
+    // reopen failure.
+    timeouts.setDelayMsecs(3000);
+    BOOST_CHECK_EQUAL(timeouts.getTimeoutMsecs(), 0);
+    // before any timeouts, the adjusted delay should be zero
+    BOOST_CHECK_EQUAL(timeouts.getAdjustedDelayMsecs(), 0);
+    timeouts.incrementTimeouts();
+    BOOST_CHECK_EQUAL(timeouts.getAdjustedDelayMsecs(), 3000);
+}
+
+
+BOOST_AUTO_TEST_CASE(test_timeouts_default_delays)
+{
+    // make sure the defaults are appropriate to slow down reopen attempts
+    Timeouts timeouts;
+    BOOST_CHECK_EQUAL(timeouts.getDelayMsecs(), Timeouts::DELAY_MSECS_DEFAULT);
+    BOOST_CHECK_EQUAL(timeouts.getAdjustedDelayMsecs(), 0);
+
+    for (int i = 0; i < 5; ++i) {
+        timeouts.incrementTimeouts();
+        BOOST_CHECK_EQUAL(timeouts.getAdjustedDelayMsecs(), (i + 1) * 1000);
+    }
 }

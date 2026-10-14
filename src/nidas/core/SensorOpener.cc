@@ -129,8 +129,7 @@ int SensorOpener::run() throw(n_u::Exception)
     }
     else {
         // It is now up to the config to specify how fast is too fast to
-        // reopen problem sensors, and how quickly to back off on reopen
-        // attempts.
+        // reopen a sensor, and how quickly to back off on reopen attempts.
         sensor = _problemSensors.front();
         _problemSensors.pop_front();
     }
@@ -142,12 +141,12 @@ int SensorOpener::run() throw(n_u::Exception)
             // First wait for the adjusted delay.  There is no delay if this
             // sensor has never timed out, ie, it is being opened for the
             // first time.
-            auto timeouts = sensor->getTimeouts();
-
-            if (timeouts.getDelayMsecs() > 0) {
+            Timeouts& timeouts = sensor->getTimeouts();
+            int delay = timeouts.getAdjustedDelayMsecs();
+            if (delay > 0) {
                 DLOG(("") << sensor->getName() << " delaying opening: "
-                          << timeouts.getDelayMsecs() << " ms");
-                timeouts.nanosleep_msecs(timeouts.getDelayMsecs());
+                          << delay << " ms");
+                timeouts.nanosleep_msecs(delay);
             }
 
             // If the sensor was turned off and it has a warmup time, then
@@ -155,7 +154,7 @@ int SensorOpener::run() throw(n_u::Exception)
             // opening it.  If there is no warmup time needed, then leave the
             // sensor off and let it be powered on in the open() call if the
             // device open succeeds.
-            auto serial = dynamic_cast<SerialSensor*>(sensor);
+            SerialSensor* serial = dynamic_cast<SerialSensor*>(sensor);
             if (serial && timeouts.cyclePowerThisTimeout() &&
                 timeouts.getWarmupMsecs() > 0)
             {
@@ -189,13 +188,27 @@ int SensorOpener::run() throw(n_u::Exception)
             _selector->sensorIsOpen(sensor);
         }
         catch(const n_u::IOException& e) {
+            // Treat reopen failures as timeouts so subsequent reopens follow
+            // the same delay and backoff settings as for sensor timeouts. If
+            // a sensor ends up here without a timeout, it means the open is
+            // failing, likely because the device does not exist. In that
+            // case, the historical automatic and fixed delay was 10 seconds.
+            // Now, the default Timeouts for a sensor allows the reopens to
+            // slow down based on the default backoff rate.  If this sensor
+            // open is going to fail persistently, then it will probably reach
+            // the max delay and slow down reopens on other sensors, probably
+            // surprising someone.  Maybe sensors should be removed after a
+            // certain number of open failures, until it's possible to block
+            // on a single sensor open without blocking other sensors. Or
+            // maybe open failures should be tracked and handled differently
+            // than timeouts.
+            sensor->incrementTimeoutCount();
             if (dynamic_cast<const n_u::IOTimeoutException*>(&e)) {
-                sensor->incrementTimeoutCount();
                 // log timeouts as warnings, not errors
-                WLOG(("%s: %s",sensor->getName().c_str(),e.what()));
+                WLOG(("") << sensor->getName() << ": " << e.what());
             }
             else {
-                PLOG(("%s: %s",sensor->getName().c_str(),e.what()));
+                PLOG(("") << sensor->getName() << ": " << e.what());
             }
 
             // file descriptor may be open if the error happened in
@@ -204,7 +217,7 @@ int SensorOpener::run() throw(n_u::Exception)
                 sensor->close();
             }
             catch(const n_u::IOException& e) {
-                PLOG(("%s: %s", sensor->getName().c_str(),e.what()));
+                PLOG(("") << sensor->getName() << ": " << e.what());
             }
         _sensorCond.lock();
         _problemSensors.push_back(sensor);
@@ -215,12 +228,12 @@ int SensorOpener::run() throw(n_u::Exception)
     // not likely fix an InvalidParameterException,
     // it needs human interaction.
     catch(const n_u::InvalidParameterException& e) {
-        PLOG(("%s: %s", sensor->getName().c_str(),e.what()));
+        PLOG(("") << sensor->getName() << ": " << e.what());
             try {
                 sensor->close();
             }
             catch(const n_u::IOException& e) {
-                PLOG(("%s: %s", sensor->getName().c_str(),e.what()));
+                PLOG(("") << sensor->getName() << ": " << e.what());
             }
     }
     }

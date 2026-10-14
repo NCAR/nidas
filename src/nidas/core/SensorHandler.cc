@@ -1040,8 +1040,8 @@ void SensorHandler::handlePollingChange()
                 // gone away, then no amount of power cycling will fix that.
                 // instead, power it off once here, then it will be powered on
                 // in the reopen, possibly with a warmup delay first.
-                auto serial = dynamic_cast<SerialSensor*>(sensor);
-                auto timeouts = sensor->getTimeouts();
+                SerialSensor* serial = dynamic_cast<SerialSensor*>(sensor);
+                Timeouts& timeouts = sensor->getTimeouts();
                 if (serial && timeouts.cyclePowerThisTimeout())
                 {
                     serial->powerOff();

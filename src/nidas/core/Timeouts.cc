@@ -79,6 +79,12 @@ void Timeouts::setTimeoutMsecs(int val)
     checkValid();
 }
 
+void Timeouts::setDelayMsecs(int val)
+{
+    delay_msecs = val;
+    checkValid();
+}
+
 bool Timeouts::cyclePowerThisTimeout() const
 {
     return n_timeouts > 0 && cycle_n_timeouts > 0 &&
@@ -117,20 +123,28 @@ int Timeouts::getCycleNumTimeouts() const
 
 int Timeouts::getDelayMsecs() const
 {
+    return delay_msecs;
+}
+
+int Timeouts::getAdjustedDelayMsecs() const
+{
+    // if no timeouts, then no delay, such as on the initial sensor open().
     // on the first timeout, the delay is just the initial delay
     // (delay_msecs).  i think it's safe to assume this will never overflow,
     // but that's a good reason to keep the minimum delay check here.
     float delay{0};
     if (n_timeouts > 0)
+    {
         delay = (backoff_rate * (n_timeouts - 1) + 1.0) * delay_msecs;
-    if (delay > maxdelay_msecs) {
-        delay = maxdelay_msecs;
-    }
-    if (delay > MAXDELAY_LIMIT_MSECS) {
-        delay = MAXDELAY_LIMIT_MSECS;
-    }
-    if (delay < MINDELAY_LIMIT_MSECS) {
-        delay = MINDELAY_LIMIT_MSECS;
+        if (delay > maxdelay_msecs) {
+            delay = maxdelay_msecs;
+        }
+        if (delay > MAXDELAY_LIMIT_MSECS) {
+            delay = MAXDELAY_LIMIT_MSECS;
+        }
+        if (delay < MINDELAY_LIMIT_MSECS) {
+            delay = MINDELAY_LIMIT_MSECS;
+        }
     }
     return static_cast<int>(delay);
 }
@@ -227,7 +241,9 @@ std::string Timeouts::toString() const
         << ", maxdelay_msecs=" << maxdelay_msecs
         << ", cycle_n_timeouts=" << cycle_n_timeouts
         << ", warmup_msecs=" << warmup_msecs
-        << ", n_timeouts=" << n_timeouts;
+        << ", n_timeouts=" << n_timeouts
+        << ", total_n_timeouts=" << total_n_timeouts
+        << ", total_n_power_cycles=" << total_n_power_cycles;
     return oss.str();
 }
 
@@ -239,7 +255,9 @@ bool Timeouts::operator==(const Timeouts& other) const
            maxdelay_msecs == other.maxdelay_msecs &&
            cycle_n_timeouts == other.cycle_n_timeouts &&
            warmup_msecs == other.warmup_msecs &&
-           n_timeouts == other.n_timeouts;
+           n_timeouts == other.n_timeouts &&
+           total_n_timeouts == other.total_n_timeouts &&
+           total_n_power_cycles == other.total_n_power_cycles;
 }
 
 bool Timeouts::checkValid()

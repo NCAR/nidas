@@ -52,8 +52,13 @@ namespace nidas { namespace core {
 class Timeouts
 {
 public:
-    static constexpr int MAXDELAY_LIMIT_MSECS{300*MSECS_PER_SEC};
-    static constexpr int DELAY_MSECS_DEFAULT{10*MSECS_PER_SEC};
+    /**
+     * The maxdelay for all Timeouts is limited to MAXDELAY_LIMIT_MSECS,
+     * hardcoded at one minute, because all the reopens run serially in the
+     * same thread, so delaying one sensor open delays all other opens.
+     **/
+    static constexpr int MAXDELAY_LIMIT_MSECS{60*MSECS_PER_SEC};
+    static constexpr int DELAY_MSECS_DEFAULT{1*MSECS_PER_SEC};
     static constexpr int MINDELAY_LIMIT_MSECS{1*MSECS_PER_SEC};
 
     /**
@@ -68,11 +73,14 @@ public:
      * triggered.
      * @param warmupMsecs The warmup period after a power cycle before
      * reopening.
-     * 
-     * The default delay matches original behavior where sensors were
-     * automatically delayed by 10 seconds to avoid runaway reopen attempts.
-     * The minimum delay is fixed at 1 second to prevent excessively rapid
-     * reopen attempts.
+     *
+     * The minimum delay is fixed at 1 second to prohibit a configuration with
+     * obnoxiously rapid reopen attempts. The defaults have to work to curtail
+     * excessive reopens on a device which has not configured any timeout
+     * settings.  The initial default delay of 1 second allows reopen attempts
+     * to happen quickly (meaning other reopens can be interleaved), but
+     * eventually the backoff rate slows down the reopen attempts until
+     * reaching the maximum delay.
      */
     Timeouts(int timeoutMsecs=0, int delayMsecs=DELAY_MSECS_DEFAULT,
              float backoffRate=1.0,
@@ -93,6 +101,18 @@ public:
     void resetTimeout();
 
     void setTimeoutMsecs(int val);
+
+    /**
+     * Set the delay before a reopen.  This can be set separately even while
+     * timeouts are disabled (getTimeoutMsecs() == 0) in case of reopens which
+     * caused by failed opens and not by sensor timeouts.
+     */
+    void setDelayMsecs(int val);
+
+    /**
+     * Get the unadjusted initial delay before a reopen.
+     */
+    int getDelayMsecs() const;
 
     /**
      * Return true if the sensor should be power cycled on this timeout, false
@@ -127,12 +147,12 @@ public:
     int getCycleNumTimeouts() const;
 
     /**
-     * Get the milliseconds to delay before a reopen after a timeout.  This is
-     * adjusted according to the backoff rate, number of timeouts so far, and
-     * the maximum allowed delay.  If there have been no timeouts, then the
-     * delay is zero.
+     * Get the adjusted delay in milliseconds before a reopen.  This is based
+     * on the backoff rate, number of timeouts so far (not the total, just the
+     * number since the last reset), and the maximum delay.  If there have
+     * been no timeouts, then the delay is zero.
      */
-    int getDelayMsecs() const;
+    int getAdjustedDelayMsecs() const;
 
     /**
      * Return an additional delay in milliseconds to wait after powering on
@@ -185,10 +205,7 @@ private:
     float backoff_rate;
 
     /**
-     * Maximum delay between successive reopen attempts.  This is currently
-     * limited to MAXDELAY_LIMIT_MSECS, which is hardcoded at 5 minutes,
-     * because all the reopens run in the same thread. Delaying one sensor
-     * reopen too long could also delay other reopens.
+     * Maximum delay between successive reopen attempts.
      */
     int maxdelay_msecs;
 
