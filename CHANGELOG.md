@@ -41,8 +41,10 @@ looks for a response according to the single sensor specified for the port.
 
 ## [1.4.4] - Pending
 
-Serial sensors with a `timeout` setting will now be powered off when they time
-out, and powered on again in the first reopen attempt.
+Sensor timeouts have been expanded to include reopen delays with an optional
+backoff rate, power cycling interval, and warmup delays.  See
+[Timeouts.md](doc/Timeouts.md).
+
 
 ## [1.4.3] - 2026-08-12
 
