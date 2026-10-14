@@ -59,10 +59,12 @@ BOOST_AUTO_TEST_CASE(test_parse_timeouts)
         BOOST_CHECK_EQUAL(timeouts, test.xtimeouts);
     }
 
-    Timeouts timeouts;
-
+    BOOST_CHECK_EQUAL(Timeouts::DELAY_MSECS_DEFAULT, 10000);
+    BOOST_CHECK_EQUAL(Timeouts::MINDELAY_LIMIT_MSECS, 1000);
+    BOOST_CHECK_EQUAL(Timeouts::MAXDELAY_LIMIT_MSECS, 300000);
 
     // whatever parses is modified, even if parsing fails.
+    Timeouts timeouts;
     BOOST_CHECK(!timeouts.parse("1.5 abc"));
     BOOST_CHECK_EQUAL(timeouts.getTimeoutMsecs(), 1500);
     BOOST_CHECK_EQUAL(timeouts.getCycleNumTimeouts(), 0);
