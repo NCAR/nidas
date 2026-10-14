@@ -822,15 +822,9 @@ void DSMSensor::incrementTimeoutCount()
 }
 
 
-Timeouts& DSMSensor::getTimeouts()
-{
-    return _timeouts;
-}
-
-
 int DSMSensor::getTimeoutCount() const
 {
-    return _timeouts.getNumTimeouts();
+    return _timeouts.getTotalNumTimeouts();
 }
 
 

@@ -101,11 +101,6 @@ int Timeouts::getTotalNumTimeouts() const
     return total_n_timeouts;
 }
 
-void Timeouts::resetTimeout()
-{
-    n_timeouts = 0;
-}
-
 int Timeouts::getTotalNumPowerCycles() const
 {
     return total_n_power_cycles;
@@ -156,13 +151,13 @@ int Timeouts::getWarmupMsecs() const
 
 namespace {
 
-// If the next character is a comma (after skipping whitespace), then accept
-// it as part of the current field and parse it.  If a number is not present,
-// ok is set to false.
+// If the next character is a comma (after skipping all whitespace), then
+// accept it as part of the current field and parse it.  If a number is not
+// present, ok is set to false.
 bool parse_optional(std::istringstream& ist, bool& ok, float& value)
 {
-    if (ok && std::isspace(ist.peek())) {
-        ist.get();
+    if (ok) {
+        ist >> std::ws;
     }
     if (ok && ist.peek() == ',') {
         float temp;
@@ -203,13 +198,18 @@ bool Timeouts::parse(const std::string& value)
     parse_optional(ist, ok, backoff_rate);
     parse_optional_msecs(ist, ok, maxdelay_msecs);
 
-    // Now should either be at the end or a power cycle field.
-    int temp;
+    // Now should either be at the end or a power cycle field.  Read the
+    // cycle count as a float so a fractional count is an error rather than
+    // being truncated, which would also leave the rest of the field unparsed.
+    float temp;
     if (ok && !(ist >> temp)) {
         ok = ist.eof();
     }
+    else if (ok && temp != std::floor(temp)) {
+        ok = false;
+    }
     else if (ok) {
-        cycle_n_timeouts = temp;
+        cycle_n_timeouts = static_cast<int>(temp);
         parse_optional_msecs(ist, ok, warmup_msecs);
     }
     // force all fields to be valid, but fail if any were not
@@ -263,12 +263,24 @@ bool Timeouts::operator==(const Timeouts& other) const
 bool Timeouts::checkValid()
 {
     bool ok = true;
+    if (timeout_msecs < 0) {
+        timeout_msecs = 0;
+        ok = false;
+    }
     if (delay_msecs < MINDELAY_LIMIT_MSECS) {
         delay_msecs = MINDELAY_LIMIT_MSECS;
         ok = false;
     }
     if (delay_msecs > MAXDELAY_LIMIT_MSECS) {
         delay_msecs = MAXDELAY_LIMIT_MSECS;
+        ok = false;
+    }
+    if (maxdelay_msecs < MINDELAY_LIMIT_MSECS) {
+        maxdelay_msecs = MINDELAY_LIMIT_MSECS;
+        ok = false;
+    }
+    if (maxdelay_msecs > MAXDELAY_LIMIT_MSECS) {
+        maxdelay_msecs = MAXDELAY_LIMIT_MSECS;
         ok = false;
     }
     if (backoff_rate < 0) {

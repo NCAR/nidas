@@ -274,12 +274,6 @@ private:
          */
         int _lastCheckInterval;
 
-        /**
-         * This indicates whether data have been read from the sensor
-         * since the last timeout started.
-         */
-        bool _resetTimeout;
-
         // no copying
         PolledDSMSensor(const PolledDSMSensor&);
 

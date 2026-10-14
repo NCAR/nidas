@@ -33,8 +33,8 @@ given too. Spaces are allowed around the commas.
 | `timeout`        | seconds | 0       | How long the sensor can go without reporting data before it times out. 0 disables timeouts. |
 | `delay`          | seconds | 1       | Delay before the first reopen in a series of timeouts. Must be from 1 to 60 seconds. |
 | `backoff`        | factor  | 1.0     | How much the delay grows with each further timeout. 0 keeps the delay fixed. Must not be negative. |
-| `maxdelay`       | seconds | 60      | Upper limit on the delay before a reopen. The limit can never be above 60 seconds. |
-| `cycle_timeouts` | count   | 0       | Power cycle the sensor on every Nth timeout. 0 disables power cycling. Must not be negative. |
+| `maxdelay`       | seconds | 60      | Upper limit on the delay before a reopen. Must be from 1 to 60 seconds. |
+| `cycle_timeouts` | count   | 0       | Power cycle the sensor on every Nth timeout. 0 disables power cycling. Must be a whole number, not negative. |
 | `warmup`         | seconds | 0       | After power comes back on, wait this long before opening the sensor. Must not be negative. |
 
 `timeout`, `delay`, `maxdelay`, and `warmup` are floating-point seconds,
@@ -51,9 +51,10 @@ an invalid parameter error naming the `timeout` attribute. This happens when:
 
 - the first field is not a number
 - something follows a comma that is not a number
-- something other than an integer follows the first group
-- `delay` is outside the range 1 to 60 seconds
-- `backoff`, `cycle_timeouts`, or `warmup` is negative
+- something other than a number follows the first group
+- `cycle_timeouts` is not a whole number, such as `2.5`
+- `delay` or `maxdelay` is outside the range 1 to 60 seconds
+- `timeout`, `backoff`, `cycle_timeouts`, or `warmup` is negative
 
 ### Examples
 
@@ -128,7 +129,7 @@ well. This is why the delay is limited to 60 seconds.
 
 The wait is logged as `open delay: <ms> ms`.
 
-### Defaults when no timeout is given
+### Default timeouts
 
 A sensor with no `timeout` attribute never times out. It still uses the
 default delay of 1 second, backoff of 1.0, and maximum delay of 60 seconds
@@ -167,3 +168,18 @@ The sensor is powered off only when a data timeout is detected, not when an
 open fails. If the device itself has gone away, cycling the power will not fix
 that, so the sensor is not cycled repeatedly on each failed open. Closing a
 sensor never turns off its power.
+
+### Power on after open
+
+Without a `warmup`, power is turned back on only *after* the device opens
+successfully (step 4). If the open fails, the sensor stays powered off, and
+each later reopen attempt tries to open the device with the power still off.
+Power comes back on only when an open finally succeeds.
+
+For a sensor on a DSM serial port this is harmless, because the port device
+can be opened whether the sensor has power or not. However, if opening the
+device ever depended on the sensor having power, then the open could never
+succeed. For such a sensor, set `warmup` greater than 0. Then power is turned
+on in step 3, before the open is attempted.  As intended, the `warmpup`
+parameter is used to ensure a sensor has power long enough time to then be
+opened.

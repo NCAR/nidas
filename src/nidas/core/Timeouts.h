@@ -98,7 +98,10 @@ public:
      * Reset the timeout counter for the current timeout period to zero
      * without changing the total number of timeouts.
      */
-    void resetTimeout();
+    inline void resetTimeout()
+    {
+        n_timeouts = 0;
+    }
 
     void setTimeoutMsecs(int val);
 

@@ -650,11 +650,23 @@ public:
 
     int getTimeoutMsecs() const;
 
+    /**
+     * Return the total number of timeouts since the sensor was created,
+     * including failed reopens.  See Timeouts::getTotalNumTimeouts().
+     */
     int getTimeoutCount() const;
 
     void incrementTimeoutCount();
 
-    Timeouts& getTimeouts();
+    inline void resetTimeout()
+    {
+        _timeouts.resetTimeout();
+    }
+
+    inline Timeouts& getTimeouts()
+    {
+        return _timeouts;
+    }
 
     /**
      * Add a parameter to this DSMSensor. DSMSensor

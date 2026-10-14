@@ -45,7 +45,22 @@ std::vector<timeouts_test> timeouts_tests = {
     { "5,1,2 1,0", true, Timeouts(5000, 1000, 2).setPowerCycle(1) },
     // same as above but with excessive spaces
     { "5, 1, 2 1, 0", true, Timeouts(5000, 1000, 2).setPowerCycle(1) },
-    { "5 , 1 , 2   1 , 0 ", true, Timeouts(5000, 1000, 2).setPowerCycle(1) }
+    { "5 , 1 , 2   1 , 0 ", true, Timeouts(5000, 1000, 2).setPowerCycle(1) },
+    // any amount of whitespace before a comma must not shift fields
+    { "5  ,2", true, Timeouts(5000, 2000) },
+    { "5 \t, 2  ,\t1.5   3  ,  0.5", true,
+      Timeouts(5000, 2000, 1.5).setPowerCycle(3, 500) },
+    { "5,2  ", true, Timeouts(5000, 2000) },
+    // fractional power cycle count is an error, and the rest of the power
+    // cycle group is not parsed
+    { "10 2.5,5", false, Timeouts(10000) },
+    // but a whole number written as a float is fine
+    { "10 3.0,5", true, Timeouts(10000).setPowerCycle(3, 5000) },
+    // negative timeout is forced to 0
+    { "-5", false, Timeouts() },
+    // maxdelay must be within the same limits as delay
+    { "5,1,1,0.5", false, Timeouts(5000, 1000, 1, 1000) },
+    { "5,1,1,90", false, Timeouts(5000, 1000, 1, 60000) }
 };
 
 

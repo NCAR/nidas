@@ -175,8 +175,7 @@ list<DSMSensor*> SensorHandler::getOpenedSensors() const
 SensorHandler::PolledDSMSensor::PolledDSMSensor(DSMSensor* sensor,
         SensorHandler* handler) throw(n_u::IOException): 
     _sensor(sensor),_handler(handler),
-    _nTimeoutChecks(0), _nTimeoutChecksMax(-1), _lastCheckInterval(0),
-    _resetTimeout(false)
+    _nTimeoutChecks(0), _nTimeoutChecksMax(-1), _lastCheckInterval(0)
 {
 
 #if POLLING_METHOD == POLL_EPOLL_ET || POLLING_METHOD == POLL_EPOLL_LT
@@ -222,9 +221,13 @@ void SensorHandler::incrementFullBufferReads(const DSMSensor* sensor)
 {
     // report every full buffer read as a warning, since it implies that
     // messages are being dropped somewhere.
-    ++_fullBufferReads[sensor];
-    WLOG(("") << sensor->getName() << ": "
-              << _fullBufferReads[sensor] << " full buffer reads");
+    auto nfull = ++_fullBufferReads[sensor];
+    if (nfull <= 100 || (nfull <= 1000 && nfull % 10 == 0) ||
+        (nfull % 100 == 0))
+    {
+        WLOG(("") << sensor->getName() << ": "
+                  << _fullBufferReads[sensor] << " full buffer reads");
+    }
 }
 
 bool
@@ -237,7 +240,7 @@ SensorHandler::PolledDSMSensor::handlePollEvents(uint32_t events) throw()
             if (!exhausted)
                 _handler->incrementFullBufferReads(_sensor);
             _nTimeoutChecks = 0;
-            _resetTimeout = true;
+            _sensor->resetTimeout();
         }
         catch(n_u::IOException & ioe) {
             // report timeouts as a notice, not an error
@@ -282,31 +285,26 @@ bool SensorHandler::PolledDSMSensor::checkTimeout()
 
     if (_nTimeoutChecks++ == _nTimeoutChecksMax && _sensor->getTimeoutMsecs() > 0)
     {
-        // This just saves calling resetTimeout() every time data are read
-        // from the sensor.  Instead, when _resetTimeout is true, it indicates
-        // that data have been read from the sensor since the last timeout
-        // started, and so this is the start of a new series of timeouts.
-        if (_resetTimeout)
-        {
-            _resetTimeout = false;
-            _sensor->getTimeouts().resetTimeout();
-        }
         _sensor->incrementTimeoutCount();
         // Log every timeout.  It is arbitrary to log only every Nth timeout,
         // and that makes it impossible to see when the last timeout happened
         // or with what kind of regularity.  However, since sometimes a sensor
         // is just not plugged in, back off the reporting after an excessive
         // number of timeouts.
-        auto ntimeouts = _sensor->getTimeoutCount();
+        // This is the count in the current series of timeouts, so the
+        // reporting goes back to every timeout once the sensor recovers.
+        Timeouts& timeouts = _sensor->getTimeouts();
+        auto ntimeouts = timeouts.getNumTimeouts();
+        auto ntotal = timeouts.getTotalNumTimeouts();
         auto timeout_secs = (float)_sensor->getTimeoutMsecs() / MSECS_PER_SEC;
         if (ntimeouts <= 100 || ntimeouts % 100 == 0)
             WLOG(("") << getName() << ": timeout #" << ntimeouts << " ("
                       << std::fixed << std::setprecision(3) << timeout_secs
-                      << " secs)");
+                      << " secs); total timeouts: " << ntotal);
         _nTimeoutChecks = 0;
         if (ntimeouts == 100)
-            WLOG(("") << getName()
-                      << ": excessive timeouts, now reporting every 100");
+            WLOG(("") << getName() << ": no response after 100 timeouts, "
+                      << "now reporting every 100");
         return true;
     }
     return false;
