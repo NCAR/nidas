@@ -834,65 +834,6 @@ int DSMSensor::getTimeoutCount() const
 }
 
 
-// If the next character is a comma, then accept it as part of the current
-// field and parse it.  If a number is not present, ok is set to false.
-bool parse_optional(istringstream& ist, bool& ok, float& value)
-{
-    if (ok && ist.peek() == ',') {
-        ist.get();
-        ok = bool(ist >> value);
-        return ok;
-    }
-    // the value was not present and should not be changed
-    return false;
-}
-
-
-bool parse_optional_msecs(istringstream& ist, bool& ok, int& msecs)
-{
-    float value{0};
-    if (parse_optional(ist, ok, value))
-    {
-        msecs = Timeouts::seconds_to_msecs(value);
-        return true;
-    }
-    return false;
-}
-
-
-bool Timeouts::parse(const std::string& value)
-{
-    // Need at least one value for the timeout in seconds.
-    istringstream ist(value);
-    float timeout{0};
-    bool ok = bool(ist >> timeout);
-    if (ok) {
-        timeout_msecs = seconds_to_msecs(timeout);
-    }
-    parse_optional_msecs(ist, ok, delay_msecs);
-    if (parse_optional(ist, ok, backoff_rate))
-    {
-        if (backoff_rate < 0)
-        {
-            backoff_rate = 0;
-            ok = false;
-        }
-    }
-    parse_optional_msecs(ist, ok, maxdelay_msecs);
-
-    // Now should either be at the end or a power cycle field.
-    if (ok && !(ist >> cycle_n_timeouts)) {
-        ok = ist.eof();
-    }
-    if (cycle_n_timeouts < 0) {
-        cycle_n_timeouts = 0;
-        ok = false;
-    }
-    parse_optional_msecs(ist, ok, warmup_msecs);
-    return ok;
-}
-
-
 void DSMSensor::fromDOMElement(const xercesc::DOMElement* node)
     throw(n_u::InvalidParameterException)
 {
@@ -1026,6 +967,8 @@ void DSMSensor::fromDOMElement(const xercesc::DOMElement* node)
                 if (!_timeouts.parse(aval))
                     throw n_u::InvalidParameterException(getName(),
                                                          "timeout", aval);
+                ILOG(("") << getName() << " timeouts set: "
+                          << _timeouts.toString());
             }
             else if (aname == "readonly") {
                 istringstream ist(aval);
