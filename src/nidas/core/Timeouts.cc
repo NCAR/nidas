@@ -41,14 +41,16 @@ const int Timeouts::MINDELAY_LIMIT_MSECS;
 
 Timeouts::Timeouts(int timeoutMsecs, int delayMsecs, float backoffRate,
                    int maxDelayMsecs, int cycleNumTimeouts,
-                   int warmupMsecs, int nTimeouts):
+                   int warmupMsecs):
     timeout_msecs(timeoutMsecs),
     delay_msecs(delayMsecs),
     backoff_rate(backoffRate),
     maxdelay_msecs(maxDelayMsecs),
     cycle_n_timeouts(cycleNumTimeouts),
     warmup_msecs(warmupMsecs),
-    n_timeouts(nTimeouts)
+    n_timeouts(0),
+    total_n_timeouts(0),
+    total_n_power_cycles(0)
 {
     // force valid values for all fields.
     checkValid();
@@ -65,6 +67,10 @@ Timeouts& Timeouts::setPowerCycle(int cycleNumTimeouts, int warmupMsecs)
 void Timeouts::incrementTimeouts()
 {
     ++n_timeouts;
+    ++total_n_timeouts;
+    if (cyclePowerThisTimeout()) {
+        ++total_n_power_cycles;
+    }
 }
 
 void Timeouts::setTimeoutMsecs(int val)
@@ -84,9 +90,19 @@ int Timeouts::getNumTimeouts() const
     return n_timeouts;
 }
 
-int Timeouts::getNumPowerCycles() const
+int Timeouts::getTotalNumTimeouts() const
 {
-    return (cycle_n_timeouts > 0) ? (n_timeouts / cycle_n_timeouts) : 0;
+    return total_n_timeouts;
+}
+
+void Timeouts::resetTimeout()
+{
+    n_timeouts = 0;
+}
+
+int Timeouts::getTotalNumPowerCycles() const
+{
+    return total_n_power_cycles;
 }
 
 int Timeouts::getTimeoutMsecs() const

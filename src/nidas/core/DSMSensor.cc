@@ -399,8 +399,8 @@ void DSMSensor::open(int flags)
 void DSMSensor::close() throw(n_u::IOException)
 {
     NLOG(("") << "closing: " << getDeviceName() 
-              << ", #timeouts=" << _timeouts.getNumTimeouts() 
-              << ", #cycles=" << _timeouts.getNumPowerCycles());
+              << ", #timeouts=" << _timeouts.getTotalNumTimeouts() 
+              << ", #cycles=" << _timeouts.getTotalNumPowerCycles());
     if (_iodev) _iodev->close();
 
     setSensorState(SENSOR_CLOSED);

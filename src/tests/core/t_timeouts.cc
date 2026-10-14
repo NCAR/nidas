@@ -96,7 +96,7 @@ BOOST_AUTO_TEST_CASE(test_timeouts_power_cycle)
     Timeouts timeouts(1000);
 
     // initially no power cycles
-    BOOST_CHECK_EQUAL(timeouts.getNumPowerCycles(), 0);
+    BOOST_CHECK_EQUAL(timeouts.getTotalNumPowerCycles(), 0);
     BOOST_CHECK_EQUAL(timeouts.getNumTimeouts(), 0);
     BOOST_CHECK(!timeouts.cyclePowerThisTimeout());
 
@@ -113,7 +113,7 @@ BOOST_AUTO_TEST_CASE(test_timeouts_power_cycle)
         }
     }
 
-    BOOST_CHECK_EQUAL(timeouts.getNumPowerCycles(), 2);
+    BOOST_CHECK_EQUAL(timeouts.getTotalNumPowerCycles(), 2);
 }
 
 
@@ -142,4 +142,26 @@ BOOST_AUTO_TEST_CASE(test_timeouts_delay)
     // after more timeouts, delay should still be capped at maxdelay_msecs
     timeouts.incrementTimeouts();
     BOOST_CHECK_EQUAL(timeouts.getDelayMsecs(), 6000);
+}
+
+
+BOOST_AUTO_TEST_CASE(test_timeouts_reset)
+{
+    Timeouts timeouts(1000);
+    timeouts.setPowerCycle(2);
+
+    // increment timeouts a few times
+    for (int i = 1; i <= 5; ++i) {
+        timeouts.incrementTimeouts();
+    }
+    BOOST_CHECK_EQUAL(timeouts.getNumTimeouts(), 5);
+    BOOST_CHECK_EQUAL(timeouts.getTotalNumTimeouts(), 5);
+    BOOST_CHECK_EQUAL(timeouts.getTotalNumPowerCycles(), 2);
+
+    // reset the current timeout counter
+    timeouts.resetTimeout();
+    timeouts.incrementTimeouts();
+    BOOST_CHECK_EQUAL(timeouts.getNumTimeouts(), 1);
+    BOOST_CHECK_EQUAL(timeouts.getTotalNumTimeouts(), 6);
+    BOOST_CHECK_EQUAL(timeouts.getTotalNumPowerCycles(), 2);
 }

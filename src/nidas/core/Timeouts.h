@@ -35,12 +35,19 @@ namespace nidas { namespace core {
 /**
  * Timeouts contains settings and state to implement sensor timeouts. If a
  * sensor does not report any data after the timeout period, stored in
- * milliseconds, then it can be reopened according to the other settings in
- * this class.
- * 
- * There is a counter for the number of timeouts that have occurred, and that
- * counter determines when a power cycle should be triggered and how long to
- * delay each reopen based on the backoff rate.
+ * milliseconds, then it can be reopened according to the settings in this
+ * class.  This class does not implement or depend upon the algorithm for
+ * detecting timeouts.  However, power cycling is specified on N timeout
+ * intervals rather than giving power cycling it's own timeouts and timeout
+ * period, because that allows the existing timeout detection algorithm to
+ * continue to work in terms of a single timeout period.
+ *
+ * There is a counter for total the number of timeouts that have occurred, and
+ * a counter for the number of timeouts since the current timeout started. The
+ * latter counter determines when a power cycle should be triggered and how
+ * long to delay each reopen based on the backoff rate.  incrementTimeouts()
+ * increments both counters. resetTimeout() resets just the latter counter to
+ * zero so the backoff and power cycling calculations start over.
  */
 class Timeouts
 {
@@ -70,11 +77,20 @@ public:
     Timeouts(int timeoutMsecs=0, int delayMsecs=DELAY_MSECS_DEFAULT,
              float backoffRate=1.0,
              int maxDelayMsecs=MAXDELAY_LIMIT_MSECS, int cycleNumTimeouts=0,
-             int warmupMsecs=0, int nTimeouts=0);
+             int warmupMsecs=0);
 
     Timeouts& setPowerCycle(int cycleNumTimeouts, int warmupMsecs=0);
 
+    /**
+     * Increment the timeout counters.
+     */
     void incrementTimeouts();
+
+    /**
+     * Reset the timeout counter for the current timeout period to zero
+     * without changing the total number of timeouts.
+     */
+    void resetTimeout();
 
     void setTimeoutMsecs(int val);
 
@@ -87,15 +103,24 @@ public:
      */
     bool cyclePowerThisTimeout() const;
 
+    /**
+     * @return The number of timeouts that have occurred since the sensor
+     * stopped reporting.
+     */
     int getNumTimeouts() const;
 
     /**
-     * Return the number of power cycles that should have occurred based on
-     * the number of timeouts, ie, this is the number of times
-     * cyclePowerThisTimeout() would have returned true for the current number
-     * of timeouts.
+     * @return The total number of timeouts that have occurred since this
+     * object was created.
      */
-    int getNumPowerCycles() const;
+    int getTotalNumTimeouts() const;
+
+    /**
+     * Return the total number of power cycles that should have occurred based
+     * on the number of timeouts, ie, this is the number of times
+     * cyclePowerThisTimeout() would have returned true across all timeouts.
+     */
+    int getTotalNumPowerCycles() const;
 
     int getTimeoutMsecs() const;
 
@@ -181,9 +206,22 @@ private:
     int warmup_msecs;
 
     /**
-     * Number of timeouts that have occurred.
+     * Number of timeouts that have occurred since the sensor stopped
+     * reporting.
      */
     int n_timeouts;
+
+    /**
+     * The total number of timeouts that have occurred since this object was
+     * created.
+     */
+    int total_n_timeouts;
+
+    /**
+     * Total number of power cycles that occurred since this object was
+     * created.
+     */
+    int total_n_power_cycles;
 };
 
 

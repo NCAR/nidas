@@ -175,7 +175,8 @@ list<DSMSensor*> SensorHandler::getOpenedSensors() const
 SensorHandler::PolledDSMSensor::PolledDSMSensor(DSMSensor* sensor,
         SensorHandler* handler) throw(n_u::IOException): 
     _sensor(sensor),_handler(handler),
-    _nTimeoutChecks(0), _nTimeoutChecksMax(-1), _lastCheckInterval(0)
+    _nTimeoutChecks(0), _nTimeoutChecksMax(-1), _lastCheckInterval(0),
+    _resetTimeout(false)
 {
 
 #if POLLING_METHOD == POLL_EPOLL_ET || POLLING_METHOD == POLL_EPOLL_LT
@@ -236,6 +237,7 @@ SensorHandler::PolledDSMSensor::handlePollEvents(uint32_t events) throw()
             if (!exhausted)
                 _handler->incrementFullBufferReads(_sensor);
             _nTimeoutChecks = 0;
+            _resetTimeout = true;
         }
         catch(n_u::IOException & ioe) {
             // report timeouts as a notice, not an error
@@ -280,6 +282,15 @@ bool SensorHandler::PolledDSMSensor::checkTimeout()
 
     if (_nTimeoutChecks++ == _nTimeoutChecksMax && _sensor->getTimeoutMsecs() > 0)
     {
+        // This just saves calling resetTimeout() every time data are read
+        // from the sensor.  Instead, when _resetTimeout is true, it indicates
+        // that data have been read from the sensor since the last timeout
+        // started, and so this is the start of a new series of timeouts.
+        if (_resetTimeout)
+        {
+            _resetTimeout = false;
+            _sensor->getTimeouts().resetTimeout();
+        }
         _sensor->incrementTimeoutCount();
         // Log every timeout.  It is arbitrary to log only every Nth timeout,
         // and that makes it impossible to see when the last timeout happened
