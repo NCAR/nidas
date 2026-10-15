@@ -39,7 +39,7 @@ configuration.
 This does not yet include identifying the kind of sensor attached.  NIDAS only
 looks for a response according to the single sensor specified for the port.
 
-## [1.4.4] - Pending
+## [1.4.4] - 2026-10-15
 
 The `MessageStreamScanner` default buffer size has been increased from 2048 to
 8192 bytes, matching the default in the other scanner classes.  This affects
@@ -144,7 +144,7 @@ to `v1.2-1721-g1ebc8bcd4`.
 
 <!-- Versions -->
 [buster]: https://github.com/ncareol/nidas/tree/buster
-[1.4.4]: https://github.com/ncareol/nidas/compare/v1.4.3...buster
+[1.4.4]: https://github.com/ncareol/nidas/compare/v1.4.3...v1.4.4
 [1.4.3]: https://github.com/ncareol/nidas/compare/v1.4.2...v1.4.3
 [1.4.2]: https://github.com/ncareol/nidas/compare/v1.4.1...v1.4.2
 [1.4.1]: https://github.com/ncareol/nidas/compare/v1.4...v1.4.1
