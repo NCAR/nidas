@@ -423,8 +423,8 @@ private:
 class MessageStreamScanner: public SampleScanner
 {
 public:
-    
-    MessageStreamScanner(int bufsize=2048);
+
+    MessageStreamScanner(int bufsize=8192);
 
     void setMessageParameters(unsigned int len, const std::string& val, bool eom)
     	throw(nidas::util::InvalidParameterException);

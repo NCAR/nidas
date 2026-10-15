@@ -41,6 +41,12 @@ looks for a response according to the single sensor specified for the port.
 
 ## [1.4.4] - Pending
 
+The `MessageStreamScanner` default buffer size has been increased from 2048 to
+8192 bytes, matching the default in the other scanner classes.  This affects
+instances of `CharacterSensor` which do not explicitly build their own
+`SampleScanner` and do not have `usock` device paths, such as most
+`SerialSensor` instances.
+
 Sensor timeouts have been expanded to include reopen delays with an optional
 backoff rate, power cycling interval, and warmup delays.  See
 [Timeouts.md](doc/Timeouts.md).
