@@ -9,19 +9,20 @@ env.Append(LIBS = ['boost_unit_test_framework', 'boost_regex'])
 env.Prepend(CPPPATH = [ "#/nidas/util", "#/nidas/core", "#/nidas/dynld" ])
 tests = env.Program('tcore', ["tcore.cc", "tsamples.cc",
                               "tutil.cc", "tcalfile.cc", "tbadsamplefilter.cc",
-                              "tprompt.cc"])
+                              "tprompt.cc", "t_timeouts.cc"])
 # env.Depends(tests, libs)
 #
 
 env.AppendENVPath('LD_LIBRARY_PATH', '/opt/nc_server/lib')
 env.NidasRuntimeENV()
 runtest = env.Command("xtest", tests,
-                      env.ChdirActions(["./$SOURCE.file"]))
+                      env.ChdirActions(
+                          ["./$SOURCE.file --log_level=unit_scope"]))
 env.Precious(runtest)
 AlwaysBuild(runtest)
 Alias('test', runtest)
 
-env.ValgrindLog('memcheck', 
+env.ValgrindLog('memcheck',
                 env.Command('vg.memcheck.log', tests,
                             "cd ${SOURCE.dir} && "
                             "${VALGRIND_PATH} --leak-check=full"

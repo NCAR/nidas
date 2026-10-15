@@ -134,14 +134,20 @@ void SerialSensor::powerOff()
 void SerialSensor::open(int flags)
     throw(n_u::IOException,n_u::InvalidParameterException)
 {
+    flags |= O_NOCTTY;
+    CharacterSensor::open(flags);
+
     // If this port has hardware power control, make sure it is turned on. Do
     // this on every open in case the sensor was turned off deliberately to be
     // re-opened after a timeout.  See the note in close() about why power is
     // _not_ turned off there, even though that would have better symmetry.
+    // This is done _after_ the open() in an attempt to avoid unnecessary
+    // power cycling. If the sensor was turned off for a reopen attempt, but
+    // the open fails because of some other system or device problem, then
+    // there is no point in turning it on just to keep turning it off.  If the
+    // sensor has a warmup time, then it was already turned on and this does
+    // nothing.
     powerOn();
-
-    flags |= O_NOCTTY;
-    CharacterSensor::open(flags);
 
     serPortFlush();
 

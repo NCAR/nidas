@@ -85,7 +85,6 @@ size_t SampleScanner::readBuffer(DSMSensor* sensor,bool& exhausted)
     // shift data down. If the user has read all samples in the
     // previous buffer, there shouldn't be anything to move.
     size_t len = _bufhead - _buftail;
-    // cerr << "SampleScanner::readBuffer, len=" << len << endl;
     if (len > 0 && _buftail > 0) ::memmove(_buffer,_buffer+_buftail,len);
     _bufhead = len;
     _buftail = 0;
@@ -96,20 +95,13 @@ size_t SampleScanner::readBuffer(DSMSensor* sensor,bool& exhausted)
         return len;
     }
     size_t rlen = sensor->read(_buffer+_bufhead,len);
-    // cerr << "SampleScanner::readBuffer, len=" << len << " rlen=" << rlen << endl;
 
-// #define TEST_DEBUG
-#ifdef TEST_DEBUG
-#define DEBUG
-    if (Project::getInstance()->getName() == "test" &&
-        sensor->getDSMId() == 1 && sensor->getSensorId() == 10) {
-        DLOG(("%s: ",sensor->getName().c_str()) << ", head=" << _bufhead << ", len=" << len << ", rlen=" << rlen << ", data=\"" << string(_buffer,rlen+_bufhead) << "\"");
-    }
-#undef DEBUG
-#endif
-    
     addNumBytesToStats(rlen);
     _bufhead += rlen;
+    // XXX is this correct?  we don't know how many bytes were available to
+    // read, so rlen == len doesn't necessarily mean all available data were
+    // not read, unless we know that len is larger than the device buffer
+    // being read from.
     exhausted = rlen < len;
     return rlen;
 }

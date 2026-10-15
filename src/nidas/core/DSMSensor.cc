@@ -111,11 +111,10 @@ DSMSensor::DSMSensor() :
     _latency(0.1),	// default sensor latency, 0.1 secs
     _parameters(),_constParameters(),
     _calFiles(),_typeName(),
-    _timeoutMsecs(0),
+    _timeouts(),
     _duplicateIdOK(false),
     _applyVariableConversions(),
     _driverTimeTagUsecs(USECS_PER_TMSEC),
-    _nTimeouts(0), _nRealTimeouts(0),
 	_lag(0),_station(-1),
 	_manufMetaData(), _configMetaData(),
 	_nSamplesToTest(DEFAULT_NUM_SAMPLES_TO_TEST),
@@ -395,17 +394,13 @@ void DSMSensor::open(int flags)
     if (!_scanner) _scanner = buildSampleScanner();
     _scanner->init();
     DLOG(("SampleScanner object built and initialized"));
-
-    /*
-     * initialize _nRealTimeouts back to zero
-     */
-    DLOG(("Initializing _nRealTimeouts to 0."));
-    _nRealTimeouts = 0;
 }
 
 void DSMSensor::close() throw(n_u::IOException)
 {
-    NLOG(("closing: %s, #timeouts=%d", getDeviceName().c_str(), getTimeoutCount()));
+    NLOG(("") << "closing: " << getDeviceName() 
+              << ", #timeouts=" << _timeouts.getTotalNumTimeouts() 
+              << ", #cycles=" << _timeouts.getTotalNumPowerCycles());
     if (_iodev) _iodev->close();
 
     setSensorState(SENSOR_CLOSED);
@@ -808,6 +803,31 @@ const string DSMSensor::getClassName(const xercesc::DOMElement* node,const Proje
     return project->expandString(xnode.getAttributeValue("class"));
 }
 
+
+void DSMSensor::setTimeoutMsecs(int val)
+{
+    _timeouts.setTimeoutMsecs(val);
+}
+
+
+int DSMSensor::getTimeoutMsecs() const
+{
+    return _timeouts.getTimeoutMsecs();
+}
+
+
+void DSMSensor::incrementTimeoutCount()
+{
+    _timeouts.incrementTimeouts();
+}
+
+
+int DSMSensor::getTimeoutCount() const
+{
+    return _timeouts.getTotalNumTimeouts();
+}
+
+
 void DSMSensor::fromDOMElement(const xercesc::DOMElement* node)
     throw(n_u::InvalidParameterException)
 {
@@ -938,11 +958,11 @@ void DSMSensor::fromDOMElement(const xercesc::DOMElement* node)
                 setDuplicateIdOK(val);
             }
             else if (aname == "timeout") {
-                istringstream ist(aval);
-                float val;
-                ist >> val;
-                if (ist.fail()) throw n_u::InvalidParameterException(getName(),aname,aval);
-                setTimeoutMsecs((int)rint(val * MSECS_PER_SEC));
+                if (!_timeouts.parse(aval))
+                    throw n_u::InvalidParameterException(getName(),
+                                                         "timeout", aval);
+                ILOG(("") << getName() << " timeouts set: "
+                          << _timeouts.toString());
             }
             else if (aname == "readonly") {
                 istringstream ist(aval);

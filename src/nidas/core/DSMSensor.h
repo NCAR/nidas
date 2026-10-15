@@ -34,6 +34,7 @@
 #include "DOMable.h"
 #include "Dictionary.h"
 #include "VariableIndex.h"
+#include "Timeouts.h"
 
 #include <nidas/util/IOException.h>
 #include <nidas/util/InvalidParameterException.h>
@@ -645,34 +646,26 @@ public:
      * so setting it to less than 1000 milliseconds will likely not
      * reduce the time before a sensor timeout is detected.
      */
-    virtual void setTimeoutMsecs(int val)
+    void setTimeoutMsecs(int val);
+
+    int getTimeoutMsecs() const;
+
+    /**
+     * Return the total number of timeouts since the sensor was created,
+     * including failed reopens.  See Timeouts::getTotalNumTimeouts().
+     */
+    int getTimeoutCount() const;
+
+    void incrementTimeoutCount();
+
+    inline void resetTimeout()
     {
-        _timeoutMsecs = val;
+        _timeouts.resetTimeout();
     }
 
-    virtual int getTimeoutMsecs() const
+    inline Timeouts& getTimeouts()
     {
-        return _timeoutMsecs;
-    }
-
-    int getTimeoutCount() const
-    {
-        return _nTimeouts;
-    }
-
-    void incrementTimeoutCount()
-    {
-        _nTimeouts++;
-    }
-
-    void incrementRealTimeouts()
-    {
-    	++_nRealTimeouts;
-    }
-
-    uint64_t getRealTimeouts()
-    {
-    	return _nRealTimeouts;
+        return _timeouts;
     }
 
     /**
@@ -688,7 +681,7 @@ public:
      */
     const std::list<const Parameter*>& getParameters() const
     {
-	return _constParameters;
+        return _constParameters;
     }
 
     /**
@@ -1536,26 +1529,13 @@ private:
 
     std::string _typeName;
 
-    int _timeoutMsecs;
+    Timeouts _timeouts;
 
     bool _duplicateIdOK;
 
     bool _applyVariableConversions;
 
     int _driverTimeTagUsecs;
-
-    /*
-     * This is incremented once every 10 times that SensorHandler calls derived class PolledDSMSensor::checkTimeout()
-     * when no data has been received. However, SensorHandler only does this at most once per second and the
-     * counter which PolledDSMSensor uses is reset when data does arrive. This means that if one data sample gets through
-     * once every 10 seconds, then no warning of any kind would be issued - ever.
-     */
-    int _nTimeouts;
-
-    /*
-     * This is incremented every time SampleScanner::readBuffer() is called with a timeout which is not met.
-     */
-    uint64_t _nRealTimeouts;
 
     static Looper* _looper;
 

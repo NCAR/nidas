@@ -28,6 +28,7 @@
 #include "DSMEngine.h"
 #include <nidas/util/Logger.h>
 #include <nidas/util/UTime.h>
+#include <iomanip>
 
 #include <cerrno>
 #include <unistd.h>
@@ -218,9 +219,15 @@ void SensorHandler::PolledDSMSensor::close() throw(n_u::IOException)
 
 void SensorHandler::incrementFullBufferReads(const DSMSensor* sensor)
 {
-    if (!(_fullBufferReads[sensor]++ % 100))
-        ILOG(("%s: %u full buffer reads",sensor->getName().c_str(),
-                    _fullBufferReads[sensor]));
+    // report every full buffer read as a warning, since it implies that
+    // messages are being dropped somewhere.
+    auto nfull = ++_fullBufferReads[sensor];
+    if (nfull <= 100 || (nfull <= 1000 && nfull % 10 == 0) ||
+        (nfull % 100 == 0))
+    {
+        WLOG(("") << sensor->getName() << ": "
+                  << _fullBufferReads[sensor] << " full buffer reads");
+    }
 }
 
 bool
@@ -233,6 +240,7 @@ SensorHandler::PolledDSMSensor::handlePollEvents(uint32_t events) throw()
             if (!exhausted)
                 _handler->incrementFullBufferReads(_sensor);
             _nTimeoutChecks = 0;
+            _sensor->resetTimeout();
         }
         catch(n_u::IOException & ioe) {
             // report timeouts as a notice, not an error
@@ -275,14 +283,28 @@ bool SensorHandler::PolledDSMSensor::checkTimeout()
     // to _nTimeoutChecksMax of -1, so we check _sensor->getTimeoutMsecs() in
     // the *very* unlikely event that happens.
 
-    if (_nTimeoutChecks++ == _nTimeoutChecksMax && _sensor->getTimeoutMsecs() > 0) {
+    if (_nTimeoutChecks++ == _nTimeoutChecksMax && _sensor->getTimeoutMsecs() > 0)
+    {
         _sensor->incrementTimeoutCount();
-        if ((_sensor->getTimeoutCount() % 10) == 0)
-            WLOG(("%s: timeout #%d (%.3f sec)",
-                    getName().c_str(),
-                    _sensor->getTimeoutCount(),
-                    (float)_sensor->getTimeoutMsecs()/ MSECS_PER_SEC));
+        // Log every timeout.  It is arbitrary to log only every Nth timeout,
+        // and that makes it impossible to see when the last timeout happened
+        // or with what kind of regularity.  However, since sometimes a sensor
+        // is just not plugged in, back off the reporting after an excessive
+        // number of timeouts.
+        // This is the count in the current series of timeouts, so the
+        // reporting goes back to every timeout once the sensor recovers.
+        Timeouts& timeouts = _sensor->getTimeouts();
+        auto ntimeouts = timeouts.getNumTimeouts();
+        auto ntotal = timeouts.getTotalNumTimeouts();
+        auto timeout_secs = (float)_sensor->getTimeoutMsecs() / MSECS_PER_SEC;
+        if (ntimeouts <= 100 || ntimeouts % 100 == 0)
+            WLOG(("") << getName() << ": timeout #" << ntimeouts << " ("
+                      << std::fixed << std::setprecision(3) << timeout_secs
+                      << " secs); total timeouts: " << ntotal);
         _nTimeoutChecks = 0;
+        if (ntimeouts == 100)
+            WLOG(("") << getName() << ": no response after 100 timeouts, "
+                      << "now reporting every 100");
         return true;
     }
     return false;
@@ -1009,14 +1031,17 @@ void SensorHandler::handlePollingChange()
             remove(psensor);
             if (_acceptingOpens)
             {
-                // power off sensor before entering the reopen loop.  if the
-                // sensor open starts failing because the device has gone
-                // away, then no amount of power cycling will fix that.
+                // the timeout count has already been incremented, so the
+                // power cycle check and delay are based on the current
+                // timeout. power off sensor before entering the reopen loop.
+                // if the sensor open starts failing because the device has
+                // gone away, then no amount of power cycling will fix that.
                 // instead, power it off once here, then it will be powered on
-                // in the next open() call after the reopen delay.  if that
-                // open() does not succeed and keeps failing, then at least
-                // the sensor power is not being cycled every ten seconds.
-                if (auto serial = dynamic_cast<SerialSensor*>(sensor)) {
+                // in the reopen, possibly with a warmup delay first.
+                SerialSensor* serial = dynamic_cast<SerialSensor*>(sensor);
+                Timeouts& timeouts = sensor->getTimeouts();
+                if (serial && timeouts.cyclePowerThisTimeout())
+                {
                     serial->powerOff();
                 }
                 _opener.reopenSensor(sensor);

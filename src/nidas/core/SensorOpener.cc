@@ -128,27 +128,8 @@ int SensorOpener::run() throw(n_u::Exception)
         _sensors.pop_front();
     }
     else {
-        // Don't pound on the recalcitrant sensors too fast.
-            //
-            // There was some implication in VERTEX that bluetooth devices
-            // (btspp:) could take more than 10 seconds to recover, so I
-            // considered hardcoding a longer delay here, like 30 seconds.
-            // However, that was never implemented, so this comment remains
-            // for future reference.  It might be nicer to use a back-off
-            // delay scheme, so the delay can start at 10 seconds for
-            // sensors which respond that quickly.  Another option is to
-            // use a longer delay only if sensor->getDeviceName() starts
-            // with "btspp:". Yet another option is to check for the
-            // "Operation now in progress" (EINPROGRESS) error in
-            // BluetoothRFCommSocketIODevice::open() from the connect()
-            // call, and at that point sleep for a longer time before
-            // trying again.
-
-        _sensorCond.unlock();
-        struct timespec sleepPeriod = {10,0};
-        nanosleep(&sleepPeriod,0);
-        _sensorCond.lock();
-
+        // It is now up to the config to specify how fast is too fast to
+        // reopen a sensor, and how quickly to back off on reopen attempts.
         sensor = _problemSensors.front();
         _problemSensors.pop_front();
     }
@@ -157,6 +138,31 @@ int SensorOpener::run() throw(n_u::Exception)
         _sensorCond.unlock();
 
         try {
+            // First wait for the adjusted delay.  There is no delay if this
+            // sensor has never timed out, ie, it is being opened for the
+            // first time.
+            Timeouts& timeouts = sensor->getTimeouts();
+            int delay = timeouts.getAdjustedDelayMsecs();
+            if (delay > 0) {
+                ILOG(("") << sensor->getName() << " open delay: "
+                          << delay << " ms");
+                timeouts.nanosleep_msecs(delay);
+            }
+
+            // If the sensor was turned off and it has a warmup time, then
+            // turn it back on here and give it time to power up before
+            // opening it.  If there is no warmup time needed, then leave the
+            // sensor off and let it be powered on in the open() call if the
+            // device open succeeds.
+            SerialSensor* serial = dynamic_cast<SerialSensor*>(sensor);
+            if (serial && timeouts.cyclePowerThisTimeout() &&
+                timeouts.getWarmupMsecs() > 0)
+            {
+                serial->powerOn();
+                ILOG(("") << sensor->getName() << " warmup delay: "
+                          << timeouts.getWarmupMsecs() << " ms");
+                timeouts.nanosleep_msecs(timeouts.getWarmupMsecs());
+            }
             sensor->open(sensor->getDefaultMode());
 
             // sensor->open might take a while, so check for interrupted again.
@@ -182,13 +188,27 @@ int SensorOpener::run() throw(n_u::Exception)
             _selector->sensorIsOpen(sensor);
         }
         catch(const n_u::IOException& e) {
+            // Treat reopen failures as timeouts so subsequent reopens follow
+            // the same delay and backoff settings as for sensor timeouts. If
+            // a sensor ends up here without a timeout, it means the open is
+            // failing, likely because the device does not exist. In that
+            // case, the historical automatic and fixed delay was 10 seconds.
+            // Now, the default Timeouts for a sensor allows the reopens to
+            // slow down based on the default backoff rate.  If this sensor
+            // open is going to fail persistently, then it will probably reach
+            // the max delay and slow down reopens on other sensors, probably
+            // surprising someone.  Maybe sensors should be removed after a
+            // certain number of open failures, until it's possible to block
+            // on a single sensor open without blocking other sensors. Or
+            // maybe open failures should be tracked and handled differently
+            // than timeouts.
+            sensor->incrementTimeoutCount();
             if (dynamic_cast<const n_u::IOTimeoutException*>(&e)) {
-                sensor->incrementTimeoutCount();
                 // log timeouts as warnings, not errors
-                WLOG(("%s: %s",sensor->getName().c_str(),e.what()));
+                WLOG(("") << sensor->getName() << ": " << e.what());
             }
             else {
-                PLOG(("%s: %s",sensor->getName().c_str(),e.what()));
+                PLOG(("") << sensor->getName() << ": " << e.what());
             }
 
             // file descriptor may be open if the error happened in
@@ -197,7 +217,7 @@ int SensorOpener::run() throw(n_u::Exception)
                 sensor->close();
             }
             catch(const n_u::IOException& e) {
-                PLOG(("%s: %s", sensor->getName().c_str(),e.what()));
+                PLOG(("") << sensor->getName() << ": " << e.what());
             }
         _sensorCond.lock();
         _problemSensors.push_back(sensor);
@@ -208,12 +228,12 @@ int SensorOpener::run() throw(n_u::Exception)
     // not likely fix an InvalidParameterException,
     // it needs human interaction.
     catch(const n_u::InvalidParameterException& e) {
-        PLOG(("%s: %s", sensor->getName().c_str(),e.what()));
+        PLOG(("") << sensor->getName() << ": " << e.what());
             try {
                 sensor->close();
             }
             catch(const n_u::IOException& e) {
-                PLOG(("%s: %s", sensor->getName().c_str(),e.what()));
+                PLOG(("") << sensor->getName() << ": " << e.what());
             }
     }
     }
