@@ -166,7 +166,7 @@ case "$method" in
         fi
         cmd="/workspace/nidas/jenkins.sh $@"
         set -x
-        exec podman run -v .:/workspace/nidas:rw,Z -w /workspace -u root nidas-build-debian-arm64:bookworm bash -lc "$cmd"
+        exec podman run -v $HOME/eol-repo:/root/eol-repo:rw,Z -v .:/workspace/nidas:rw,Z -w /workspace -u root nidas-build-debian-arm64:bookworm bash -lc "$cmd"
         ;;
 
     *)
