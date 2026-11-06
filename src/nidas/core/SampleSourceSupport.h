@@ -181,6 +181,17 @@ private:
 
     nidas::util::Mutex _clientMapLock;
 
+    /**
+     * @brief Mutex protecting the distribute operation.
+     * 
+     * It is not safe for multiple threads to distribute samples concurrently,
+     * because the distribute() method has to unlock the client map lock while
+     * distributing samples in case a client receive() call disconnects and
+     * deletes the client.  One thread running distribute() could trigger the
+     * removal of a client which the other thread has already copied.
+     */
+    nidas::util::Mutex _distributeLock;
+
     SampleStats _stats;
 
     bool _raw;

@@ -34,9 +34,12 @@ using namespace nidas::core;
 using namespace std;
 namespace n_u = nidas::util;
 
+using nidas::util::Synchronized;
+
+
 SampleSourceSupport::SampleSourceSupport(bool raw):
     _tagsMutex(),_sampleTags(),_clients(),_clientsBySampleId(),
-    _clientSet(),_clientMapLock(),_stats(),
+    _clientSet(),_clientMapLock(),_distributeLock(),_stats(),
     _raw(raw),_keepStats(false)
 {
 }
@@ -46,7 +49,7 @@ SampleSourceSupport::SampleSourceSupport(const SampleSourceSupport& x):
     _tagsMutex(),
     _sampleTags(x._sampleTags),
     _clients(),_clientsBySampleId(),
-    _clientSet(),_clientMapLock(),_stats(),
+    _clientSet(),_clientMapLock(),_distributeLock(),_stats(),
     _raw(x._raw),_keepStats(x._keepStats)
 {
 }
@@ -158,6 +161,7 @@ void SampleSourceSupport::distribute(const Sample* sample) throw()
      * removeSampleClient and their destruction.  Hmmm, needs 
      * more thought.
      */
+    Synchronized lock(_distributeLock);
 
    _clientMapLock.lock();
     map<dsm_sample_id_t,SampleClientList>::const_iterator ci =
