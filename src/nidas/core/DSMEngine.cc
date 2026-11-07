@@ -842,8 +842,10 @@ void DSMEngine::connectOutputs() throw(n_u::IOException)
         DLOG(("DSMEngine requesting connection from SampleOutput '%s'.",
                 output->getName().c_str()));
         SampleSource* src;
-        if (output->isRaw()) src = _pipeline->getRawSampleSource();
-        else src = _pipeline->getProcessedSampleSource();
+        if (output->isRaw())
+            src = _pipeline->getRawSampleSource();
+        else
+            src = _pipeline->getProcessedSampleSource();
         output->addSourceSampleTags(src->getSampleTags());
         SampleOutputRequestThread::getInstance()->addConnectRequest(output,this,0);
     }
@@ -859,8 +861,10 @@ void DSMEngine::connect(SampleOutput* output) throw()
     _outputSet.insert(output);
     _outputMutex.unlock();
 
-    if (output->isRaw()) _pipeline->getRawSampleSource()->addSampleClient(output);
-    else  _pipeline->getProcessedSampleSource()->addSampleClient(output);
+    if (output->isRaw())
+        _pipeline->getRawSampleSource()->addSampleClient(output);
+    else
+        _pipeline->getProcessedSampleSource()->addSampleClient(output);
 }
 
 /*

@@ -37,8 +37,9 @@ class DSMSensor;
 class SampleTag;
 
 /**
- * SamplePipeline sorts samples that are coming from one
- * or more inputs.
+ * SamplePipeline buffers samples that are coming from one or more inputs,
+ * using SampleSorter instances to distribute raw and processed samples to
+ * clients in a separate thread, possibly sorted.
  *
  * SamplePipeline makes use of two SampleSorters, one called rawSorter
  * and procSorter.
@@ -50,11 +51,11 @@ class SampleTag;
  * input --> _rawSorter
  * input ----^
  *
- * After sorting the samples, rawSorter passes them on to the two
- * types of SampleClients that have registered with SamplePipeline.
- * SampleClients that have registered with
- * SamplePipeline::addSampleClient will receive their raw samples
- * directly from rawSorter.
+ * After sorting (if the sorter length is non-zero) the samples, rawSorter
+ * passes them on to the two types of SampleClients that have registered with
+ * SamplePipeline. SampleClients that have registered with
+ * SamplePipeline::addSampleClient will receive their raw samples directly
+ * from rawSorter.
  *
  * rawSorter -> sampleClients
  *
@@ -66,15 +67,28 @@ class SampleTag;
  *
  * rawSorter provides sorting of the samples from the various inputs.
  *
- * procSorter provides sorting of the processed samples.
- * DSMSensors are apt to create processed samples with different
- * time-tags than the input raw samples, therefore they need
- * to be sorted again.
+ * procSorter provides sorting of the processed samples, if the sorter length
+ * is non-zero.  DSMSensors are apt to create processed samples with different
+ * time-tags than the input raw samples, therefore they need to be sorted
+ * again.
  *
  * Multiple threads can be passing samples to the sorters. Thread exclusion
  * is enforced when passing the samples to the SampleClient::receive() methods
  * from either sorter, so the SampleClient::receive() methods don't have to worry
  * about being re-entrant.
+ *
+ * Note that a SamplePipeline itself does not have its own thread.  It is
+ * mostly a container for encapsulating the two threads for the raw and
+ * processed sorters, providing convenient methods to connect inputs and
+ * outputs directly to the sorters.  The sorter threads allow the sources (ie,
+ * sensors) to pass samples without being blocked by the client.  However, all
+ * the clients run in the sorter threads, so there is nothing to prevent
+ * contention and starvation among the clients.  In particular, one slow
+ * output should not block the sources, but other output clients of the same
+ * sorter will not receive samples until the slow output returns from its
+ * receive() method.  This could be avoided by creating separate sorters or
+ * pipelines for each output, but at the cost of increased complexity and
+ * memory usage.
  */
 class SamplePipeline: public SampleSource
 {
@@ -302,22 +316,26 @@ public:
     }
 
     /**
-     * Set the maximum amount of heap memory to use for sorting samples.
+     * Set the maximum amount of heap memory to use for sorting or buffering
+     * samples.  If zero, use the SampleSorter default. This must be set
+     * before calling connect().
      * @param val Maximum size of heap in bytes.
      * @see SampleSorter::setHeapMax().
      */
-    void setRawHeapMax(size_t val) { _rawHeapMax = val; }
+    void setRawHeapMax(size_t val);
 
-    size_t getRawHeapMax() const { return _rawHeapMax; }
+    size_t getRawHeapMax() const;
 
     /**
-     * Set the maximum amount of heap memory to use for sorting samples.
+     * Set the maximum amount of heap memory to use for sorting samples.  If
+     * zero, use the SampleSorter default. This must be set before calling
+     * connect().
      * @param val Maximum size of heap in bytes.
      * @see SampleSorter::setHeapMax().
      */
-    void setProcHeapMax(size_t val) { _procHeapMax = val; }
+    void setProcHeapMax(size_t val);
 
-    size_t getProcHeapMax() const { return _procHeapMax; }
+    size_t getProcHeapMax() const;
 
     /**
      * @param val If true, and heapSize exceeds heapMax,

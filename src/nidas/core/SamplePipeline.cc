@@ -25,7 +25,6 @@
 */
 
 #include "SamplePipeline.h"
-#include "SampleBuffer.h"
 #include "SampleSorter.h"
 #include "DSMSensor.h"
 
@@ -38,24 +37,19 @@ namespace n_u = nidas::util;
 using nidas::util::endlog;
 
 SamplePipeline::SamplePipeline() :
-	_name("SamplePipeline"),
-        _rawMutex(),_rawSorter(0),
-	_procMutex(),_procSorter(0),
-        _sampleTags(),_dsmConfigs(),
-        _realTime(false),
-        _rawSorterLength(0.0),
-        _procSorterLength(0.0),
-#ifdef NIDAS_EMBEDDED
-        _rawHeapMax (5000000),
-        _procHeapMax(5000000),
-#else
-        _rawHeapMax (100000000),
-        _procHeapMax(100000000),
-#endif
-        _heapBlock(false),
-        _keepStats(false),
-        _rawLateSampleCacheSize(0),
-        _procLateSampleCacheSize(0)
+    _name("SamplePipeline"),
+    _rawMutex(), _rawSorter(0),
+    _procMutex(), _procSorter(0),
+    _sampleTags(), _dsmConfigs(),
+    _realTime(false),
+    _rawSorterLength(0.0),
+    _procSorterLength(0.0),
+    _rawHeapMax(0),
+    _procHeapMax(0),
+    _heapBlock(false),
+    _keepStats(false),
+    _rawLateSampleCacheSize(0),
+    _procLateSampleCacheSize(0)
 {
 }
 
@@ -114,19 +108,41 @@ void SamplePipeline::join() throw()
     _procMutex.unlock();
 }
 
+
+void SamplePipeline::setProcHeapMax(size_t val)
+{
+    _procHeapMax = val;
+}
+
+size_t SamplePipeline::getProcHeapMax() const
+{
+    if (_procSorter)
+        return _procSorter->getHeapMax();
+    return _procHeapMax;
+}
+
+void SamplePipeline::setRawHeapMax(size_t val)
+{
+    _rawHeapMax = val;
+}
+
+size_t SamplePipeline::getRawHeapMax() const
+{
+    if (_rawSorter)
+        return _rawSorter->getHeapMax();
+    return _rawHeapMax;
+}
+
+
 void SamplePipeline::rawinit()
 {
     n_u::Autolock autolock(_rawMutex);
     if (!_rawSorter) {
-        if (getRawSorterLength() > 0) {
-            _rawSorter = new SampleSorter(_name + "RawSorter",true);
-            _rawSorter->setLengthSecs(getRawSorterLength());
-            _rawSorter->setLateSampleCacheSize(getRawLateSampleCacheSize());
-        }
-        else {
-            _rawSorter = new SampleBuffer(_name + "RawBuffer",true);
-        }
-        _rawSorter->setHeapMax(getRawHeapMax());
+        _rawSorter = new SampleSorter(_name + "RawSorter", true);
+        _rawSorter->setLengthSecs(getRawSorterLength());
+        _rawSorter->setLateSampleCacheSize(getRawLateSampleCacheSize());
+        if (getRawHeapMax() > 0)
+            _rawSorter->setHeapMax(getRawHeapMax());
         _rawSorter->setHeapBlock(getHeapBlock());
         _rawSorter->setRealTime(getRealTime());
         _rawSorter->setKeepStats(_keepStats);
@@ -146,15 +162,11 @@ void SamplePipeline::procinit()
 {
     n_u::Autolock autolock(_procMutex);
     if (!_procSorter) {
-        if (getProcSorterLength() > 0) {
-            _procSorter = new SampleSorter(_name + "ProcSorter",false);
-            _procSorter->setLengthSecs(getProcSorterLength());
-            _procSorter->setLateSampleCacheSize(getProcLateSampleCacheSize());
-        }
-        else {
-            _procSorter = new SampleBuffer(_name + "ProcBuffer",false);
-        }
-        _procSorter->setHeapMax(getProcHeapMax());
+        _procSorter = new SampleSorter(_name + "ProcSorter", false);
+        _procSorter->setLengthSecs(getProcSorterLength());
+        _procSorter->setLateSampleCacheSize(getProcLateSampleCacheSize());
+        if (getProcHeapMax() > 0)
+            _procSorter->setHeapMax(getProcHeapMax());
         _procSorter->setHeapBlock(getHeapBlock());
         _procSorter->setRealTime(getRealTime());
         _procSorter->setKeepStats(_keepStats);
