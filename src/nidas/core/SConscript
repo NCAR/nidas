@@ -107,7 +107,6 @@ headers = Split("""
     SampleParseException.h
     SamplePipeline.h
     SamplePool.h
-    SampleBuffer.h
     SampleScanner.h
     SampleSorter.h
     SampleSource.h
@@ -211,7 +210,6 @@ sources = Split("""
     SampleOutputRequestThread.cc
     SamplePipeline.cc
     SamplePool.cc
-    SampleBuffer.cc
     SampleScanner.cc
     SampleSorter.cc
     SampleSourceSupport.cc
