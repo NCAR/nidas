@@ -39,6 +39,21 @@ configuration.
 This does not yet include identifying the kind of sensor attached.  NIDAS only
 looks for a response according to the single sensor specified for the port.
 
+## [1.4.5] - Pending
+
+The `dsm` process now uses buffering between the `SensorHandler` thread and
+the DSM outputs, in an attempt to keep DSM outputs from blocking sensor data
+acquisition.
+
+Specifically, the `SampleSorter` class has been refactored to replace the
+`SampleBuffer` class, so `SamplePipeline` now only instantiates a
+`SampleSorter`.  In real-time mode without sorting, as setup by `DSMEngine`,
+`SampleSorter` will buffer samples in a FIFO and distribute them to clients in
+a separate thread, to avoid blocking the `SensorHandler` thread.  For
+applications which rely on the synchronized behavior of `SampleBuffer`,
+`SampleSorter` runs synchronized, without threading or buffering, when not in
+real-time mode and not sorting.
+
 ## [1.4.4] - 2026-10-15
 
 The `MessageStreamScanner` default buffer size has been increased from 2048 to
@@ -144,6 +159,7 @@ to `v1.2-1721-g1ebc8bcd4`.
 
 <!-- Versions -->
 [buster]: https://github.com/ncareol/nidas/tree/buster
+[1.4.5]: https://github.com/ncareol/nidas/compare/v1.4.4...buster
 [1.4.4]: https://github.com/ncareol/nidas/compare/v1.4.3...v1.4.4
 [1.4.3]: https://github.com/ncareol/nidas/compare/v1.4.2...v1.4.3
 [1.4.2]: https://github.com/ncareol/nidas/compare/v1.4.1...v1.4.2
