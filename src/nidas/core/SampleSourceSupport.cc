@@ -39,7 +39,9 @@ using nidas::util::Synchronized;
 
 SampleSourceSupport::SampleSourceSupport(bool raw):
     _tagsMutex(),_sampleTags(),_clients(),_clientsBySampleId(),
-    _clientSet(),_clientMapLock(),_distributeLock(),_stats(),
+    _clientSet(),_clientMapLock(),
+    _distributeLock(PTHREAD_MUTEX_RECURSIVE),
+    _stats(),
     _raw(raw),_keepStats(false)
 {
 }
@@ -49,7 +51,9 @@ SampleSourceSupport::SampleSourceSupport(const SampleSourceSupport& x):
     _tagsMutex(),
     _sampleTags(x._sampleTags),
     _clients(),_clientsBySampleId(),
-    _clientSet(),_clientMapLock(),_distributeLock(),_stats(),
+    _clientSet(),_clientMapLock(),
+    _distributeLock(PTHREAD_MUTEX_RECURSIVE),
+    _stats(),
     _raw(x._raw),_keepStats(x._keepStats)
 {
 }

@@ -189,6 +189,12 @@ private:
      * distributing samples in case a client receive() call disconnects and
      * deletes the client.  One thread running distribute() could trigger the
      * removal of a client which the other thread has already copied.
+     * 
+     * On the other hand, some callers (SyncRecordSource for example) will
+     * call distribute() again from within the receive() call on the same
+     * thread, so this lock must be recursive.  That is not ideal, but it at
+     * least preserves current behavior while also preventing other threads
+     * from invalidating memory.
      */
     nidas::util::Mutex _distributeLock;
 
