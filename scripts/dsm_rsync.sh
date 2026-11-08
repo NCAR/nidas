@@ -128,10 +128,10 @@ case "$arch" in
 	;;
 esac
 
-if echo "$target" | egrep -q -v '@'; then
+if echo "$target" | grep -q -v '@'; then
     target="root@$target"
 fi
-if echo "$target" | egrep -q -v ':'; then
+if echo "$target" | grep -q -v ':'; then
     target="${target}:/opt/nidas"
 fi
 
@@ -150,3 +150,16 @@ rsync $opts "$source/bin" "$source/firmware" "$source/include" "$source/share" "
 # into the archlib directory.
 rsync $opts --exclude="**" "$sourcelib/" "$target/lib"
 rsync $opts "$sourcelib/" "$target/lib/$archlib"
+
+prefix=${target##*:}
+remote_host=${target%%:*}
+echo "Setting capabilities for NIDAS binaries in $prefix/bin"
+echo "on remote host: $remote_host"
+ssh "$remote_host" "/bin/bash -s -x" <<EOF
+sudo setcap cap_sys_nice,cap_net_admin+p "${prefix}/bin/dsm_server" \
+ cap_sys_nice,cap_net_admin+p "${prefix}/bin/dsm" \
+ cap_sys_nice,cap_net_admin+p "${prefix}/bin/nidas_udp_relay"
+EOF
+
+# tee_tty is not used so don't bother
+# sudo setcap cap_sys_nice+p "${prefix}/bin/tee_tty"
